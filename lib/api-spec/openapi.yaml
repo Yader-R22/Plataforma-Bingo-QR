@@ -3,20 +3,36 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Tu Bingazo - Plataforma de Bingo en Vivo Bolivia
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Autenticación y registro
+  - name: games
+    description: Juegos de bingo
+  - name: cards
+    description: Cartones de bingo
+  - name: payments
+    description: Pagos con PagosYa
+  - name: wallet
+    description: Billetera digital
+  - name: profile
+    description: Perfil de usuario
+  - name: admin
+    description: Panel de administración
+  - name: feed
+    description: Feed en tiempo real
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +40,782 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── AUTH ───────────────────────────────────────────────────────────────────
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Iniciar sesión con CI y contraseña
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Credenciales inválidas
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Registrar nuevo usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Usuario registrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      tags: [auth]
+      summary: Solicitar restablecimiento de contraseña
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordInput"
+      responses:
+        "200":
+          description: Solicitud enviada
+
+  /auth/reset-password:
+    post:
+      operationId: resetPassword
+      tags: [auth]
+      summary: Restablecer contraseña con token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordInput"
+      responses:
+        "200":
+          description: Contraseña actualizada
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Obtener usuario autenticado actual
+      responses:
+        "200":
+          description: Datos del usuario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Cerrar sesión
+      responses:
+        "200":
+          description: Sesión cerrada
+
+  # ─── GAMES ──────────────────────────────────────────────────────────────────
+  /games:
+    get:
+      operationId: listGames
+      tags: [games]
+      summary: Listar juegos de bingo activos/próximos
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [daily, weekly, monthly]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [upcoming, active, finished]
+      responses:
+        "200":
+          description: Lista de juegos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Game"
+
+    post:
+      operationId: createGame
+      tags: [admin]
+      summary: Crear nuevo juego de bingo (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameInput"
+      responses:
+        "201":
+          description: Juego creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Game"
+
+  /games/{id}:
+    get:
+      operationId: getGame
+      tags: [games]
+      summary: Obtener detalle de un juego
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Detalle del juego
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Game"
+
+    patch:
+      operationId: updateGame
+      tags: [admin]
+      summary: Actualizar juego (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameUpdate"
+      responses:
+        "200":
+          description: Juego actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Game"
+
+  /games/{id}/session:
+    get:
+      operationId: getGameSession
+      tags: [games]
+      summary: Obtener sesión activa del juego con números cantados
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sesión de juego
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameSession"
+
+  /games/{id}/winners:
+    get:
+      operationId: getGameWinners
+      tags: [games]
+      summary: Obtener ganadores públicos de un juego
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lista de ganadores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Winner"
+
+  /games/{id}/call-number:
+    post:
+      operationId: callNumber
+      tags: [admin]
+      summary: Cantar un número de balota en tiempo real (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CallNumberInput"
+      responses:
+        "200":
+          description: Número cantado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameSession"
+
+  /games/{id}/start:
+    post:
+      operationId: startGame
+      tags: [admin]
+      summary: Iniciar juego (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Juego iniciado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Game"
+
+  /games/{id}/finish:
+    post:
+      operationId: finishGame
+      tags: [admin]
+      summary: Finalizar juego (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Juego finalizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Game"
+
+  # ─── CARDS ──────────────────────────────────────────────────────────────────
+  /cards:
+    get:
+      operationId: listMyCards
+      tags: [cards]
+      summary: Listar cartones del usuario autenticado
+      parameters:
+        - name: game_id
+          in: query
+          schema:
+            type: integer
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [daily, weekly, monthly]
+      responses:
+        "200":
+          description: Lista de cartones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Card"
+
+  /cards/buy:
+    post:
+      operationId: buyCard
+      tags: [cards]
+      summary: Comprar cartón para un juego (inicia pago QR)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuyCardInput"
+      responses:
+        "201":
+          description: Cartón en proceso de pago
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardPurchaseResponse"
+
+  /cards/{id}:
+    get:
+      operationId: getCard
+      tags: [cards]
+      summary: Obtener detalle y números de un cartón
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Detalle del cartón
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Card"
+
+  /cards/{id}/mark:
+    patch:
+      operationId: markNumbers
+      tags: [cards]
+      summary: Marcar/desmarcar números en el cartón durante el juego
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkNumbersInput"
+      responses:
+        "200":
+          description: Números actualizados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Card"
+
+  /cards/{id}/claim-bingo:
+    post:
+      operationId: claimBingo
+      tags: [cards]
+      summary: Reclamar bingo con timestamp de milisegundos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimBingoInput"
+      responses:
+        "200":
+          description: Resultado de la validación del reclamo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BingoClaimResult"
+
+  # ─── PAYMENTS ───────────────────────────────────────────────────────────────
+  /payments/create-checkout:
+    post:
+      operationId: createCheckout
+      tags: [payments]
+      summary: Crear sesión de pago QR con PagosYa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCheckoutInput"
+      responses:
+        "201":
+          description: Sesión de checkout creada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutSession"
+
+  /payments/webhook:
+    post:
+      operationId: paymentsWebhook
+      tags: [payments]
+      summary: Webhook de confirmación de pago PagosYa
+      responses:
+        "200":
+          description: Webhook procesado
+
+  /payments/{checkoutId}/status:
+    get:
+      operationId: getPaymentStatus
+      tags: [payments]
+      summary: Consultar estado de un pago
+      parameters:
+        - name: checkoutId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Estado del pago
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentStatus"
+
+  # ─── WALLET ─────────────────────────────────────────────────────────────────
+  /wallet:
+    get:
+      operationId: getWallet
+      tags: [wallet]
+      summary: Obtener saldo y resumen de la billetera
+      responses:
+        "200":
+          description: Datos de la billetera
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+
+  /wallet/withdrawals:
+    get:
+      operationId: listWithdrawals
+      tags: [wallet]
+      summary: Historial de retiros del usuario
+      responses:
+        "200":
+          description: Lista de retiros
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Withdrawal"
+
+    post:
+      operationId: requestWithdrawal
+      tags: [wallet]
+      summary: Solicitar retiro de fondos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WithdrawalInput"
+      responses:
+        "201":
+          description: Solicitud de retiro creada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Withdrawal"
+
+  # ─── PROFILE ────────────────────────────────────────────────────────────────
+  /profile:
+    get:
+      operationId: getProfile
+      tags: [profile]
+      summary: Obtener perfil del usuario
+      responses:
+        "200":
+          description: Perfil del usuario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /profile/avatar:
+    post:
+      operationId: uploadAvatar
+      tags: [profile]
+      summary: Subir imagen de avatar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvatarInput"
+      responses:
+        "200":
+          description: Avatar actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /profile/name-change-request:
+    post:
+      operationId: requestNameChange
+      tags: [profile]
+      summary: Solicitar corrección de nombre
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameChangeInput"
+      responses:
+        "201":
+          description: Solicitud enviada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NameChangeRequest"
+
+  # ─── FEED EN TIEMPO REAL ────────────────────────────────────────────────────
+  /feed/recent:
+    get:
+      operationId: getRecentFeed
+      tags: [feed]
+      summary: Feed de ganadores y retiros recientes para polling
+      responses:
+        "200":
+          description: Actividad reciente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecentFeed"
+
+  /feed/stats:
+    get:
+      operationId: getFeedStats
+      tags: [feed]
+      summary: Estadísticas globales de la plataforma
+      responses:
+        "200":
+          description: Estadísticas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformStats"
+
+  # ─── ADMIN ──────────────────────────────────────────────────────────────────
+  /admin/users:
+    get:
+      operationId: adminListUsers
+      tags: [admin]
+      summary: Listar todos los usuarios (admin)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, active, rejected]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+
+  /admin/users/{id}/verify:
+    post:
+      operationId: adminVerifyUser
+      tags: [admin]
+      summary: Aprobar/rechazar verificación de identidad (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyUserInput"
+      responses:
+        "200":
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /admin/name-change-requests:
+    get:
+      operationId: adminListNameChangeRequests
+      tags: [admin]
+      summary: Listar solicitudes de cambio de nombre (admin)
+      responses:
+        "200":
+          description: Solicitudes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NameChangeRequest"
+
+  /admin/name-change-requests/{id}:
+    patch:
+      operationId: adminResolveNameChange
+      tags: [admin]
+      summary: Aprobar/rechazar cambio de nombre (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveNameChangeInput"
+      responses:
+        "200":
+          description: Solicitud resuelta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NameChangeRequest"
+
+  /admin/withdrawals:
+    get:
+      operationId: adminListWithdrawals
+      tags: [admin]
+      summary: Listar todas las solicitudes de retiro (admin)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, paid, rejected]
+      responses:
+        "200":
+          description: Retiros
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Withdrawal"
+
+  /admin/withdrawals/{id}/mark-paid:
+    post:
+      operationId: adminMarkWithdrawalPaid
+      tags: [admin]
+      summary: Marcar retiro como pagado y debitar del saldo (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Retiro marcado como pagado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Withdrawal"
+
+  /admin/winners/{id}/validate:
+    post:
+      operationId: adminValidateWinner
+      tags: [admin]
+      summary: Validar y confirmar ganador de bingo (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidateWinnerInput"
+      responses:
+        "200":
+          description: Ganador validado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Winner"
+
+  /admin/audit-logs:
+    get:
+      operationId: adminGetAuditLogs
+      tags: [admin]
+      summary: Obtener logs de auditoría (admin)
+      parameters:
+        - name: game_id
+          in: query
+          schema:
+            type: integer
+        - name: user_id
+          in: query
+          schema:
+            type: integer
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Logs de auditoría
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLog"
+
+  /admin/stats:
+    get:
+      operationId: adminGetStats
+      tags: [admin]
+      summary: Estadísticas del panel de administración
+      responses:
+        "200":
+          description: Estadísticas globales
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+# ─── SCHEMAS ──────────────────────────────────────────────────────────────────
 components:
   schemas:
     HealthStatus:
@@ -34,3 +826,621 @@ components:
       required:
         - status
 
+    # ── Auth ──
+    LoginInput:
+      type: object
+      required: [ci, password]
+      properties:
+        ci:
+          type: string
+          description: Carnet de Identidad
+        password:
+          type: string
+
+    RegisterInput:
+      type: object
+      required: [full_name, ci, phone, password, department]
+      properties:
+        full_name:
+          type: string
+        ci:
+          type: string
+          description: Carnet de Identidad
+        phone:
+          type: string
+          description: Número de celular/WhatsApp
+        password:
+          type: string
+        department:
+          type: string
+          enum: [Beni, Chuquisaca, Cochabamba, "La Paz", Oruro, Pando, Potosí, "Santa Cruz", Tarija]
+        id_photo_front:
+          type: ["string", "null"]
+          description: URL o base64 de la foto frontal del carnet
+        id_photo_back:
+          type: ["string", "null"]
+          description: URL o base64 de la foto trasera del carnet
+
+    ForgotPasswordInput:
+      type: object
+      required: [ci]
+      properties:
+        ci:
+          type: string
+
+    ResetPasswordInput:
+      type: object
+      required: [token, new_password]
+      properties:
+        token:
+          type: string
+        new_password:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+
+    # ── User ──
+    User:
+      type: object
+      required: [id, full_name, ci, phone, department, balance, status, is_admin, created_at]
+      properties:
+        id:
+          type: integer
+        full_name:
+          type: string
+        ci:
+          type: string
+        phone:
+          type: string
+        department:
+          type: string
+        balance:
+          type: number
+          description: Saldo en bolivianos
+        status:
+          type: string
+          enum: [pending, active, rejected]
+          description: Estado de verificación de identidad
+        is_admin:
+          type: boolean
+        avatar_url:
+          type: ["string", "null"]
+        id_photo_front_url:
+          type: ["string", "null"]
+        id_photo_back_url:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    # ── Games ──
+    Game:
+      type: object
+      required: [id, title, type, status, prize_amount, card_price, draw_date, participant_count, created_at]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          description: Nombre del juego
+        type:
+          type: string
+          enum: [daily, weekly, monthly]
+        status:
+          type: string
+          enum: [upcoming, active, finished]
+        prize_amount:
+          type: number
+          description: Monto total del premio en Bs
+        card_price:
+          type: number
+          description: Precio del cartón en Bs
+        draw_date:
+          type: string
+          format: date-time
+        participant_count:
+          type: integer
+        stream_url_youtube:
+          type: ["string", "null"]
+        stream_url_tiktok:
+          type: ["string", "null"]
+        stream_url_facebook:
+          type: ["string", "null"]
+        game_mode:
+          type: string
+          enum: [horizontal, vertical, diagonal, quina, full_card]
+          description: Modalidad activa del juego
+        max_winners:
+          type: integer
+          description: Número máximo de ganadores
+        prizes:
+          type: array
+          items:
+            $ref: "#/components/schemas/PrizeTier"
+        created_at:
+          type: string
+          format: date-time
+
+    PrizeTier:
+      type: object
+      required: [place, amount]
+      properties:
+        place:
+          type: integer
+          description: Puesto (1, 2, 3)
+        amount:
+          type: number
+          description: Premio en Bs
+
+    GameInput:
+      type: object
+      required: [title, type, prize_amount, card_price, draw_date, game_mode]
+      properties:
+        title:
+          type: string
+        type:
+          type: string
+          enum: [daily, weekly, monthly]
+        prize_amount:
+          type: number
+        card_price:
+          type: number
+        draw_date:
+          type: string
+          format: date-time
+        stream_url_youtube:
+          type: ["string", "null"]
+        stream_url_tiktok:
+          type: ["string", "null"]
+        stream_url_facebook:
+          type: ["string", "null"]
+        game_mode:
+          type: string
+          enum: [horizontal, vertical, diagonal, quina, full_card]
+        max_winners:
+          type: integer
+        prizes:
+          type: array
+          items:
+            $ref: "#/components/schemas/PrizeTier"
+
+    GameUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        prize_amount:
+          type: number
+        card_price:
+          type: number
+        draw_date:
+          type: string
+          format: date-time
+        stream_url_youtube:
+          type: ["string", "null"]
+        stream_url_tiktok:
+          type: ["string", "null"]
+        stream_url_facebook:
+          type: ["string", "null"]
+        game_mode:
+          type: string
+          enum: [horizontal, vertical, diagonal, quina, full_card]
+        max_winners:
+          type: integer
+        status:
+          type: string
+          enum: [upcoming, active, finished]
+
+    GameSession:
+      type: object
+      required: [game_id, called_numbers, last_called_number, game_mode, updated_at]
+      properties:
+        game_id:
+          type: integer
+        called_numbers:
+          type: array
+          items:
+            type: integer
+          description: Números cantados hasta el momento
+        last_called_number:
+          type: ["integer", "null"]
+          description: Último número cantado
+        game_mode:
+          type: string
+          enum: [horizontal, vertical, diagonal, quina, full_card]
+        updated_at:
+          type: string
+          format: date-time
+
+    CallNumberInput:
+      type: object
+      required: [number]
+      properties:
+        number:
+          type: integer
+          minimum: 1
+          maximum: 75
+
+    # ── Cards ──
+    Card:
+      type: object
+      required: [id, game_id, user_id, numbers, marked_numbers, status, created_at]
+      properties:
+        id:
+          type: integer
+        game_id:
+          type: integer
+        user_id:
+          type: integer
+        numbers:
+          type: array
+          items:
+            type: array
+            items:
+              type: integer
+          description: Matriz 5x5 de números del cartón (0 = free space en posición central)
+        marked_numbers:
+          type: array
+          items:
+            type: integer
+          description: Números marcados por el usuario
+        status:
+          type: string
+          enum: [pending_payment, active, winner, expired]
+        game_type:
+          type: ["string", "null"]
+          enum: [daily, weekly, monthly, null]
+        payment_status:
+          type: string
+          enum: [pending, paid, failed]
+        checkout_id:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    BuyCardInput:
+      type: object
+      required: [game_id, quantity]
+      properties:
+        game_id:
+          type: integer
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 10
+
+    CardPurchaseResponse:
+      type: object
+      required: [cards, checkout_url, checkout_id]
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: "#/components/schemas/Card"
+        checkout_url:
+          type: string
+          description: URL de pago QR de PagosYa
+        checkout_id:
+          type: string
+
+    MarkNumbersInput:
+      type: object
+      required: [marked_numbers]
+      properties:
+        marked_numbers:
+          type: array
+          items:
+            type: integer
+
+    ClaimBingoInput:
+      type: object
+      required: [claimed_at_ms, marked_numbers]
+      properties:
+        claimed_at_ms:
+          type: integer
+          description: Timestamp en milisegundos del momento del reclamo
+        marked_numbers:
+          type: array
+          items:
+            type: integer
+
+    BingoClaimResult:
+      type: object
+      required: [valid, message]
+      properties:
+        valid:
+          type: boolean
+        message:
+          type: string
+          description: Mensaje en español del resultado
+        winner:
+          $ref: "#/components/schemas/Winner"
+          description: Datos del ganador si fue válido
+
+    # ── Payments ──
+    CreateCheckoutInput:
+      type: object
+      required: [amount, order_id, card_ids]
+      properties:
+        amount:
+          type: number
+        order_id:
+          type: string
+        card_ids:
+          type: array
+          items:
+            type: integer
+
+    CheckoutSession:
+      type: object
+      required: [checkout_id, checkout_url, amount, expires_at]
+      properties:
+        checkout_id:
+          type: string
+        checkout_url:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+
+    PaymentStatus:
+      type: object
+      required: [checkout_id, status]
+      properties:
+        checkout_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, completed, failed, expired]
+        amount:
+          type: ["number", "null"]
+        completed_at:
+          type: ["string", "null"]
+
+    # ── Wallet ──
+    Wallet:
+      type: object
+      required: [balance, pending_withdrawals, total_won, total_withdrawn]
+      properties:
+        balance:
+          type: number
+          description: Saldo disponible en Bs
+        pending_withdrawals:
+          type: number
+          description: Monto congelado en retiros pendientes
+        total_won:
+          type: number
+          description: Total ganado históricamente
+        total_withdrawn:
+          type: number
+          description: Total retirado históricamente
+
+    Withdrawal:
+      type: object
+      required: [id, user_id, amount, method, status, created_at]
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        amount:
+          type: number
+        method:
+          type: string
+          enum: [cash, bank_transfer]
+        status:
+          type: string
+          enum: [pending, paid, rejected]
+        bank_qr_url:
+          type: ["string", "null"]
+        bank_account_info:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+        paid_at:
+          type: ["string", "null"]
+
+    WithdrawalInput:
+      type: object
+      required: [amount, method]
+      properties:
+        amount:
+          type: number
+          minimum: 1
+        method:
+          type: string
+          enum: [cash, bank_transfer]
+        bank_qr_url:
+          type: ["string", "null"]
+        bank_account_info:
+          type: ["string", "null"]
+
+    # ── Profile ──
+    AvatarInput:
+      type: object
+      required: [avatar_data]
+      properties:
+        avatar_data:
+          type: string
+          description: Base64 o URL de la imagen
+
+    NameChangeInput:
+      type: object
+      required: [requested_name]
+      properties:
+        requested_name:
+          type: string
+
+    NameChangeRequest:
+      type: object
+      required: [id, user_id, requested_name, status, created_at]
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        requested_name:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        admin_notes:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    # ── Winners ──
+    Winner:
+      type: object
+      required: [id, game_id, user_id, card_id, place, prize_amount, claimed_at_ms, validated, created_at]
+      properties:
+        id:
+          type: integer
+        game_id:
+          type: integer
+        user_id:
+          type: integer
+        card_id:
+          type: integer
+        place:
+          type: integer
+        prize_amount:
+          type: number
+        claimed_at_ms:
+          type: integer
+        validated:
+          type: boolean
+        user_name:
+          type: ["string", "null"]
+          description: Nombre público del ganador
+        created_at:
+          type: string
+          format: date-time
+
+    ValidateWinnerInput:
+      type: object
+      required: [approved]
+      properties:
+        approved:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+
+    # ── Admin ──
+    VerifyUserInput:
+      type: object
+      required: [approved]
+      properties:
+        approved:
+          type: boolean
+        rejection_reason:
+          type: ["string", "null"]
+
+    ResolveNameChangeInput:
+      type: object
+      required: [approved]
+      properties:
+        approved:
+          type: boolean
+        admin_notes:
+          type: ["string", "null"]
+
+    AuditLog:
+      type: object
+      required: [id, action, user_id, game_id, details, created_at]
+      properties:
+        id:
+          type: integer
+        action:
+          type: string
+          description: Tipo de acción (card_purchase, bingo_claim, number_called, winner_validated, etc.)
+        user_id:
+          type: ["integer", "null"]
+        game_id:
+          type: ["integer", "null"]
+        card_id:
+          type: ["integer", "null"]
+        details:
+          type: object
+          description: JSON con detalles de la acción
+        ip_address:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    AdminStats:
+      type: object
+      required: [total_users, active_games, total_cards_sold, total_prizes_paid, pending_withdrawals_count, pending_verifications_count]
+      properties:
+        total_users:
+          type: integer
+        active_games:
+          type: integer
+        total_cards_sold:
+          type: integer
+        total_prizes_paid:
+          type: number
+        pending_withdrawals_count:
+          type: integer
+        pending_verifications_count:
+          type: integer
+
+    # ── Feed ──
+    FeedItem:
+      type: object
+      required: [id, type, message, created_at]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [winner, withdrawal]
+        message:
+          type: string
+          description: Mensaje formateado en español
+        amount:
+          type: ["number", "null"]
+        user_display_name:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    RecentFeed:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeedItem"
+
+    PlatformStats:
+      type: object
+      required: [total_winners, total_prizes_paid, active_players]
+      properties:
+        total_winners:
+          type: integer
+        total_prizes_paid:
+          type: number
+        active_players:
+          type: integer
+        upcoming_games:
+          type: integer

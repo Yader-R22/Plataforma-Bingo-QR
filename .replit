@@ -18,3 +18,22 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[[ports]]
+localPort = 8080
+externalPort = 80
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 24958
+externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+PAGOSYA_PUBLIC_KEY = "pk_live_f280454a752c4c5db4eaa45149af0c59"
+PAGOSYA_SECRET_KEY = "sk_live_c02e5248b2044f77a3ba689a4661f4d3"
+PAGOSYA_BASE_URL = "https://nbjwpakpimrqfocsxkda.supabase.co/functions/v1"

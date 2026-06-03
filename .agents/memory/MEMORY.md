@@ -1,0 +1,1 @@
+- [Tu Bingazo architecture](tu-bingazo-arch.md) — JWT auth, public game routes, bingo validation server-side, PagosYa webhook flow

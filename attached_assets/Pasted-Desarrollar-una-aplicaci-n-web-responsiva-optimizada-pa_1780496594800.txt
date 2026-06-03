@@ -1,0 +1,317 @@
+Desarrollar una aplicación web responsiva optimizada para dispositivos móviles con soporte para PWA (Progressive Web App), permitiendo a los usuarios "instalar" la app en su pantalla de inicio. La plataforma está destinada a la gestión, compra y participación en juegos de bingo en vivo en Bolivia la plataforma se llamara (Tu Bingazo) (Bingo Diario, Semanal y Mensual) con un sistema de validación de ganadores por orden de llegada.
+
+Stack Tecnológico: PHP con el framework Laravel.
+
+Entorno de Despliegue: Optimizado exclusivamente para ser compatible con cPanel (hosting compartido estándar), garantizando que su instalación, migración y despliegue sean sumamente sencillos.
+
+2. Flujo de Usuario y Arquitectura de Pantallas
+A. Autenticación y Registro (Onboarding)
+Pantalla de Login: Formulario directo solicitando únicamente: Número de Carnet de Identidad (CI) y Contraseña. Enlaces visibles para: "Registrarse" y "Cambiar Contraseña".
+
+Pantalla de Registro Obligatorio:
+
+Datos personales: Nombre completo, Número de Carnet de Identidad (CI), Número de celular/WhatsApp y Contraseña.
+
+Geolocalización/Ubicación: El sistema debe intentar detectar automáticamente el departamento de Bolivia donde se encuentra el usuario. Si la detección automática falla, se debe desplegar un menú de selección manual con los 9 departamentos de Bolivia (Beni, Chuquisaca, Cochabamba, La Paz, Oruro, Pando, Potosí, Santa Cruz, Tarija).
+
+Validación Legal: Sección obligatoria para adjuntar o tomar/subir fotografías del documento de identidad: Anverso y Reverso.
+
+Recuperación de Contraseña: Enlace para restablecer credenciales.
+
+B. Panel Principal del Usuario (Dashboard)
+Pantalla de inicio tras autenticarse, organizada mediante tarjetas o secciones dinámicas para los tipos de sorteos: Bingo Diario, Bingo Semanal y Bingo Mensual.
+
+Información de cada Bingo (Vista de Tarjeta):
+
+Nombre o tipo del bingo.
+
+Fecha, día y hora exacta del sorteo.
+
+Monto del premio acumulado (destacado visualmente).
+
+Precio individual de compra del cartón.
+
+Contador de usuarios inscritos/participantes en tiempo real para ese sorteo específico.
+
+Iconos de plataformas de transmisión activa (YouTube, TikTok, etc.). Al hacer clic, redirigen mediante un enlace externo provisto por el administrador a la transmisión en vivo.
+
+Feed en Tiempo Real: Sección visible dentro del panel donde se muestran notificaciones dinámicas y constantes de los ganadores recientes y de los usuarios que están retirando sus fondos en tiempo real, generando confianza y transparencia en la comunidad.
+
+C. Sección "Mis Cartones" e Interfaz de Juego en Vivo
+Historial de Cartones: Cartones digitales adquiridos por el usuario, clasificados por evento (Diario, Semanal, Mensual).
+
+Generación Automática de Números: Al adquirir o participar en un bingo, el sistema generará automáticamente los números de los cartones de forma aleatoria bajo las reglas estándar. El usuario no elige los números individuales; el sistema se los entrega listos.
+
+Mecánica de Juego Interactiva: Durante la transmisión en vivo, el usuario abre sus cartones digitales en pantalla y marca/tacha manualmente los números con el dedo a medida que salen las balotas. El sistema no realiza automarcado.
+
+Botón "Reclamar Bingo":
+
+La interfaz debe incluir un botón prominente en la parte inferior para "Gritar Bingo", "Reclamar Premio" o anunciarse.
+
+Al presionarlo, se envía una solicitud instantánea al backend registrando una marca de tiempo exacta a nivel de milisegundos (timestamp).
+
+Lógica de Corroboración: En el momento del reclamo, el backend debe realizar un cruce de datos inmediato:
+
+Verificar que el identificador del cartón pertenezca legítimamente a ese usuario en la base de datos.
+
+Corroborar matemáticamente que los números que el usuario tiene marcados en su cartón digital coincidan exactamente con la lista de números que el administrador ha ido ingresando y publicando en la plataforma en tiempo real durante esa sesión de juego, y bajo la modalidad activa configurada.
+
+Regla de Validación por Orden de Llegada (Primero en Reclamar): Si la validación es correcta, el sistema registra al usuario como ganador respetando estrictamente el orden cronológico de llegada de la petición. Esto evita conflictos de múltiples ganadores simultáneos si se alcanza el límite de cupos establecido por el administrador.
+
+Sección Pública de Ganadores del Sorteo: Una vez que el administrador valida al ganador o ganadores desde su panel, en la aplicación de todos los usuarios (en la sección correspondiente a ese bingo) se mostrará públicamente el Nombre del ganador y el Monto exacto que ganó, asegurando una transparencia total.
+
+D. Sección de Billetera Digital (Wallet)
+Balance: Visualización clara y destacada del saldo total acumulado por el usuario a través de sus ganancias en el juego. Las ganancias validadas de los bingos se abonan aquí directamente.
+
+Opciones de Retiro (Proceso Manual y Débito Automático):
+
+El usuario solicita el retiro ingresando el monto deseado.
+
+Opciones de método de cobro: Retiro en efectivo por cajero o transferencia bancaria mediante código QR.
+
+Aviso de Plazos: La app debe mostrar un mensaje indicando que el procesamiento del pago toma entre 2 a 3 días hábiles.
+
+Flujo del Débito: El monto solicitado permanece congelado o en estado "Pendiente". En el momento exacto en que el administrador verifica la legitimidad de los fondos, realiza la transferencia bancaria externa y marca la solicitud en el backend como "Pagado", el sistema debe debitar automáticamente de forma definitiva ese dinero del saldo/billetera del usuario.
+
+E. Sección de Perfil de Usuario
+Personalización: Opción para que el usuario suba o cambie su imagen de avatar/perfil.
+
+Seguridad de Datos: El nombre completo registrado no puede ser editado libremente por el usuario. En caso de error, habrá una opción para "Solicitar corrección de nombre", donde el usuario escribe el nombre correcto y envía la solicitud para que el administrador la apruebe o rechace de forma manual tras validar los datos con las fotos del carnet.
+
+3. Panel de Administración (Backend de Gestión)
+El sistema debe contar con un panel administrativo seguro con las siguientes facultades clave:
+
+Configuración de Modalidades de Juego (Reglas): El administrador puede configurar, decidir y activar qué modalidad o combinación se jugará en cada partida de bingo:
+
+Forma Horizontal.
+
+Forma Vertical.
+
+Forma Diagonal.
+
+Combinaciones intermedias (como Quina).
+
+Cartón Lleno.
+
+Configuración Dinámica de Premios y Puestos: El administrador puede definir cuántos ganadores quiere tener (ej. 1er Lugar, 2do Lugar, 3er Lugar) y configurar manualmente el monto específico del premio en dinero basado estrictamente en el modo de juego elegido (por ejemplo: configurar el premio mayor de Bs 4000 para el Cartón Lleno). El sistema adaptará su comportamiento según estas reglas guardadas.
+
+Carga de Balotas en Tiempo Real: Interfaz dinámica para que el administrador vaya ingresando uno a uno los números que van saliendo en la transmisión en vivo, alimentando instantáneamente el motor de corroboración del backend.
+
+Validación de Identidad y Cambios de Nombre: Módulo para revisar las fotos de carnet de los registros nuevos y aprobar/rechazar solicitudes de corrección de nombres.
+
+Gestión de Retiros: Lista de solicitudes de retiro con adjunto de QR o datos bancarios, con el botón de confirmación de "Pagado" que gatilla el débito en la app del usuario.
+
+Módulo de Registro de Auditoría (Logs): Sección administrativa blindada para rastrear de forma estricta, cronológica y transparente todas las acciones del juego. Debe permitir ver qué usuario compró qué cartón (con su matriz de números generados), qué números marcó, el milisegundo exacto en que presionó el botón de reclamo, y quién validó el premio.
+
+4. Requerimientos Técnicos, de Diseño y Seguridad
+Sincronización y Optimización para cPanel: Toda la comunicación e intercambio de datos en tiempo real (carga de balotas, actualización del contador, feed de ganancias públicos, marcado y procesamiento del botón de reclamo) debe realizarse utilizando técnicas de consultas y transferencias de datos sumamente ligeras y eficientes. Esto es un requisito crítico para garantizar la estabilidad absoluta del sistema y evitar la saturación de recursos en entornos de hosting compartido cPanel bajo alta concurrencia.
+
+Sistema de Notificaciones: * Formato Visual: Todos los anuncios importantes, números cantados, alertas del juego y avisos generales se presentarán en la interfaz del usuario en forma de banners superiores o mensajes anunciados integrados.
+
+Restricción: No se utilizará ningún tipo de alerta nativa del navegador (alert(), confirm()) ni notificaciones del sistema operativo para evitar la necesidad de solicitar permisos especiales y no complicar la experiencia del usuario en dispositivos móviles.
+
+Seguridad: Cifrado de contraseñas, almacenamiento seguro de imágenes de carnet de identidad y protección estricta contra inyecciones o alteración de datos en la petición del botón de reclamo de premios.
+
+Diseño: Interfaz móvil responsiva, limpia, ágil, altamente intuitiva y optimizada para uso en celulares inteligentes con pantallas táctiles de cualquier tamaño.
+
+5. Instrucciones para la Generación de Código
+Genera la estructura completa utilizando controladores, modelos, migraciones y vistas en Laravel (o componentes reactivos ligeros que no saturen el servidor).
+
+La base de datos debe incluir todas las tablas necesarias para soportar: users, payments/transactions, games_config (modalidades y premios), cards (cartones automáticos con su matriz), withdrawals, y la tabla dedicada de auditory_logs.
+
+Asegurar que la función de validación del lado del servidor verifique estrictamente que los números que el usuario marcó coincidan con los números autorizados cronológicamente por el administrador en esa partida.
+
+
+
+utiliza esta api para los pagos
+key de cobro:
+API Key (Pública)
+pk_live_f280454a752c4c5db4eaa45149af0c59
+
+
+API Secret (Privada) - ⚠️ Copia ahora
+sk_live_c02e5248b2044f77a3ba689a4661f4d3
+
+Referencia de API REST
+Integración directa para desarrolladores
+
+Inicio Rápido
+Integra PagosYa Checkout Web en 3 pasos:
+
+Obtén tu API Key desde el Dashboard
+Crea una sesión de checkout con POST /create-external-checkout
+Redirige al usuario a la URL retornada
+Autenticación
+Todas las peticiones a la API deben incluir los siguientes headers:
+
+
+Authorization: Bearer pk_live_xxxxxx  // Tu API Key
+Content-Type: application/json
+Importante: Seguridad
+• Nunca expongas tu API Key (pk_live_xxx) en el código frontend
+• Siempre llama a la API desde tu servidor backend
+• Usa variables de entorno para tu API Key
+• Rota tu API Key regularmente desde el Dashboard
+Base URL
+Producción:
+https://nbjwpakpimrqfocsxkda.supabase.co/functions/v1
+Endpoints Disponibles
+POST
+/create-external-checkout
+Crea una nueva sesión de checkout y retorna la URL de pago
+
+Request Body:
+{
+  "amount": 150.00,
+  "currency": "BOB",
+  "order_id": "ORD-12345",
+  "success_url": "https://mitienda.com/success",
+  "cancel_url": "https://mitienda.com/cancel",
+  "customer": {
+    "name": "Juan Pérez",
+    "email": "cliente@email.com",
+    "phone": "+59171234567",
+    "nit": "1234567"
+  },
+  "metadata": {
+    "custom_field": "valor"
+  },
+  "expiration_minutes": 60
+}
+Parámetros:
+Campo	Tipo	Requerido	Descripción
+amount	number		Monto en formato decimal
+currency	string		"BOB" o "USD"
+order_id	string	-	ID del pedido en tu sistema
+customer.name	string	-	Nombre del cliente
+customer.email	string	-	Email del cliente
+customer.phone	string	-	Teléfono del cliente
+customer.nit	string	-	NIT para facturación
+expiration_minutes	number	-	Tiempo de expiración (default: 60)
+metadata	object	-	Datos adicionales (hasta 10 campos)
+success_url	string		URL de retorno al completar
+cancel_url	string		URL de retorno al cancelar
+Response (200):
+{
+  "success": true,
+  "checkout_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "checkout_url": "https://www.pagosya.com.bo/pay/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "amount": 150.00,
+  "currency": "BOB",
+  "expires_at": "2026-02-06T12:30:00Z",
+  "provider": "BANECO",
+  "provider_payment_id": "26051301016451101392",
+  "order_id": "ORD-12345",
+  "reference": "ext_a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+}
+WEBHOOK
+Notificación de Estado
+El estado del checkout se notifica automáticamente vía webhook cuando el pago se completa. No es necesario hacer polling.
+
+💡 Recomendación: Configura un webhook en el Dashboard de PagosYa para recibir notificaciones instantáneas cuando un pago se complete.
+
+FLUJO
+Integración Completa
+Crea checkout con POST /create-external-checkout
+Guarda el checkout_id y reference en tu base de datos
+Redirige al cliente a checkout_url
+Cuando el cliente pague, recibirás un webhook con evento checkout.completed
+Valida la firma HMAC y actualiza el pedido en tu sistema
+Webhooks
+PagosYa enviará notificaciones HTTP POST a tu servidor cuando ocurran eventos importantes:
+
+Eventos Disponibles:
+checkout.completed
+Pago completado exitosamente
+Más eventos (expired, refunded) próximamente
+
+Payload del Webhook:
+{
+  "event": "checkout.completed",
+  "timestamp": "2026-02-06T10:35:00Z",
+  "data": {
+    "checkout_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "reference": "ext_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "amount": 150.00,
+    "currency": "BOB",
+    "status": "completed",
+    "completed_at": "2026-02-06T10:35:00Z",
+    "customer": {
+      "name": "Juan Pérez",
+      "email": "cliente@email.com",
+      "phone": "+59171234567"
+    },
+    "metadata": { "order_id": "ORD-12345" },
+    "sale_id": "sale_uuid",
+    "transaction_id": "tx_uuid"
+  }
+}
+Headers del Webhook:
+X-PagosYa-Signature: <hmac_sha256_signature>
+X-PagosYa-Event: checkout.completed
+X-PagosYa-Checkout-Id: <checkout_id>
+Content-Type: application/json
+User-Agent: PagosYa-Webhook/1.0
+Verificación de Firma HMAC
+Siempre verifica la firma del webhook usando el header X-PagosYa-Signature:
+
+const crypto = require('crypto');
+
+function verifyWebhook(rawBody, signatureHeader, webhookSecret) {
+  const expectedSignature = crypto
+    .createHmac('sha256', webhookSecret)
+    .update(rawBody) // Use raw body string, NOT parsed JSON
+    .digest('hex');
+  
+  return signatureHeader === expectedSignature;
+}
+
+// Uso en Express.js:
+app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  const signature = req.headers['x-pagosya-signature'];
+  const isValid = verifyWebhook(req.body.toString(), signature, WEBHOOK_SECRET);
+  
+  if (!isValid) {
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+  // Procesar webhook...
+});
+Errores Posibles
+401
+Unauthorized
+API Key inválida o faltante. Verifica el header Authorization
+
+400
+Bad Request
+Parámetros faltantes o inválidos. Verifica el formato del request body
+
+{
+  "error": "invalid_request",
+  "message": "amount debe ser mayor a 0",
+  "param": "amount"
+}
+403
+Forbidden
+Tu plan no tiene acceso a esta funcionalidad. Actualiza a "Plan Checkout Web"
+
+404
+Not Found
+Sesión de checkout no encontrada. Verifica el ID de la sesión
+
+429
+Rate Limit Exceeded
+Demasiadas peticiones. Límite: 100 req/min. Espera antes de reintentar
+
+500
+Internal Server Error
+Error del servidor. Reintenta después de unos minutos o contacta soporte
+
+Límites de Tasa (Rate Limits)
+Plan	Límite	Ventana
+Checkout Web	100 requests	por minuto
+Plan Empresa	500 requests	por minuto
+Los headers de respuesta incluyen información sobre tu límite actual:
+
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1610704800
