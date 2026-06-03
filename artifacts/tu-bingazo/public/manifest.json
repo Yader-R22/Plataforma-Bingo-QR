@@ -1,0 +1,15 @@
+{
+  "name": "Tu Bingazo",
+  "short_name": "Bingazo",
+  "description": "Bingo en vivo desde Bolivia — gana premios en efectivo",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a0050",
+  "theme_color": "#1a0050",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "categories": ["games", "entertainment"],
+  "lang": "es"
+}

@@ -1,27 +1,25 @@
 import { useState } from "react";
 import { useAuthStore } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function statusConfig(status: string) {
+  if (status === "active") return { label: "Verificado ✓", bg: "hsl(142 70% 45% / 0.12)", border: "hsl(142 70% 45% / 0.3)", color: "hsl(142 70% 30%)" };
+  if (status === "pending") return { label: "Pendiente de verificación", bg: "hsl(42 98% 52% / 0.12)", border: "hsl(42 98% 52% / 0.3)", color: "hsl(42 98% 35%)" };
+  return { label: "Rechazado", bg: "hsl(0 75% 52% / 0.12)", border: "hsl(0 75% 52% / 0.3)", color: "hsl(0 75% 40%)" };
+}
+
 export default function ProfilePage() {
-  const { user, setUser, logout, token } = useAuthStore();
+  const { user, logout, token } = useAuthStore();
   const [newName, setNewName] = useState("");
   const [changingName, setChangingName] = useState(false);
   const [showNameForm, setShowNameForm] = useState(false);
 
   if (!user) return null;
 
-  function statusBadge(status: string) {
-    if (status === "active") return <Badge className="bg-green-500 text-white">✅ Verificado</Badge>;
-    if (status === "pending") return <Badge variant="outline" className="text-yellow-600 border-yellow-300 bg-yellow-50">⏳ Pendiente</Badge>;
-    return <Badge variant="destructive">❌ Rechazado</Badge>;
-  }
+  const sc = statusConfig(user.status);
 
   async function requestNameChange(e: React.FormEvent) {
     e.preventDefault();
@@ -35,9 +33,8 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Error al enviar solicitud"); return; }
-      toast.success("Solicitud de cambio de nombre enviada. El administrador la revisará.");
-      setShowNameForm(false);
-      setNewName("");
+      toast.success("✅ Solicitud enviada. El administrador la revisará pronto.");
+      setShowNameForm(false); setNewName("");
     } catch {
       toast.error("Error al procesar la solicitud");
     } finally {
@@ -45,92 +42,143 @@ export default function ProfilePage() {
     }
   }
 
-  function handleLogout() {
-    logout();
-    window.location.href = "/";
-  }
-
   return (
     <AppLayout>
-      <div className="p-4 max-w-xl mx-auto">
-        <h1 className="text-2xl font-black mb-4">Mi Perfil</h1>
-
-        {/* Avatar + name */}
-        <div className="bg-card border rounded-2xl p-5 mb-4 shadow-sm">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-3xl font-black text-primary">
-              {user.full_name.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h2 className="text-xl font-black">{user.full_name}</h2>
-              <p className="text-muted-foreground text-sm">CI: {user.ci}</p>
-              <div className="mt-1">{statusBadge(user.status)}</div>
+      {/* Hero banner */}
+      <div className="hero-bg px-4 py-6 text-white">
+        <div className="flex items-center gap-4">
+          <div
+            className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl font-black shrink-0"
+            style={{
+              background: "hsl(42 98% 52%)",
+              color: "#1a0050",
+              fontFamily: "'Poppins', sans-serif",
+              boxShadow: "0 4px 20px rgba(255,180,0,0.4)",
+            }}
+          >
+            {user.full_name.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h1 className="font-black text-xl leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+              {user.full_name}
+            </h1>
+            <p className="text-white/60 text-sm mt-0.5">CI: {user.ci}</p>
+            <div
+              className="inline-block mt-2 text-xs font-bold px-3 py-1 rounded-full"
+              style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.color }}
+            >
+              {sc.label}
             </div>
           </div>
+        </div>
+      </div>
 
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="bg-muted/50 rounded-xl p-3">
-              <p className="text-muted-foreground text-xs">Teléfono</p>
-              <p className="font-semibold">{user.phone}</p>
+      <div className="px-4 py-4 max-w-xl mx-auto space-y-4">
+        {user.status === "pending" && (
+          <div
+            className="rounded-2xl p-4 text-sm flex items-start gap-3"
+            style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.3)" }}
+          >
+            <span className="text-xl">⏳</span>
+            <div>
+              <p className="font-bold">Verificación en proceso</p>
+              <p className="text-muted-foreground text-xs mt-0.5">
+                Estamos revisando las fotos de tu CI. Una vez verificado, podrás comprar cartones y jugar.
+              </p>
             </div>
-            <div className="bg-muted/50 rounded-xl p-3">
-              <p className="text-muted-foreground text-xs">Departamento</p>
-              <p className="font-semibold">{user.department}</p>
-            </div>
-            <div className="bg-muted/50 rounded-xl p-3 col-span-2">
-              <p className="text-muted-foreground text-xs">Saldo</p>
-              <p className="text-xl font-black text-primary">Bs {user.balance.toLocaleString("es-BO", { minimumFractionDigits: 2 })}</p>
-            </div>
+          </div>
+        )}
+
+        {/* Info grid */}
+        <div className="bg-card border rounded-2xl p-5">
+          <h2 className="font-black mb-4">Mis datos</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { icon: "📱", label: "Teléfono", value: user.phone },
+              { icon: "📍", label: "Departamento", value: user.department || "—" },
+              { icon: "🎱", label: "Mis juegos", value: "Ver historial" },
+              { icon: "💰", label: "Saldo", value: `Bs ${user.balance.toLocaleString("es-BO", { minimumFractionDigits: 2 })}` },
+            ].map(item => (
+              <div key={item.label} className="rounded-xl p-3" style={{ background: "hsl(var(--muted))" }}>
+                <span className="text-sm">{item.icon}</span>
+                <p className="text-xs text-muted-foreground mt-1">{item.label}</p>
+                <p className="font-bold text-sm mt-0.5 truncate">{item.value}</p>
+              </div>
+            ))}
           </div>
         </div>
 
         {/* Name change */}
-        <div className="bg-card border rounded-2xl p-5 mb-4 shadow-sm">
-          <h3 className="font-bold mb-3">Cambio de Nombre</h3>
+        <div className="bg-card border rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="font-bold">Cambio de Nombre</h3>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            El nombre no se puede editar libremente. Solicita la corrección y el admin la aprobará.
+          </p>
           {!showNameForm ? (
-            <Button variant="outline" className="w-full" onClick={() => setShowNameForm(true)}>
-              ✏️ Solicitar cambio de nombre
-            </Button>
+            <button
+              className="w-full py-3 rounded-xl border-2 font-bold text-sm transition-all"
+              style={{ borderColor: "hsl(var(--primary))", color: "hsl(var(--primary))" }}
+              onClick={() => setShowNameForm(true)}
+            >
+              ✏️ Solicitar corrección de nombre
+            </button>
           ) : (
             <form onSubmit={requestNameChange} className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>Nuevo nombre completo</Label>
-                <Input
-                  placeholder="Nombre completo"
+              <div>
+                <label className="text-sm font-bold block mb-1.5">Nombre correcto</label>
+                <input
+                  className="input-field"
+                  placeholder="Nombre completo correcto"
                   value={newName}
                   onChange={e => setNewName(e.target.value)}
                   required
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                El cambio requiere aprobación del administrador. Se actualizará en 24-48h.
+                El admin revisará tu solicitud junto con las fotos de tu CI en 24-48 horas.
               </p>
               <div className="flex gap-2">
-                <Button type="submit" className="flex-1" disabled={changingName}>
+                <button type="submit" className="btn-primary flex-1" disabled={changingName}>
                   {changingName ? "Enviando..." : "Solicitar"}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setShowNameForm(false)}>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowNameForm(false)}
+                  className="px-4 py-3 rounded-[14px] border-2 font-bold text-sm"
+                  style={{ borderColor: "hsl(var(--border))" }}
+                >
                   Cancelar
-                </Button>
+                </button>
               </div>
             </form>
           )}
         </div>
 
-        {/* Admin link */}
+        {/* Admin panel link */}
         {user.is_admin && (
-          <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 mb-4">
-            <p className="font-semibold text-primary mb-2">🛡️ Panel de Administración</p>
-            <Button variant="outline" className="w-full" onClick={() => window.location.href = "/admin"}>
-              Ir al panel admin
-            </Button>
+          <div
+            className="rounded-2xl p-4 cursor-pointer flex items-center justify-between"
+            style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.2)" }}
+            onClick={() => window.location.href = "/admin"}
+          >
+            <div>
+              <p className="font-bold" style={{ color: "hsl(var(--primary))" }}>🛡️ Panel de Administración</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Gestionar juegos, usuarios y retiros</p>
+            </div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "hsl(var(--primary))" }}><path d="M9 18l6-6-6-6"/></svg>
           </div>
         )}
 
         {/* Logout */}
-        <Button variant="outline" className="w-full text-destructive border-destructive/30 hover:bg-destructive/5" onClick={handleLogout}>
+        <button
+          className="w-full py-3 rounded-xl border-2 font-bold text-sm transition-all"
+          style={{ borderColor: "hsl(0 75% 52% / 0.4)", color: "hsl(0 75% 45%)" }}
+          onClick={() => { logout(); window.location.href = "/"; }}
+        >
           Cerrar Sesión
-        </Button>
+        </button>
       </div>
     </AppLayout>
   );

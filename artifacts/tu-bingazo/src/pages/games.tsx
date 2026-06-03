@@ -2,109 +2,143 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { useListGames } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AppLayout from "@/components/AppLayout";
 
-function statusLabel(status: string) {
-  if (status === "active") return { label: "EN VIVO", color: "bg-green-500 text-white animate-pulse" };
-  if (status === "upcoming") return { label: "PRÓXIMO", color: "bg-primary/20 text-primary" };
-  return { label: "FINALIZADO", color: "bg-muted text-muted-foreground" };
-}
+const TYPE_FILTERS = [
+  { value: "all", label: "Todos" },
+  { value: "daily", label: "🌅 Diario" },
+  { value: "weekly", label: "🏆 Semanal" },
+  { value: "monthly", label: "👑 Mensual" },
+];
 
-function typeLabel(type: string) {
-  if (type === "daily") return "Diario";
-  if (type === "weekly") return "Semanal";
-  return "Mensual";
-}
-
-function typeClass(type: string) {
-  if (type === "daily") return "game-card-daily";
-  if (type === "weekly") return "game-card-weekly";
-  return "game-card-monthly";
+function typeConfig(type: string) {
+  if (type === "daily") return { gradient: "var(--grad-daily)", emoji: "🌅", label: "Bingo Diario" };
+  if (type === "weekly") return { gradient: "var(--grad-weekly)", emoji: "🏆", label: "Bingo Semanal" };
+  return { gradient: "var(--grad-monthly)", emoji: "👑", label: "Bingo Mensual" };
 }
 
 export default function GamesPage() {
-  const [filter, setFilter] = useState<string>("all");
+  const [filter, setFilter] = useState("all");
   const user = useAuthStore(s => s.user);
 
   const queryParams = filter !== "all" ? { type: filter as "daily" | "weekly" | "monthly" } : undefined;
   const { data: games, isLoading } = useListGames(queryParams as any);
-
-  const filtered = games ?? [];
+  const filtered = (games ?? []) as any[];
 
   return (
     <AppLayout>
-      <div className="p-4 max-w-xl mx-auto">
+      {/* Header */}
+      <div className="hero-bg px-4 py-5 text-white">
+        <h1 className="text-2xl font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>
+          🎱 Juegos Disponibles
+        </h1>
+        <p className="text-white/60 text-sm">Elige tu sorteo y gana</p>
+      </div>
+
+      <div className="px-4 py-4">
         {user?.status === "pending" && (
-          <div className="mb-4 rounded-xl bg-yellow-50 border border-yellow-200 p-3 text-sm text-yellow-800 flex items-center gap-2">
-            <span>⏳</span>
-            <span>Tu cuenta está pendiente de verificación. Podrás comprar cartones una vez activada.</span>
+          <div className="mb-4 rounded-2xl p-3 flex items-start gap-2 text-sm"
+            style={{ background: "hsl(42 98% 52% / 0.12)", border: "1px solid hsl(42 98% 52% / 0.3)" }}>
+            <span className="text-lg">⏳</span>
+            <span>Tu cuenta está siendo verificada. Pronto podrás comprar cartones.</span>
           </div>
         )}
 
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-black">Juegos de Bingo</h1>
+        {/* Filter tabs */}
+        <div className="flex gap-2 overflow-x-auto pb-1 mb-4 no-scrollbar">
+          {TYPE_FILTERS.map(f => (
+            <button
+              key={f.value}
+              onClick={() => setFilter(f.value)}
+              className="shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-all border"
+              style={{
+                background: filter === f.value ? "hsl(var(--primary))" : "white",
+                color: filter === f.value ? "white" : "hsl(var(--foreground))",
+                borderColor: filter === f.value ? "transparent" : "hsl(var(--border))",
+                boxShadow: filter === f.value ? "0 2px 10px hsl(var(--primary) / 0.3)" : "none",
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
-
-        <Tabs value={filter} onValueChange={setFilter} className="mb-4">
-          <TabsList className="w-full">
-            <TabsTrigger value="all" className="flex-1">Todos</TabsTrigger>
-            <TabsTrigger value="daily" className="flex-1">Diarios</TabsTrigger>
-            <TabsTrigger value="weekly" className="flex-1">Semanales</TabsTrigger>
-            <TabsTrigger value="monthly" className="flex-1">Mensuales</TabsTrigger>
-          </TabsList>
-        </Tabs>
 
         {isLoading ? (
           <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-32 rounded-2xl bg-muted animate-pulse" />
-            ))}
+            {[1, 2, 3].map(i => <div key={i} className="h-40 rounded-3xl bg-muted animate-pulse" />)}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground">
+          <div className="text-center py-20 text-muted-foreground">
             <div className="text-5xl mb-3">🎱</div>
-            <p className="font-semibold">No hay juegos disponibles</p>
+            <p className="font-bold">No hay juegos disponibles</p>
             <p className="text-sm mt-1">Vuelve pronto para nuevos sorteos</p>
           </div>
         ) : (
           <div className="space-y-3">
             {filtered.map((game: any) => {
-              const s = statusLabel(game.status);
+              const cfg = typeConfig(game.type);
+              const isLive = game.status === "active";
+              const isFinished = game.status === "finished";
               return (
                 <Link key={game.id} href={`/juegos/${game.id}`}>
-                  <div className={`bg-card border rounded-2xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer ${typeClass(game.type)}`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.color}`}>{s.label}</span>
-                          <span className="text-xs text-muted-foreground">{typeLabel(game.type)}</span>
+                  <div
+                    className="rounded-3xl p-5 cursor-pointer relative overflow-hidden stars-bg"
+                    style={{
+                      background: cfg.gradient,
+                      opacity: isFinished ? 0.75 : 1,
+                    }}
+                  >
+                    {/* Decorative circle */}
+                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full opacity-15" style={{ background: "rgba(255,255,255,0.4)" }} />
+
+                    <div className="relative z-10">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          {isLive && <div className="live-badge mb-2"><div className="live-dot" />EN VIVO</div>}
+                          {!isLive && !isFinished && (
+                            <div className="mb-2">
+                              <span className="text-xs font-bold text-white/70 uppercase tracking-wider">PRÓXIMO</span>
+                            </div>
+                          )}
+                          {isFinished && (
+                            <div className="mb-2">
+                              <span className="text-xs font-bold text-white/50 uppercase tracking-wider">FINALIZADO</span>
+                            </div>
+                          )}
+                          <p className="font-black text-white text-xl leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                            {cfg.emoji} {game.title}
+                          </p>
+                          <p className="text-white/70 text-xs mt-1">
+                            {new Date(game.draw_date).toLocaleDateString("es-BO", {
+                              weekday: "long", day: "numeric", month: "long",
+                              hour: "2-digit", minute: "2-digit",
+                            })}
+                          </p>
                         </div>
-                        <h3 className="font-bold text-foreground leading-tight">{game.title}</h3>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {new Date(game.draw_date).toLocaleDateString("es-BO", {
-                            weekday: "short", day: "numeric", month: "short",
-                            hour: "2-digit", minute: "2-digit",
-                          })}
-                        </p>
+                        <div className="text-right shrink-0 ml-4">
+                          <p className="font-black text-3xl leading-none" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 65%)", textShadow: "0 0 12px rgba(255,180,0,0.5)" }}>
+                            Bs {(game.prize_amount as number).toLocaleString("es-BO")}
+                          </p>
+                          <p className="text-white/60 text-xs mt-0.5">Premio</p>
+                        </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-2xl font-black text-secondary prize-glow">
-                          Bs {game.prize_amount.toLocaleString("es-BO")}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Premio</p>
-                        <p className="text-xs text-primary font-semibold mt-1">
-                          Bs {game.card_price} / cartón
-                        </p>
+
+                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/20">
+                        <div className="flex items-center gap-3 text-white/80 text-xs">
+                          <span>👥 {game.participant_count}</span>
+                          <span>·</span>
+                          <span className="font-bold" style={{ color: "hsl(42 98% 65%)" }}>Bs {game.card_price as number} / cartón</span>
+                        </div>
+                        <div
+                          className="text-xs font-bold px-3 py-1.5 rounded-xl"
+                          style={{
+                            background: isLive ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.15)",
+                            color: "white",
+                          }}
+                        >
+                          {isLive ? "🎯 Jugar" : "Ver →"}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t">
-                      <span className="text-xs text-muted-foreground">👥 {game.participant_count} participantes</span>
-                      <Button size="sm" variant={game.status === "active" ? "default" : "outline"}>
-                        {game.status === "active" ? "🎯 Jugar ahora" : "Ver detalles"}
-                      </Button>
                     </div>
                   </div>
                 </Link>

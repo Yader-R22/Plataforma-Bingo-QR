@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -25,17 +22,11 @@ export default function LoginPage() {
         body: JSON.stringify({ ci, password }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error || "Error al iniciar sesión");
-        return;
-      }
+      if (!res.ok) { toast.error(data.error || "CI o contraseña incorrectos"); return; }
       setAuth(data.token, data.user);
-      toast.success(`¡Bienvenido, ${data.user.full_name.split(" ")[0]}!`);
-      if (data.user.is_admin) {
-        navigate("/admin");
-      } else {
-        navigate("/juegos");
-      }
+      toast.success(`¡Bienvenido, ${data.user.full_name.split(" ")[0]}! 🎉`);
+      if (data.user.is_admin) navigate("/admin");
+      else navigate("/");
     } catch {
       toast.error("Error de conexión. Intenta de nuevo.");
     } finally {
@@ -44,60 +35,86 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary text-white text-3xl font-black mb-3 shadow-lg">
-            🎱
-          </div>
-          <h1 className="text-3xl font-black text-foreground tracking-tight">Tu Bingazo</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Bingo en vivo desde Bolivia</p>
-        </div>
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--grad-hero)" }}>
+      {/* Decorative elements */}
+      <div className="absolute top-10 left-6 text-6xl opacity-10 pointer-events-none select-none rotate-12">🎱</div>
+      <div className="absolute top-24 right-4 text-4xl opacity-10 pointer-events-none select-none -rotate-6">⭐</div>
+      <div className="absolute top-40 left-1/2 text-2xl opacity-10 pointer-events-none select-none">✦</div>
 
-        <div className="bg-card rounded-2xl shadow-lg border p-6">
-          <h2 className="text-xl font-bold mb-5 text-foreground">Iniciar Sesión</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="ci">Carnet de Identidad</Label>
-              <Input
-                id="ci"
-                type="text"
-                placeholder="Ej: 1234567"
-                value={ci}
-                onChange={e => setCi(e.target.value)}
-                required
-                autoComplete="username"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
-            </div>
-            <div className="text-right">
-              <Link href="/recuperar-contrasena" className="text-xs text-primary hover:underline">
-                ¿Olvidaste tu contraseña?
-              </Link>
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Iniciando..." : "Iniciar Sesión"}
-            </Button>
-          </form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            ¿No tienes cuenta?{" "}
-            <Link href="/registro" className="text-primary font-semibold hover:underline">
-              Regístrate
-            </Link>
-          </p>
+      {/* Top section */}
+      <div className="flex-1 flex flex-col items-center justify-end px-4 pb-6 pt-16 relative z-10">
+        <div
+          className="w-24 h-24 rounded-3xl flex items-center justify-center text-5xl mb-5 shadow-2xl"
+          style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(10px)" }}
+        >
+          🎱
         </div>
+        <h1 className="text-4xl font-black text-white text-center" style={{ fontFamily: "'Poppins', sans-serif" }}>
+          Tu Bingazo
+        </h1>
+        <p className="text-white/60 text-sm mt-1 text-center">Bingo en vivo desde Bolivia 🇧🇴</p>
+      </div>
+
+      {/* Form card */}
+      <div
+        className="px-5 pt-7 pb-10 relative z-10"
+        style={{
+          background: "white",
+          borderRadius: "28px 28px 0 0",
+          boxShadow: "0 -8px 40px rgba(0,0,0,0.15)",
+        }}
+      >
+        <h2 className="font-black text-2xl mb-6" style={{ fontFamily: "'Poppins', sans-serif" }}>
+          Iniciar Sesión
+        </h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-sm font-bold block mb-1.5 text-foreground">Carnet de Identidad (CI)</label>
+            <input
+              className="input-field"
+              placeholder="Ej: 1234567"
+              value={ci}
+              onChange={e => setCi(e.target.value)}
+              inputMode="numeric"
+              autoComplete="username"
+              required
+            />
+          </div>
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="text-sm font-bold text-foreground">Contraseña</label>
+              <span className="text-xs font-semibold cursor-pointer" style={{ color: "hsl(var(--primary))" }}>
+                ¿Olvidaste tu contraseña?
+              </span>
+            </div>
+            <input
+              className="input-field"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              autoComplete="current-password"
+              required
+            />
+          </div>
+          <button type="submit" className="btn-primary mt-2" disabled={loading || !ci || !password}>
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                Verificando...
+              </span>
+            ) : "Iniciar Sesión"}
+          </button>
+        </form>
+
+        <p className="mt-5 text-center text-sm text-muted-foreground">
+          ¿No tienes cuenta?{" "}
+          <Link href="/registro">
+            <span className="font-bold cursor-pointer" style={{ color: "hsl(var(--primary))" }}>
+              Crear cuenta gratis
+            </span>
+          </Link>
+        </p>
       </div>
     </div>
   );
