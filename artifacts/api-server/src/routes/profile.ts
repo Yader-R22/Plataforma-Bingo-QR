@@ -21,6 +21,16 @@ router.post("/avatar", requireAuth, async (req: AuthRequest, res) => {
   res.json(formatUser(user));
 });
 
+router.patch("/contact", requireAuth, async (req: AuthRequest, res) => {
+  const { phone, department } = req.body as { phone?: string; department?: string };
+  const update: Record<string, string> = {};
+  if (phone !== undefined) update.phone = String(phone).trim();
+  if (department !== undefined) update.department = String(department).trim();
+  if (!Object.keys(update).length) { res.status(400).json({ error: "No hay datos para actualizar" }); return; }
+  const [user] = await db.update(usersTable).set(update).where(eq(usersTable.id, req.userId!)).returning();
+  res.json(formatUser(user));
+});
+
 router.post("/name-change-request", requireAuth, async (req: AuthRequest, res) => {
   const parsed = RequestNameChangeBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Datos inválidos" }); return; }

@@ -33,7 +33,7 @@ router.get("/users", async (req: AuthRequest, res) => {
 });
 
 router.post("/users/:id/verify", async (req: AuthRequest, res) => {
-  const p = AdminVerifyUserParams.safeParse({ id: parseInt(req.params.id) });
+  const p = AdminVerifyUserParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
   const parsed = AdminVerifyUserBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Datos inválidos" }); return; }
@@ -58,7 +58,7 @@ router.get("/name-change-requests", async (req: AuthRequest, res) => {
 });
 
 router.patch("/name-change-requests/:id", async (req: AuthRequest, res) => {
-  const p = AdminResolveNameChangeParams.safeParse({ id: parseInt(req.params.id) });
+  const p = AdminResolveNameChangeParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
   const parsed = AdminResolveNameChangeBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Datos inválidos" }); return; }
@@ -110,7 +110,7 @@ router.get("/withdrawals", async (req: AuthRequest, res) => {
 });
 
 router.post("/withdrawals/:id/mark-paid", async (req: AuthRequest, res) => {
-  const p = AdminMarkWithdrawalPaidParams.safeParse({ id: parseInt(req.params.id) });
+  const p = AdminMarkWithdrawalPaidParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
 
   const withdrawals = await db.select().from(withdrawalsTable).where(eq(withdrawalsTable.id, p.data.id)).limit(1);
@@ -144,7 +144,7 @@ router.post("/withdrawals/:id/mark-paid", async (req: AuthRequest, res) => {
 });
 
 router.post("/winners/:id/validate", async (req: AuthRequest, res) => {
-  const p = AdminValidateWinnerParams.safeParse({ id: parseInt(req.params.id) });
+  const p = AdminValidateWinnerParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
   const parsed = AdminValidateWinnerBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Datos inválidos" }); return; }

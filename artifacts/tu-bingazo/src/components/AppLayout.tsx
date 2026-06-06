@@ -70,14 +70,6 @@ export default function AppLayout({ children, hideNav, title, showBack, onBack }
 
         {user ? (
           <div className="flex items-center gap-2 shrink-0">
-            {user.status === "active" && (
-              <div
-                className="text-xs font-bold px-2.5 py-1 rounded-full"
-                style={{ background: "rgba(255,200,0,0.2)", color: "hsl(42 98% 60%)" }}
-              >
-                Bs {user.balance.toLocaleString("es-BO", { minimumFractionDigits: 2 })}
-              </div>
-            )}
             <Link href="/perfil">
               <div
                 className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-black cursor-pointer shrink-0"

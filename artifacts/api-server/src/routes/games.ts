@@ -75,7 +75,7 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
 });
 
 router.get("/:id", async (req: AuthRequest, res) => {
-  const p = GetGameParams.safeParse({ id: parseInt(req.params.id) });
+  const p = GetGameParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
   const games = await db.select().from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
   if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
@@ -83,7 +83,7 @@ router.get("/:id", async (req: AuthRequest, res) => {
 });
 
 router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
-  const p = UpdateGameParams.safeParse({ id: parseInt(req.params.id) });
+  const p = UpdateGameParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
   const parsed = UpdateGameBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Datos inválidos" }); return; }
@@ -105,7 +105,7 @@ router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
 });
 
 router.get("/:id/session", requireAuth, async (req: AuthRequest, res) => {
-  const p = GetGameSessionParams.safeParse({ id: parseInt(req.params.id) });
+  const p = GetGameSessionParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
   const games = await db.select().from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
   if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
@@ -121,7 +121,7 @@ router.get("/:id/session", requireAuth, async (req: AuthRequest, res) => {
 });
 
 router.get("/:id/winners", async (req: AuthRequest, res) => {
-  const p = GetGameWinnersParams.safeParse({ id: parseInt(req.params.id) });
+  const p = GetGameWinnersParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
   const winners = await db
     .select({
@@ -149,7 +149,7 @@ router.get("/:id/winners", async (req: AuthRequest, res) => {
 });
 
 router.post("/:id/call-number", requireAdmin, async (req: AuthRequest, res) => {
-  const p = CallNumberParams.safeParse({ id: parseInt(req.params.id) });
+  const p = CallNumberParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
   const b = CallNumberBody.safeParse(req.body);
   if (!b.success) { res.status(400).json({ error: "Número inválido (1-75)" }); return; }
@@ -168,7 +168,7 @@ router.post("/:id/call-number", requireAdmin, async (req: AuthRequest, res) => {
 });
 
 router.post("/:id/start", requireAdmin, async (req: AuthRequest, res) => {
-  const p = StartGameParams.safeParse({ id: parseInt(req.params.id) });
+  const p = StartGameParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
   const [game] = await db.update(gamesTable).set({ status: "active", calledNumbers: [] }).where(eq(gamesTable.id, p.data.id)).returning();
   if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
@@ -176,7 +176,7 @@ router.post("/:id/start", requireAdmin, async (req: AuthRequest, res) => {
 });
 
 router.post("/:id/finish", requireAdmin, async (req: AuthRequest, res) => {
-  const p = FinishGameParams.safeParse({ id: parseInt(req.params.id) });
+  const p = FinishGameParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
   const [game] = await db.update(gamesTable).set({ status: "finished" }).where(eq(gamesTable.id, p.data.id)).returning();
   if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }

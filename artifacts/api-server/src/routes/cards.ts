@@ -116,6 +116,8 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Datos inválidos" }); return; }
 
   const { game_id, quantity } = parsed.data;
+  const payWithBalance = (req.body as any).pay_with_balance === true;
+
   const games = await db.select().from(gamesTable).where(eq(gamesTable.id, game_id)).limit(1);
   if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
 
@@ -127,6 +129,39 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
   const user = users[0];
 
   const totalAmount = parseFloat(game.cardPrice) * quantity;
+
+  // --- Pay with wallet balance ---
+  if (payWithBalance) {
+    const currentBalance = parseFloat(user.balance as unknown as string);
+    if (currentBalance < totalAmount) {
+      res.status(400).json({ error: `Saldo insuficiente. Saldo actual: Bs ${currentBalance.toFixed(2)}` });
+      return;
+    }
+    const newBalance = (currentBalance - totalAmount).toFixed(2);
+    const newCards = [];
+    for (let i = 0; i < quantity; i++) {
+      const numbers = generateBingoCard();
+      const [card] = await db.insert(cardsTable).values({
+        gameId: game_id,
+        userId: req.userId!,
+        numbers,
+        paymentStatus: "paid",
+        status: "active",
+      }).returning();
+      newCards.push(card);
+    }
+    await db.update(usersTable).set({ balance: newBalance }).where(eq(usersTable.id, req.userId!));
+    await db.insert(auditLogsTable).values({
+      action: "card_purchase_wallet",
+      userId: req.userId,
+      gameId: game_id,
+      details: { card_ids: newCards.map(c => c.id), amount: totalAmount, method: "wallet" },
+      ipAddress: req.ip,
+    });
+    res.status(201).json({ cards: newCards.map(formatCard), paid_with_balance: true });
+    return;
+  }
+
   const orderId = `BINGO-${game_id}-${req.userId}-${Date.now()}`;
 
   // Create cards in pending_payment state
@@ -202,7 +237,7 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
 });
 
 router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
-  const p = GetCardParams.safeParse({ id: parseInt(req.params.id) });
+  const p = GetCardParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
   const cards = await db.select().from(cardsTable).where(and(eq(cardsTable.id, p.data.id), eq(cardsTable.userId, req.userId!))).limit(1);
   if (!cards.length) { res.status(404).json({ error: "Cartón no encontrado" }); return; }
@@ -210,7 +245,7 @@ router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
 });
 
 router.patch("/:id/mark", requireAuth, async (req: AuthRequest, res) => {
-  const p = MarkNumbersParams.safeParse({ id: parseInt(req.params.id) });
+  const p = MarkNumbersParams.safeParse({ id: parseInt(String(req.params.id)) });
   const b = MarkNumbersBody.safeParse(req.body);
   if (!p.success || !b.success) { res.status(400).json({ error: "Datos inválidos" }); return; }
   const cards = await db.select().from(cardsTable).where(and(eq(cardsTable.id, p.data.id), eq(cardsTable.userId, req.userId!))).limit(1);
@@ -220,7 +255,7 @@ router.patch("/:id/mark", requireAuth, async (req: AuthRequest, res) => {
 });
 
 router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
-  const p = ClaimBingoParams.safeParse({ id: parseInt(req.params.id) });
+  const p = ClaimBingoParams.safeParse({ id: parseInt(String(req.params.id)) });
   const b = ClaimBingoBody.safeParse(req.body);
   if (!p.success || !b.success) { res.status(400).json({ error: "Datos inválidos" }); return; }
 

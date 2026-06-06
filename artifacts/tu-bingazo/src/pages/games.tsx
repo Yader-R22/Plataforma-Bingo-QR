@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "wouter";
+import { useState, useEffect } from "react";
+import { Link, useSearch } from "wouter";
 import { useListGames } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
@@ -18,19 +18,30 @@ function typeConfig(type: string) {
 }
 
 export default function GamesPage() {
-  const [filter, setFilter] = useState("all");
-  const user = useAuthStore(s => s.user);
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const initialType = params.get("type") ?? "all";
+  const [filter, setFilter] = useState(initialType);
 
+  useEffect(() => {
+    const p = new URLSearchParams(search);
+    const t = p.get("type") ?? "all";
+    setFilter(t);
+  }, [search]);
+
+  const user = useAuthStore(s => s.user);
   const queryParams = filter !== "all" ? { type: filter as "daily" | "weekly" | "monthly" } : undefined;
   const { data: games, isLoading } = useListGames(queryParams as any);
   const filtered = (games ?? []) as any[];
+
+  const typeTitle = filter === "daily" ? "Bingos Diarios" : filter === "weekly" ? "Bingos Semanales" : filter === "monthly" ? "Bingos Mensuales" : "Juegos Disponibles";
 
   return (
     <AppLayout>
       {/* Header */}
       <div className="hero-bg px-4 py-5 text-white">
         <h1 className="text-2xl font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>
-          🎱 Juegos Disponibles
+          🎱 {typeTitle}
         </h1>
         <p className="text-white/60 text-sm">Elige tu sorteo y gana</p>
       </div>
@@ -44,13 +55,13 @@ export default function GamesPage() {
           </div>
         )}
 
-        {/* Filter tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-1 mb-4 no-scrollbar">
+        {/* Filter tabs — responsive grid, no scroll */}
+        <div className="grid grid-cols-4 gap-1.5 mb-5">
           {TYPE_FILTERS.map(f => (
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
-              className="shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-all border"
+              className="py-2 rounded-xl text-xs font-bold transition-all border text-center"
               style={{
                 background: filter === f.value ? "hsl(var(--primary))" : "white",
                 color: filter === f.value ? "white" : "hsl(var(--foreground))",
@@ -64,8 +75,8 @@ export default function GamesPage() {
         </div>
 
         {isLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map(i => <div key={i} className="h-40 rounded-3xl bg-muted animate-pulse" />)}
+          <div className="space-y-5">
+            {[1, 2, 3].map(i => <div key={i} className="h-44 rounded-3xl bg-muted animate-pulse" />)}
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground">
@@ -74,7 +85,7 @@ export default function GamesPage() {
             <p className="text-sm mt-1">Vuelve pronto para nuevos sorteos</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-5">
             {filtered.map((game: any) => {
               const cfg = typeConfig(game.type);
               const isLive = game.status === "active";
@@ -82,40 +93,36 @@ export default function GamesPage() {
               return (
                 <Link key={game.id} href={`/juegos/${game.id}`}>
                   <div
-                    className="rounded-3xl p-5 cursor-pointer relative overflow-hidden stars-bg"
+                    className="rounded-3xl cursor-pointer relative overflow-hidden stars-bg"
                     style={{
                       background: cfg.gradient,
-                      opacity: isFinished ? 0.75 : 1,
+                      opacity: isFinished ? 0.8 : 1,
                     }}
                   >
                     {/* Decorative circle */}
-                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full opacity-15" style={{ background: "rgba(255,255,255,0.4)" }} />
+                    <div className="absolute -right-8 -top-8 w-36 h-36 rounded-full opacity-15" style={{ background: "rgba(255,255,255,0.4)" }} />
+                    <div className="absolute -left-4 -bottom-6 w-24 h-24 rounded-full opacity-10" style={{ background: "rgba(255,255,255,0.3)" }} />
 
-                    <div className="relative z-10">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          {isLive && <div className="live-badge mb-2"><div className="live-dot" />EN VIVO</div>}
+                    <div className="relative z-10 p-5">
+                      {/* Status badge + title row */}
+                      <div className="flex items-start justify-between gap-3 mb-4">
+                        <div className="flex-1 min-w-0">
+                          {isLive && <div className="live-badge mb-2 inline-flex"><div className="live-dot" />EN VIVO</div>}
                           {!isLive && !isFinished && (
                             <div className="mb-2">
-                              <span className="text-xs font-bold text-white/70 uppercase tracking-wider">PRÓXIMO</span>
+                              <span className="text-xs font-bold text-white/70 uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded-full">PRÓXIMO</span>
                             </div>
                           )}
                           {isFinished && (
                             <div className="mb-2">
-                              <span className="text-xs font-bold text-white/50 uppercase tracking-wider">FINALIZADO</span>
+                              <span className="text-xs font-bold text-white/50 uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded-full">FINALIZADO</span>
                             </div>
                           )}
                           <p className="font-black text-white text-xl leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
                             {cfg.emoji} {game.title}
                           </p>
-                          <p className="text-white/70 text-xs mt-1">
-                            {new Date(game.draw_date).toLocaleDateString("es-BO", {
-                              weekday: "long", day: "numeric", month: "long",
-                              hour: "2-digit", minute: "2-digit",
-                            })}
-                          </p>
                         </div>
-                        <div className="text-right shrink-0 ml-4">
+                        <div className="text-right shrink-0">
                           <p className="font-black text-3xl leading-none" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 65%)", textShadow: "0 0 12px rgba(255,180,0,0.5)" }}>
                             Bs {(game.prize_amount as number).toLocaleString("es-BO")}
                           </p>
@@ -123,20 +130,25 @@ export default function GamesPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/20">
-                        <div className="flex items-center gap-3 text-white/80 text-xs">
-                          <span>👥 {game.participant_count}</span>
-                          <span>·</span>
-                          <span className="font-bold" style={{ color: "hsl(42 98% 65%)" }}>Bs {game.card_price as number} / cartón</span>
+                      {/* Date row */}
+                      <p className="text-white/70 text-sm mb-4">
+                        📅 {new Date(game.draw_date).toLocaleDateString("es-BO", {
+                          weekday: "long", day: "numeric", month: "long",
+                          hour: "2-digit", minute: "2-digit",
+                        })}
+                      </p>
+
+                      {/* Footer row */}
+                      <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.2)" }}>
+                        <div className="flex items-center gap-3 text-white/80 text-sm">
+                          <span>👥 {game.participant_count} participantes</span>
+                          <span className="font-bold" style={{ color: "hsl(42 98% 65%)" }}>Bs {game.card_price as number}/cartón</span>
                         </div>
                         <div
-                          className="text-xs font-bold px-3 py-1.5 rounded-xl"
-                          style={{
-                            background: isLive ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.15)",
-                            color: "white",
-                          }}
+                          className="text-xs font-bold px-4 py-2 rounded-xl"
+                          style={{ background: "rgba(255,255,255,0.2)", color: "white" }}
                         >
-                          {isLive ? "🎯 Jugar" : "Ver →"}
+                          {isLive ? "🎯 Jugar" : isFinished ? "Ver" : "Comprar →"}
                         </div>
                       </div>
                     </div>

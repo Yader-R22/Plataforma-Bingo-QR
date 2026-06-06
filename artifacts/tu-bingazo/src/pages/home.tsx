@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useListGames } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
@@ -62,7 +62,7 @@ function GameTypeSection({
     <div
       className="rounded-3xl p-5 relative overflow-hidden cursor-pointer stars-bg"
       style={{ background: gradient }}
-      onClick={() => onNavigate(`/juegos/${game.id}`)}
+      onClick={() => onNavigate(`/juegos?type=${type}`)}
     >
       {/* Decorative circles */}
       <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full opacity-20" style={{ background: "rgba(255,255,255,0.3)" }} />
@@ -286,6 +286,14 @@ export default function HomePage() {
           games={gamesList}
           onNavigate={navigate}
         />
+        <Link href="/juegos">
+          <button
+            className="w-full py-3 rounded-2xl border-2 font-bold text-sm transition-all"
+            style={{ borderColor: "hsl(var(--primary) / 0.3)", color: "hsl(var(--primary))" }}
+          >
+            Ver todos los sorteos →
+          </button>
+        </Link>
       </div>
 
       {/* How it works */}
