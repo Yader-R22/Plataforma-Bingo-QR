@@ -34,6 +34,7 @@ function formatGame(game: typeof gamesTable.$inferSelect) {
     game_mode: game.gameMode,
     max_winners: game.maxWinners,
     prizes: (game.prizes as Array<{ place: number; amount: number }>) ?? [],
+    is_featured: game.isFeatured,
     created_at: game.createdAt,
   };
 }

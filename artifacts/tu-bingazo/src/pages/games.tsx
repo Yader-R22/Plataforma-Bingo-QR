@@ -85,7 +85,7 @@ export default function GamesPage() {
             <p className="text-sm mt-1">Vuelve pronto para nuevos sorteos</p>
           </div>
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-7">
             {filtered.map((game: any) => {
               const cfg = typeConfig(game.type);
               const isLive = game.status === "active";

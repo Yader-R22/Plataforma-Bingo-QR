@@ -1,103 +1,106 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-function useAdminData(endpoint: string) {
-  const token = useAuthStore(s => s.token);
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+const tabs = [
+  { id: "overview", label: "📊 Resumen" },
+  { id: "users", label: "👥 Usuarios" },
+  { id: "games", label: "🎱 Juegos" },
+  { id: "withdrawals", label: "💸 Retiros" },
+  { id: "winners", label: "🏆 Ganadores" },
+  { id: "logs", label: "📋 Auditoría" },
+] as const;
 
-  async function load() {
-    setLoading(true);
-    try {
-      const res = await fetch(`${BASE}/api/admin/${endpoint}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setData(await res.json());
-    } catch {}
-    setLoading(false);
-  }
-
-  return { data, loading, load };
-}
+type Tab = typeof tabs[number]["id"];
 
 export default function AdminPage() {
   const [, navigate] = useLocation();
   const token = useAuthStore(s => s.token);
   const user = useAuthStore(s => s.user);
-  const [tab, setTab] = useState<"users" | "withdrawals" | "games" | "winners" | "logs">("users");
-  const [stats, setStats] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState<Tab>("overview");
 
+  const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
+  const [games, setGames] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [winners, setWinners] = useState<any[]>([]);
-  const [games, setGames] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
-  const [dataLoaded, setDataLoaded] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState(false);
+  const [numberInput, setNumberInput] = useState<Record<number, string>>({});
+  const [userSearch, setUserSearch] = useState("");
 
-  const authH = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+  const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
-  async function loadTab(t: typeof tab) {
-    if (dataLoaded[t]) return;
+  async function loadStats() {
+    try {
+      const r = await fetch(`${BASE}/api/admin/stats`, { headers: authH() });
+      if (r.ok) setStats(await r.json());
+    } catch {}
+  }
+
+  async function loadTab(t: Tab) {
     setLoading(true);
     try {
-      if (t === "users") {
-        const r = await fetch(`${BASE}/api/admin/users`, { headers: authH });
+      if (t === "users" || t === "overview") {
+        const r = await fetch(`${BASE}/api/admin/users`, { headers: authH() });
         if (r.ok) setUsers(await r.json());
-      } else if (t === "withdrawals") {
-        const r = await fetch(`${BASE}/api/admin/withdrawals`, { headers: authH });
+      }
+      if (t === "games" || t === "overview") {
+        const r = await fetch(`${BASE}/api/games`, { headers: authH() });
+        if (r.ok) setGames(await r.json());
+      }
+      if (t === "withdrawals") {
+        const r = await fetch(`${BASE}/api/admin/withdrawals`, { headers: authH() });
         if (r.ok) setWithdrawals(await r.json());
-      } else if (t === "winners") {
-        const r = await fetch(`${BASE}/api/games`, { headers: authH });
+      }
+      if (t === "winners") {
+        const r = await fetch(`${BASE}/api/games`, { headers: authH() });
         if (r.ok) {
           const gs = await r.json();
           setGames(gs);
-          // Load winners for first active/finished game
           const g = gs.find((g: any) => g.status !== "upcoming");
           if (g) {
-            const wr = await fetch(`${BASE}/api/games/${g.id}/winners`, { headers: authH });
+            const wr = await fetch(`${BASE}/api/games/${g.id}/winners`, { headers: authH() });
             if (wr.ok) setWinners(await wr.json());
           }
         }
-      } else if (t === "games") {
-        const r = await fetch(`${BASE}/api/games`, { headers: authH });
-        if (r.ok) setGames(await r.json());
-      } else if (t === "logs") {
-        const r = await fetch(`${BASE}/api/admin/audit-logs`, { headers: authH });
+      }
+      if (t === "logs") {
+        const r = await fetch(`${BASE}/api/admin/audit-logs`, { headers: authH() });
         if (r.ok) setLogs(await r.json());
       }
-      setDataLoaded(d => ({ ...d, [t]: true }));
     } catch {}
     setLoading(false);
   }
 
+  useEffect(() => { loadStats(); loadTab("overview"); }, []);
+
+  function handleTab(t: Tab) {
+    setTab(t);
+    loadTab(t);
+  }
+
   async function verifyUser(userId: number, approved: boolean) {
     const r = await fetch(`${BASE}/api/admin/users/${userId}/verify`, {
-      method: "POST",
-      headers: authH,
-      body: JSON.stringify({ approved }),
+      method: "POST", headers: authH(), body: JSON.stringify({ approved }),
     });
     if (r.ok) {
-      toast.success(approved ? "Usuario aprobado" : "Usuario rechazado");
+      toast.success(approved ? "✅ Usuario aprobado" : "Usuario rechazado");
       setUsers(us => us.map(u => u.id === userId ? { ...u, status: approved ? "active" : "rejected" } : u));
+      loadStats();
     }
   }
 
   async function markWithdrawalPaid(wId: number) {
-    const r = await fetch(`${BASE}/api/admin/withdrawals/${wId}/mark-paid`, {
-      method: "POST",
-      headers: authH,
-    });
+    const r = await fetch(`${BASE}/api/admin/withdrawals/${wId}/mark-paid`, { method: "POST", headers: authH() });
     if (r.ok) {
-      toast.success("Retiro marcado como pagado");
+      toast.success("✅ Retiro marcado como pagado");
       setWithdrawals(ws => ws.map(w => w.id === wId ? { ...w, status: "paid" } : w));
+      loadStats();
     } else {
       const d = await r.json();
       toast.error(d.error || "Error");
@@ -106,12 +109,11 @@ export default function AdminPage() {
 
   async function validateWinner(wId: number, approved: boolean) {
     const r = await fetch(`${BASE}/api/admin/winners/${wId}/validate`, {
-      method: "POST",
-      headers: authH,
-      body: JSON.stringify({ approved }),
+      method: "POST", headers: authH(), body: JSON.stringify({ approved }),
     });
     if (r.ok) {
-      toast.success(approved ? "Ganador validado y saldo acreditado" : "Reclamo rechazado");
+      toast.success(approved ? "🏆 Ganador validado y saldo acreditado" : "Reclamo rechazado");
+      setWinners(ws => ws.map(w => w.id === wId ? { ...w, validated: approved } : w));
     } else {
       const d = await r.json();
       toast.error(d.error || "Error");
@@ -119,262 +121,420 @@ export default function AdminPage() {
   }
 
   async function callNumber(gameId: number) {
-    const num = Math.floor(Math.random() * 75) + 1;
+    const input = numberInput[gameId];
+    const num = input ? parseInt(input) : Math.floor(Math.random() * 75) + 1;
+    if (num < 1 || num > 75) { toast.error("Número debe ser entre 1 y 75"); return; }
     const r = await fetch(`${BASE}/api/games/${gameId}/call-number`, {
-      method: "POST",
-      headers: authH,
-      body: JSON.stringify({ number: num }),
+      method: "POST", headers: authH(), body: JSON.stringify({ number: num }),
     });
-    if (r.ok) toast.success(`Número ${num} cantado`);
+    if (r.ok) {
+      toast.success(`🎱 Número ${num} cantado`);
+      setNumberInput(prev => ({ ...prev, [gameId]: "" }));
+      setGames(gs => gs.map(g => g.id === gameId
+        ? { ...g, called_numbers: [...(g.called_numbers ?? []), num] }
+        : g));
+    }
   }
 
   async function startGame(gameId: number) {
-    const r = await fetch(`${BASE}/api/games/${gameId}/start`, { method: "POST", headers: authH });
-    if (r.ok) {
-      toast.success("Juego iniciado");
-      setGames(gs => gs.map(g => g.id === gameId ? { ...g, status: "active" } : g));
-    }
+    const r = await fetch(`${BASE}/api/games/${gameId}/start`, { method: "POST", headers: authH() });
+    if (r.ok) { toast.success("▶ Juego iniciado"); setGames(gs => gs.map(g => g.id === gameId ? { ...g, status: "active", called_numbers: [] } : g)); loadStats(); }
   }
 
   async function finishGame(gameId: number) {
-    const r = await fetch(`${BASE}/api/games/${gameId}/finish`, { method: "POST", headers: authH });
+    if (!confirm("¿Finalizar este juego?")) return;
+    const r = await fetch(`${BASE}/api/games/${gameId}/finish`, { method: "POST", headers: authH() });
+    if (r.ok) { toast.success("⏹ Juego finalizado"); setGames(gs => gs.map(g => g.id === gameId ? { ...g, status: "finished" } : g)); loadStats(); }
+  }
+
+  async function toggleFeatured(gameId: number, current: boolean) {
+    const r = await fetch(`${BASE}/api/admin/games/${gameId}/featured`, {
+      method: "PATCH", headers: authH(), body: JSON.stringify({ is_featured: !current }),
+    });
     if (r.ok) {
-      toast.success("Juego finalizado");
-      setGames(gs => gs.map(g => g.id === gameId ? { ...g, status: "finished" } : g));
+      setGames(gs => gs.map(g => g.id === gameId ? { ...g, is_featured: !current } : g));
+      toast.success(!current ? "⭐ Juego destacado en inicio" : "Juego removido de destacados");
     }
-  }
-
-  async function loadStats() {
-    const r = await fetch(`${BASE}/api/admin/stats`, { headers: authH });
-    if (r.ok) setStats(await r.json());
-  }
-
-  // Load stats on mount
-  if (!stats && !loading) loadStats();
-
-  function handleTabChange(t: typeof tab) {
-    setTab(t);
-    loadTab(t);
   }
 
   if (!user?.is_admin) {
     return (
       <AppLayout>
-        <div className="p-4 text-center py-16">
-          <p className="text-4xl mb-2">🔒</p>
-          <p className="font-semibold">Acceso denegado</p>
-          <Button className="mt-4" onClick={() => navigate("/juegos")}>Volver</Button>
+        <div className="p-4 text-center py-20">
+          <p className="text-5xl mb-3">🔒</p>
+          <p className="font-bold text-xl">Acceso denegado</p>
+          <button className="btn-primary mt-6 max-w-xs mx-auto" onClick={() => navigate("/juegos")}>Volver</button>
         </div>
       </AppLayout>
     );
   }
 
-  const tabs = [
-    { id: "users", label: "Usuarios" },
-    { id: "withdrawals", label: "Retiros" },
-    { id: "games", label: "Juegos" },
-    { id: "winners", label: "Ganadores" },
-    { id: "logs", label: "Auditoría" },
-  ] as const;
+  const filteredUsers = users.filter(u =>
+    !userSearch || u.full_name.toLowerCase().includes(userSearch.toLowerCase()) || u.ci.includes(userSearch)
+  );
+  const pendingUsers = users.filter(u => u.status === "pending").length;
+  const activeGames = games.filter(g => g.status === "active").length;
+  const pendingWithdrawals = withdrawals.filter(w => w.status === "pending").length;
 
   return (
     <AppLayout>
-      <div className="p-4 max-w-2xl mx-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-black">Panel Admin</h1>
-          <Button size="sm" variant="outline" onClick={() => navigate("/admin/crear-juego")}>+ Juego</Button>
+      {/* Admin header */}
+      <div className="hero-bg px-4 py-5 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>🛡️ Panel Admin</h1>
+            <p className="text-white/60 text-sm">Tu Bingazo — Control total</p>
+          </div>
+          <button
+            onClick={() => navigate("/admin/crear-juego")}
+            className="text-sm font-bold px-4 py-2 rounded-xl"
+            style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>
+            + Crear juego
+          </button>
         </div>
+      </div>
 
-        {/* Stats */}
-        {stats && (
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            <div className="bg-card border rounded-2xl p-3 text-center">
-              <p className="text-2xl font-black text-primary">{stats.total_users}</p>
-              <p className="text-xs text-muted-foreground">Usuarios</p>
+      {/* Stats bar */}
+      {stats && (
+        <div className="grid grid-cols-4 gap-2 px-4 py-3" style={{ background: "hsl(var(--card))", borderBottom: "1px solid hsl(var(--border))" }}>
+          {[
+            { label: "Usuarios", value: stats.total_users, color: "hsl(var(--primary))", alert: pendingUsers > 0 ? `${pendingUsers} pendientes` : null },
+            { label: "En vivo", value: stats.active_games, color: "#16a34a" },
+            { label: "Retiros pend.", value: stats.pending_withdrawals_count, color: "hsl(42 98% 40%)", alert: pendingWithdrawals > 0 ? "requieren acción" : null },
+            { label: "Ingresos", value: `Bs ${(stats.total_revenue ?? 0).toFixed(0)}`, color: "hsl(var(--primary))" },
+          ].map(s => (
+            <div key={s.label} className="text-center">
+              <p className="font-black text-xl" style={{ color: s.color, fontFamily: "'Poppins', sans-serif" }}>{s.value}</p>
+              <p className="text-[10px] text-muted-foreground">{s.label}</p>
+              {s.alert && <p className="text-[9px] font-bold" style={{ color: "hsl(0 75% 50%)" }}>{s.alert}</p>}
             </div>
-            <div className="bg-card border rounded-2xl p-3 text-center">
-              <p className="text-2xl font-black text-green-600">{stats.active_games}</p>
-              <p className="text-xs text-muted-foreground">En vivo</p>
-            </div>
-            <div className="bg-card border rounded-2xl p-3 text-center">
-              <p className="text-xl font-black text-secondary">{stats.pending_withdrawals_count}</p>
-              <p className="text-xs text-muted-foreground">Retiros pend.</p>
+          ))}
+        </div>
+      )}
+
+      {/* Tab navigation */}
+      <div className="flex overflow-x-auto px-4 py-2 gap-1.5" style={{ borderBottom: "1px solid hsl(var(--border))" }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => handleTab(t.id)}
+            className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
+            style={{
+              background: tab === t.id ? "hsl(var(--primary))" : "transparent",
+              color: tab === t.id ? "white" : "hsl(var(--foreground))",
+            }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="px-4 py-4 max-w-2xl mx-auto space-y-3 pb-24">
+        {loading && <div className="flex items-center justify-center py-10 text-muted-foreground"><div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />Cargando...</div>}
+
+        {/* OVERVIEW */}
+        {tab === "overview" && !loading && (
+          <div className="space-y-4">
+            {/* Active games */}
+            {games.filter(g => g.status === "active").map(g => (
+              <div key={g.id} className="rounded-2xl p-4 text-white"
+                style={{ background: "linear-gradient(135deg, #1a0050, #3b00b8)" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="live-badge"><div className="live-dot" />EN VIVO</div>
+                  <span className="text-white/70 text-sm">{g.title}</span>
+                </div>
+                <div className="flex items-center gap-3 mb-3">
+                  <input
+                    type="number" min="1" max="75" placeholder="Número (1-75)"
+                    className="flex-1 bg-white/10 text-white placeholder-white/40 rounded-xl px-3 py-2 text-sm font-bold border border-white/20 outline-none"
+                    value={numberInput[g.id] ?? ""}
+                    onChange={e => setNumberInput(prev => ({ ...prev, [g.id]: e.target.value }))}
+                    onKeyDown={e => e.key === "Enter" && callNumber(g.id)}
+                  />
+                  <button onClick={() => callNumber(g.id)}
+                    className="px-4 py-2 rounded-xl font-bold text-sm"
+                    style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>
+                    🎱 Cantar
+                  </button>
+                </div>
+                <div className="text-white/60 text-xs">
+                  {g.called_numbers?.length ?? 0} números cantados · Bs {g.prize_amount} premio · {g.participant_count} jugadores
+                </div>
+                <button onClick={() => finishGame(g.id)} className="mt-2 text-xs text-red-300 underline">⏹ Finalizar juego</button>
+              </div>
+            ))}
+
+            {/* Pending users alert */}
+            {users.filter(u => u.status === "pending").length > 0 && (
+              <div className="rounded-2xl p-4 flex items-center justify-between"
+                style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.3)" }}>
+                <div>
+                  <p className="font-bold">⏳ {users.filter(u => u.status === "pending").length} usuarios pendientes de verificación</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Revisa las fotos de CI para aprobar o rechazar</p>
+                </div>
+                <button onClick={() => handleTab("users")} className="text-xs font-bold px-3 py-1.5 rounded-xl"
+                  style={{ background: "hsl(var(--primary))", color: "white" }}>Ver →</button>
+              </div>
+            )}
+
+            {/* Quick stats */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-card border rounded-2xl p-4">
+                <p className="text-xs text-muted-foreground">Próximos juegos</p>
+                <p className="font-black text-2xl" style={{ color: "hsl(var(--primary))" }}>
+                  {games.filter(g => g.status === "upcoming").length}
+                </p>
+              </div>
+              <div className="bg-card border rounded-2xl p-4">
+                <p className="text-xs text-muted-foreground">Juegos finalizados</p>
+                <p className="font-black text-2xl" style={{ color: "hsl(var(--foreground))" }}>
+                  {games.filter(g => g.status === "finished").length}
+                </p>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="flex gap-1 overflow-x-auto mb-4 pb-1">
-          {tabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => handleTabChange(t.id)}
-              className={`shrink-0 px-3 py-1.5 rounded-xl text-sm font-semibold border transition-all ${
-                tab === t.id ? "bg-primary text-white border-primary" : "bg-card border text-foreground"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Users */}
-        {tab === "users" && (
-          <div className="space-y-2">
-            {loading && <div className="h-20 bg-muted animate-pulse rounded-xl" />}
-            {users.map(u => (
-              <div key={u.id} className="bg-card border rounded-xl p-4">
+        {/* USERS */}
+        {tab === "users" && !loading && (
+          <div className="space-y-3">
+            <input className="input-field" placeholder="🔍 Buscar por nombre o CI..." value={userSearch} onChange={e => setUserSearch(e.target.value)} />
+            {filteredUsers.map(u => (
+              <div key={u.id} className="bg-card border rounded-2xl p-4">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-semibold">{u.full_name}</p>
-                    <p className="text-xs text-muted-foreground">CI: {u.ci} • {u.department} • {u.phone}</p>
-                    <p className="text-xs text-muted-foreground">Saldo: Bs {u.balance}</p>
+                  <div className="flex items-start gap-3">
+                    {u.avatar_url ? (
+                      <img src={u.avatar_url} alt="avatar" className="w-10 h-10 rounded-xl object-cover shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black shrink-0"
+                        style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}>
+                        {u.full_name.charAt(0)}
+                      </div>
+                    )}
+                    <div>
+                      <p className="font-bold">{u.full_name}</p>
+                      <p className="text-xs text-muted-foreground">CI: {u.ci}</p>
+                      <p className="text-xs text-muted-foreground">{u.department} · {u.phone}</p>
+                      <p className="text-xs font-bold mt-0.5" style={{ color: "hsl(var(--primary))" }}>Saldo: Bs {parseFloat(u.balance).toFixed(2)}</p>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
+                  <div className="flex flex-col items-end gap-1.5">
                     {u.status === "pending" && (
                       <>
-                        <Badge variant="outline" className="text-yellow-600 border-yellow-300 bg-yellow-50">Pendiente</Badge>
-                        <div className="flex gap-1 mt-1">
-                          <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => verifyUser(u.id, true)}>✓</Button>
-                          <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => verifyUser(u.id, false)}>✗</Button>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                          style={{ background: "hsl(42 98% 52% / 0.12)", color: "hsl(42 98% 35%)" }}>Pendiente</span>
+                        {(u.id_photo_front_url || u.id_photo_back_url) && (
+                          <div className="flex gap-1">
+                            {u.id_photo_front_url && <a href={u.id_photo_front_url} target="_blank" rel="noopener noreferrer" className="text-xs underline" style={{ color: "hsl(var(--primary))" }}>CI anv.</a>}
+                            {u.id_photo_back_url && <a href={u.id_photo_back_url} target="_blank" rel="noopener noreferrer" className="text-xs underline ml-1" style={{ color: "hsl(var(--primary))" }}>CI rev.</a>}
+                          </div>
+                        )}
+                        <div className="flex gap-1">
+                          <button onClick={() => verifyUser(u.id, true)}
+                            className="px-3 py-1 rounded-xl text-xs font-bold text-white"
+                            style={{ background: "#16a34a" }}>✓ Aprobar</button>
+                          <button onClick={() => verifyUser(u.id, false)}
+                            className="px-3 py-1 rounded-xl text-xs font-bold text-white"
+                            style={{ background: "hsl(0 75% 50%)" }}>✗ Rechazar</button>
                         </div>
                       </>
                     )}
-                    {u.status === "active" && <Badge className="bg-green-500 text-white">Activo</Badge>}
-                    {u.status === "rejected" && <Badge variant="destructive">Rechazado</Badge>}
-                  </div>
-                </div>
-              </div>
-            ))}
-            {!loading && users.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">Sin usuarios</p>
-            )}
-          </div>
-        )}
-
-        {/* Withdrawals */}
-        {tab === "withdrawals" && (
-          <div className="space-y-2">
-            {loading && <div className="h-20 bg-muted animate-pulse rounded-xl" />}
-            {withdrawals.map(w => (
-              <div key={w.id} className="bg-card border rounded-xl p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-bold text-lg">Bs {parseFloat(w.amount).toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground">Usuario #{w.user_id} • {w.method === "cash" ? "Efectivo" : "Transferencia"}</p>
-                    {w.bank_account_info && <p className="text-xs text-muted-foreground">{w.bank_account_info}</p>}
-                    <p className="text-xs text-muted-foreground">{new Date(w.created_at).toLocaleDateString("es-BO")}</p>
-                  </div>
-                  <div>
-                    {w.status === "pending" ? (
-                      <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => markWithdrawalPaid(w.id)}>
-                        Marcar pagado
-                      </Button>
-                    ) : w.status === "paid" ? (
-                      <Badge className="bg-green-500 text-white">Pagado</Badge>
-                    ) : (
-                      <Badge variant="destructive">Rechazado</Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-            {!loading && withdrawals.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">Sin retiros</p>
-            )}
-          </div>
-        )}
-
-        {/* Games */}
-        {tab === "games" && (
-          <div className="space-y-2">
-            {loading && <div className="h-20 bg-muted animate-pulse rounded-xl" />}
-            {games.map(g => (
-              <div key={g.id} className="bg-card border rounded-xl p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-semibold">{g.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Bs {g.prize_amount} • {g.participant_count} participantes
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(g.draw_date).toLocaleDateString("es-BO")}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    {g.status === "upcoming" && (
-                      <Button size="sm" className="bg-green-600 hover:bg-green-700 h-7 text-xs" onClick={() => startGame(g.id)}>
-                        ▶ Iniciar
-                      </Button>
-                    )}
-                    {g.status === "active" && (
-                      <div className="flex flex-col gap-1">
-                        <Badge className="bg-green-500 text-white animate-pulse">EN VIVO</Badge>
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => callNumber(g.id)}>
-                          🎱 Cantar nº
-                        </Button>
-                        <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => finishGame(g.id)}>
-                          ⏹ Finalizar
-                        </Button>
+                    {u.status === "active" && (
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                          style={{ background: "hsl(142 70% 45% / 0.12)", color: "hsl(142 70% 30%)" }}>✓ Activo</span>
+                        <button onClick={() => verifyUser(u.id, false)}
+                          className="text-xs text-muted-foreground underline">Suspender</button>
                       </div>
                     )}
-                    {g.status === "finished" && <Badge variant="outline">Finalizado</Badge>}
+                    {u.status === "rejected" && (
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                          style={{ background: "hsl(0 75% 52% / 0.12)", color: "hsl(0 75% 40%)" }}>Rechazado</span>
+                        <button onClick={() => verifyUser(u.id, true)}
+                          className="text-xs font-bold" style={{ color: "hsl(var(--primary))" }}>Reactivar</button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
-            {!loading && games.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground mb-3">Sin juegos creados</p>
-                <Button onClick={() => navigate("/admin/crear-juego")}>Crear primer juego</Button>
+            {filteredUsers.length === 0 && <p className="text-center text-muted-foreground py-8">Sin usuarios encontrados</p>}
+          </div>
+        )}
+
+        {/* GAMES */}
+        {tab === "games" && !loading && (
+          <div className="space-y-3">
+            {games.map(g => (
+              <div key={g.id} className="bg-card border rounded-2xl p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="font-bold">{g.title}</span>
+                      {g.is_featured && <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: "hsl(42 98% 52% / 0.15)", color: "hsl(42 98% 35%)" }}>⭐ Destacado</span>}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Bs {g.prize_amount} premio · {g.participant_count} participantes · {new Date(g.draw_date).toLocaleDateString("es-BO")}
+                    </p>
+                    {g.status === "active" && (
+                      <p className="text-xs mt-1" style={{ color: "hsl(var(--primary))" }}>
+                        {g.called_numbers?.length ?? 0} números cantados de 75
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    {g.status === "upcoming" && (
+                      <>
+                        <button onClick={() => startGame(g.id)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold text-white"
+                          style={{ background: "#16a34a" }}>▶ Iniciar</button>
+                        <button onClick={() => toggleFeatured(g.id, g.is_featured)}
+                          className="text-xs font-bold" style={{ color: "hsl(42 98% 40%)" }}>
+                          {g.is_featured ? "Quitar destacado" : "⭐ Destacar"}
+                        </button>
+                      </>
+                    )}
+                    {g.status === "active" && (
+                      <div className="space-y-1.5">
+                        <div className="live-badge"><div className="live-dot" />EN VIVO</div>
+                        <div className="flex gap-1">
+                          <input type="number" min="1" max="75" placeholder="1-75"
+                            className="w-16 border rounded-lg px-2 py-1 text-xs font-bold text-center"
+                            value={numberInput[g.id] ?? ""}
+                            onChange={e => setNumberInput(prev => ({ ...prev, [g.id]: e.target.value }))}
+                            onKeyDown={e => e.key === "Enter" && callNumber(g.id)}
+                          />
+                          <button onClick={() => callNumber(g.id)}
+                            className="px-2 py-1 rounded-lg text-xs font-bold text-white"
+                            style={{ background: "hsl(var(--primary))" }}>🎱</button>
+                        </div>
+                        <button onClick={() => finishGame(g.id)}
+                          className="text-xs text-red-500 underline">Finalizar</button>
+                      </div>
+                    )}
+                    {g.status === "finished" && (
+                      <span className="text-xs px-2 py-0.5 rounded-full border"
+                        style={{ color: "hsl(var(--muted-foreground))" }}>Finalizado</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {games.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">Sin juegos creados</p>
+                <button className="btn-primary max-w-xs mx-auto" onClick={() => navigate("/admin/crear-juego")}>Crear primer juego</button>
               </div>
             )}
           </div>
         )}
 
-        {/* Winners */}
-        {tab === "winners" && (
-          <div className="space-y-2">
-            {loading && <div className="h-20 bg-muted animate-pulse rounded-xl" />}
+        {/* WITHDRAWALS */}
+        {tab === "withdrawals" && !loading && (
+          <div className="space-y-3">
+            {withdrawals.map(w => {
+              let methodInfo: any = {};
+              try { methodInfo = JSON.parse(w.bank_account_info ?? "{}"); } catch {}
+              return (
+                <div key={w.id} className="bg-card border rounded-2xl p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-black text-xl" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                        Bs {parseFloat(w.amount).toFixed(2)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(w.created_at).toLocaleDateString("es-BO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                    {w.status === "pending" ? (
+                      <button onClick={() => markWithdrawalPaid(w.id)}
+                        className="px-4 py-2 rounded-xl text-sm font-bold text-white shrink-0"
+                        style={{ background: "#16a34a" }}>✓ Pagado</button>
+                    ) : w.status === "paid" ? (
+                      <span className="text-xs font-bold px-3 py-1 rounded-full"
+                        style={{ background: "hsl(142 70% 45% / 0.12)", color: "hsl(142 70% 30%)" }}>✓ Pagado</span>
+                    ) : (
+                      <span className="text-xs font-bold px-3 py-1 rounded-full"
+                        style={{ background: "hsl(0 75% 52% / 0.12)", color: "hsl(0 75% 40%)" }}>Rechazado</span>
+                    )}
+                  </div>
+
+                  {/* User & method details */}
+                  {methodInfo.method === "qr" ? (
+                    <div>
+                      <p className="text-xs font-bold mb-1">📱 Retiro por QR</p>
+                      {w.bank_qr_url && (
+                        <img src={w.bank_qr_url} alt="QR pago" className="max-w-[160px] rounded-xl border" />
+                      )}
+                    </div>
+                  ) : methodInfo.bank ? (
+                    <div className="rounded-xl p-3 space-y-1" style={{ background: "hsl(var(--muted))" }}>
+                      <p className="text-xs font-bold">🏦 Transferencia bancaria</p>
+                      <p className="text-xs"><strong>Nombre:</strong> {methodInfo.full_name}</p>
+                      <p className="text-xs"><strong>CI:</strong> {methodInfo.ci}</p>
+                      <p className="text-xs"><strong>Banco:</strong> {methodInfo.bank}</p>
+                      {methodInfo.account_number && <p className="text-xs"><strong>Cuenta:</strong> {methodInfo.account_number}</p>}
+                      {methodInfo.whatsapp && <p className="text-xs"><strong>WhatsApp:</strong> {methodInfo.whatsapp}</p>}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+            {withdrawals.length === 0 && <p className="text-center text-muted-foreground py-8">Sin solicitudes de retiro</p>}
+          </div>
+        )}
+
+        {/* WINNERS */}
+        {tab === "winners" && !loading && (
+          <div className="space-y-3">
             {winners.map(w => (
-              <div key={w.id} className="bg-card border rounded-xl p-4">
-                <div className="flex items-start justify-between gap-2">
+              <div key={w.id} className="bg-card border rounded-2xl p-4">
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-semibold">{w.user_name} #{w.place}°</p>
-                    <p className="text-lg font-black text-secondary">Bs {parseFloat(w.prize_amount).toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground">Cartón #{w.card_id} • Juego #{w.game_id}</p>
+                    <p className="font-bold">{w.user_name}</p>
+                    <p className="text-xs text-muted-foreground">Lugar #{w.place} · Cartón #{w.card_id} · Juego #{w.game_id}</p>
+                    <p className="font-black text-xl mt-1 prize-text" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                      Bs {parseFloat(w.prize_amount).toFixed(2)}
+                    </p>
                   </div>
                   <div>
                     {w.validated ? (
-                      <Badge className="bg-green-500 text-white">✅ Validado</Badge>
+                      <span className="text-xs font-bold px-2 py-1 rounded-full"
+                        style={{ background: "hsl(142 70% 45% / 0.12)", color: "hsl(142 70% 30%)" }}>✅ Validado</span>
                     ) : (
                       <div className="flex gap-1">
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700 h-7 text-xs" onClick={() => validateWinner(w.id, true)}>✓</Button>
-                        <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => validateWinner(w.id, false)}>✗</Button>
+                        <button onClick={() => validateWinner(w.id, true)}
+                          className="px-3 py-1 rounded-xl text-xs font-bold text-white"
+                          style={{ background: "#16a34a" }}>✓ Validar</button>
+                        <button onClick={() => validateWinner(w.id, false)}
+                          className="px-3 py-1 rounded-xl text-xs font-bold text-white"
+                          style={{ background: "hsl(0 75% 50%)" }}>✗</button>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
             ))}
-            {!loading && winners.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">Sin ganadores registrados</p>
-            )}
+            {winners.length === 0 && <p className="text-center text-muted-foreground py-8">Sin ganadores registrados aún</p>}
           </div>
         )}
 
-        {/* Audit logs */}
-        {tab === "logs" && (
+        {/* AUDIT LOGS */}
+        {tab === "logs" && !loading && (
           <div className="space-y-2">
-            {loading && <div className="h-20 bg-muted animate-pulse rounded-xl" />}
             {logs.map(l => (
               <div key={l.id} className="bg-card border rounded-xl p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <code className="text-xs font-mono text-primary">{l.action}</code>
-                    <p className="text-xs text-muted-foreground">
-                      Usuario #{l.user_id ?? "—"} • {l.ip_address ?? "—"}
+                    <code className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}>
+                      {l.action}
+                    </code>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Usuario #{l.user_id ?? "—"} · {l.ip_address ?? "—"}
                     </p>
+                    {l.details && (
+                      <p className="text-xs text-muted-foreground truncate max-w-[220px] mt-0.5">
+                        {JSON.stringify(l.details)}
+                      </p>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground shrink-0">
                     {new Date(l.created_at).toLocaleTimeString("es-BO")}
@@ -382,9 +542,7 @@ export default function AdminPage() {
                 </div>
               </div>
             ))}
-            {!loading && logs.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">Sin registros</p>
-            )}
+            {logs.length === 0 && <p className="text-center text-muted-foreground py-8">Sin registros de auditoría</p>}
           </div>
         )}
       </div>

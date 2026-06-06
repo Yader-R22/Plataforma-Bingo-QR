@@ -6,6 +6,7 @@ import {
   numeric,
   integer,
   jsonb,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -28,6 +29,7 @@ export const gamesTable = pgTable("games", {
   prizes: jsonb("prizes").$type<Array<{ place: number; amount: number }>>().default([]),
   calledNumbers: integer("called_numbers").array().notNull().default([]),
   participantCount: integer("participant_count").notNull().default(0),
+  isFeatured: boolean("is_featured").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

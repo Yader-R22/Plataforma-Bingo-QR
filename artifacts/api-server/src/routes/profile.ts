@@ -3,6 +3,7 @@ import { db, usersTable, nameChangeRequestsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { UploadAvatarBody, RequestNameChangeBody } from "@workspace/api-zod";
+import { auditLogsTable } from "@workspace/db";
 import { formatUser } from "./auth";
 
 const router = Router();
@@ -29,6 +30,18 @@ router.patch("/contact", requireAuth, async (req: AuthRequest, res) => {
   if (!Object.keys(update).length) { res.status(400).json({ error: "No hay datos para actualizar" }); return; }
   const [user] = await db.update(usersTable).set(update).where(eq(usersTable.id, req.userId!)).returning();
   res.json(formatUser(user));
+});
+
+router.post("/ci-change-request", requireAuth, async (req: AuthRequest, res) => {
+  const { requested_ci } = req.body as { requested_ci?: string };
+  if (!requested_ci?.trim()) { res.status(400).json({ error: "CI requerido" }); return; }
+  await db.insert(auditLogsTable).values({
+    action: "ci_change_request",
+    userId: req.userId,
+    details: { requested_ci: requested_ci.trim() },
+    ipAddress: req.ip,
+  });
+  res.status(201).json({ message: "Solicitud de cambio de CI enviada. El administrador la revisará." });
 });
 
 router.post("/name-change-request", requireAuth, async (req: AuthRequest, res) => {
