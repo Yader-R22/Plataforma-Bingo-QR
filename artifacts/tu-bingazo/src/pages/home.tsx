@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
-import { useListGames } from "@workspace/api-client-react";
+import { useListGames, useGetWallet, getGetWalletQueryKey } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 
@@ -188,6 +188,15 @@ export default function HomePage() {
   const feedRef = useRef<HTMLDivElement>(null);
 
   const { data: games = [] } = useListGames();
+  const { data: wallet } = useGetWallet({
+    query: {
+      queryKey: getGetWalletQueryKey(),
+      enabled: !!user && user.status === "active",
+      refetchInterval: 5000,
+      refetchOnWindowFocus: true,
+    },
+  });
+  const balance = wallet?.balance ?? user?.balance ?? 0;
 
   useEffect(() => {
     const load = async () => {
@@ -238,7 +247,7 @@ export default function HomePage() {
               <div className="mt-3 inline-flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2">
                 <span className="text-xs text-white/70">Saldo disponible</span>
                 <span className="font-black text-lg" style={{ color: "hsl(42 98% 60%)" }}>
-                  Bs {user.balance.toLocaleString("es-BO", { minimumFractionDigits: 2 })}
+                  Bs {balance.toLocaleString("es-BO", { minimumFractionDigits: 2 })}
                 </span>
               </div>
             )}

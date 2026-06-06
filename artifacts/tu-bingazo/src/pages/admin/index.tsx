@@ -458,9 +458,8 @@ export default function AdminPage() {
                       </p>
                     </div>
                     {w.status === "pending" ? (
-                      <button onClick={() => markWithdrawalPaid(w.id)}
-                        className="px-4 py-2 rounded-xl text-sm font-bold text-white shrink-0"
-                        style={{ background: "#16a34a" }}>✓ Pagado</button>
+                      <span className="text-xs font-bold px-3 py-1 rounded-full shrink-0"
+                        style={{ background: "hsl(42 98% 50% / 0.15)", color: "hsl(36 80% 38%)" }}>⏳ Pendiente</span>
                     ) : w.status === "paid" ? (
                       <span className="text-xs font-bold px-3 py-1 rounded-full"
                         style={{ background: "hsl(142 70% 45% / 0.12)", color: "hsl(142 70% 30%)" }}>✓ Pagado</span>
