@@ -19,6 +19,9 @@ export const gameCategoriesTable = pgTable("game_categories", {
   colorTo: text("color_to").notNull().default("#3b00b8"),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
+  streamUrlYoutube: text("stream_url_youtube"),
+  streamUrlTiktok: text("stream_url_tiktok"),
+  streamUrlFacebook: text("stream_url_facebook"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

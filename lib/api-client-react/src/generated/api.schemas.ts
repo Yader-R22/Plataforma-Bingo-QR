@@ -258,6 +258,21 @@ export interface GameCategory {
   sort_order: number;
   /** Si la categoría se muestra en Inicio */
   is_active: boolean;
+  /**
+     * Canal de YouTube donde se transmite
+     * @nullable
+     */
+  stream_url_youtube?: string | null;
+  /**
+     * Canal de TikTok donde se transmite
+     * @nullable
+     */
+  stream_url_tiktok?: string | null;
+  /**
+     * Canal de Facebook donde se transmite
+     * @nullable
+     */
+  stream_url_facebook?: string | null;
 }
 
 export interface GameCategoryUpdate {
@@ -268,6 +283,12 @@ export interface GameCategoryUpdate {
   color_to?: string;
   sort_order?: number;
   is_active?: boolean;
+  /** @nullable */
+  stream_url_youtube?: string | null;
+  /** @nullable */
+  stream_url_tiktok?: string | null;
+  /** @nullable */
+  stream_url_facebook?: string | null;
 }
 
 export type GameSessionGameMode = typeof GameSessionGameMode[keyof typeof GameSessionGameMode];

@@ -66,6 +66,10 @@ function GameTypeSection({
   const game = games.find((g: any) => g.type === type && g.status !== "finished")
     ?? games.find((g: any) => g.type === type);
 
+  const ytUrl = (category.stream_url_youtube || undefined) as string | undefined;
+  const ttUrl = (category.stream_url_tiktok || undefined) as string | undefined;
+  const fbUrl = (category.stream_url_facebook || undefined) as string | undefined;
+
   if (!game) {
     return (
       <div className="rounded-3xl p-5 relative overflow-hidden cursor-pointer opacity-60"
@@ -74,6 +78,31 @@ function GameTypeSection({
           <p className="text-2xl mb-1">{emoji}</p>
           <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>{label}</p>
           <p className="text-white/70 text-sm mt-1">{description || "Próximamente..."}</p>
+          {(ytUrl || ttUrl || fbUrl) && (
+            <div className="flex gap-2 mt-3">
+              {ytUrl && (
+                <a href={ytUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold text-xs" style={{ background: "#FF0000" }}>
+                    <YouTubeIcon /><span className="text-white text-[11px]">YouTube</span>
+                  </div>
+                </a>
+              )}
+              {ttUrl && (
+                <a href={ttUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold text-xs" style={{ background: "#010101" }}>
+                    <TikTokIcon /><span className="text-white text-[11px]">TikTok</span>
+                  </div>
+                </a>
+              )}
+              {fbUrl && (
+                <a href={fbUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold text-xs" style={{ background: "#1877F2" }}>
+                    <FacebookIcon /><span className="text-white text-[11px]">Facebook</span>
+                  </div>
+                </a>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -112,27 +141,27 @@ function GameTypeSection({
           </div>
         </div>
 
-        {/* Official social icons */}
-        {(game.stream_url_youtube || game.stream_url_tiktok || game.stream_url_facebook) && (
+        {/* Official social icons (canales de la categoría, con respaldo al juego) */}
+        {(ytUrl || ttUrl || fbUrl) && (
           <div className="flex gap-2 mt-3">
-            {game.stream_url_youtube && (
-              <a href={game.stream_url_youtube as string} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+            {ytUrl && (
+              <a href={ytUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold text-xs" style={{ background: "#FF0000" }}>
                   <YouTubeIcon />
                   <span className="text-white text-[11px]">YouTube</span>
                 </div>
               </a>
             )}
-            {game.stream_url_tiktok && (
-              <a href={game.stream_url_tiktok as string} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+            {ttUrl && (
+              <a href={ttUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold text-xs" style={{ background: "#010101" }}>
                   <TikTokIcon />
                   <span className="text-white text-[11px]">TikTok</span>
                 </div>
               </a>
             )}
-            {game.stream_url_facebook && (
-              <a href={game.stream_url_facebook as string} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+            {fbUrl && (
+              <a href={fbUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold text-xs" style={{ background: "#1877F2" }}>
                   <FacebookIcon />
                   <span className="text-white text-[11px]">Facebook</span>

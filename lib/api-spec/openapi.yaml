@@ -1130,6 +1130,15 @@ components:
         is_active:
           type: boolean
           description: Si la categoría se muestra en Inicio
+        stream_url_youtube:
+          type: ["string", "null"]
+          description: Canal de YouTube donde se transmite
+        stream_url_tiktok:
+          type: ["string", "null"]
+          description: Canal de TikTok donde se transmite
+        stream_url_facebook:
+          type: ["string", "null"]
+          description: Canal de Facebook donde se transmite
 
     GameCategoryUpdate:
       type: object
@@ -1148,6 +1157,12 @@ components:
           type: integer
         is_active:
           type: boolean
+        stream_url_youtube:
+          type: ["string", "null"]
+        stream_url_tiktok:
+          type: ["string", "null"]
+        stream_url_facebook:
+          type: ["string", "null"]
 
     GameSession:
       type: object

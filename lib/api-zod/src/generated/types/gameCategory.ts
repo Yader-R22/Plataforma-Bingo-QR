@@ -22,4 +22,19 @@ export interface GameCategory {
   sort_order: number;
   /** Si la categoría se muestra en Inicio */
   is_active: boolean;
+  /**
+     * Canal de YouTube donde se transmite
+     * @nullable
+     */
+  stream_url_youtube?: string | null;
+  /**
+     * Canal de TikTok donde se transmite
+     * @nullable
+     */
+  stream_url_tiktok?: string | null;
+  /**
+     * Canal de Facebook donde se transmite
+     * @nullable
+     */
+  stream_url_facebook?: string | null;
 }

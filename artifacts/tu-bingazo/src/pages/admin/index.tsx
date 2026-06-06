@@ -229,6 +229,9 @@ export default function AdminPage() {
           color_to: d.color_to,
           sort_order: parseInt(String(d.sort_order)) || 0,
           is_active: d.is_active,
+          stream_url_youtube: d.stream_url_youtube?.trim() || null,
+          stream_url_tiktok: d.stream_url_tiktok?.trim() || null,
+          stream_url_facebook: d.stream_url_facebook?.trim() || null,
         }),
       });
       if (r.ok) {
@@ -603,6 +606,29 @@ export default function AdminPage() {
                           className="w-4 h-4" />
                         <span className="text-sm font-bold">Visible en Inicio</span>
                       </label>
+                    </div>
+
+                    <div className="space-y-2 pt-1 border-t">
+                      <label className="text-xs font-bold text-muted-foreground block pt-2">📡 Canales de transmisión</label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold w-16 shrink-0" style={{ color: "#FF0000" }}>YouTube</span>
+                        <input value={d.stream_url_youtube ?? ""} onChange={e => updCatDraft(c.id, "stream_url_youtube", e.target.value)}
+                          placeholder="https://youtube.com/@tucanal" type="url"
+                          className="w-full border rounded-xl px-3 py-2 text-xs" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold w-16 shrink-0">TikTok</span>
+                        <input value={d.stream_url_tiktok ?? ""} onChange={e => updCatDraft(c.id, "stream_url_tiktok", e.target.value)}
+                          placeholder="https://tiktok.com/@tucanal" type="url"
+                          className="w-full border rounded-xl px-3 py-2 text-xs" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold w-16 shrink-0" style={{ color: "#1877F2" }}>Facebook</span>
+                        <input value={d.stream_url_facebook ?? ""} onChange={e => updCatDraft(c.id, "stream_url_facebook", e.target.value)}
+                          placeholder="https://facebook.com/tupagina" type="url"
+                          className="w-full border rounded-xl px-3 py-2 text-xs" />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">Deja vacío un canal para ocultar su botón en Inicio.</p>
                     </div>
 
                     <button onClick={() => saveCategory(c.id)} disabled={savingCat === c.id}

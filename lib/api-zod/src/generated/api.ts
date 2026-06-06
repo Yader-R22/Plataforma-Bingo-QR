@@ -815,7 +815,10 @@ export const ListCategoriesResponseItem = zod.object({
   "color_from": zod.string().describe('Color inicial del degradado (hex)'),
   "color_to": zod.string().describe('Color final del degradado (hex)'),
   "sort_order": zod.number(),
-  "is_active": zod.boolean().describe('Si la categoría se muestra en Inicio')
+  "is_active": zod.boolean().describe('Si la categoría se muestra en Inicio'),
+  "stream_url_youtube": zod.string().nullish().describe('Canal de YouTube donde se transmite'),
+  "stream_url_tiktok": zod.string().nullish().describe('Canal de TikTok donde se transmite'),
+  "stream_url_facebook": zod.string().nullish().describe('Canal de Facebook donde se transmite')
 })
 export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
 
@@ -834,7 +837,10 @@ export const UpdateCategoryBody = zod.object({
   "color_from": zod.string().optional(),
   "color_to": zod.string().optional(),
   "sort_order": zod.number().optional(),
-  "is_active": zod.boolean().optional()
+  "is_active": zod.boolean().optional(),
+  "stream_url_youtube": zod.string().nullish(),
+  "stream_url_tiktok": zod.string().nullish(),
+  "stream_url_facebook": zod.string().nullish()
 })
 
 export const UpdateCategoryResponse = zod.object({
@@ -846,7 +852,10 @@ export const UpdateCategoryResponse = zod.object({
   "color_from": zod.string().describe('Color inicial del degradado (hex)'),
   "color_to": zod.string().describe('Color final del degradado (hex)'),
   "sort_order": zod.number(),
-  "is_active": zod.boolean().describe('Si la categoría se muestra en Inicio')
+  "is_active": zod.boolean().describe('Si la categoría se muestra en Inicio'),
+  "stream_url_youtube": zod.string().nullish().describe('Canal de YouTube donde se transmite'),
+  "stream_url_tiktok": zod.string().nullish().describe('Canal de TikTok donde se transmite'),
+  "stream_url_facebook": zod.string().nullish().describe('Canal de Facebook donde se transmite')
 })
 
 

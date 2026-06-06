@@ -14,4 +14,10 @@ export interface GameCategoryUpdate {
   color_to?: string;
   sort_order?: number;
   is_active?: boolean;
+  /** @nullable */
+  stream_url_youtube?: string | null;
+  /** @nullable */
+  stream_url_tiktok?: string | null;
+  /** @nullable */
+  stream_url_facebook?: string | null;
 }

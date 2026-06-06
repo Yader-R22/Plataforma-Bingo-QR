@@ -17,6 +17,9 @@ function formatCategory(c: typeof gameCategoriesTable.$inferSelect) {
     color_to: c.colorTo,
     sort_order: c.sortOrder,
     is_active: c.isActive,
+    stream_url_youtube: c.streamUrlYoutube,
+    stream_url_tiktok: c.streamUrlTiktok,
+    stream_url_facebook: c.streamUrlFacebook,
   };
 }
 
@@ -39,6 +42,9 @@ router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
   if (b.data.color_to !== undefined) updates.colorTo = b.data.color_to;
   if (b.data.sort_order !== undefined) updates.sortOrder = b.data.sort_order;
   if (b.data.is_active !== undefined) updates.isActive = b.data.is_active;
+  if (b.data.stream_url_youtube !== undefined) updates.streamUrlYoutube = b.data.stream_url_youtube;
+  if (b.data.stream_url_tiktok !== undefined) updates.streamUrlTiktok = b.data.stream_url_tiktok;
+  if (b.data.stream_url_facebook !== undefined) updates.streamUrlFacebook = b.data.stream_url_facebook;
 
   if (Object.keys(updates).length === 0) { res.status(400).json({ error: "Sin cambios" }); return; }
 
