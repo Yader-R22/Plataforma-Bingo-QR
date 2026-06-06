@@ -4,7 +4,7 @@ import { useListGames } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 
-const TYPE_FILTERS = [
+const ALL_TYPE_FILTERS = [
   { value: "all", label: "Todos" },
   { value: "daily", label: "🌅 Diario" },
   { value: "weekly", label: "🏆 Semanal" },
@@ -30,9 +30,11 @@ export default function GamesPage() {
   }, [search]);
 
   const user = useAuthStore(s => s.user);
-  const queryParams = filter !== "all" ? { type: filter as "daily" | "weekly" | "monthly" } : undefined;
-  const { data: games, isLoading } = useListGames(queryParams as any);
-  const filtered = (games ?? []) as any[];
+  const { data: allGames, isLoading } = useListGames();
+  const allGamesList = (allGames ?? []) as any[];
+  const existingTypes = new Set(allGamesList.map((g: any) => g.type));
+  const TYPE_FILTERS = ALL_TYPE_FILTERS.filter(f => f.value === "all" || existingTypes.has(f.value));
+  const filtered = filter === "all" ? allGamesList : allGamesList.filter((g: any) => g.type === filter);
 
   const typeTitle = filter === "daily" ? "Bingos Diarios" : filter === "weekly" ? "Bingos Semanales" : filter === "monthly" ? "Bingos Mensuales" : "Juegos Disponibles";
 
@@ -55,8 +57,8 @@ export default function GamesPage() {
           </div>
         )}
 
-        {/* Filter tabs — responsive grid, no scroll */}
-        <div className="grid grid-cols-4 gap-1.5 mb-5">
+        {/* Filter tabs — only show types that exist */}
+        <div className={`grid gap-1.5 mb-5`} style={{ gridTemplateColumns: `repeat(${TYPE_FILTERS.length}, 1fr)` }}>
           {TYPE_FILTERS.map(f => (
             <button
               key={f.value}

@@ -10,78 +10,105 @@ interface AppLayoutProps {
   onBack?: () => void;
 }
 
+/* ---- Festive bingo-themed nav icons ---- */
+
 function IconHome({ active }: { active: boolean }) {
+  const c1 = active ? "#7c3aed" : "#a0a0b8";
+  const c2 = active ? "#a855f7" : "#c0c0d0";
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? "hsl(var(--primary))" : "none"} stroke={active ? "hsl(var(--primary))" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-      <polyline points="9 22 9 12 15 12 15 22"/>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path d="M3 10.5L12 3l9 7.5V21a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V10.5z"
+        fill={active ? c1 : "none"} stroke={c1} strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M9 22V13h6v9" stroke={active ? "white" : c2} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      {active && <circle cx="12" cy="8" r="1.5" fill="#f59e0b" />}
     </svg>
   );
 }
 
 function IconGames({ active }: { active: boolean }) {
-  const c = active ? "hsl(var(--primary))" : "currentColor";
+  const c = active ? "#7c3aed" : "#a0a0b8";
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/>
-      <circle cx="12" cy="12" r="3"/>
-      <line x1="12" y1="2" x2="12" y2="9"/>
-      <line x1="12" y1="15" x2="12" y2="22"/>
-      <line x1="2" y1="12" x2="9" y2="12"/>
-      <line x1="15" y1="12" x2="22" y2="12"/>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" fill={active ? c : "none"} stroke={c} strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="9" fill={active ? c : "none"} stroke={c} strokeWidth="1.8" />
+      {/* Bingo ball number lines */}
+      <path d="M12 3v4M12 17v4M3 12h4M17 12h4" stroke={active ? "rgba(255,255,255,0.5)" : "transparent"} strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="3.5" fill={active ? "#f59e0b" : "none"} stroke={active ? "#f59e0b" : c} strokeWidth="1.5" />
+      <text x="12" y="13" textAnchor="middle" fontSize="4" fontWeight="bold" fill={active ? "#1a0050" : "none"}>B</text>
     </svg>
   );
 }
 
 function IconCards({ active }: { active: boolean }) {
-  const c = active ? "hsl(var(--primary))" : "currentColor";
+  const c = active ? "#7c3aed" : "#a0a0b8";
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="5" width="20" height="14" rx="2"/>
-      <line x1="2" y1="10" x2="22" y2="10"/>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      {/* Bingo card shape */}
+      <rect x="3" y="5" width="18" height="14" rx="3" fill={active ? c : "none"} stroke={c} strokeWidth="1.8" />
+      {/* Grid dots representing bingo numbers */}
+      {active && (
+        <>
+          {[6,9,12,15,18].map((x, i) => [5,8,11,14].map((y, j) => (
+            <circle key={`${i}-${j}`} cx={x} cy={y} r="1.2" fill={i===2 && j===1 ? "#f59e0b" : "rgba(255,255,255,0.7)"} />
+          )))}
+        </>
+      )}
+      {!active && (
+        <>
+          <line x1="3" y1="9" x2="21" y2="9" stroke={c} strokeWidth="1.3" />
+          <line x1="9" y1="9" x2="9" y2="19" stroke={c} strokeWidth="1.3" />
+          <line x1="15" y1="9" x2="15" y2="19" stroke={c} strokeWidth="1.3" />
+          <circle cx="12" cy="14" r="1.5" fill={c} />
+        </>
+      )}
     </svg>
   );
 }
 
 function IconWallet({ active }: { active: boolean }) {
-  const c = active ? "hsl(var(--primary))" : "currentColor";
+  const c = active ? "#7c3aed" : "#a0a0b8";
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/>
-      <circle cx="17" cy="12" r="2"/>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <rect x="2" y="7" width="20" height="13" rx="3" fill={active ? c : "none"} stroke={c} strokeWidth="1.8" />
+      <path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" stroke={c} strokeWidth="1.8" strokeLinejoin="round" />
+      <circle cx="17" cy="13.5" r="2" fill={active ? "#f59e0b" : "none"} stroke={active ? "#f59e0b" : c} strokeWidth="1.6" />
+      {active && <circle cx="17" cy="13.5" r="0.7" fill="#1a0050" />}
     </svg>
   );
 }
 
 function IconProfile({ active }: { active: boolean }) {
-  const c = active ? "hsl(var(--primary))" : "currentColor";
+  const c = active ? "#7c3aed" : "#a0a0b8";
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-      <circle cx="12" cy="7" r="4"/>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="8" r="4" fill={active ? c : "none"} stroke={c} strokeWidth="1.8" />
+      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={c} strokeWidth="1.8" strokeLinecap="round" />
+      {active && <path d="M10 6.5l2 1.5 2-3" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />}
     </svg>
   );
 }
 
 function IconLogin({ active }: { active: boolean }) {
-  const c = active ? "hsl(var(--primary))" : "currentColor";
+  const c = active ? "#7c3aed" : "#a0a0b8";
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-      <polyline points="10 17 15 12 10 7"/>
-      <line x1="15" y1="12" x2="3" y2="12"/>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" stroke={c} strokeWidth="1.8" strokeLinecap="round" />
+      <polyline points="10 17 15 12 10 7" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <line x1="15" y1="12" x2="3" y2="12" stroke={c} strokeWidth="1.8" strokeLinecap="round" />
+      {active && <circle cx="3" cy="12" r="2" fill="#f59e0b" />}
     </svg>
   );
 }
 
 function IconRegister({ active }: { active: boolean }) {
-  const c = active ? "hsl(var(--primary))" : "currentColor";
+  const c = active ? "#7c3aed" : "#a0a0b8";
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-      <circle cx="9" cy="7" r="4"/>
-      <line x1="19" y1="8" x2="19" y2="14"/>
-      <line x1="22" y1="11" x2="16" y2="11"/>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <circle cx="9" cy="8" r="4" fill={active ? c : "none"} stroke={c} strokeWidth="1.8" />
+      <path d="M2 20c0-4 3.1-7 7-7" stroke={c} strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="19" cy="17" r="4" fill={active ? "#f59e0b" : "none"} stroke={active ? "#f59e0b" : c} strokeWidth="1.8" />
+      <line x1="19" y1="14.5" x2="19" y2="19.5" stroke={active ? "#1a0050" : c} strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="16.5" y1="17" x2="21.5" y2="17" stroke={active ? "#1a0050" : c} strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }
@@ -135,16 +162,14 @@ export default function AppLayout({ children, hideNav, title, showBack, onBack }
         {!title && <div className="flex-1" />}
 
         {user ? (
-          <div className="flex items-center gap-2 shrink-0">
-            <Link href="/perfil">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-black cursor-pointer shrink-0 overflow-hidden"
-                style={{ background: user.avatar_url ? "transparent" : "hsl(42 98% 52%)", color: "#1a0050" }}>
-                {user.avatar_url
-                  ? <img src={user.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                  : user.full_name.charAt(0).toUpperCase()}
-              </div>
-            </Link>
-          </div>
+          <Link href="/perfil">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-black cursor-pointer shrink-0 overflow-hidden"
+              style={{ background: user.avatar_url ? "transparent" : "hsl(42 98% 52%)", color: "#1a0050" }}>
+              {user.avatar_url
+                ? <img src={user.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                : user.full_name.charAt(0).toUpperCase()}
+            </div>
+          </Link>
         ) : (
           <div className="flex gap-2 shrink-0">
             <Link href="/login">
@@ -170,19 +195,18 @@ export default function AppLayout({ children, hideNav, title, showBack, onBack }
             const Icon = item.icon;
             return (
               <Link key={item.href} href={item.href}>
-                <button className="w-full flex flex-col items-center justify-center py-2.5 gap-0.5 transition-all relative">
-                  <div className={`transition-transform ${isActive ? "scale-110" : "scale-100"}`}
-                    style={{ color: isActive ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }}>
+                <button className="w-full flex flex-col items-center justify-center py-2 gap-0.5 transition-all relative">
+                  {isActive && (
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"
+                      style={{ background: "linear-gradient(90deg, #7c3aed, #a855f7)" }} />
+                  )}
+                  <div className={`transition-all ${isActive ? "scale-110 drop-shadow-sm" : "scale-100"}`}>
                     <Icon active={isActive} />
                   </div>
-                  <span className="text-[9px] font-bold transition-colors"
-                    style={{ color: isActive ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }}>
-                    {item.label}
+                  <span className="text-[9px] font-black tracking-wide transition-colors"
+                    style={{ color: isActive ? "#7c3aed" : "#a0a0b8" }}>
+                    {item.label.toUpperCase()}
                   </span>
-                  {isActive && (
-                    <div className="absolute bottom-0 w-6 h-0.5 rounded-full"
-                      style={{ background: "hsl(var(--primary))" }} />
-                  )}
                 </button>
               </Link>
             );

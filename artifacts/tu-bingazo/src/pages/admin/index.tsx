@@ -32,6 +32,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [numberInput, setNumberInput] = useState<Record<number, string>>({});
   const [userSearch, setUserSearch] = useState("");
+  const [payForm, setPayForm] = useState<Record<number, { proof: string; pin: string; open: boolean }>>({});
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
@@ -95,11 +96,23 @@ export default function AdminPage() {
     }
   }
 
-  async function markWithdrawalPaid(wId: number) {
-    const r = await fetch(`${BASE}/api/admin/withdrawals/${wId}/mark-paid`, { method: "POST", headers: authH() });
+  function openPayForm(wId: number) {
+    setPayForm(pf => ({ ...pf, [wId]: { proof: "", pin: "", open: true } }));
+  }
+
+  async function markWithdrawalPaid(wId: number, method: string) {
+    const form = payForm[wId];
+    const body: any = {};
+    if (method === "qr" && form?.proof) body.payment_proof_url = form.proof;
+    if (method === "bank" && form?.pin) body.withdrawal_pin = form.pin;
+    const r = await fetch(`${BASE}/api/admin/withdrawals/${wId}/mark-paid`, {
+      method: "POST", headers: authH(), body: JSON.stringify(body),
+    });
     if (r.ok) {
+      const updated = await r.json();
       toast.success("✅ Retiro marcado como pagado");
-      setWithdrawals(ws => ws.map(w => w.id === wId ? { ...w, status: "paid" } : w));
+      setWithdrawals(ws => ws.map(w => w.id === wId ? { ...w, status: "paid", payment_proof_url: updated.payment_proof_url, withdrawal_pin: updated.withdrawal_pin } : w));
+      setPayForm(pf => { const n = { ...pf }; delete n[wId]; return n; });
       loadStats();
     } else {
       const d = await r.json();
@@ -457,22 +470,80 @@ export default function AdminPage() {
                     )}
                   </div>
 
-                  {/* User & method details */}
+                  {/* Method details */}
                   {methodInfo.method === "qr" ? (
-                    <div>
-                      <p className="text-xs font-bold mb-1">📱 Retiro por QR</p>
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold">📱 Retiro por QR — escanea para pagar</p>
                       {w.bank_qr_url && (
-                        <img src={w.bank_qr_url} alt="QR pago" className="max-w-[160px] rounded-xl border" />
+                        <img src={w.bank_qr_url} alt="QR pago" className="max-w-[180px] rounded-xl border" />
+                      )}
+                      {w.status === "pending" && (
+                        payForm[w.id]?.open ? (
+                          <div className="space-y-2 pt-1">
+                            <p className="text-xs font-bold text-muted-foreground">URL del comprobante (opcional)</p>
+                            <input className="input-field text-xs py-2"
+                              placeholder="https://... o pega imagen base64"
+                              value={payForm[w.id]?.proof ?? ""}
+                              onChange={e => setPayForm(pf => ({ ...pf, [w.id]: { ...pf[w.id], proof: e.target.value } }))} />
+                            <div className="flex gap-2">
+                              <button onClick={() => markWithdrawalPaid(w.id, "qr")}
+                                className="flex-1 py-2 rounded-xl text-xs font-bold text-white"
+                                style={{ background: "#16a34a" }}>✓ Confirmar pago</button>
+                              <button onClick={() => setPayForm(pf => { const n = { ...pf }; delete n[w.id]; return n; })}
+                                className="px-3 py-2 rounded-xl text-xs font-bold border">Cancelar</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button onClick={() => openPayForm(w.id)}
+                            className="px-4 py-2 rounded-xl text-sm font-bold text-white"
+                            style={{ background: "#16a34a" }}>✓ Marcar pagado</button>
+                        )
+                      )}
+                      {w.status === "paid" && w.payment_proof_url && (
+                        <a href={w.payment_proof_url} target="_blank" rel="noopener noreferrer"
+                          className="text-xs underline" style={{ color: "hsl(var(--primary))" }}>
+                          🧾 Ver comprobante
+                        </a>
                       )}
                     </div>
                   ) : methodInfo.bank ? (
-                    <div className="rounded-xl p-3 space-y-1" style={{ background: "hsl(var(--muted))" }}>
-                      <p className="text-xs font-bold">🏦 Transferencia bancaria</p>
-                      <p className="text-xs"><strong>Nombre:</strong> {methodInfo.full_name}</p>
-                      <p className="text-xs"><strong>CI:</strong> {methodInfo.ci}</p>
-                      <p className="text-xs"><strong>Banco:</strong> {methodInfo.bank}</p>
-                      {methodInfo.account_number && <p className="text-xs"><strong>Cuenta:</strong> {methodInfo.account_number}</p>}
-                      {methodInfo.whatsapp && <p className="text-xs"><strong>WhatsApp:</strong> {methodInfo.whatsapp}</p>}
+                    <div className="space-y-2">
+                      <div className="rounded-xl p-3 space-y-1" style={{ background: "hsl(var(--muted))" }}>
+                        <p className="text-xs font-bold">🏧 Cajero — {methodInfo.bank}</p>
+                        <p className="text-xs"><strong>Nombre:</strong> {methodInfo.full_name}</p>
+                        <p className="text-xs"><strong>CI:</strong> {methodInfo.ci}</p>
+                        {methodInfo.whatsapp && <p className="text-xs"><strong>WhatsApp:</strong> {methodInfo.whatsapp}</p>}
+                      </div>
+                      {w.status === "pending" && (
+                        payForm[w.id]?.open ? (
+                          <div className="space-y-2">
+                            <p className="text-xs font-bold text-muted-foreground">🔑 PIN de retiro para el usuario</p>
+                            <input className="input-field text-sm font-mono text-center tracking-[0.2em]"
+                              placeholder="Ej: 7482"
+                              value={payForm[w.id]?.pin ?? ""}
+                              onChange={e => setPayForm(pf => ({ ...pf, [w.id]: { ...pf[w.id], pin: e.target.value } }))} />
+                            <div className="flex gap-2">
+                              <button onClick={() => markWithdrawalPaid(w.id, "bank")}
+                                className="flex-1 py-2 rounded-xl text-xs font-bold text-white"
+                                style={{ background: "#16a34a" }}>✓ Confirmar + enviar PIN</button>
+                              <button onClick={() => setPayForm(pf => { const n = { ...pf }; delete n[w.id]; return n; })}
+                                className="px-3 py-2 rounded-xl text-xs font-bold border">Cancelar</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button onClick={() => openPayForm(w.id)}
+                            className="px-4 py-2 rounded-xl text-sm font-bold text-white"
+                            style={{ background: "#16a34a" }}>✓ Marcar pagado + dar PIN</button>
+                        )
+                      )}
+                      {w.status === "paid" && w.withdrawal_pin && (
+                        <div className="flex items-center gap-2 rounded-xl px-3 py-2"
+                          style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.2)" }}>
+                          <span>🔑</span>
+                          <span className="text-xs text-muted-foreground">PIN enviado:</span>
+                          <span className="font-black tracking-widest" style={{ color: "hsl(var(--primary))" }}>{w.withdrawal_pin}</span>
+                        </div>
+                      )}
                     </div>
                   ) : null}
                 </div>

@@ -13,20 +13,16 @@ function statusConfig(status: string) {
   return { label: "Rechazado", bg: "hsl(0 75% 52% / 0.12)", border: "hsl(0 75% 52% / 0.3)", color: "hsl(0 75% 40%)" };
 }
 
-type WithdrawMethod = "qr" | "bank";
-
 export default function WalletPage() {
   const token = useAuthStore(s => s.token);
   const user = useAuthStore(s => s.user);
   const [step, setStep] = useState<"idle" | "amount" | "method" | "qr-upload" | "bank-form">("idle");
   const [amount, setAmount] = useState("");
-  const [withdrawMethod, setWithdrawMethod] = useState<WithdrawMethod>("qr");
   const [qrPreview, setQrPreview] = useState<string | null>(null);
   const [qrBase64, setQrBase64] = useState<string | null>(null);
   const [bank, setBank] = useState(BANKS[0]);
-  const [whatsapp, setWhatsapp] = useState(user?.phone ?? "");
-  const [accountNumber, setAccountNumber] = useState("");
   const [loading, setLoading] = useState(false);
+  const [proofModal, setProofModal] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: wallet, refetch: refetchWallet } = useGetWallet();
@@ -44,25 +40,23 @@ export default function WalletPage() {
     reader.readAsDataURL(file);
   }
 
-  async function submitWithdrawal() {
+  async function submitWithdrawal(method: "qr" | "bank") {
     const numAmount = parseFloat(amount);
     if (!numAmount || numAmount <= 0) { toast.error("Ingresa un monto válido"); return; }
     if (wallet && numAmount > wallet.balance) { toast.error("Saldo insuficiente"); return; }
 
-    let bankAccountInfo: string | null = null;
+    let bankAccountInfo: string;
     let bankQrUrl: string | null = null;
 
-    if (withdrawMethod === "qr") {
+    if (method === "qr") {
       if (!qrBase64) { toast.error("Por favor sube tu imagen QR"); return; }
       bankQrUrl = qrBase64;
       bankAccountInfo = JSON.stringify({ method: "qr" });
     } else {
-      if (!whatsapp.trim()) { toast.error("Ingresa tu número de WhatsApp"); return; }
       bankAccountInfo = JSON.stringify({
         method: "bank",
         bank,
-        account_number: accountNumber,
-        whatsapp: whatsapp.trim(),
+        whatsapp: user?.phone ?? "",
         full_name: user?.full_name,
         ci: user?.ci,
       });
@@ -83,7 +77,7 @@ export default function WalletPage() {
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Error al solicitar retiro"); return; }
       toast.success("✅ Solicitud enviada. El administrador procesará tu retiro en 1-3 días hábiles.");
-      setStep("idle"); setAmount(""); setQrPreview(null); setQrBase64(null); setAccountNumber("");
+      setStep("idle"); setAmount(""); setQrPreview(null); setQrBase64(null);
       refetchWallet(); refetchWithdrawals();
     } catch {
       toast.error("Error al procesar la solicitud");
@@ -96,6 +90,21 @@ export default function WalletPage() {
 
   return (
     <AppLayout>
+      {proofModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}
+          onClick={() => setProofModal(null)}>
+          <div className="bg-white rounded-3xl p-4 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-black">Comprobante de pago</p>
+              <button onClick={() => setProofModal(null)} className="text-muted-foreground">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <img src={proofModal} alt="Comprobante" className="w-full rounded-2xl object-contain max-h-96" />
+          </div>
+        </div>
+      )}
+
       <div className="hero-bg px-4 py-5 text-white">
         <h1 className="text-2xl font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>💰 Mi Billetera</h1>
         <p className="text-white/60 text-sm">Saldo y retiros</p>
@@ -143,16 +152,19 @@ export default function WalletPage() {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
               </button>
             </div>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">Bs</span>
-              <input className="input-field pl-10 text-xl font-black" type="number" placeholder="0.00"
-                min="1" step="0.01" max={wallet?.balance ?? 0} value={amount}
-                onChange={e => setAmount(e.target.value)} />
-            </div>
+            <label className="flex items-center gap-2 rounded-xl border-2 px-4 py-3 bg-white cursor-text transition-all focus-within:border-primary"
+              style={{ borderColor: "hsl(var(--border))" }}>
+              <span className="font-bold text-xl shrink-0" style={{ color: "hsl(var(--muted-foreground))" }}>Bs</span>
+              <input className="flex-1 outline-none text-2xl font-black bg-transparent" type="number"
+                placeholder="0.00" min="1" step="0.01" max={wallet?.balance ?? 0}
+                value={amount} onChange={e => setAmount(e.target.value)} autoFocus />
+            </label>
             {wallet && <p className="text-xs text-muted-foreground">Disponible: Bs {wallet.balance.toFixed(2)}</p>}
-            <button className="btn-primary" onClick={() => { if (!amount || numAmount <= 0) { toast.error("Ingresa un monto"); return; } if (wallet && numAmount > wallet.balance) { toast.error("Saldo insuficiente"); return; } setStep("method"); }}>
-              Continuar →
-            </button>
+            <button className="btn-primary" onClick={() => {
+              if (!amount || numAmount <= 0) { toast.error("Ingresa un monto"); return; }
+              if (wallet && numAmount > wallet.balance) { toast.error("Saldo insuficiente"); return; }
+              setStep("method");
+            }}>Continuar →</button>
           </div>
         )}
 
@@ -169,7 +181,7 @@ export default function WalletPage() {
             </div>
             <p className="text-sm text-muted-foreground">¿Cómo quieres recibir tu dinero?</p>
 
-            <button onClick={() => { setWithdrawMethod("qr"); setStep("qr-upload"); }}
+            <button onClick={() => setStep("qr-upload")}
               className="w-full p-4 rounded-2xl border-2 text-left transition-all hover:border-primary"
               style={{ borderColor: "hsl(var(--border))" }}>
               <div className="flex items-center gap-3">
@@ -177,20 +189,20 @@ export default function WalletPage() {
                   style={{ background: "hsl(var(--primary) / 0.1)" }}>📱</div>
                 <div>
                   <p className="font-black">Retiro por QR</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Sube tu QR de cobro de tu app bancaria o billetera digital. El admin te enviará el dinero escaneándolo.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Sube tu QR de cobro. El admin te enviará el dinero directamente.</p>
                 </div>
               </div>
             </button>
 
-            <button onClick={() => { setWithdrawMethod("bank"); setStep("bank-form"); }}
+            <button onClick={() => setStep("bank-form")}
               className="w-full p-4 rounded-2xl border-2 text-left transition-all hover:border-primary"
               style={{ borderColor: "hsl(var(--border))" }}>
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
-                  style={{ background: "hsl(var(--primary) / 0.1)" }}>🏦</div>
+                  style={{ background: "hsl(var(--primary) / 0.1)" }}>🏧</div>
                 <div>
-                  <p className="font-black">Retiro por Banco/Cajero</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Especifica tu banco y datos para que el admin realice la transferencia directa a tu cuenta.</p>
+                  <p className="font-black">Retiro por Cajero</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Recibirás un PIN para retirar desde cualquier cajero automático.</p>
                 </div>
               </div>
             </button>
@@ -215,13 +227,13 @@ export default function WalletPage() {
               {qrPreview ? (
                 <div className="space-y-2">
                   <img src={qrPreview} alt="QR preview" className="max-h-48 mx-auto rounded-xl object-contain" />
-                  <p className="text-xs text-muted-foreground">Toca para cambiar la imagen</p>
+                  <p className="text-xs text-muted-foreground">Toca para cambiar</p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   <div className="text-4xl">📷</div>
                   <p className="font-bold text-sm">Toca para subir tu QR</p>
-                  <p className="text-xs text-muted-foreground">Desde tu galería o captura una foto</p>
+                  <p className="text-xs text-muted-foreground">Desde tu galería o toma una foto</p>
                 </div>
               )}
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleQrFile} />
@@ -230,7 +242,7 @@ export default function WalletPage() {
             <div className="rounded-xl p-3 text-xs flex items-start gap-2"
               style={{ background: "hsl(42 98% 52% / 0.08)", border: "1px solid hsl(42 98% 52% / 0.2)" }}>
               <span>💡</span>
-              <span>Abre tu app de banco o billetera digital, ve a "Cobrar" o "Recibir" y sube la imagen del QR que aparece ahí.</span>
+              <span>Abre tu app de banco o billetera digital, ve a "Cobrar" y sube el QR que aparece.</span>
             </div>
 
             <div className="rounded-2xl p-3 flex items-center justify-between"
@@ -241,40 +253,44 @@ export default function WalletPage() {
               </span>
             </div>
 
-            <button className="btn-primary" onClick={submitWithdrawal} disabled={loading || !qrBase64}>
-              {loading ? "Enviando..." : "✅ Enviar solicitud de retiro"}
+            <button className="btn-primary" onClick={() => submitWithdrawal("qr")} disabled={loading || !qrBase64}>
+              {loading ? "Enviando..." : "✅ Enviar solicitud"}
             </button>
           </div>
         )}
 
-        {/* Step 3b: Bank form */}
+        {/* Step 3b: Cajero form */}
         {step === "bank-form" && (
           <div className="bg-card border rounded-2xl p-5 space-y-4">
             <div className="flex items-center gap-3">
               <button onClick={() => setStep("method")} className="text-muted-foreground p-1">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
               </button>
-              <h3 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>Datos para Transferencia</h3>
+              <h3 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>Retiro por Cajero</h3>
             </div>
 
-            {/* Auto-filled name and CI */}
+            {/* Info auto-completada */}
             <div className="rounded-xl p-3 space-y-2" style={{ background: "hsl(var(--muted))" }}>
-              <p className="text-xs font-bold text-muted-foreground">DATOS AUTO-COMPLETADOS</p>
-              <div className="flex gap-4">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Tus datos (auto-completados)</p>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-xs text-muted-foreground">Nombre completo</p>
+                  <p className="text-xs text-muted-foreground">Nombre</p>
                   <p className="font-bold text-sm">{user?.full_name}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">CI</p>
                   <p className="font-bold text-sm">{user?.ci}</p>
                 </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground">WhatsApp</p>
+                  <p className="font-bold text-sm">{user?.phone || "—"}</p>
+                </div>
               </div>
             </div>
 
             {/* Bank selection */}
             <div>
-              <label className="text-sm font-bold block mb-2">🏦 Banco</label>
+              <label className="text-sm font-bold block mb-2">🏦 Banco preferido</label>
               <div className="grid grid-cols-2 gap-2">
                 {BANKS.map(b => (
                   <button key={b} onClick={() => setBank(b)}
@@ -290,16 +306,10 @@ export default function WalletPage() {
               </div>
             </div>
 
-            <div>
-              <label className="text-sm font-bold block mb-1.5">📱 WhatsApp</label>
-              <input className="input-field" type="tel" placeholder="+591 70000000"
-                value={whatsapp} onChange={e => setWhatsapp(e.target.value)} />
-            </div>
-
-            <div>
-              <label className="text-sm font-bold block mb-1.5">🔢 Número de cuenta (opcional)</label>
-              <input className="input-field" type="text" placeholder="Número de cuenta bancaria"
-                value={accountNumber} onChange={e => setAccountNumber(e.target.value)} />
+            <div className="rounded-xl p-3 text-xs flex items-start gap-2"
+              style={{ background: "hsl(42 98% 52% / 0.08)", border: "1px solid hsl(42 98% 52% / 0.2)" }}>
+              <span>🏧</span>
+              <span>El admin te enviará un <strong>PIN de retiro</strong> por WhatsApp. Úsalo en cualquier cajero automático de {bank}.</span>
             </div>
 
             <div className="rounded-2xl p-3 flex items-center justify-between"
@@ -310,8 +320,8 @@ export default function WalletPage() {
               </span>
             </div>
 
-            <button className="btn-primary" onClick={submitWithdrawal} disabled={loading}>
-              {loading ? "Enviando..." : "✅ Enviar solicitud de retiro"}
+            <button className="btn-primary" onClick={() => submitWithdrawal("bank")} disabled={loading}>
+              {loading ? "Enviando..." : "✅ Enviar solicitud"}
             </button>
           </div>
         )}
@@ -330,26 +340,52 @@ export default function WalletPage() {
             <div className="space-y-2">
               {(withdrawals as any[]).map((w: any) => {
                 const sc = statusConfig(w.status);
-                let methodLabel = "Transferencia";
-                try {
-                  const info = JSON.parse(w.bank_account_info ?? "{}");
-                  if (info.method === "qr") methodLabel = "📱 QR";
-                  else if (info.bank) methodLabel = `🏦 ${info.bank}`;
-                } catch {}
+                let methodInfo: any = {};
+                try { methodInfo = JSON.parse(w.bank_account_info ?? "{}"); } catch {}
+                const isQr = methodInfo.method === "qr";
+                const isBank = methodInfo.method === "bank";
+                const methodLabel = isQr ? "📱 QR" : isBank ? `🏧 Cajero · ${methodInfo.bank ?? ""}` : "Transferencia";
+
                 return (
-                  <div key={w.id} className="bg-card border rounded-2xl p-4 flex items-center justify-between">
-                    <div>
-                      <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                        Bs {parseFloat(w.amount).toLocaleString("es-BO", { minimumFractionDigits: 2 })}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {methodLabel} · {new Date(w.created_at).toLocaleDateString("es-BO")}
-                      </p>
+                  <div key={w.id} className="bg-card border rounded-2xl p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                          Bs {parseFloat(w.amount).toLocaleString("es-BO", { minimumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {methodLabel} · {new Date(w.created_at).toLocaleDateString("es-BO")}
+                        </p>
+                      </div>
+                      <div className="text-xs font-bold px-3 py-1.5 rounded-full"
+                        style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.color }}>
+                        {sc.label}
+                      </div>
                     </div>
-                    <div className="text-xs font-bold px-3 py-1.5 rounded-full"
-                      style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.color }}>
-                      {sc.label}
-                    </div>
+
+                    {/* Paid QR: show proof button */}
+                    {w.status === "paid" && isQr && w.payment_proof_url && (
+                      <button
+                        onClick={() => setProofModal(w.payment_proof_url)}
+                        className="w-full py-2 rounded-xl text-xs font-bold border-2 transition-all"
+                        style={{ borderColor: "hsl(142 70% 45% / 0.4)", color: "hsl(142 70% 30%)", background: "hsl(142 70% 45% / 0.08)" }}>
+                        🧾 Ver comprobante de pago
+                      </button>
+                    )}
+
+                    {/* Paid Bank: show PIN */}
+                    {w.status === "paid" && isBank && w.withdrawal_pin && (
+                      <div className="flex items-center gap-2 rounded-xl px-3 py-2"
+                        style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.2)" }}>
+                        <span className="text-base">🔑</span>
+                        <div>
+                          <p className="text-xs text-muted-foreground">PIN de retiro en cajero</p>
+                          <p className="font-black text-lg tracking-[0.2em]" style={{ color: "hsl(var(--primary))", fontFamily: "'Poppins', sans-serif" }}>
+                            {w.withdrawal_pin}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

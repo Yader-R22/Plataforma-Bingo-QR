@@ -19,6 +19,8 @@ export const withdrawalsTable = pgTable("withdrawals", {
   bankQrUrl: text("bank_qr_url"),
   bankAccountInfo: text("bank_account_info"),
   notes: text("notes"),
+  paymentProofUrl: text("payment_proof_url"),
+  withdrawalPin: text("withdrawal_pin"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   paidAt: timestamp("paid_at", { withTimezone: true }),
 });

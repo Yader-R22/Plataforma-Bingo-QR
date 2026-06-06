@@ -15,6 +15,8 @@ function formatWithdrawal(w: typeof withdrawalsTable.$inferSelect) {
     status: w.status,
     bank_qr_url: w.bankQrUrl ?? null,
     bank_account_info: w.bankAccountInfo ?? null,
+    payment_proof_url: w.paymentProofUrl ?? null,
+    withdrawal_pin: w.withdrawalPin ?? null,
     notes: w.notes ?? null,
     created_at: w.createdAt,
     paid_at: w.paidAt ?? null,
@@ -77,14 +79,6 @@ router.post("/withdrawals", requireAuth, async (req: AuthRequest, res) => {
     bankQrUrl: bank_qr_url ?? null,
     bankAccountInfo: bank_account_info ?? null,
   }).returning();
-
-  // Add feed item
-  await db.insert(feedItemsTable).values({
-    type: "withdrawal",
-    message: `${users[0].fullName.split(" ")[0]} está retirando Bs ${amount.toFixed(2)}`,
-    amount: String(amount),
-    userDisplayName: users[0].fullName.split(" ")[0],
-  });
 
   res.status(201).json(formatWithdrawal(withdrawal));
 });

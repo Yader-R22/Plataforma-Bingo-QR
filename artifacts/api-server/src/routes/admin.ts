@@ -119,15 +119,37 @@ router.post("/withdrawals/:id/mark-paid", async (req: AuthRequest, res) => {
 
   if (withdrawal.status === "paid") { res.status(400).json({ error: "Este retiro ya fue pagado" }); return; }
 
+  const { payment_proof_url, withdrawal_pin } = req.body as { payment_proof_url?: string; withdrawal_pin?: string };
+
   // Debit from user balance
   await db.execute(
     sql`UPDATE users SET balance = balance - ${parseFloat(withdrawal.amount)} WHERE id = ${withdrawal.userId}`
   );
 
   const [updated] = await db.update(withdrawalsTable)
-    .set({ status: "paid", paidAt: new Date() })
+    .set({
+      status: "paid",
+      paidAt: new Date(),
+      paymentProofUrl: payment_proof_url ?? null,
+      withdrawalPin: withdrawal_pin ?? null,
+    })
     .where(eq(withdrawalsTable.id, p.data.id))
     .returning();
+
+  // Get user info for public feed announcement
+  const userRows = await db.select().from(usersTable).where(eq(usersTable.id, withdrawal.userId)).limit(1);
+  if (userRows.length) {
+    const u = userRows[0];
+    const parts = u.fullName.trim().split(/\s+/);
+    const displayName = parts.length >= 2 ? `${parts[0]} ${parts[1]}` : parts[0];
+    const dept = u.department ?? "";
+    await db.insert(feedItemsTable).values({
+      type: "withdrawal",
+      message: `${displayName}${dept ? ` de ${dept}` : ""} retiró Bs ${parseFloat(updated.amount).toFixed(2)}`,
+      amount: updated.amount,
+      userDisplayName: displayName,
+    });
+  }
 
   res.json({
     id: updated.id,
@@ -137,6 +159,8 @@ router.post("/withdrawals/:id/mark-paid", async (req: AuthRequest, res) => {
     status: updated.status,
     bank_qr_url: updated.bankQrUrl ?? null,
     bank_account_info: updated.bankAccountInfo ?? null,
+    payment_proof_url: updated.paymentProofUrl ?? null,
+    withdrawal_pin: updated.withdrawalPin ?? null,
     notes: updated.notes ?? null,
     created_at: updated.createdAt,
     paid_at: updated.paidAt ?? null,
