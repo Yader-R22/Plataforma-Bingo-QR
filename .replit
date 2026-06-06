@@ -1,4 +1,4 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-24", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -37,3 +37,6 @@ externalPort = 3000
 PAGOSYA_PUBLIC_KEY = "pk_live_f280454a752c4c5db4eaa45149af0c59"
 PAGOSYA_SECRET_KEY = "sk_live_c02e5248b2044f77a3ba689a4661f4d3"
 PAGOSYA_BASE_URL = "https://nbjwpakpimrqfocsxkda.supabase.co/functions/v1"
+
+[nix]
+channel = "stable-25_05"
