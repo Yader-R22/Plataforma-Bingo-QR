@@ -32,6 +32,7 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
   const [section, setSection] = useState<"info" | "password" | "balance" | "danger">("info");
 
   const [tempPwd, setTempPwd] = useState("");
+  const [tempPwdHours, setTempPwdHours] = useState(24);
   const [savingPwd, setSavingPwd] = useState(false);
 
   const [adjType, setAdjType] = useState<"credit" | "debit">("credit");
@@ -56,11 +57,16 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
     if (tempPwd.length < 6) { toast.error("Mínimo 6 caracteres"); return; }
     setSavingPwd(true);
     const r = await fetch(`${BASE}/api/admin/users/${userId}/set-temp-password`, {
-      method: "POST", headers: auth(), body: JSON.stringify({ temp_password: tempPwd }),
+      method: "POST", headers: auth(),
+      body: JSON.stringify({ temp_password: tempPwd, expires_hours: tempPwdHours }),
     });
     setSavingPwd(false);
-    if (r.ok) { toast.success("✅ Contraseña temporal establecida"); setTempPwd(""); }
-    else { const d = await r.json(); toast.error(d.error || "Error"); }
+    if (r.ok) {
+      const expiresAt = new Date(Date.now() + tempPwdHours * 3600000);
+      toast.success(`✅ Contraseña temporal establecida. Vence en ${tempPwdHours}h (${expiresAt.toLocaleString("es-BO")})`);
+      setTempPwd("");
+      setUser((u: any) => ({ ...u, must_change_password: true }));
+    } else { const d = await r.json(); toast.error(d.error || "Error"); }
   }
 
   async function adjustBalance() {
@@ -283,6 +289,38 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
                 value={tempPwd}
                 onChange={e => setTempPwd(e.target.value)}
               />
+
+              {/* Validity duration */}
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-muted-foreground">Validez de la contraseña temporal</p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[6, 24, 48, 72].map(h => (
+                    <button key={h} onClick={() => setTempPwdHours(h)}
+                      className="py-2 rounded-xl text-xs font-bold transition-all"
+                      style={{
+                        background: tempPwdHours === h ? "hsl(var(--primary))" : "hsl(var(--muted))",
+                        color: tempPwdHours === h ? "white" : "hsl(var(--foreground))",
+                      }}>
+                      {h}h
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground shrink-0">Personalizado:</span>
+                  <input type="number" min="1" max="720"
+                    className="input-field flex-1 text-center py-1.5"
+                    value={tempPwdHours}
+                    onChange={e => setTempPwdHours(Math.max(1, Math.min(720, parseInt(e.target.value) || 24)))}
+                  />
+                  <span className="text-xs text-muted-foreground shrink-0">horas</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground text-center">
+                  Vence el {new Date(Date.now() + tempPwdHours * 3600000).toLocaleString("es-BO", {
+                    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                  })}
+                </p>
+              </div>
+
               <button onClick={setTempPassword} disabled={savingPwd || tempPwd.length < 6}
                 className="w-full py-3 rounded-2xl font-bold text-sm text-white disabled:opacity-50"
                 style={{ background: "hsl(var(--primary))" }}>
@@ -292,6 +330,11 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
                 <div className="rounded-2xl p-3 text-center"
                   style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.3)" }}>
                   <p className="text-xs font-bold text-yellow-700">⚠️ Este usuario tiene una contraseña temporal pendiente de cambio</p>
+                  {user.temp_password_expires_at && (
+                    <p className="text-[11px] text-yellow-600 mt-0.5">
+                      Vence: {new Date(user.temp_password_expires_at).toLocaleString("es-BO")}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

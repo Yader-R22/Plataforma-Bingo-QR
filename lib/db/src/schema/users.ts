@@ -25,6 +25,7 @@ export const usersTable = pgTable("users", {
   resetToken: text("reset_token"),
   resetTokenExpiresAt: timestamp("reset_token_expires_at", { withTimezone: true }),
   mustChangePassword: boolean("must_change_password").notNull().default(false),
+  tempPasswordExpiresAt: timestamp("temp_password_expires_at", { withTimezone: true }),
   isBanned: boolean("is_banned").notNull().default(false),
   banReason: text("ban_reason"),
   lastKnownIp: text("last_known_ip"),

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuthStore, type AuthUser } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
@@ -39,7 +39,39 @@ export default function ProfilePage() {
   const [newCi, setNewCi] = useState("");
   const [changingCi, setChangingCi] = useState(false);
 
+  // Temp password change
+  const [newPwd, setNewPwd] = useState("");
+  const [newPwdConfirm, setNewPwdConfirm] = useState("");
+  const [changingPwd, setChangingPwd] = useState(false);
+
+  // Auto-focus change password form when arriving with must_change_password
+  useEffect(() => {
+    if (user?.must_change_password) {
+      document.getElementById("change-password-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [user?.must_change_password]);
+
   if (!user) return null;
+
+  async function changePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPwd.length < 6) { toast.error("La contraseña debe tener al menos 6 caracteres"); return; }
+    if (newPwd !== newPwdConfirm) { toast.error("Las contraseñas no coinciden"); return; }
+    setChangingPwd(true);
+    try {
+      const res = await fetch(`${BASE}/api/profile/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ new_password: newPwd }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error || "Error al cambiar contraseña"); return; }
+      setUser({ ...user, must_change_password: false, temp_password_expires_at: null } as AuthUser);
+      toast.success("✅ Contraseña actualizada correctamente. ¡Ya puedes jugar!");
+      setNewPwd(""); setNewPwdConfirm("");
+    } catch { toast.error("Error de conexión"); }
+    finally { setChangingPwd(false); }
+  }
   const sc = statusConfig(user.status);
 
   async function savePhone() {
@@ -180,6 +212,60 @@ export default function ProfilePage() {
       </div>
 
       <div className="px-4 py-4 max-w-xl mx-auto space-y-4">
+        {/* Temp password banner — shown prominently when must_change_password */}
+        {user.must_change_password && (
+          <div id="change-password-section" className="rounded-2xl overflow-hidden"
+            style={{ border: "2px solid hsl(42 98% 52% / 0.6)", background: "hsl(42 98% 52% / 0.06)" }}>
+            <div className="px-4 py-3 flex items-center gap-2"
+              style={{ background: "hsl(42 98% 52% / 0.15)", borderBottom: "1px solid hsl(42 98% 52% / 0.3)" }}>
+              <span className="text-xl">🔑</span>
+              <div className="flex-1">
+                <p className="font-bold text-sm" style={{ color: "hsl(42 98% 30%)" }}>Cambia tu contraseña temporal</p>
+                {(user as any).temp_password_expires_at && (
+                  <p className="text-[11px]" style={{ color: "hsl(42 98% 35%)" }}>
+                    Vence el {new Date((user as any).temp_password_expires_at).toLocaleString("es-BO", {
+                      day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+                    })}
+                  </p>
+                )}
+              </div>
+            </div>
+            <form onSubmit={changePassword} className="p-4 space-y-3">
+              <p className="text-xs text-muted-foreground">
+                El administrador estableció una contraseña temporal para tu cuenta. Elige una nueva contraseña personal para continuar.
+              </p>
+              <input
+                id="new-password-input"
+                type="password"
+                className="input-field"
+                placeholder="Nueva contraseña (mín. 6 caracteres)"
+                value={newPwd}
+                onChange={e => setNewPwd(e.target.value)}
+                autoComplete="new-password"
+                required
+                autoFocus
+              />
+              <input
+                type="password"
+                className="input-field"
+                placeholder="Repetir nueva contraseña"
+                value={newPwdConfirm}
+                onChange={e => setNewPwdConfirm(e.target.value)}
+                autoComplete="new-password"
+                required
+              />
+              <button type="submit" disabled={changingPwd || newPwd.length < 6 || newPwd !== newPwdConfirm}
+                className="w-full py-3 rounded-2xl font-bold text-sm text-white disabled:opacity-50"
+                style={{ background: "hsl(42 98% 40%)" }}>
+                {changingPwd ? "Guardando..." : "✅ Establecer nueva contraseña"}
+              </button>
+              {newPwd.length >= 6 && newPwdConfirm.length >= 1 && newPwd !== newPwdConfirm && (
+                <p className="text-xs font-bold text-center" style={{ color: "hsl(0 75% 45%)" }}>Las contraseñas no coinciden</p>
+              )}
+            </form>
+          </div>
+        )}
+
         {user.status === "pending" && (
           <div className="rounded-2xl p-4 text-sm flex items-start gap-3"
             style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.3)" }}>

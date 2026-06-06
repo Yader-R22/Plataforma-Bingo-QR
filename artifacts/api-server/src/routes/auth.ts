@@ -22,6 +22,7 @@ function formatUser(user: typeof usersTable.$inferSelect) {
     id_photo_front_url: user.idPhotoFrontUrl ?? null,
     id_photo_back_url: user.idPhotoBackUrl ?? null,
     must_change_password: user.mustChangePassword,
+    temp_password_expires_at: user.tempPasswordExpiresAt ?? null,
     is_banned: user.isBanned,
     ban_reason: user.banReason ?? null,
     last_known_ip: user.lastKnownIp ?? null,
@@ -49,6 +50,14 @@ router.post("/login", async (req, res) => {
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
     res.status(401).json({ error: "CI o contraseña incorrectos" });
+    return;
+  }
+  // Check if temp password has expired
+  if (user.mustChangePassword && user.tempPasswordExpiresAt && user.tempPasswordExpiresAt < new Date()) {
+    res.status(401).json({
+      error: "Tu contraseña temporal ha vencido. Contacta al administrador para obtener una nueva.",
+      code: "TEMP_PASSWORD_EXPIRED",
+    });
     return;
   }
   // Track last known IP for admin panel

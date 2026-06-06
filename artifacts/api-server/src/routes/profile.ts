@@ -1,4 +1,5 @@
 import { Router } from "express";
+import bcrypt from "bcryptjs";
 import { db, usersTable, nameChangeRequestsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
@@ -59,6 +60,27 @@ router.post("/name-change-request", requireAuth, async (req: AuthRequest, res) =
     admin_notes: request.adminNotes ?? null,
     created_at: request.createdAt,
   });
+});
+
+// ── Change own password (clears must_change_password flag) ──────────────────
+router.post("/change-password", requireAuth, async (req: AuthRequest, res) => {
+  const { new_password } = req.body as { new_password?: string };
+  if (!new_password || new_password.length < 6) {
+    res.status(400).json({ error: "La contraseña debe tener al menos 6 caracteres" });
+    return;
+  }
+  const passwordHash = await bcrypt.hash(new_password, 12);
+  const [updated] = await db.update(usersTable)
+    .set({ passwordHash, mustChangePassword: false, tempPasswordExpiresAt: null })
+    .where(eq(usersTable.id, req.userId!))
+    .returning();
+  await db.insert(auditLogsTable).values({
+    action: "user_changed_password",
+    userId: req.userId,
+    details: { cleared_temp_flag: true },
+    ipAddress: req.ip,
+  });
+  res.json(formatUser(updated));
 });
 
 export { router as profileRouter };

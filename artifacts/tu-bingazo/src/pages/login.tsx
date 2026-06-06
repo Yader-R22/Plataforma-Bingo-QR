@@ -24,9 +24,14 @@ export default function LoginPage() {
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "CI o contraseña incorrectos"); return; }
       setAuth(data.token, data.user);
-      toast.success(`¡Bienvenido, ${data.user.full_name.split(" ")[0]}! 🎉`);
-      if (data.user.is_admin) navigate("/admin");
-      else navigate("/");
+      if (data.user.must_change_password) {
+        toast.warning("🔑 Tienes una contraseña temporal. Cámbiala ahora para continuar.", { duration: 6000 });
+        navigate("/perfil");
+      } else {
+        toast.success(`¡Bienvenido, ${data.user.full_name.split(" ")[0]}! 🎉`);
+        if (data.user.is_admin) navigate("/admin");
+        else navigate("/");
+      }
     } catch {
       toast.error("Error de conexión. Intenta de nuevo.");
     } finally {

@@ -326,9 +326,14 @@ router.post("/users/:id/set-temp-password", async (req: AuthRequest, res) => {
     res.status(400).json({ error: "La contraseña temporal debe tener al menos 6 caracteres" });
     return;
   }
+  const { expires_hours } = req.body as { temp_password?: string; expires_hours?: number };
+  const hoursValid = typeof expires_hours === "number" && expires_hours >= 1 && expires_hours <= 720
+    ? expires_hours
+    : 24;
+  const tempPasswordExpiresAt = new Date(Date.now() + hoursValid * 60 * 60 * 1000);
   const passwordHash = await bcrypt.hash(temp_password, 12);
   const [updated] = await db.update(usersTable)
-    .set({ passwordHash, mustChangePassword: true })
+    .set({ passwordHash, mustChangePassword: true, tempPasswordExpiresAt })
     .where(eq(usersTable.id, id))
     .returning();
   if (!updated) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
