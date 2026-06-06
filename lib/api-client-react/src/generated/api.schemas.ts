@@ -592,6 +592,11 @@ export const ListGamesStatus = {
   finished: 'finished',
 } as const;
 
+export type DeleteGame200 = {
+  id: number;
+  deleted: boolean;
+};
+
 export type ListMyCardsParams = {
 game_id?: number;
 type?: ListMyCardsType;

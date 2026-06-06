@@ -27,6 +27,7 @@ export * from './cardStatus';
 export * from './checkoutSession';
 export * from './claimBingoInput';
 export * from './createCheckoutInput';
+export * from './deleteGame200';
 export * from './feedItem';
 export * from './feedItemType';
 export * from './forgotPasswordInput';

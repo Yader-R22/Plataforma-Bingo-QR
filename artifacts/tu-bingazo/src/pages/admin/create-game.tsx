@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useEffect, useState } from "react";
+import { useLocation, useRoute } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,11 +12,23 @@ import AppLayout from "@/components/AppLayout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function toDatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  const off = d.getTimezoneOffset();
+  const local = new Date(d.getTime() - off * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
 export default function CreateGamePage() {
   const [, navigate] = useLocation();
+  const [matchEdit, editParams] = useRoute("/admin/editar-juego/:id");
+  const editId = matchEdit ? editParams?.id : undefined;
+  const isEdit = !!editId;
+
   const token = useAuthStore(s => s.token);
   const user = useAuthStore(s => s.user);
   const [loading, setLoading] = useState(false);
+  const [loadingGame, setLoadingGame] = useState(isEdit);
 
   const [form, setForm] = useState({
     title: "",
@@ -31,33 +43,65 @@ export default function CreateGamePage() {
     max_winners: "1",
   });
 
+  useEffect(() => {
+    if (!isEdit) return;
+    (async () => {
+      try {
+        const res = await fetch(`${BASE}/api/games/${editId}`);
+        if (!res.ok) { toast.error("No se pudo cargar el juego"); navigate("/admin"); return; }
+        const g = await res.json();
+        setForm({
+          title: g.title ?? "",
+          type: g.type ?? "daily",
+          prize_amount: String(g.prize_amount ?? ""),
+          card_price: String(g.card_price ?? ""),
+          draw_date: g.draw_date ? toDatetimeLocal(g.draw_date) : "",
+          stream_url_youtube: g.stream_url_youtube ?? "",
+          stream_url_tiktok: g.stream_url_tiktok ?? "",
+          stream_url_facebook: g.stream_url_facebook ?? "",
+          game_mode: g.game_mode ?? "full_card",
+          max_winners: String(g.max_winners ?? "1"),
+        });
+      } catch {
+        toast.error("Error al cargar el juego");
+        navigate("/admin");
+      } finally {
+        setLoadingGame(false);
+      }
+    })();
+  }, [isEdit, editId]);
+
   function upd(k: string, v: string) { setForm(f => ({ ...f, [k]: v })); }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
-      const body = {
-        ...form,
+      const common = {
+        title: form.title,
         prize_amount: parseFloat(form.prize_amount),
         card_price: parseFloat(form.card_price),
         max_winners: parseInt(form.max_winners),
         draw_date: new Date(form.draw_date).toISOString(),
+        game_mode: form.game_mode,
         stream_url_youtube: form.stream_url_youtube || undefined,
         stream_url_tiktok: form.stream_url_tiktok || undefined,
         stream_url_facebook: form.stream_url_facebook || undefined,
       };
-      const res = await fetch(`${BASE}/api/games`, {
-        method: "POST",
+      const url = isEdit ? `${BASE}/api/games/${editId}` : `${BASE}/api/games`;
+      const method = isEdit ? "PATCH" : "POST";
+      const body = isEdit ? common : { ...common, type: form.type };
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (!res.ok) { toast.error(data.error || "Error al crear juego"); return; }
-      toast.success("Juego creado correctamente");
+      if (!res.ok) { toast.error(data.error || "Error al guardar el juego"); return; }
+      toast.success(isEdit ? "Juego actualizado correctamente" : "Juego creado correctamente");
       navigate("/admin");
     } catch {
-      toast.error("Error al crear el juego");
+      toast.error("Error al guardar el juego");
     } finally {
       setLoading(false);
     }
@@ -73,8 +117,13 @@ export default function CreateGamePage() {
             ← Volver
           </button>
         </div>
-        <h1 className="text-2xl font-black mb-5">Crear Nuevo Juego</h1>
+        <h1 className="text-2xl font-black mb-5">{isEdit ? "Editar Juego" : "Crear Nuevo Juego"}</h1>
 
+        {loadingGame ? (
+          <div className="space-y-4">
+            {[1, 2, 3, 4].map(i => <div key={i} className="h-12 bg-muted animate-pulse rounded-xl" />)}
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label>Título del juego</Label>
@@ -83,8 +132,8 @@ export default function CreateGamePage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Tipo</Label>
-              <Select value={form.type} onValueChange={v => upd("type", v)}>
+              <Label>Tipo {isEdit && <span className="text-xs text-muted-foreground">(no editable)</span>}</Label>
+              <Select value={form.type} onValueChange={v => upd("type", v)} disabled={isEdit}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="daily">Diario</SelectItem>
@@ -144,9 +193,10 @@ export default function CreateGamePage() {
           </div>
 
           <Button type="submit" className="w-full h-12 font-bold" disabled={loading}>
-            {loading ? "Creando..." : "✅ Crear Juego"}
+            {loading ? "Guardando..." : isEdit ? "💾 Guardar cambios" : "✅ Crear Juego"}
           </Button>
         </form>
+        )}
       </div>
     </AppLayout>
   );

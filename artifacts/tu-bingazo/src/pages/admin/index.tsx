@@ -170,6 +170,32 @@ export default function AdminPage() {
     }
   }
 
+  async function reactivateGame(gameId: number) {
+    if (!confirm("¿Reactivar este juego? Volverá a estado 'Próximo' y los jugadores podrán comprar cartones.")) return;
+    const r = await fetch(`${BASE}/api/games/${gameId}`, {
+      method: "PATCH", headers: authH(), body: JSON.stringify({ status: "upcoming" }),
+    });
+    if (r.ok) {
+      setGames(gs => gs.map(g => g.id === gameId ? { ...g, status: "upcoming" } : g));
+      toast.success("♻ Juego reactivado");
+      loadStats();
+    } else {
+      toast.error("No se pudo reactivar el juego");
+    }
+  }
+
+  async function deleteGame(gameId: number) {
+    if (!confirm("¿ELIMINAR este juego de forma permanente? Se borrarán también todos sus cartones y ganadores. Esta acción no se puede deshacer.")) return;
+    const r = await fetch(`${BASE}/api/games/${gameId}`, { method: "DELETE", headers: authH() });
+    if (r.ok) {
+      setGames(gs => gs.filter(g => g.id !== gameId));
+      toast.success("🗑 Juego eliminado");
+      loadStats();
+    } else {
+      toast.error("No se pudo eliminar el juego");
+    }
+  }
+
   if (!user?.is_admin) {
     return (
       <AppLayout>
@@ -399,10 +425,14 @@ export default function AdminPage() {
                         <button onClick={() => startGame(g.id)}
                           className="px-3 py-1.5 rounded-xl text-xs font-bold text-white"
                           style={{ background: "#16a34a" }}>▶ Iniciar</button>
+                        <button onClick={() => navigate(`/admin/editar-juego/${g.id}`)}
+                          className="text-xs font-bold" style={{ color: "hsl(var(--primary))" }}>✏ Editar</button>
                         <button onClick={() => toggleFeatured(g.id, g.is_featured)}
                           className="text-xs font-bold" style={{ color: "hsl(42 98% 40%)" }}>
                           {g.is_featured ? "Quitar destacado" : "⭐ Destacar"}
                         </button>
+                        <button onClick={() => deleteGame(g.id)}
+                          className="text-xs font-bold text-red-500">🗑 Eliminar</button>
                       </>
                     )}
                     {g.status === "active" && (
@@ -424,8 +454,14 @@ export default function AdminPage() {
                       </div>
                     )}
                     {g.status === "finished" && (
-                      <span className="text-xs px-2 py-0.5 rounded-full border"
-                        style={{ color: "hsl(var(--muted-foreground))" }}>Finalizado</span>
+                      <>
+                        <span className="text-xs px-2 py-0.5 rounded-full border"
+                          style={{ color: "hsl(var(--muted-foreground))" }}>Finalizado</span>
+                        <button onClick={() => reactivateGame(g.id)}
+                          className="text-xs font-bold" style={{ color: "#16a34a" }}>♻ Reactivar</button>
+                        <button onClick={() => deleteGame(g.id)}
+                          className="text-xs font-bold text-red-500">🗑 Eliminar</button>
+                      </>
                     )}
                   </div>
                 </div>

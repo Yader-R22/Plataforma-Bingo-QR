@@ -43,6 +43,7 @@ function Router() {
       <Route path="/perfil" component={() => <PrivateRoute component={ProfilePage} />} />
       <Route path="/admin" component={() => <PrivateRoute component={AdminPage} />} />
       <Route path="/admin/crear-juego" component={() => <PrivateRoute component={CreateGamePage} />} />
+      <Route path="/admin/editar-juego/:id" component={() => <PrivateRoute component={CreateGamePage} />} />
       <Route component={NotFound} />
     </Switch>
   );

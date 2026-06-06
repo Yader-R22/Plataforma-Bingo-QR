@@ -1,5 +1,1 @@
-- [Auto-mark numbers](auto-mark.md) — play.tsx uses cardsRef + prevCalledRef pattern to auto-mark new called numbers on all paid cards via PATCH /api/cards/:id/mark
-- [Featured games](featured-games.md) — isFeatured boolean on gamesTable; admin toggles via PATCH /api/admin/games/:id/featured; home page shows 4th section if featured game exists
-- [Withdrawal flow](withdrawal-flow.md) — Two methods: QR (base64 image → bank_qr_url) or bank transfer (JSON in bank_account_info with bank/whatsapp/name/ci); admin sees QR image or parsed JSON details
-- [Test users](test-users.md) — Admin: CI 1000001 / admin123. User with balance: CI 5555555 / test123 (Carlos Mamani, Bs 500, La Paz, status=active)
-- [CI change requests](ci-change-requests.md) — POST /api/profile/ci-change-request stores in audit_logs with action="ci_change_request"; admin sees it in logs tab
+- [Game deletion data-integrity](game-deletion-integrity.md) — never DELETE a game with paid cards (409); cascade winners→cards→games in a tx + audit log; reactivate = PATCH status, start resets calledNumbers.

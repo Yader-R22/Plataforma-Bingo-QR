@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable } from "@workspace/db";
+import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
 import {
@@ -14,6 +14,7 @@ import {
   CallNumberBody,
   StartGameParams,
   FinishGameParams,
+  DeleteGameParams,
 } from "@workspace/api-zod";
 
 const router = Router();
@@ -187,6 +188,41 @@ router.post("/:id/finish", requireAdmin, async (req: AuthRequest, res) => {
     .where(and(eq(cardsTable.gameId, p.data.id), eq(cardsTable.status, "active")));
 
   res.json(formatGame(game));
+});
+
+router.delete("/:id", requireAdmin, async (req: AuthRequest, res) => {
+  const p = DeleteGameParams.safeParse({ id: parseInt(String(req.params.id)) });
+  if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
+  const gameId = p.data.id;
+
+  const games = await db.select().from(gamesTable).where(eq(gamesTable.id, gameId)).limit(1);
+  if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
+
+  // Safety guard: never destroy money records. Block deletion if any card was paid.
+  const paidCards = await db.select({ id: cardsTable.id }).from(cardsTable)
+    .where(and(eq(cardsTable.gameId, gameId), eq(cardsTable.paymentStatus, "paid")))
+    .limit(1);
+  if (paidCards.length) {
+    res.status(409).json({ error: "No se puede eliminar: este juego tiene cartones pagados. Finalízalo en su lugar." });
+    return;
+  }
+
+  // Remove dependent rows first to satisfy FK constraints (winners → cards → game), atomically.
+  await db.transaction(async (tx) => {
+    await tx.delete(winnersTable).where(eq(winnersTable.gameId, gameId));
+    await tx.delete(cardsTable).where(eq(cardsTable.gameId, gameId));
+    await tx.delete(gamesTable).where(eq(gamesTable.id, gameId));
+    await tx.insert(auditLogsTable).values({
+      action: "game_deleted",
+      userId: req.userId!,
+      gameId,
+      details: { title: games[0].title, status: games[0].status },
+      ipAddress: req.ip,
+    });
+  });
+
+  req.log.info({ gameId }, "Juego eliminado por admin");
+  res.json({ id: gameId, deleted: true });
 });
 
 export { router as gamesRouter };

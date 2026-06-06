@@ -35,6 +35,7 @@ import type {
   CheckoutSession,
   ClaimBingoInput,
   CreateCheckoutInput,
+  DeleteGame200,
   ForgotPasswordInput,
   Game,
   GameInput,
@@ -884,6 +885,76 @@ export const useUpdateGame = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateGameMutationOptions(options));
+    }
+
+export const getDeleteGameUrl = (id: number,) => {
+
+
+
+
+  return `/api/games/${id}`
+}
+
+/**
+ * @summary Eliminar juego (admin)
+ */
+export const deleteGame = async (id: number, options?: RequestInit): Promise<DeleteGame200> => {
+
+  return customFetch<DeleteGame200>(getDeleteGameUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteGameMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteGame>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteGame>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteGame'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteGame>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteGame(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteGameMutationResult = NonNullable<Awaited<ReturnType<typeof deleteGame>>>
+
+    export type DeleteGameMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Eliminar juego (admin)
+ */
+export const useDeleteGame = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteGame>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteGame>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteGameMutationOptions(options));
     }
 
 export const getGetGameSessionUrl = (id: number,) => {

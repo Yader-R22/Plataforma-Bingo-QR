@@ -217,6 +217,19 @@ export const UpdateGameResponse = zod.object({
 
 
 /**
+ * @summary Eliminar juego (admin)
+ */
+export const DeleteGameParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteGameResponse = zod.object({
+  "id": zod.number(),
+  "deleted": zod.boolean()
+})
+
+
+/**
  * @summary Obtener sesión activa del juego con números cantados
  */
 export const GetGameSessionParams = zod.object({
