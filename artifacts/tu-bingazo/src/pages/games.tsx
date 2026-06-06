@@ -87,7 +87,7 @@ export default function GamesPage() {
             <p className="text-sm mt-1">Vuelve pronto para nuevos sorteos</p>
           </div>
         ) : (
-          <div className="space-y-7">
+          <div className="overflow-hidden rounded-3xl flex flex-col">
             {filtered.map((game: any) => {
               const cfg = typeConfig(game.type);
               const isLive = game.status === "active";
@@ -95,7 +95,7 @@ export default function GamesPage() {
               return (
                 <Link key={game.id} href={`/juegos/${game.id}`}>
                   <div
-                    className="rounded-3xl cursor-pointer relative overflow-hidden stars-bg"
+                    className="cursor-pointer relative overflow-hidden stars-bg"
                     style={{
                       background: cfg.gradient,
                       opacity: isFinished ? 0.8 : 1,
