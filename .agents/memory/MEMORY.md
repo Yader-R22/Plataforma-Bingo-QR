@@ -1,1 +1,2 @@
 - [Game deletion data-integrity](game-deletion-integrity.md) — never DELETE a game with paid cards (409); cascade winners→cards→games in a tx + audit log; reactivate = PATCH status, start resets calledNumbers.
+- [Game categories](game-categories.md) — home cards driven by game_categories table; fixed enum, edit-only admin API, idempotent startup seed.

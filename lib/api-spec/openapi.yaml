@@ -839,6 +839,46 @@ paths:
               schema:
                 $ref: "#/components/schemas/AdminStats"
 
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [games]
+      summary: Listar categorías de bingo (público)
+      responses:
+        "200":
+          description: Lista de categorías
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GameCategory"
+
+  /categories/{id}:
+    patch:
+      operationId: updateCategory
+      tags: [admin]
+      summary: Actualizar categoría de bingo (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameCategoryUpdate"
+      responses:
+        "200":
+          description: Categoría actualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameCategory"
+
 # ─── SCHEMAS ──────────────────────────────────────────────────────────────────
 components:
   schemas:
@@ -1061,6 +1101,53 @@ components:
         status:
           type: string
           enum: [upcoming, active, finished]
+
+    GameCategory:
+      type: object
+      required: [id, type, label, emoji, description, color_from, color_to, sort_order, is_active]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [daily, weekly, monthly]
+        label:
+          type: string
+          description: Nombre visible de la categoría
+        emoji:
+          type: string
+        description:
+          type: string
+          description: Subtítulo de la categoría
+        color_from:
+          type: string
+          description: Color inicial del degradado (hex)
+        color_to:
+          type: string
+          description: Color final del degradado (hex)
+        sort_order:
+          type: integer
+        is_active:
+          type: boolean
+          description: Si la categoría se muestra en Inicio
+
+    GameCategoryUpdate:
+      type: object
+      properties:
+        label:
+          type: string
+        emoji:
+          type: string
+        description:
+          type: string
+        color_from:
+          type: string
+        color_to:
+          type: string
+        sort_order:
+          type: integer
+        is_active:
+          type: boolean
 
     GameSession:
       type: object

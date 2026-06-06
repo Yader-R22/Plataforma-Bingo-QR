@@ -8,6 +8,7 @@ import { walletRouter } from "./wallet";
 import { profileRouter } from "./profile";
 import { feedRouter } from "./feed";
 import { adminRouter } from "./admin";
+import { categoriesRouter } from "./categories";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use("/wallet", walletRouter);
 router.use("/profile", profileRouter);
 router.use("/feed", feedRouter);
 router.use("/admin", adminRouter);
+router.use("/categories", categoriesRouter);
 
 export default router;

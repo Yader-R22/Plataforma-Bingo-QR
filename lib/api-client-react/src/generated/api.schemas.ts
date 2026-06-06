@@ -234,6 +234,42 @@ export interface GameUpdate {
   status?: GameUpdateStatus;
 }
 
+export type GameCategoryType = typeof GameCategoryType[keyof typeof GameCategoryType];
+
+
+export const GameCategoryType = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+} as const;
+
+export interface GameCategory {
+  id: number;
+  type: GameCategoryType;
+  /** Nombre visible de la categoría */
+  label: string;
+  emoji: string;
+  /** Subtítulo de la categoría */
+  description: string;
+  /** Color inicial del degradado (hex) */
+  color_from: string;
+  /** Color final del degradado (hex) */
+  color_to: string;
+  sort_order: number;
+  /** Si la categoría se muestra en Inicio */
+  is_active: boolean;
+}
+
+export interface GameCategoryUpdate {
+  label?: string;
+  emoji?: string;
+  description?: string;
+  color_from?: string;
+  color_to?: string;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
 export type GameSessionGameMode = typeof GameSessionGameMode[keyof typeof GameSessionGameMode];
 
 

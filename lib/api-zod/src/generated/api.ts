@@ -803,3 +803,50 @@ export const AdminGetStatsResponse = zod.object({
 })
 
 
+/**
+ * @summary Listar categorías de bingo (público)
+ */
+export const ListCategoriesResponseItem = zod.object({
+  "id": zod.number(),
+  "type": zod.enum(['daily', 'weekly', 'monthly']),
+  "label": zod.string().describe('Nombre visible de la categoría'),
+  "emoji": zod.string(),
+  "description": zod.string().describe('Subtítulo de la categoría'),
+  "color_from": zod.string().describe('Color inicial del degradado (hex)'),
+  "color_to": zod.string().describe('Color final del degradado (hex)'),
+  "sort_order": zod.number(),
+  "is_active": zod.boolean().describe('Si la categoría se muestra en Inicio')
+})
+export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
+
+
+/**
+ * @summary Actualizar categoría de bingo (admin)
+ */
+export const UpdateCategoryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateCategoryBody = zod.object({
+  "label": zod.string().optional(),
+  "emoji": zod.string().optional(),
+  "description": zod.string().optional(),
+  "color_from": zod.string().optional(),
+  "color_to": zod.string().optional(),
+  "sort_order": zod.number().optional(),
+  "is_active": zod.boolean().optional()
+})
+
+export const UpdateCategoryResponse = zod.object({
+  "id": zod.number(),
+  "type": zod.enum(['daily', 'weekly', 'monthly']),
+  "label": zod.string().describe('Nombre visible de la categoría'),
+  "emoji": zod.string(),
+  "description": zod.string().describe('Subtítulo de la categoría'),
+  "color_from": zod.string().describe('Color inicial del degradado (hex)'),
+  "color_to": zod.string().describe('Color final del degradado (hex)'),
+  "sort_order": zod.number(),
+  "is_active": zod.boolean().describe('Si la categoría se muestra en Inicio')
+})
+
+

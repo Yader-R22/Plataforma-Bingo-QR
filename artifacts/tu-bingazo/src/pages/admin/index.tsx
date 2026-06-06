@@ -10,6 +10,7 @@ const tabs = [
   { id: "overview", label: "📊 Resumen" },
   { id: "users", label: "👥 Usuarios" },
   { id: "games", label: "🎱 Juegos" },
+  { id: "categories", label: "🗂️ Categorías" },
   { id: "withdrawals", label: "💸 Retiros" },
   { id: "winners", label: "🏆 Ganadores" },
   { id: "logs", label: "📋 Auditoría" },
@@ -29,6 +30,9 @@ export default function AdminPage() {
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [winners, setWinners] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [catDraft, setCatDraft] = useState<Record<number, any>>({});
+  const [savingCat, setSavingCat] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [numberInput, setNumberInput] = useState<Record<number, string>>({});
   const [userSearch, setUserSearch] = useState("");
@@ -73,6 +77,16 @@ export default function AdminPage() {
       if (t === "logs") {
         const r = await fetch(`${BASE}/api/admin/audit-logs`, { headers: authH() });
         if (r.ok) setLogs(await r.json());
+      }
+      if (t === "categories") {
+        const r = await fetch(`${BASE}/api/categories`, { headers: authH() });
+        if (r.ok) {
+          const cats = await r.json();
+          setCategories(cats);
+          const draft: Record<number, any> = {};
+          for (const c of cats) draft[c.id] = { ...c };
+          setCatDraft(draft);
+        }
       }
     } catch {}
     setLoading(false);
@@ -193,6 +207,42 @@ export default function AdminPage() {
       loadStats();
     } else {
       toast.error("No se pudo eliminar el juego");
+    }
+  }
+
+  function updCatDraft(id: number, field: string, value: any) {
+    setCatDraft(d => ({ ...d, [id]: { ...d[id], [field]: value } }));
+  }
+
+  async function saveCategory(id: number) {
+    const d = catDraft[id];
+    if (!d) return;
+    setSavingCat(id);
+    try {
+      const r = await fetch(`${BASE}/api/categories/${id}`, {
+        method: "PATCH", headers: authH(),
+        body: JSON.stringify({
+          label: d.label,
+          emoji: d.emoji,
+          description: d.description,
+          color_from: d.color_from,
+          color_to: d.color_to,
+          sort_order: parseInt(String(d.sort_order)) || 0,
+          is_active: d.is_active,
+        }),
+      });
+      if (r.ok) {
+        const updated = await r.json();
+        setCategories(cs => cs.map(c => c.id === id ? updated : c));
+        setCatDraft(dr => ({ ...dr, [id]: { ...updated } }));
+        toast.success("✅ Categoría actualizada");
+      } else {
+        toast.error("No se pudo guardar la categoría");
+      }
+    } catch {
+      toast.error("Error al guardar la categoría");
+    } finally {
+      setSavingCat(null);
     }
   }
 
@@ -471,6 +521,102 @@ export default function AdminPage() {
               <div className="text-center py-12">
                 <p className="text-muted-foreground mb-4">Sin juegos creados</p>
                 <button className="btn-primary max-w-xs mx-auto" onClick={() => navigate("/admin/crear-juego")}>Crear primer juego</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* CATEGORIES */}
+        {tab === "categories" && !loading && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Personaliza las categorías que aparecen en la pantalla de Inicio: nombre, ícono, descripción, colores, orden y visibilidad.
+            </p>
+            {[...categories].sort((a, b) => a.sort_order - b.sort_order).map(c => {
+              const d = catDraft[c.id] ?? c;
+              const gradient = `linear-gradient(135deg, ${d.color_from}, ${d.color_to})`;
+              return (
+                <div key={c.id} className="bg-card border rounded-2xl overflow-hidden">
+                  {/* Live preview */}
+                  <div className="p-4 relative" style={{ background: gradient }}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-black text-white text-lg leading-tight">{d.emoji} {d.label}</p>
+                        {d.description && <p className="text-white/70 text-xs mt-0.5">{d.description}</p>}
+                      </div>
+                      {!d.is_active && (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-black/40 text-white">Oculta</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-4 space-y-3">
+                    <div className="grid grid-cols-[80px_1fr] gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-muted-foreground">Ícono</label>
+                        <input value={d.emoji} onChange={e => updCatDraft(c.id, "emoji", e.target.value)}
+                          className="w-full border rounded-xl px-3 py-2 text-center text-lg" maxLength={4} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-muted-foreground">Nombre</label>
+                        <input value={d.label} onChange={e => updCatDraft(c.id, "label", e.target.value)}
+                          className="w-full border rounded-xl px-3 py-2 text-sm" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-muted-foreground">Descripción</label>
+                      <input value={d.description} onChange={e => updCatDraft(c.id, "description", e.target.value)}
+                        placeholder="Ej: Sorteos todos los días"
+                        className="w-full border rounded-xl px-3 py-2 text-sm" />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-muted-foreground">Color inicial</label>
+                        <div className="flex items-center gap-2">
+                          <input type="color" value={d.color_from} onChange={e => updCatDraft(c.id, "color_from", e.target.value)}
+                            className="w-10 h-10 rounded-lg border cursor-pointer shrink-0" />
+                          <input value={d.color_from} onChange={e => updCatDraft(c.id, "color_from", e.target.value)}
+                            className="w-full border rounded-xl px-2 py-2 text-xs font-mono" />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-muted-foreground">Color final</label>
+                        <div className="flex items-center gap-2">
+                          <input type="color" value={d.color_to} onChange={e => updCatDraft(c.id, "color_to", e.target.value)}
+                            className="w-10 h-10 rounded-lg border cursor-pointer shrink-0" />
+                          <input value={d.color_to} onChange={e => updCatDraft(c.id, "color_to", e.target.value)}
+                            className="w-full border rounded-xl px-2 py-2 text-xs font-mono" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-muted-foreground">Orden</label>
+                        <input type="number" min="1" value={d.sort_order} onChange={e => updCatDraft(c.id, "sort_order", e.target.value)}
+                          className="w-20 border rounded-xl px-3 py-2 text-sm" />
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer pt-5">
+                        <input type="checkbox" checked={!!d.is_active} onChange={e => updCatDraft(c.id, "is_active", e.target.checked)}
+                          className="w-4 h-4" />
+                        <span className="text-sm font-bold">Visible en Inicio</span>
+                      </label>
+                    </div>
+
+                    <button onClick={() => saveCategory(c.id)} disabled={savingCat === c.id}
+                      className="w-full py-2.5 rounded-xl font-bold text-white text-sm"
+                      style={{ background: "hsl(var(--primary))" }}>
+                      {savingCat === c.id ? "Guardando..." : "💾 Guardar cambios"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            {categories.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">No hay categorías configuradas</p>
               </div>
             )}
           </div>

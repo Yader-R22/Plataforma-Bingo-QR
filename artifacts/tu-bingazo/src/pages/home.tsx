@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
-import { useListGames, useGetWallet, getGetWalletQueryKey } from "@workspace/api-client-react";
+import { useListGames, useGetWallet, getGetWalletQueryKey, useListCategories } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 
@@ -49,31 +49,31 @@ function FacebookIcon() {
 }
 
 function GameTypeSection({
-  type,
-  label,
-  emoji,
-  gradient,
+  category,
   games,
   onNavigate,
 }: {
-  type: string;
-  label: string;
-  emoji: string;
-  gradient: string;
+  category: any;
   games: any[];
   onNavigate: (path: string) => void;
 }) {
+  const type = category.type as string;
+  const label = category.label as string;
+  const emoji = category.emoji as string;
+  const description = category.description as string;
+  const gradient = `linear-gradient(135deg, ${category.color_from}, ${category.color_to})`;
+
   const game = games.find((g: any) => g.type === type && g.status !== "finished")
     ?? games.find((g: any) => g.type === type);
 
   if (!game) {
     return (
       <div className="rounded-3xl p-5 relative overflow-hidden cursor-pointer opacity-60"
-        style={{ background: gradient }} onClick={() => onNavigate("/juegos")}>
+        style={{ background: gradient }} onClick={() => onNavigate(`/juegos?type=${type}`)}>
         <div className="relative z-10 text-white">
           <p className="text-2xl mb-1">{emoji}</p>
           <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>{label}</p>
-          <p className="text-white/70 text-sm mt-1">Próximamente...</p>
+          <p className="text-white/70 text-sm mt-1">{description || "Próximamente..."}</p>
         </div>
       </div>
     );
@@ -100,6 +100,9 @@ function GameTypeSection({
             <p className="font-black text-white text-lg leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
               {emoji} {label}
             </p>
+            {description && (
+              <p className="text-white/60 text-xs mt-1">{description}</p>
+            )}
           </div>
           <div className="text-right">
             <p className="text-3xl font-black" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 60%)", textShadow: "0 0 12px rgba(255,180,0,0.5)" }}>
@@ -107,15 +110,6 @@ function GameTypeSection({
             </p>
             <p className="text-white/60 text-xs">Premio</p>
           </div>
-        </div>
-
-        <div className="flex items-center justify-between text-white/80 text-xs mt-3 pt-3 border-t border-white/20">
-          <span>📅 {new Date(game.draw_date).toLocaleDateString("es-BO", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
-          <span className="flex items-center gap-1">
-            <span>👥 {game.participant_count}</span>
-            <span className="mx-1">·</span>
-            <span className="font-bold" style={{ color: "hsl(42 98% 65%)" }}>Bs {game.card_price as number}/cartón</span>
-          </span>
         </div>
 
         {/* Official social icons */}
@@ -188,6 +182,7 @@ export default function HomePage() {
   const feedRef = useRef<HTMLDivElement>(null);
 
   const { data: games = [] } = useListGames();
+  const { data: categories = [] } = useListCategories();
   const { data: wallet } = useGetWallet({
     query: {
       queryKey: getGetWalletQueryKey(),
@@ -317,9 +312,9 @@ export default function HomePage() {
           Sorteos Disponibles
         </h2>
 
-        <GameTypeSection type="daily" label="Bingo Diario" emoji="🌅" gradient="var(--grad-daily)" games={gamesList} onNavigate={navigate} />
-        <GameTypeSection type="weekly" label="Bingo Semanal" emoji="🏆" gradient="var(--grad-weekly)" games={gamesList} onNavigate={navigate} />
-        <GameTypeSection type="monthly" label="Bingo Mensual" emoji="👑" gradient="var(--grad-monthly)" games={gamesList} onNavigate={navigate} />
+        {(categories as any[]).filter((c: any) => c.is_active).map((c: any) => (
+          <GameTypeSection key={c.id} category={c} games={gamesList} onNavigate={navigate} />
+        ))}
 
         {featuredGame && (
           <FeaturedGameSection game={featuredGame} onNavigate={navigate} />
