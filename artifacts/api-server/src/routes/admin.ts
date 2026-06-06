@@ -121,20 +121,28 @@ router.post("/withdrawals/:id/mark-paid", async (req: AuthRequest, res) => {
 
   const { payment_proof_url, withdrawal_pin } = req.body as { payment_proof_url?: string; withdrawal_pin?: string };
 
-  // Debit from user balance
-  await db.execute(
-    sql`UPDATE users SET balance = balance - ${parseFloat(withdrawal.amount)} WHERE id = ${withdrawal.userId}`
-  );
-
-  const [updated] = await db.update(withdrawalsTable)
-    .set({
-      status: "paid",
-      paidAt: new Date(),
-      paymentProofUrl: payment_proof_url ?? null,
-      withdrawalPin: withdrawal_pin ?? null,
-    })
-    .where(eq(withdrawalsTable.id, p.data.id))
-    .returning();
+  // Atomic: flip pending→paid and debit in ONE transaction. The conditional
+  // WHERE status = 'pending' guarantees a repeated or concurrent mark-paid
+  // debits the balance exactly once (no double-debit).
+  let updated: typeof withdrawalsTable.$inferSelect | undefined;
+  let alreadyPaid = false;
+  await db.transaction(async (tx) => {
+    const flipped = await tx.update(withdrawalsTable)
+      .set({
+        status: "paid",
+        paidAt: new Date(),
+        paymentProofUrl: payment_proof_url ?? null,
+        withdrawalPin: withdrawal_pin ?? null,
+      })
+      .where(and(eq(withdrawalsTable.id, p.data.id), eq(withdrawalsTable.status, "pending")))
+      .returning();
+    if (!flipped.length) { alreadyPaid = true; return; }
+    updated = flipped[0];
+    await tx.execute(
+      sql`UPDATE users SET balance = balance - ${parseFloat(withdrawal.amount)} WHERE id = ${withdrawal.userId}`
+    );
+  });
+  if (alreadyPaid || !updated) { res.status(400).json({ error: "Este retiro ya fue procesado" }); return; }
 
   // Get user info for public feed announcement
   const userRows = await db.select().from(usersTable).where(eq(usersTable.id, withdrawal.userId)).limit(1);
@@ -178,11 +186,21 @@ router.post("/winners/:id/validate", async (req: AuthRequest, res) => {
   const winner = winners[0];
 
   if (parsed.data.approved) {
-    // Credit balance to user
-    await db.execute(
-      sql`UPDATE users SET balance = balance + ${parseFloat(winner.prizeAmount)} WHERE id = ${winner.userId}`
-    );
-    await db.update(winnersTable).set({ validated: true, adminNotes: parsed.data.notes ?? null }).where(eq(winnersTable.id, p.data.id));
+    // Idempotent + atomic: flip validated false→true and credit in ONE
+    // transaction. The conditional WHERE validated = false ensures a repeated
+    // or concurrent approval credits the prize exactly once (no double-pay).
+    let alreadyValidated = false;
+    await db.transaction(async (tx) => {
+      const flipped = await tx.update(winnersTable)
+        .set({ validated: true, adminNotes: parsed.data.notes ?? null })
+        .where(and(eq(winnersTable.id, p.data.id), eq(winnersTable.validated, false)))
+        .returning();
+      if (!flipped.length) { alreadyValidated = true; return; }
+      await tx.execute(
+        sql`UPDATE users SET balance = balance + ${parseFloat(winner.prizeAmount)} WHERE id = ${winner.userId}`
+      );
+    });
+    if (alreadyValidated) { res.status(400).json({ error: "Este ganador ya fue validado" }); return; }
 
     // Get user name for feed
     const users = await db.select().from(usersTable).where(eq(usersTable.id, winner.userId)).limit(1);

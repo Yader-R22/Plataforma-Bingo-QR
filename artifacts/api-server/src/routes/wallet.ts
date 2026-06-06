@@ -59,26 +59,40 @@ router.post("/withdrawals", requireAuth, async (req: AuthRequest, res) => {
   if (!users.length) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
 
   const { amount, method, bank_qr_url, bank_account_info } = parsed.data;
-  const balance = parseFloat(users[0].balance);
 
-  // Get pending amount
-  const pending = await db.select({ total: sql<string>`coalesce(sum(${withdrawalsTable.amount}), 0)` })
-    .from(withdrawalsTable)
-    .where(and(eq(withdrawalsTable.userId, req.userId!), eq(withdrawalsTable.status, "pending")));
-  const pendingAmount = parseFloat(pending[0]?.total ?? "0");
+  // Reservation must be race-safe: two concurrent requests must not both pass a
+  // stale `balance - pending` snapshot and over-reserve funds (which would later
+  // drive the balance negative at mark-paid). We lock the user row FOR UPDATE,
+  // then re-read balance and pending inside the same transaction so the check
+  // and insert are serialized per user.
+  let withdrawal: typeof withdrawalsTable.$inferSelect | undefined;
+  let insufficient = false;
+  await db.transaction(async (tx) => {
+    const locked = await tx.execute(
+      sql`SELECT balance FROM users WHERE id = ${req.userId!} FOR UPDATE`
+    );
+    const balance = parseFloat((locked.rows[0]?.balance as string | undefined) ?? "0");
 
-  if (amount > balance - pendingAmount) {
+    const pending = await tx.select({ total: sql<string>`coalesce(sum(${withdrawalsTable.amount}), 0)` })
+      .from(withdrawalsTable)
+      .where(and(eq(withdrawalsTable.userId, req.userId!), eq(withdrawalsTable.status, "pending")));
+    const pendingAmount = parseFloat(pending[0]?.total ?? "0");
+
+    if (amount > balance - pendingAmount) { insufficient = true; return; }
+
+    [withdrawal] = await tx.insert(withdrawalsTable).values({
+      userId: req.userId!,
+      amount: String(amount),
+      method: method as "cash" | "bank_transfer",
+      bankQrUrl: bank_qr_url ?? null,
+      bankAccountInfo: bank_account_info ?? null,
+    }).returning();
+  });
+
+  if (insufficient || !withdrawal) {
     res.status(400).json({ error: "Saldo insuficiente para realizar el retiro" });
     return;
   }
-
-  const [withdrawal] = await db.insert(withdrawalsTable).values({
-    userId: req.userId!,
-    amount: String(amount),
-    method: method as "cash" | "bank_transfer",
-    bankQrUrl: bank_qr_url ?? null,
-    bankAccountInfo: bank_account_info ?? null,
-  }).returning();
 
   res.status(201).json(formatWithdrawal(withdrawal));
 });

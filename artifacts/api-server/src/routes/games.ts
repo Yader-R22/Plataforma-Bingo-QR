@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable } from "@workspace/db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
 import {
   ListGamesQueryParams,
@@ -158,8 +158,19 @@ router.post("/:id/call-number", requireAdmin, async (req: AuthRequest, res) => {
   const games = await db.select().from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
   if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
   const game = games[0];
-  const called = [...(game.calledNumbers ?? []), b.data.number];
-  const [updated] = await db.update(gamesTable).set({ calledNumbers: called }).where(eq(gamesTable.id, p.data.id)).returning();
+  if (game.status !== "active") { res.status(400).json({ error: "El juego no está activo" }); return; }
+  // Each number is drawn only once. The append is atomic (array_append guarded
+  // by NOT (n = ANY(called_numbers))) so concurrent calls cannot lose numbers
+  // or insert a duplicate — real bingo rule, race-safe.
+  const appended = await db.execute(
+    sql`UPDATE games SET called_numbers = array_append(called_numbers, ${b.data.number})
+        WHERE id = ${p.data.id} AND status = 'active' AND NOT (${b.data.number} = ANY(called_numbers))`
+  );
+  if (appended.rowCount === 0) {
+    res.status(409).json({ error: `El número ${b.data.number} ya fue cantado` });
+    return;
+  }
+  const [updated] = await db.select().from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
   res.json({
     game_id: updated.id,
     called_numbers: updated.calledNumbers,

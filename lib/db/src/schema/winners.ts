@@ -17,7 +17,7 @@ export const winnersTable = pgTable("winners", {
   id: serial("id").primaryKey(),
   gameId: integer("game_id").notNull().references(() => gamesTable.id),
   userId: integer("user_id").notNull().references(() => usersTable.id),
-  cardId: integer("card_id").notNull().references(() => cardsTable.id),
+  cardId: integer("card_id").notNull().unique().references(() => cardsTable.id),
   place: integer("place").notNull().default(1),
   prizeAmount: numeric("prize_amount", { precision: 10, scale: 2 }).notNull(),
   claimedAtMs: text("claimed_at_ms").notNull(),

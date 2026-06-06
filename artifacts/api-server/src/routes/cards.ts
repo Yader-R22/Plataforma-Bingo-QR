@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, cardsTable, gamesTable, winnersTable, usersTable, auditLogsTable, feedItemsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import {
   ListMyCardsQueryParams,
@@ -59,44 +59,41 @@ function formatCard(card: typeof cardsTable.$inferSelect) {
   };
 }
 
-function validateBingo(card: typeof cardsTable.$inferSelect, markedNumbers: number[], gameMode: string, calledNumbers: number[]): boolean {
+// Validate a bingo win strictly against the numbers actually called by the
+// game. The free space (0) always counts as a hit. Client-supplied marks are
+// NOT trusted for validity — a card wins if and only if the winning pattern's
+// cells all hold numbers that were called (this is the real bingo rule and is
+// immune to client tampering or polling lag).
+function validateBingo(card: typeof cardsTable.$inferSelect, gameMode: string, calledNumbers: number[]): boolean {
   const matrix = card.numbers as number[][];
-  const marked = new Set([...markedNumbers, 0]);
   const calledSet = new Set(calledNumbers);
 
-  // All marked numbers must be in called numbers (except free space 0)
-  for (const num of markedNumbers) {
-    if (num !== 0 && !calledSet.has(num)) return false;
-  }
-
-  const isMarked = (row: number, col: number) => marked.has(matrix[row][col]);
+  const isHit = (row: number, col: number) => {
+    const n = matrix[row][col];
+    return n === 0 || calledSet.has(n);
+  };
 
   if (gameMode === "full_card") {
     for (let r = 0; r < 5; r++) {
       for (let c = 0; c < 5; c++) {
-        if (!isMarked(r, c)) return false;
+        if (!isHit(r, c)) return false;
       }
     }
     return true;
   }
-  if (gameMode === "horizontal") {
+  if (gameMode === "horizontal" || gameMode === "quina") {
     for (let r = 0; r < 5; r++) {
-      if ([0, 1, 2, 3, 4].every(c => isMarked(r, c))) return true;
+      if ([0, 1, 2, 3, 4].every(c => isHit(r, c))) return true;
     }
   }
   if (gameMode === "vertical") {
     for (let c = 0; c < 5; c++) {
-      if ([0, 1, 2, 3, 4].every(r => isMarked(r, c))) return true;
+      if ([0, 1, 2, 3, 4].every(r => isHit(r, c))) return true;
     }
   }
   if (gameMode === "diagonal") {
-    if ([0, 1, 2, 3, 4].every(i => isMarked(i, i))) return true;
-    if ([0, 1, 2, 3, 4].every(i => isMarked(i, 4 - i))) return true;
-  }
-  if (gameMode === "quina") {
-    for (let r = 0; r < 5; r++) {
-      if ([0, 1, 2, 3, 4].every(c => isMarked(r, c))) return true;
-    }
+    if ([0, 1, 2, 3, 4].every(i => isHit(i, i))) return true;
+    if ([0, 1, 2, 3, 4].every(i => isHit(i, 4 - i))) return true;
   }
   return false;
 }
@@ -132,32 +129,64 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
 
   // --- Pay with wallet balance ---
   if (payWithBalance) {
+    // Spendable funds = balance MINUS funds already reserved by pending
+    // withdrawals. Pending withdrawals are debited later at admin mark-paid, so
+    // they must not be re-spent here or the balance could go negative.
     const currentBalance = parseFloat(user.balance as unknown as string);
-    if (currentBalance < totalAmount) {
-      res.status(400).json({ error: `Saldo insuficiente. Saldo actual: Bs ${currentBalance.toFixed(2)}` });
+    const pendingRows = await db.execute(
+      sql`SELECT COALESCE(SUM(amount), 0) AS total FROM withdrawals WHERE user_id = ${req.userId!} AND status = 'pending'`
+    );
+    const pendingAmount = parseFloat((pendingRows.rows[0]?.total as string | undefined) ?? "0");
+    const available = currentBalance - pendingAmount;
+    if (available < totalAmount) {
+      res.status(400).json({ error: `Saldo insuficiente. Disponible: Bs ${available.toFixed(2)} (saldo Bs ${currentBalance.toFixed(2)} menos retiros pendientes Bs ${pendingAmount.toFixed(2)})` });
       return;
     }
-    const newBalance = (currentBalance - totalAmount).toFixed(2);
-    const newCards = [];
-    for (let i = 0; i < quantity; i++) {
-      const numbers = generateBingoCard();
-      const [card] = await db.insert(cardsTable).values({
+    // Debit + card creation run in ONE transaction so the user is never
+    // charged without receiving all cards. We lock the user row FOR UPDATE
+    // FIRST, then re-read balance and pending withdrawals under the lock. This
+    // avoids a READ COMMITTED TOCTOU: a concurrent withdrawal could commit a
+    // new pending row after this tx's snapshot but before its write, so a bare
+    // conditional UPDATE with a SUM subquery could still pass against stale
+    // pending. Locking first forces a fresh read of committed pending.
+    const newCards: (typeof cardsTable.$inferSelect)[] = [];
+    let insufficient = false;
+    await db.transaction(async (tx) => {
+      const locked = await tx.execute(
+        sql`SELECT balance FROM users WHERE id = ${req.userId!} FOR UPDATE`
+      );
+      const lockedBalance = parseFloat((locked.rows[0]?.balance as string | undefined) ?? "0");
+      const pend = await tx.execute(
+        sql`SELECT COALESCE(SUM(amount), 0) AS total FROM withdrawals WHERE user_id = ${req.userId!} AND status = 'pending'`
+      );
+      const lockedPending = parseFloat((pend.rows[0]?.total as string | undefined) ?? "0");
+      if (lockedBalance - lockedPending < totalAmount) { insufficient = true; return; }
+      await tx.execute(
+        sql`UPDATE users SET balance = balance - ${totalAmount} WHERE id = ${req.userId!}`
+      );
+      for (let i = 0; i < quantity; i++) {
+        const numbers = generateBingoCard();
+        const [card] = await tx.insert(cardsTable).values({
+          gameId: game_id,
+          userId: req.userId!,
+          numbers,
+          paymentStatus: "paid",
+          status: "active",
+        }).returning();
+        newCards.push(card);
+      }
+      await tx.insert(auditLogsTable).values({
+        action: "card_purchase_wallet",
+        userId: req.userId,
         gameId: game_id,
-        userId: req.userId!,
-        numbers,
-        paymentStatus: "paid",
-        status: "active",
-      }).returning();
-      newCards.push(card);
-    }
-    await db.update(usersTable).set({ balance: newBalance }).where(eq(usersTable.id, req.userId!));
-    await db.insert(auditLogsTable).values({
-      action: "card_purchase_wallet",
-      userId: req.userId,
-      gameId: game_id,
-      details: { card_ids: newCards.map(c => c.id), amount: totalAmount, method: "wallet" },
-      ipAddress: req.ip,
+        details: { card_ids: newCards.map(c => c.id), amount: totalAmount, method: "wallet" },
+        ipAddress: req.ip,
+      });
     });
+    if (insufficient) {
+      res.status(400).json({ error: "Saldo insuficiente. Intenta de nuevo." });
+      return;
+    }
     res.status(201).json({ cards: newCards.map(formatCard), paid_with_balance: true });
     return;
   }
@@ -286,60 +315,98 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
   }
 
   const calledNumbers = game.calledNumbers ?? [];
-  const isValid = validateBingo(card, b.data.marked_numbers, game.gameMode, calledNumbers);
+  const isValid = validateBingo(card, game.gameMode, calledNumbers);
 
   if (!isValid) {
     res.json({ valid: false, message: "Los números marcados no coinciden con el patrón ganador. ¡Sigue jugando!" });
     return;
   }
 
-  // Check if max winners reached
-  const existingWinners = await db.select().from(winnersTable)
-    .where(and(eq(winnersTable.gameId, game.id), eq(winnersTable.validated, true)));
+  // Dedupe, max-winners cap, place assignment, winner insert and audit all run
+  // inside ONE transaction that locks the game row (SELECT ... FOR UPDATE).
+  // This serializes concurrent valid claims so two players cannot both pass the
+  // cap check or collide on the same place. The DB unique constraint on
+  // winners.card_id is the final guard against a same-card double claim.
+  let winner: typeof winnersTable.$inferSelect | undefined;
+  let dupCard = false;
+  let capReached = false;
+  let notActive = false;
+  try {
+    await db.transaction(async (tx) => {
+      // Lock the game row, then RE-READ status inside the lock: the game could
+      // have flipped to finished between the precheck and here, and we must not
+      // admit a late winner after the game closed.
+      const lockedRows = await tx.execute(
+        sql`SELECT status FROM games WHERE id = ${game.id} FOR UPDATE`
+      );
+      if ((lockedRows.rows[0]?.status as string | undefined) !== "active") { notActive = true; return; }
 
-  if (existingWinners.length >= game.maxWinners) {
-    res.json({ valid: false, message: "Ya se alcanzó el número máximo de ganadores para este juego" });
+      const cardWinner = await tx.select().from(winnersTable)
+        .where(eq(winnersTable.cardId, card.id)).limit(1);
+      if (cardWinner.length) { dupCard = true; return; }
+
+      // Count ALL existing claims (pending + validated): pending claims are
+      // already server-verified wins, so they occupy a slot and set the order.
+      const existingWinners = await tx.select().from(winnersTable)
+        .where(eq(winnersTable.gameId, game.id));
+      if (existingWinners.length >= game.maxWinners) { capReached = true; return; }
+
+      const prizes = (game.prizes as Array<{ place: number; amount: number }>) ?? [];
+      const nextPlace = existingWinners.length + 1;
+      const prize = prizes.find(p => p.place === nextPlace);
+      const prizeAmount = prize?.amount ?? parseFloat(game.prizeAmount);
+
+      [winner] = await tx.insert(winnersTable).values({
+        gameId: game.id,
+        userId: req.userId!,
+        cardId: card.id,
+        place: nextPlace,
+        prizeAmount: String(prizeAmount),
+        claimedAtMs: String(b.data.claimed_at_ms),
+        validated: false,
+      }).returning();
+
+      await tx.insert(auditLogsTable).values({
+        action: "bingo_claim",
+        userId: req.userId,
+        gameId: game.id,
+        cardId: card.id,
+        details: {
+          claimed_at_ms: b.data.claimed_at_ms,
+          server_timestamp_ms: claimTimestamp,
+          marked_numbers: b.data.marked_numbers,
+          called_numbers: calledNumbers,
+          prize_amount: prizeAmount,
+          place: nextPlace,
+        },
+        ipAddress: req.ip,
+      });
+    });
+  } catch (err) {
+    req.log.warn({ err, cardId: card.id }, "Reclamo de bingo duplicado o en conflicto bloqueado");
+    res.json({ valid: false, message: "Ya reclamaste BINGO con este cartón. El administrador validará tu premio." });
     return;
   }
 
-  const prizes = (game.prizes as Array<{ place: number; amount: number }>) ?? [];
-  const nextPlace = existingWinners.length + 1;
-  const prize = prizes.find(p => p.place === nextPlace);
-  const prizeAmount = prize?.amount ?? parseFloat(game.prizeAmount);
-
-  // Record the winner claim (unvalidated — admin must validate)
-  const [winner] = await db.insert(winnersTable).values({
-    gameId: game.id,
-    userId: req.userId!,
-    cardId: card.id,
-    place: nextPlace,
-    prizeAmount: String(prizeAmount),
-    claimedAtMs: String(b.data.claimed_at_ms),
-    validated: false,
-  }).returning();
-
-  // Log audit
-  await db.insert(auditLogsTable).values({
-    action: "bingo_claim",
-    userId: req.userId,
-    gameId: game.id,
-    cardId: card.id,
-    details: {
-      claimed_at_ms: b.data.claimed_at_ms,
-      server_timestamp_ms: claimTimestamp,
-      marked_numbers: b.data.marked_numbers,
-      called_numbers: calledNumbers,
-      prize_amount: prizeAmount,
-      place: nextPlace,
-    },
-    ipAddress: req.ip,
-  });
+  if (notActive) {
+    res.json({ valid: false, message: "El juego ya no está activo. Tu reclamo no pudo ser registrado." });
+    return;
+  }
+  if (dupCard) {
+    res.json({ valid: false, message: "Ya reclamaste BINGO con este cartón. El administrador validará tu premio." });
+    return;
+  }
+  if (capReached) {
+    res.json({ valid: false, message: "Ya se alcanzó el número máximo de ganadores para este juego" });
+    return;
+  }
+  if (!winner) { res.status(500).json({ error: "No se pudo registrar el reclamo" }); return; }
 
   const users = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
 
   res.json({
     valid: true,
-    message: `¡BINGO! Tu reclamo fue recibido en el puesto #${nextPlace}. El administrador validará tu premio.`,
+    message: `¡BINGO! Tu reclamo fue recibido en el puesto #${winner.place}. El administrador validará tu premio.`,
     winner: {
       id: winner.id,
       game_id: winner.gameId,
