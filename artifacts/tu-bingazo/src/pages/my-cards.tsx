@@ -104,24 +104,21 @@ export default function MyCardsPage() {
                     )}
                   </div>
 
-                  {status === "active" && (
-                    <div className="px-4 pb-4">
+                  <div className="px-4 pb-4">
+                    {status === "active" ? (
                       <button className="btn-primary" onClick={() => navigate(`/juegos/${gameId}/jugar`)}>
                         🎯 Ir a jugar
                       </button>
-                    </div>
-                  )}
-                  {status !== "active" && (
-                    <div className="px-4 pb-4">
+                    ) : (
                       <button
                         className="w-full py-2.5 rounded-xl text-sm font-bold border"
                         style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}
-                        onClick={() => navigate(`/juegos/${gameId}`)}
+                        onClick={() => navigate(`/juegos/${gameId}/jugar`)}
                       >
-                        Ver detalle del juego
+                        🃏 Ver mi cartón
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               );
             })}
