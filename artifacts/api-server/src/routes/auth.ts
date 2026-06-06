@@ -21,6 +21,10 @@ function formatUser(user: typeof usersTable.$inferSelect) {
     avatar_url: user.avatarUrl ?? null,
     id_photo_front_url: user.idPhotoFrontUrl ?? null,
     id_photo_back_url: user.idPhotoBackUrl ?? null,
+    must_change_password: user.mustChangePassword,
+    is_banned: user.isBanned,
+    ban_reason: user.banReason ?? null,
+    last_known_ip: user.lastKnownIp ?? null,
     created_at: user.createdAt,
   };
 }
@@ -38,13 +42,20 @@ router.post("/login", async (req, res) => {
     return;
   }
   const user = users[0];
+  if (user.isBanned) {
+    res.status(403).json({ error: `Cuenta suspendida${user.banReason ? `: ${user.banReason}` : ""}. Contacta al administrador.` });
+    return;
+  }
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
     res.status(401).json({ error: "CI o contraseña incorrectos" });
     return;
   }
+  // Track last known IP for admin panel
+  const ip = req.ip ?? req.socket?.remoteAddress ?? null;
+  if (ip) await db.update(usersTable).set({ lastKnownIp: ip }).where(eq(usersTable.id, user.id));
   const token = generateToken(user.id);
-  res.json({ token, user: formatUser(user) });
+  res.json({ token, user: formatUser({ ...user, lastKnownIp: ip }) });
 });
 
 router.post("/register", async (req, res) => {

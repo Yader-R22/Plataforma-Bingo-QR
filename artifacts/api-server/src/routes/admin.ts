@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { db, usersTable, nameChangeRequestsTable, withdrawalsTable, winnersTable, auditLogsTable, gamesTable, feedItemsTable } from "@workspace/db";
+import { db, usersTable, nameChangeRequestsTable, withdrawalsTable, winnersTable, auditLogsTable, gamesTable, feedItemsTable, cardsTable } from "@workspace/db";
 import { eq, and, like, sql, desc } from "drizzle-orm";
 import { requireAdmin, type AuthRequest } from "../middlewares/auth";
+import bcrypt from "bcryptjs";
 import {
   AdminListUsersQueryParams,
   AdminVerifyUserParams,
@@ -284,6 +285,163 @@ router.patch("/games/:id/featured", async (req: AuthRequest, res) => {
   const [game] = await db.update(gamesTable).set({ isFeatured: is_featured }).where(eq(gamesTable.id, id)).returning();
   if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
   res.json({ id: game.id, is_featured: game.isFeatured });
+});
+
+// ── Detailed user info ──────────────────────────────────────────────────────
+router.get("/users/:id", async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+  const rows = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+  if (!rows.length) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
+  const u = rows[0];
+
+  // Last IP from audit_logs (most recent entry for this user)
+  const lastIpRows = await db.select({ ip: auditLogsTable.ipAddress, createdAt: auditLogsTable.createdAt })
+    .from(auditLogsTable)
+    .where(and(eq(auditLogsTable.userId, id), sql`${auditLogsTable.ipAddress} IS NOT NULL`))
+    .orderBy(desc(auditLogsTable.createdAt))
+    .limit(1);
+
+  // Card stats
+  const cardCount = await db.select({ count: sql<number>`count(*)` })
+    .from(cardsTable).where(eq(cardsTable.userId, id));
+  const winCount = await db.select({ count: sql<number>`count(*)` })
+    .from(winnersTable).where(eq(winnersTable.userId, id));
+
+  res.json({
+    ...formatUser(u),
+    last_audit_ip: lastIpRows[0]?.ip ?? null,
+    last_audit_at: lastIpRows[0]?.createdAt ?? null,
+    cards_purchased: Number(cardCount[0]?.count ?? 0),
+    wins: Number(winCount[0]?.count ?? 0),
+  });
+});
+
+// ── Set temporary password ──────────────────────────────────────────────────
+router.post("/users/:id/set-temp-password", async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+  const { temp_password } = req.body as { temp_password?: string };
+  if (!temp_password || temp_password.length < 6) {
+    res.status(400).json({ error: "La contraseña temporal debe tener al menos 6 caracteres" });
+    return;
+  }
+  const passwordHash = await bcrypt.hash(temp_password, 12);
+  const [updated] = await db.update(usersTable)
+    .set({ passwordHash, mustChangePassword: true })
+    .where(eq(usersTable.id, id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
+  await db.insert(auditLogsTable).values({
+    action: "admin_set_temp_password",
+    userId: id,
+    details: { admin_id: req.userId },
+    ipAddress: req.ip,
+  });
+  res.json({ message: "Contraseña temporal establecida. El usuario deberá cambiarla al ingresar." });
+});
+
+// ── Adjust user balance (credit or debit) ───────────────────────────────────
+router.post("/users/:id/adjust-balance", async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+  const { amount, type, reason } = req.body as { amount?: number; type?: "credit" | "debit"; reason?: string };
+  if (!amount || amount <= 0 || !type || !["credit", "debit"].includes(type)) {
+    res.status(400).json({ error: "Datos inválidos: se requiere amount > 0 y type (credit|debit)" });
+    return;
+  }
+  const rows = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+  if (!rows.length) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
+
+  let newBalance = 0;
+  let insufficient = false;
+  await db.transaction(async (tx) => {
+    const locked = await tx.execute(sql`SELECT balance FROM users WHERE id = ${id} FOR UPDATE`);
+    const balance = parseFloat((locked.rows[0]?.balance as string | undefined) ?? "0");
+    if (type === "debit" && balance < amount) { insufficient = true; return; }
+    const delta = type === "credit" ? amount : -amount;
+    await tx.execute(sql`UPDATE users SET balance = balance + ${delta} WHERE id = ${id}`);
+    newBalance = balance + delta;
+    await tx.insert(withdrawalsTable).values({
+      userId: id,
+      amount: String(amount),
+      method: type === "credit" ? "admin_credit" : "admin_debit",
+      status: "paid",
+      notes: reason ?? null,
+      paidAt: new Date(),
+    });
+    await tx.insert(auditLogsTable).values({
+      action: `admin_balance_${type}`,
+      userId: id,
+      details: { amount, reason, admin_id: req.userId },
+      ipAddress: req.ip,
+    });
+  });
+  if (insufficient) { res.status(400).json({ error: "Saldo insuficiente para realizar el débito" }); return; }
+  res.json({ message: `Saldo ${type === "credit" ? "acreditado" : "debitado"} correctamente`, new_balance: newBalance });
+});
+
+// ── Ban user ────────────────────────────────────────────────────────────────
+router.post("/users/:id/ban", async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+  const { banned, reason } = req.body as { banned?: boolean; reason?: string };
+  if (typeof banned !== "boolean") { res.status(400).json({ error: "Se requiere banned (boolean)" }); return; }
+  const [updated] = await db.update(usersTable)
+    .set({ isBanned: banned, banReason: banned ? (reason ?? null) : null })
+    .where(eq(usersTable.id, id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
+  await db.insert(auditLogsTable).values({
+    action: banned ? "admin_ban_user" : "admin_unban_user",
+    userId: id,
+    details: { reason, admin_id: req.userId },
+    ipAddress: req.ip,
+  });
+  res.json({ message: banned ? "Usuario baneado" : "Baneo levantado", user: formatUser(updated) });
+});
+
+// ── Delete user ─────────────────────────────────────────────────────────────
+router.delete("/users/:id", async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+  if (id === req.userId) { res.status(400).json({ error: "No puedes eliminarte a ti mismo" }); return; }
+  const rows = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+  if (!rows.length) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
+  if (rows[0].isAdmin) { res.status(400).json({ error: "No se puede eliminar a un administrador" }); return; }
+  // Guard: don't delete if user has pending withdrawals
+  const pendingWd = await db.select({ count: sql<number>`count(*)` })
+    .from(withdrawalsTable).where(and(eq(withdrawalsTable.userId, id), eq(withdrawalsTable.status, "pending")));
+  if (Number(pendingWd[0]?.count ?? 0) > 0) {
+    res.status(400).json({ error: "El usuario tiene retiros pendientes. Procésalos antes de eliminar." });
+    return;
+  }
+  await db.delete(usersTable).where(eq(usersTable.id, id));
+  res.json({ message: "Usuario eliminado permanentemente" });
+});
+
+// ── Stats by department ─────────────────────────────────────────────────────
+router.get("/stats/departments", async (req: AuthRequest, res) => {
+  const rows = await db.execute(
+    sql`SELECT department,
+               COUNT(*) AS total,
+               SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active,
+               SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
+               SUM(CASE WHEN is_banned = true THEN 1 ELSE 0 END) AS banned,
+               SUM(balance) AS total_balance
+        FROM users
+        WHERE is_admin = false
+        GROUP BY department
+        ORDER BY total DESC`
+  );
+  res.json(rows.rows.map((r: any) => ({
+    department: r.department as string,
+    total: Number(r.total),
+    active: Number(r.active),
+    pending: Number(r.pending),
+    banned: Number(r.banned),
+    total_balance: parseFloat(r.total_balance ?? "0"),
+  })));
 });
 
 export { router as adminRouter };

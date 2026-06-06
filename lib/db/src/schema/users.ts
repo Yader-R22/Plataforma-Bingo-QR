@@ -24,6 +24,10 @@ export const usersTable = pgTable("users", {
   idPhotoBackUrl: text("id_photo_back_url"),
   resetToken: text("reset_token"),
   resetTokenExpiresAt: timestamp("reset_token_expires_at", { withTimezone: true }),
+  mustChangePassword: boolean("must_change_password").notNull().default(false),
+  isBanned: boolean("is_banned").notNull().default(false),
+  banReason: text("ban_reason"),
+  lastKnownIp: text("last_known_ip"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
