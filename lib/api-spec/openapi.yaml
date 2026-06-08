@@ -1006,11 +1006,8 @@ components:
     # ── Games ──
     RoundConfig:
       type: object
-      required: [round_number, game_mode, max_winners, prize_amount]
+      required: [game_mode, max_winners, prize_amount]
       properties:
-        round_number:
-          type: integer
-          description: Número de ronda (1-based)
         game_mode:
           type: string
           enum: [horizontal, vertical, diagonal, quina, full_card]

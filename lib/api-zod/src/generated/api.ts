@@ -120,7 +120,6 @@ export const ListGamesResponseItem = zod.object({
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
   "rounds": zod.array(zod.object({
-  "round_number": zod.number().describe('Número de ronda (1-based)'),
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
@@ -153,7 +152,6 @@ export const CreateGameBody = zod.object({
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
   "rounds": zod.array(zod.object({
-  "round_number": zod.number().describe('Número de ronda (1-based)'),
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
@@ -188,7 +186,6 @@ export const GetGameResponse = zod.object({
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
   "rounds": zod.array(zod.object({
-  "round_number": zod.number().describe('Número de ronda (1-based)'),
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
@@ -220,7 +217,6 @@ export const UpdateGameBody = zod.object({
   "max_winners": zod.number().optional(),
   "status": zod.enum(['upcoming', 'active', 'finished']).optional(),
   "rounds": zod.array(zod.object({
-  "round_number": zod.number().describe('Número de ronda (1-based)'),
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
@@ -247,7 +243,6 @@ export const UpdateGameResponse = zod.object({
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
   "rounds": zod.array(zod.object({
-  "round_number": zod.number().describe('Número de ronda (1-based)'),
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
@@ -366,7 +361,6 @@ export const StartGameResponse = zod.object({
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
   "rounds": zod.array(zod.object({
-  "round_number": zod.number().describe('Número de ronda (1-based)'),
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
@@ -405,7 +399,6 @@ export const FinishGameResponse = zod.object({
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
   "rounds": zod.array(zod.object({
-  "round_number": zod.number().describe('Número de ronda (1-based)'),
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
@@ -444,7 +437,6 @@ export const NextRoundResponse = zod.object({
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
   "rounds": zod.array(zod.object({
-  "round_number": zod.number().describe('Número de ronda (1-based)'),
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()

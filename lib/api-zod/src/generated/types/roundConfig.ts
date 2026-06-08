@@ -8,8 +8,6 @@
 import type { RoundConfigGameMode } from './roundConfigGameMode';
 
 export interface RoundConfig {
-  /** Número de ronda (1-based) */
-  round_number: number;
   game_mode: RoundConfigGameMode;
   max_winners: number;
   prize_amount: number;
