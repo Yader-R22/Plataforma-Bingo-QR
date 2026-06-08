@@ -27,7 +27,7 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
     const payload = jwt.verify(token, JWT_SECRET) as { userId: number };
     const users = await db.select().from(usersTable).where(eq(usersTable.id, payload.userId)).limit(1);
     if (!users.length) {
-      res.status(401).json({ error: "Usuario no encontrado" });
+      res.status(401).json({ error: "Usuario no encontrado", code: "USER_NOT_FOUND" });
       return;
     }
     if (users[0].isBanned) {

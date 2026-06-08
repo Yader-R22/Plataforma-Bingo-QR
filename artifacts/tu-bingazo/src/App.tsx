@@ -22,11 +22,11 @@ const queryClient = new QueryClient({
   },
 });
 
-// Global fetch interceptor: detects BANNED responses and updates local user state immediately
+// Global fetch interceptor: handles BANNED (403) and USER_NOT_FOUND (401) responses
 const _originalFetch = window.fetch.bind(window);
 window.fetch = async (...args) => {
   const response = await _originalFetch(...args);
-  if (response.status === 403) {
+  if (response.status === 403 || response.status === 401) {
     const clone = response.clone();
     try {
       const data = await clone.json();
@@ -35,6 +35,9 @@ window.fetch = async (...args) => {
         if (user) {
           authStore.getState().setUser({ ...user, is_banned: true, ban_reason: data.error ?? null });
         }
+      } else if (data?.code === "USER_NOT_FOUND") {
+        // User was deleted — force logout immediately
+        authStore.getState().logout();
       }
     } catch { /* non-JSON body, ignore */ }
   }
