@@ -39,11 +39,14 @@ export default function WalletPage() {
   const { data: withdrawals, refetch: refetchWithdrawals } = useListWithdrawals();
   const { data: earnings } = useListEarnings();
 
-  // Auto-poll withdrawals every 6s so users see paid/rejected status changes in real time
+  // Auto-poll balance + withdrawals every 6s so the user sees paid/rejected changes in real time
   useEffect(() => {
-    const id = setInterval(() => { refetchWithdrawals(); }, 6000);
+    const id = setInterval(() => {
+      refetchWallet();
+      refetchWithdrawals();
+    }, 6000);
     return () => clearInterval(id);
-  }, [refetchWithdrawals]);
+  }, [refetchWallet, refetchWithdrawals]);
 
   const filteredWithdrawals = useMemo(() => {
     const all = (withdrawals as any[]) ?? [];
