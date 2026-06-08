@@ -1,6 +1,6 @@
 import { Router } from "express";
 import crypto from "crypto";
-import { db, cardsTable, gamesTable } from "@workspace/db";
+import { db, cardsTable, gamesTable, feedItemsTable, usersTable } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { CreateCheckoutBody, GetPaymentStatusParams } from "@workspace/api-zod";
@@ -70,7 +70,7 @@ router.post("/webhook", async (req, res) => {
         .set({ paymentStatus: "paid", status: "active" })
         .where(eq(cardsTable.checkoutId, checkoutId));
 
-      // Increment participant count for the game
+      // Increment participant count for the game + feed event
       const paidCards = await db.select().from(cardsTable).where(eq(cardsTable.checkoutId, checkoutId));
       if (paidCards.length) {
         const gameId = paidCards[0].gameId;
@@ -79,6 +79,22 @@ router.post("/webhook", async (req, res) => {
           await db.update(gamesTable)
             .set({ participantCount: game[0].participantCount + paidCards.length })
             .where(eq(gamesTable.id, gameId));
+        }
+
+        // Feed: compra de cartones confirmada por QR
+        const buyer = await db.select().from(usersTable).where(eq(usersTable.id, paidCards[0].userId)).limit(1);
+        if (buyer.length) {
+          const u = buyer[0];
+          const bparts = u.fullName.trim().split(/\s+/);
+          const bName = bparts.length >= 2 ? `${bparts[0]} ${bparts[1]}` : bparts[0];
+          const bDept = u.department ?? "";
+          const gameTitle = game.length ? game[0].title : `juego #${gameId}`;
+          const cardCount = paidCards.length;
+          db.insert(feedItemsTable).values({
+            type: "card_purchase",
+            message: `${bName}${bDept ? ` de ${bDept}` : ""} compró ${cardCount} cartón${cardCount !== 1 ? "es" : ""} en ${gameTitle}`,
+            userDisplayName: bName,
+          }).catch(() => {});
         }
       }
       req.log.info({ checkoutId }, "Payment confirmed, cards activated");

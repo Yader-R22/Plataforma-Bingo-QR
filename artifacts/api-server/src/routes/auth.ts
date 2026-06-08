@@ -1,7 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, feedItemsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { generateToken, requireAuth, type AuthRequest } from "../middlewares/auth";
 import { LoginBody, RegisterBody, ForgotPasswordBody, ResetPasswordBody } from "@workspace/api-zod";
@@ -93,6 +93,17 @@ router.post("/register", async (req, res) => {
   }).returning();
 
   const token = generateToken(user.id);
+
+  // Feed: nuevo usuario registrado
+  const parts = user.fullName.trim().split(/\s+/);
+  const displayName = parts.length >= 2 ? `${parts[0]} ${parts[1]}` : parts[0];
+  const dept = user.department ?? "";
+  db.insert(feedItemsTable).values({
+    type: "new_user",
+    message: `${displayName}${dept ? ` de ${dept}` : ""} se unió a Tu Bingazo`,
+    userDisplayName: displayName,
+  }).catch(() => {});
+
   res.status(201).json({ token, user: formatUser(user) });
 });
 

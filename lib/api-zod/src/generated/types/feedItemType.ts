@@ -12,4 +12,6 @@ export type FeedItemType = typeof FeedItemType[keyof typeof FeedItemType];
 export const FeedItemType = {
   winner: 'winner',
   withdrawal: 'withdrawal',
+  new_user: 'new_user',
+  card_purchase: 'card_purchase',
 } as const;

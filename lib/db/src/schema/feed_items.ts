@@ -10,7 +10,7 @@ import { z } from "zod/v4";
 
 export const feedItemsTable = pgTable("feed_items", {
   id: serial("id").primaryKey(),
-  type: text("type", { enum: ["winner", "withdrawal"] }).notNull(),
+  type: text("type", { enum: ["winner", "withdrawal", "new_user", "card_purchase"] }).notNull(),
   message: text("message").notNull(),
   amount: numeric("amount", { precision: 10, scale: 2 }),
   userDisplayName: text("user_display_name"),

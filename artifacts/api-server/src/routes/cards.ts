@@ -187,6 +187,23 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
       res.status(400).json({ error: "Saldo insuficiente. Intenta de nuevo." });
       return;
     }
+
+    // Feed: compra con saldo de billetera
+    if (newCards.length) {
+      const buyer = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
+      if (buyer.length) {
+        const u = buyer[0];
+        const bparts = u.fullName.trim().split(/\s+/);
+        const bName = bparts.length >= 2 ? `${bparts[0]} ${bparts[1]}` : bparts[0];
+        const bDept = u.department ?? "";
+        db.insert(feedItemsTable).values({
+          type: "card_purchase",
+          message: `${bName}${bDept ? ` de ${bDept}` : ""} compró ${newCards.length} cartón${newCards.length !== 1 ? "es" : ""} en ${game.title}`,
+          userDisplayName: bName,
+        }).catch(() => {});
+      }
+    }
+
     res.status(201).json({ cards: newCards.map(formatCard), paid_with_balance: true });
     return;
   }

@@ -1552,7 +1552,7 @@ components:
           type: integer
         type:
           type: string
-          enum: [winner, withdrawal]
+          enum: [winner, withdrawal, new_user, card_purchase]
         message:
           type: string
           description: Mensaje formateado en español

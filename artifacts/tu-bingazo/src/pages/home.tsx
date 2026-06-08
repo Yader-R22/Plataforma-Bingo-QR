@@ -334,7 +334,7 @@ export default function HomePage() {
           <div ref={feedRef} className="flex gap-6 overflow-hidden whitespace-nowrap" style={{ scrollBehavior: "auto" }}>
             {[...feed, ...feed].map((item, i) => (
               <span key={i} className="text-xs font-bold text-purple-900 shrink-0">
-                {item.type === "winner" ? "🏆" : "💸"} {item.message}
+                {item.type === "winner" ? "🏆" : item.type === "new_user" ? "🙋" : item.type === "card_purchase" ? "🎟️" : "💸"} {item.message}
               </span>
             ))}
           </div>

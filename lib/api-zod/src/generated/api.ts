@@ -592,7 +592,7 @@ export const RequestNameChangeBody = zod.object({
 export const GetRecentFeedResponse = zod.object({
   "items": zod.array(zod.object({
   "id": zod.number(),
-  "type": zod.enum(['winner', 'withdrawal']),
+  "type": zod.enum(['winner', 'withdrawal', 'new_user', 'card_purchase']),
   "message": zod.string().describe('Mensaje formateado en español'),
   "amount": zod.number().nullish(),
   "user_display_name": zod.string().nullish(),
