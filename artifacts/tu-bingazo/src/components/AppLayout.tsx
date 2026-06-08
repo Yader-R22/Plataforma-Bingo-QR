@@ -39,6 +39,49 @@ function PhotoCapture({ label, value, onChange }: { label: string; value: string
   );
 }
 
+function BannedScreen({ reason }: { reason: string | null }) {
+  const logout = useAuthStore(s => s.logout);
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-4"
+      style={{ background: "hsl(var(--background))" }}>
+      <div className="w-full max-w-sm space-y-5 text-center">
+        <div className="flex items-center justify-center">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl"
+            style={{ background: "hsl(0 75% 52% / 0.1)", border: "2px solid hsl(0 75% 52% / 0.4)" }}>
+            🚫
+          </div>
+        </div>
+
+        <div>
+          <h1 className="font-black text-xl mb-1">Cuenta suspendida</h1>
+          <p className="text-sm text-muted-foreground">Tu cuenta ha sido suspendida por un administrador y no puedes acceder a la plataforma.</p>
+        </div>
+
+        {reason && (
+          <div className="rounded-2xl p-4 text-left"
+            style={{ background: "hsl(0 75% 52% / 0.07)", border: "1px solid hsl(0 75% 52% / 0.3)" }}>
+            <p className="text-xs font-black text-red-600 uppercase tracking-wide mb-1">Motivo de la suspensión:</p>
+            <p className="text-sm font-semibold">{reason}</p>
+          </div>
+        )}
+
+        <div className="rounded-2xl p-4 space-y-1.5"
+          style={{ background: "hsl(var(--muted) / 0.5)", border: "1px solid hsl(var(--border))" }}>
+          <p className="text-xs text-muted-foreground">
+            Si crees que esto es un error, comunícate con el administrador de Tu Bingazo para resolver tu situación.
+          </p>
+        </div>
+
+        <button onClick={logout}
+          className="w-full py-3 rounded-2xl font-bold text-sm"
+          style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function RejectedScreen({ reason }: { reason: string | null }) {
   const logout = useAuthStore(s => s.logout);
   return (
@@ -381,6 +424,11 @@ function IconRegister({ active }: { active: boolean }) {
 export default function AppLayout({ children, hideNav, title, showBack, onBack }: AppLayoutProps) {
   const [location] = useLocation();
   const user = useAuthStore(s => s.user);
+
+  // Guard: banned account
+  if (user && user.is_banned) {
+    return <BannedScreen reason={user.ban_reason} />;
+  }
 
   // Guard: needs CI upload (first time or after rejection)
   if (user && user.needs_ci_upload) {

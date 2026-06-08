@@ -29,6 +29,10 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
       res.status(401).json({ error: "Usuario no encontrado" });
       return;
     }
+    if (users[0].isBanned) {
+      res.status(403).json({ error: `Cuenta suspendida${users[0].banReason ? `: ${users[0].banReason}` : ""}. Contacta al administrador.`, code: "BANNED" });
+      return;
+    }
     req.userId = users[0].id;
     req.isAdmin = users[0].isAdmin;
     next();

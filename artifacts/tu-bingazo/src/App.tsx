@@ -1,7 +1,7 @@
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
-import { useAuthStore } from "@/hooks/useAuth";
+import { useAuthStore, authStore } from "@/hooks/useAuth";
 import HomePage from "@/pages/home";
 import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
@@ -21,6 +21,25 @@ const queryClient = new QueryClient({
     queries: { retry: 1, staleTime: 30_000 },
   },
 });
+
+// Global fetch interceptor: detects BANNED responses and updates local user state immediately
+const _originalFetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+  const response = await _originalFetch(...args);
+  if (response.status === 403) {
+    const clone = response.clone();
+    try {
+      const data = await clone.json();
+      if (data?.code === "BANNED") {
+        const user = authStore.getState().user;
+        if (user) {
+          authStore.getState().setUser({ ...user, is_banned: true, ban_reason: data.error ?? null });
+        }
+      }
+    } catch { /* non-JSON body, ignore */ }
+  }
+  return response;
+};
 
 function PrivateRoute({ component: Component }: { component: React.ComponentType }) {
   const token = useAuthStore(s => s.token);

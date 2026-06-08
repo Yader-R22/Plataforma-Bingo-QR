@@ -16,6 +16,8 @@ export interface AuthUser {
   id_photo_back_url: string | null;
   needs_ci_upload: boolean;
   rejection_reason: string | null;
+  is_banned: boolean;
+  ban_reason: string | null;
   must_change_password: boolean;
   temp_password_expires_at: string | null;
   created_at: string;
@@ -50,6 +52,9 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+// Raw store reference for use outside React components (e.g. fetch interceptor)
+export const authStore = useAuthStore;
 
 // Wire the API client to always read from localStorage
 setAuthTokenGetter(() => localStorage.getItem("token"));
