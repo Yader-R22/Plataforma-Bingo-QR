@@ -697,6 +697,7 @@ export default function AdminPage() {
   });
   const [creatingUser, setCreatingUser] = useState(false);
   const [pendingWinnersCount, setPendingWinnersCount] = useState(0);
+  const [deleteGameConfirm, setDeleteGameConfirm] = useState<number | null>(null);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
@@ -973,10 +974,17 @@ export default function AdminPage() {
   }
 
   async function deleteGame(gameId: number) {
-    if (!confirm("¿ELIMINAR este juego de forma permanente? Se borrarán también todos sus cartones y ganadores. Esta acción no se puede deshacer.")) return;
     const r = await fetch(`${BASE}/api/games/${gameId}`, { method: "DELETE", headers: authH() });
-    if (r.ok) { setGames(gs => gs.filter(g => g.id !== gameId)); toast.success("🗑 Juego eliminado"); loadStats(); }
-    else { toast.error("No se pudo eliminar el juego"); }
+    if (r.ok) {
+      setGames(gs => gs.filter(g => g.id !== gameId));
+      setDeleteGameConfirm(null);
+      toast.success("🗑 Juego eliminado");
+      loadStats();
+    } else {
+      const d = await r.json().catch(() => ({}));
+      toast.error(d.error || "No se pudo eliminar el juego");
+      setDeleteGameConfirm(null);
+    }
   }
 
   function updCatDraft(id: number, field: string, value: any) {
@@ -1504,7 +1512,14 @@ export default function AdminPage() {
                         <button onClick={() => startGame(g.id)} className="px-3 py-1.5 rounded-xl text-xs font-bold text-white" style={{ background: "#16a34a" }}>▶ Iniciar</button>
                         <button onClick={() => navigate(`/admin/editar-juego/${g.id}`)} className="text-xs font-bold" style={{ color: "hsl(var(--primary))" }}>✏ Editar</button>
                         <button onClick={() => toggleFeatured(g.id, g.is_featured)} className="text-xs font-bold" style={{ color: "hsl(42 98% 40%)" }}>{g.is_featured ? "Quitar destacado" : "⭐ Destacar"}</button>
-                        <button onClick={() => deleteGame(g.id)} className="text-xs font-bold text-red-500">🗑 Eliminar</button>
+                        {deleteGameConfirm === g.id ? (
+                          <div className="flex gap-1 items-center">
+                            <button onClick={() => deleteGame(g.id)} className="px-2 py-1 rounded-lg text-xs font-black text-white" style={{ background: "hsl(0 75% 50%)" }}>Sí, borrar</button>
+                            <button onClick={() => setDeleteGameConfirm(null)} className="px-2 py-1 rounded-lg text-xs font-bold border">No</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setDeleteGameConfirm(g.id)} className="text-xs font-bold text-red-500">🗑 Eliminar</button>
+                        )}
                       </>
                     )}
                     {g.status === "active" && (
@@ -1525,7 +1540,14 @@ export default function AdminPage() {
                       <>
                         <span className="text-xs px-2 py-0.5 rounded-full border" style={{ color: "hsl(var(--muted-foreground))" }}>Finalizado</span>
                         <button onClick={() => reactivateGame(g.id)} className="text-xs font-bold" style={{ color: "#16a34a" }}>♻ Reactivar</button>
-                        <button onClick={() => deleteGame(g.id)} className="text-xs font-bold text-red-500">🗑 Eliminar</button>
+                        {deleteGameConfirm === g.id ? (
+                          <div className="flex gap-1 items-center">
+                            <button onClick={() => deleteGame(g.id)} className="px-2 py-1 rounded-lg text-xs font-black text-white" style={{ background: "hsl(0 75% 50%)" }}>Sí, borrar</button>
+                            <button onClick={() => setDeleteGameConfirm(null)} className="px-2 py-1 rounded-lg text-xs font-bold border">No</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setDeleteGameConfirm(g.id)} className="text-xs font-bold text-red-500">🗑 Eliminar</button>
+                        )}
                       </>
                     )}
                   </div>
