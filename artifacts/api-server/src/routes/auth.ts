@@ -2,7 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { db, usersTable, feedItemsTable, winnersTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { generateToken, requireAuth, type AuthRequest } from "../middlewares/auth";
 import { LoginBody, RegisterBody, ForgotPasswordBody, ResetPasswordBody } from "@workspace/api-zod";
 
@@ -211,7 +211,7 @@ router.get("/me/stats", requireAuth, async (req: AuthRequest, res) => {
   const result = await db.select({
     total_won: sql<string>`coalesce(sum(prize_amount), 0)`,
     wins_count: sql<number>`count(*)`,
-  }).from(winnersTable).where(eq(winnersTable.userId, req.userId!));
+  }).from(winnersTable).where(and(eq(winnersTable.userId, req.userId!), eq(winnersTable.validated, true)));
   res.json({
     total_won: parseFloat(result[0]?.total_won ?? "0"),
     wins_count: Number(result[0]?.wins_count ?? 0),
