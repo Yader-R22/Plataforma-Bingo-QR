@@ -1090,7 +1090,7 @@ export default function AdminPage() {
   async function registerPartnerPayment(snapshot: any[]) {
     if (!financeSummary) return;
     const totalPaid = snapshot.reduce((sum, p) => sum + p.amount, 0);
-    if (totalPaid <= 0) { toast.error("Sin monto a distribuir"); return; }
+    if (totalPaid <= 0 && !confirm(`La ganancia neta del período es negativa o cero (Bs ${financeSummary.net_profit.toFixed(2)}). ¿Igual querés archivar este período como registro histórico?`)) return;
     const PERIOD_LABELS: Record<string, string> = { today: "Hoy", week: "Últimos 7 días", month: "Últimos 30 días", year: "Último año", all: "Todo el tiempo" };
     const periodLabel = financeSummary.period === "custom"
       ? `${financeFrom || "—"} al ${financeTo || "hoy"}`
@@ -2360,7 +2360,7 @@ ${partnersSection}
                       </div>
 
                       <div className="flex gap-2">
-                        <button onClick={() => registerPartnerPayment(dividendSnapshot)} disabled={savingPartnerPayment || s.net_profit <= 0}
+                        <button onClick={() => registerPartnerPayment(dividendSnapshot)} disabled={savingPartnerPayment || activePartners.length === 0}
                           className="flex-1 py-2 rounded-lg text-xs font-bold text-white disabled:opacity-50"
                           style={{ background: "#5b21b6" }}>
                           {savingPartnerPayment ? "Registrando..." : "✅ Registrar y archivar pago"}
