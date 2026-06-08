@@ -11,6 +11,21 @@ const ALL_TYPE_FILTERS = [
   { value: "monthly", label: "👑 Mensual" },
 ];
 
+function drawDatePriority(game: any): number {
+  if (game.status === "active") return 0;
+  if (game.status === "finished") return 99;
+  const now = new Date();
+  const draw = new Date(game.draw_date);
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const drawStart = new Date(draw.getFullYear(), draw.getMonth(), draw.getDate());
+  const diffDays = Math.round((drawStart.getTime() - todayStart.getTime()) / 86400000);
+  if (diffDays <= 0) return 1;   // HOY
+  if (diffDays === 1) return 2;  // MAÑANA
+  if (diffDays <= 6) return 3;   // ESTA SEMANA
+  if (diffDays <= 13) return 4;  // LA OTRA SEMANA
+  return 5;                      // PRÓXIMO
+}
+
 function drawDateLabel(drawDate: string): string {
   const now = new Date();
   const draw = new Date(drawDate);
@@ -52,7 +67,9 @@ export default function GamesPage() {
   const allGamesList = (allGames ?? []) as any[];
   const existingTypes = new Set(allGamesList.map((g: any) => g.type));
   const TYPE_FILTERS = ALL_TYPE_FILTERS.filter(f => f.value === "all" || existingTypes.has(f.value));
-  const filtered = filter === "all" ? allGamesList : allGamesList.filter((g: any) => g.type === filter);
+  const filtered = (filter === "all" ? allGamesList : allGamesList.filter((g: any) => g.type === filter))
+    .slice()
+    .sort((a: any, b: any) => drawDatePriority(a) - drawDatePriority(b));
 
   const typeTitle = filter === "daily" ? "Bingos Diarios" : filter === "weekly" ? "Bingos Semanales" : filter === "monthly" ? "Bingos Mensuales" : "Juegos Disponibles";
 
