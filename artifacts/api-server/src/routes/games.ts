@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable } from "@workspace/db";
-import type { RoundConfig } from "@workspace/db";
+import type { RoundConfig, RoundHistoryEntry } from "@workspace/db";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
 import {
@@ -64,6 +64,7 @@ function formatGame(game: typeof gamesTable.$inferSelect) {
     rounds: rounds ?? null,
     current_round: currentRound,
     total_rounds: totalRounds,
+    round_history: (game.roundHistory as RoundHistoryEntry[] | null) ?? [],
     is_featured: game.isFeatured,
     cover_image_url: game.coverImageUrl ?? null,
     called_numbers: game.calledNumbers ?? [],
@@ -237,7 +238,7 @@ router.post("/:id/start", requireAdmin, async (req: AuthRequest, res) => {
   const p = StartGameParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
   const [game] = await db.update(gamesTable)
-    .set({ status: "active", calledNumbers: [], currentRound: 1 })
+    .set({ status: "active", calledNumbers: [], currentRound: 1, roundHistory: [] })
     .where(eq(gamesTable.id, p.data.id))
     .returning();
   if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
@@ -266,8 +267,15 @@ router.post("/:id/next-round", requireAdmin, async (req: AuthRequest, res) => {
     return;
   }
 
+  // Save current round's numbers to history before resetting
+  const existingHistory = (game.roundHistory as RoundHistoryEntry[] | null) ?? [];
+  const newHistory: RoundHistoryEntry[] = [
+    ...existingHistory.filter(h => h.round !== currentRound),
+    { round: currentRound, called_numbers: game.calledNumbers ?? [] },
+  ];
+
   const [updated] = await db.update(gamesTable)
-    .set({ currentRound: currentRound + 1, calledNumbers: [] })
+    .set({ currentRound: currentRound + 1, calledNumbers: [], roundHistory: newHistory })
     .where(eq(gamesTable.id, p.data.id))
     .returning();
 

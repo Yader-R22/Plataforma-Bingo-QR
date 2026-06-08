@@ -12,10 +12,14 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export type RoundConfig = {
-  round_number: number;
   game_mode: "horizontal" | "vertical" | "diagonal" | "quina" | "full_card";
   max_winners: number;
   prize_amount: number;
+};
+
+export type RoundHistoryEntry = {
+  round: number;
+  called_numbers: number[];
 };
 
 export const gamesTable = pgTable("games", {
@@ -36,6 +40,7 @@ export const gamesTable = pgTable("games", {
   prizes: jsonb("prizes").$type<Array<{ place: number; amount: number }>>().default([]),
   rounds: jsonb("rounds").$type<RoundConfig[]>(),
   currentRound: integer("current_round").notNull().default(1),
+  roundHistory: jsonb("round_history").$type<RoundHistoryEntry[]>(),
   calledNumbers: integer("called_numbers").array().notNull().default([]),
   participantCount: integer("participant_count").notNull().default(0),
   coverImageUrl: text("cover_image_url"),

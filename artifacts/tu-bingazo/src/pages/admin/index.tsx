@@ -719,6 +719,8 @@ export default function AdminPage() {
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const [expenseForm, setExpenseForm] = useState({ name: "", amount: "", frequency: "monthly", notes: "" });
   const [savingExpense, setSavingExpense] = useState(false);
+  // gameId → round → winner[]
+  const [gameWinners, setGameWinners] = useState<Record<number, Record<number, any[]>>>({});
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
@@ -756,6 +758,21 @@ export default function AdminPage() {
     } catch {}
   }
 
+  async function loadGameWinners(gameId: number) {
+    try {
+      const r = await fetch(`${BASE}/api/games/${gameId}/winners`, { headers: authH() });
+      if (!r.ok) return;
+      const list: any[] = await r.json();
+      const byRound: Record<number, any[]> = {};
+      for (const w of list) {
+        const rn = w.round ?? 1;
+        if (!byRound[rn]) byRound[rn] = [];
+        byRound[rn].push(w);
+      }
+      setGameWinners(prev => ({ ...prev, [gameId]: byRound }));
+    } catch {}
+  }
+
   async function loadTab(t: Tab) {
     setLoading(true);
     try {
@@ -765,7 +782,13 @@ export default function AdminPage() {
       }
       if (t === "games" || t === "overview") {
         const r = await fetch(`${BASE}/api/games`, { headers: authH() });
-        if (r.ok) setGames(await r.json());
+        if (r.ok) {
+          const gs: any[] = await r.json();
+          setGames(gs);
+          for (const g of gs) {
+            if (g.status === "active") loadGameWinners(g.id);
+          }
+        }
       }
       if (t === "withdrawals") {
         const r = await fetch(`${BASE}/api/admin/withdrawals`, { headers: authH() });
@@ -991,14 +1014,16 @@ export default function AdminPage() {
 
   async function nextRound(gameId: number) {
     const game = games.find(g => g.id === gameId);
-    const nextNum = (game?.current_round ?? 1) + 1;
+    const currentNum = game?.current_round ?? 1;
+    const nextNum = currentNum + 1;
     const total = game?.total_rounds ?? 1;
-    if (!confirm(`¿Avanzar a la Ronda ${nextNum} de ${total}? Los bolillos se reiniciarán.`)) return;
+    if (!confirm(`¿Completar la Ronda ${currentNum} y avanzar a la Ronda ${nextNum} de ${total}? Los bolillos actuales se guardarán en el historial.`)) return;
     const r = await fetch(`${BASE}/api/games/${gameId}/next-round`, { method: "POST", headers: authH() });
     if (r.ok) {
       const updated = await r.json();
       setGames(gs => gs.map(g => g.id === gameId ? { ...g, ...updated } : g));
-      toast.success(`🔄 Ronda ${nextNum} iniciada`);
+      loadGameWinners(gameId);
+      toast.success(`🏁 Ronda ${currentNum} completada · Iniciando Ronda ${nextNum}`);
     } else {
       const d = await r.json();
       toast.error(d.error || "Error al avanzar ronda");
@@ -2103,19 +2128,98 @@ ${summarySection}
                       </div>
                     )}
 
-                    {/* Footer bar — Siguiente ronda + Finalizar */}
+                    {/* ── Historial de rondas anteriores ── */}
+                    {(g.round_history?.length ?? 0) > 0 && (() => {
+                      const modeLabel: Record<string, string> = {
+                        full_card: "Cartón completo", horizontal: "Línea horizontal",
+                        vertical: "Línea vertical", diagonal: "Diagonal", quina: "Quina",
+                      };
+                      return (
+                        <div className="px-4 pb-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                          <p className="text-white/40 text-[10px] pt-3 mb-2 font-bold uppercase tracking-widest">Historial de rondas</p>
+                          <div className="space-y-2">
+                            {g.round_history.map((rh: any) => {
+                              const roundCfg = g.rounds?.[rh.round - 1] as any;
+                              const roundWinnersForHistory = gameWinners[g.id]?.[rh.round] ?? [];
+                              return (
+                                <div key={rh.round} className="rounded-xl p-2.5" style={{ background: "rgba(255,255,255,0.05)" }}>
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-white/80 text-[11px] font-black">
+                                      Ronda {rh.round}{roundCfg?.game_mode ? ` · ${modeLabel[roundCfg.game_mode] ?? roundCfg.game_mode}` : ""}
+                                    </span>
+                                    <span className="text-white/40 text-[10px]">{rh.called_numbers.length} bolillos</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1 mb-1.5">
+                                    {rh.called_numbers.slice(0, 15).map((n: number) => (
+                                      <span key={n} className="h-5 px-1 rounded-full flex items-center text-[10px] font-black"
+                                        style={{ background: BINGO_COL_COLORS[bingoLetter(n)], color: "white", minWidth: 26, justifyContent: "center" }}>
+                                        {bingoLabel(n)}
+                                      </span>
+                                    ))}
+                                    {rh.called_numbers.length > 15 && (
+                                      <span className="h-5 px-1 rounded-full flex items-center text-[10px] text-white/40"
+                                        style={{ background: "rgba(255,255,255,0.07)" }}>+{rh.called_numbers.length - 15}</span>
+                                    )}
+                                  </div>
+                                  {roundWinnersForHistory.length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                      {roundWinnersForHistory.map((w: any) => (
+                                        <span key={w.id} className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                                          style={{ background: "hsl(42 98% 52% / 0.2)", color: "hsl(42 98% 60%)" }}>
+                                          🏆 {w.user_name ?? `#${w.user_id}`}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* ── Ganadores ronda actual ── */}
+                    {(() => {
+                      const curWinners = gameWinners[g.id]?.[g.current_round ?? 1] ?? [];
+                      if (curWinners.length === 0) return null;
+                      return (
+                        <div className="px-4 pb-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                          <p className="text-white/40 text-[10px] pt-3 mb-2 font-bold uppercase tracking-widest">🏆 Ganadores ronda {g.current_round ?? 1}</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {curWinners.map((w: any) => (
+                              <span key={w.id} className="text-[11px] px-2.5 py-1 rounded-full font-bold"
+                                style={{ background: "hsl(42 98% 52% / 0.2)", color: "hsl(42 98% 60%)", border: "1px solid hsl(42 98% 52% / 0.3)" }}>
+                                🏆 {w.user_name ?? `#${w.user_id}`}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Footer bar */}
                     <div className="px-4 py-2.5 flex items-center justify-between"
                       style={{ background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
                       <span className="text-white/50 text-xs">{g.called_numbers?.length ?? 0} números · {g.participant_count} jugadores</span>
                       <div className="flex items-center gap-3">
-                        {(g.total_rounds ?? 1) > 1 && (g.current_round ?? 1) < (g.total_rounds ?? 1) && (
-                          <button onClick={() => nextRound(g.id)}
-                            className="text-xs font-bold transition-colors"
-                            style={{ color: "hsl(42 98% 60%)" }}>
-                            🔄 Sig. ronda →
+                        {(g.total_rounds ?? 1) > 1 && (g.current_round ?? 1) < (g.total_rounds ?? 1) ? (
+                          <>
+                            <button onClick={() => nextRound(g.id)}
+                              className="text-sm font-black px-4 py-1.5 rounded-xl transition-all active:scale-95"
+                              style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>
+                              🏁 Completar Ronda {g.current_round ?? 1} →
+                            </button>
+                            <button onClick={() => finishGame(g.id)} title="Finalizar juego de emergencia"
+                              className="text-[11px] font-bold text-red-400/60 hover:text-red-300 transition-colors">⏹</button>
+                          </>
+                        ) : (
+                          <button onClick={() => finishGame(g.id)}
+                            className="text-sm font-black px-4 py-1.5 rounded-xl transition-all active:scale-95"
+                            style={{ background: "hsl(0 75% 50% / 0.2)", color: "hsl(0 75% 70%)", border: "1px solid hsl(0 75% 50% / 0.3)" }}>
+                            ⏹ Finalizar Juego
                           </button>
                         )}
-                        <button onClick={() => finishGame(g.id)} className="text-xs font-bold text-red-300 hover:text-red-200 transition-colors">⏹ Finalizar</button>
                       </div>
                     </div>
                   </div>
@@ -2429,20 +2533,99 @@ ${summarySection}
                   </div>
                 )}
 
-                {/* Footer bar — Siguiente ronda + Finalizar */}
+                {/* ── Historial de rondas anteriores (games tab) ── */}
+                {g.status === "active" && (g.round_history?.length ?? 0) > 0 && (() => {
+                  const modeLabel: Record<string, string> = {
+                    full_card: "Cartón completo", horizontal: "Línea horizontal",
+                    vertical: "Línea vertical", diagonal: "Diagonal", quina: "Quina",
+                  };
+                  return (
+                    <div className="px-4 pb-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                      <p className="text-white/40 text-[10px] pt-3 mb-2 font-bold uppercase tracking-widest">Historial de rondas</p>
+                      <div className="space-y-2">
+                        {g.round_history.map((rh: any) => {
+                          const roundCfg = g.rounds?.[rh.round - 1] as any;
+                          const roundWinnersForHistory = gameWinners[g.id]?.[rh.round] ?? [];
+                          return (
+                            <div key={rh.round} className="rounded-xl p-2.5" style={{ background: "rgba(255,255,255,0.05)" }}>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-white/80 text-[11px] font-black">
+                                  Ronda {rh.round}{roundCfg?.game_mode ? ` · ${modeLabel[roundCfg.game_mode] ?? roundCfg.game_mode}` : ""}
+                                </span>
+                                <span className="text-white/40 text-[10px]">{rh.called_numbers.length} bolillos</span>
+                              </div>
+                              <div className="flex flex-wrap gap-1 mb-1.5">
+                                {rh.called_numbers.slice(0, 15).map((n: number) => (
+                                  <span key={n} className="h-5 px-1 rounded-full flex items-center text-[10px] font-black"
+                                    style={{ background: BINGO_COL_COLORS[bingoLetter(n)], color: "white", minWidth: 26, justifyContent: "center" }}>
+                                    {bingoLabel(n)}
+                                  </span>
+                                ))}
+                                {rh.called_numbers.length > 15 && (
+                                  <span className="h-5 px-1 rounded-full flex items-center text-[10px] text-white/40"
+                                    style={{ background: "rgba(255,255,255,0.07)" }}>+{rh.called_numbers.length - 15}</span>
+                                )}
+                              </div>
+                              {roundWinnersForHistory.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {roundWinnersForHistory.map((w: any) => (
+                                    <span key={w.id} className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                                      style={{ background: "hsl(42 98% 52% / 0.2)", color: "hsl(42 98% 60%)" }}>
+                                      🏆 {w.user_name ?? `#${w.user_id}`}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ── Ganadores ronda actual (games tab) ── */}
+                {g.status === "active" && (() => {
+                  const curWinners = gameWinners[g.id]?.[g.current_round ?? 1] ?? [];
+                  if (curWinners.length === 0) return null;
+                  return (
+                    <div className="px-4 pb-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                      <p className="text-white/40 text-[10px] pt-3 mb-2 font-bold uppercase tracking-widest">🏆 Ganadores ronda {g.current_round ?? 1}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {curWinners.map((w: any) => (
+                          <span key={w.id} className="text-[11px] px-2.5 py-1 rounded-full font-bold"
+                            style={{ background: "hsl(42 98% 52% / 0.2)", color: "hsl(42 98% 60%)", border: "1px solid hsl(42 98% 52% / 0.3)" }}>
+                            🏆 {w.user_name ?? `#${w.user_id}`}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Footer bar (games tab) */}
                 {g.status === "active" && (
                   <div className="px-4 py-2.5 flex items-center justify-between"
                     style={{ background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
                     <span className="text-white/50 text-xs">{g.called_numbers?.length ?? 0} números · {g.participant_count} jugadores</span>
                     <div className="flex items-center gap-3">
-                      {(g.total_rounds ?? 1) > 1 && (g.current_round ?? 1) < (g.total_rounds ?? 1) && (
-                        <button onClick={() => nextRound(g.id)}
-                          className="text-xs font-bold transition-colors"
-                          style={{ color: "hsl(42 98% 60%)" }}>
-                          🔄 Sig. ronda →
+                      {(g.total_rounds ?? 1) > 1 && (g.current_round ?? 1) < (g.total_rounds ?? 1) ? (
+                        <>
+                          <button onClick={() => nextRound(g.id)}
+                            className="text-sm font-black px-4 py-1.5 rounded-xl transition-all active:scale-95"
+                            style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>
+                            🏁 Completar Ronda {g.current_round ?? 1} →
+                          </button>
+                          <button onClick={() => finishGame(g.id)} title="Finalizar juego de emergencia"
+                            className="text-[11px] font-bold text-red-400/60 hover:text-red-300 transition-colors">⏹</button>
+                        </>
+                      ) : (
+                        <button onClick={() => finishGame(g.id)}
+                          className="text-sm font-black px-4 py-1.5 rounded-xl transition-all active:scale-95"
+                          style={{ background: "hsl(0 75% 50% / 0.2)", color: "hsl(0 75% 70%)", border: "1px solid hsl(0 75% 50% / 0.3)" }}>
+                          ⏹ Finalizar Juego
                         </button>
                       )}
-                      <button onClick={() => finishGame(g.id)} className="text-xs font-bold text-red-300 hover:text-red-200 transition-colors">⏹ Finalizar</button>
                     </div>
                   </div>
                 )}
