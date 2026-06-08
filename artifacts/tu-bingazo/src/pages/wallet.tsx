@@ -44,7 +44,7 @@ export default function WalletPage() {
     const id = setInterval(() => {
       refetchWallet();
       refetchWithdrawals();
-    }, 6000);
+    }, 2000);
     return () => clearInterval(id);
   }, [refetchWallet, refetchWithdrawals]);
 
