@@ -350,7 +350,7 @@ router.post("/users", async (req: AuthRequest, res) => {
     department: department.trim(),
     isAdmin: isAdminUser,
     adminPermissions: adminPerms,
-    status: "active",
+    status: skip_ci ? "active" : "pending",
     needsCiUpload: skip_ci ? false : true,
   }).returning();
   req.log.info({ adminId: req.userId, newUserId: created.id, isAdmin: isAdminUser, perms: adminPerms }, "Admin created user");
