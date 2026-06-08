@@ -319,14 +319,14 @@ router.get("/users/:id", async (req: AuthRequest, res) => {
 
 // ── List pending + recently approved password reset requests ─────────────────
 router.get("/password-resets", async (_req: AuthRequest, res) => {
-  // Pending: have a valid resetToken
+  // Pending: have a resetToken (no expiry filter — stays until admin acts)
   const pending = await db.select().from(usersTable)
-    .where(sql`${usersTable.resetToken} IS NOT NULL AND ${usersTable.resetTokenExpiresAt} > NOW()`)
-    .orderBy(desc(usersTable.resetTokenExpiresAt));
+    .where(sql`${usersTable.resetToken} IS NOT NULL`)
+    .orderBy(desc(usersTable.createdAt));
 
-  // Approved (awaiting WhatsApp send): mustChangePassword=true AND tempPasswordDisplay set
+  // Approved: mustChangePassword=true AND tempPasswordDisplay set AND still within 24h window
   const approved = await db.select().from(usersTable)
-    .where(sql`${usersTable.mustChangePassword} = true AND ${usersTable.tempPasswordDisplay} IS NOT NULL`)
+    .where(sql`${usersTable.mustChangePassword} = true AND ${usersTable.tempPasswordDisplay} IS NOT NULL AND ${usersTable.tempPasswordExpiresAt} > NOW()`)
     .orderBy(desc(usersTable.updatedAt));
 
   function mapUser(u: typeof usersTable.$inferSelect, state: "pending" | "approved") {
@@ -368,7 +368,7 @@ router.post("/users/:id/approve-reset", async (req: AuthRequest, res) => {
   let tempPassword = "";
   for (let i = 0; i < 8; i++) tempPassword += chars[Math.floor(Math.random() * chars.length)];
 
-  const tempPasswordExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+  const tempPasswordExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const passwordHash = await bcrypt.hash(tempPassword, 12);
   await db.update(usersTable)
     .set({
