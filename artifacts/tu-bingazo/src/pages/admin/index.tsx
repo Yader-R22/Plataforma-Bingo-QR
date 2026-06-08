@@ -696,8 +696,32 @@ export default function AdminPage() {
     full_name: "", ci: "", phone: "", password: "", department: "", is_admin: false, permissions: [] as string[], skip_ci: false,
   });
   const [creatingUser, setCreatingUser] = useState(false);
+  const [pendingWinnersCount, setPendingWinnersCount] = useState(0);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
+
+  // Global poll for pending bingo claims — badge visible from any tab.
+  // Also refreshes the winners list when the admin is already on that tab.
+  useEffect(() => {
+    if (!token) return;
+    const poll = async () => {
+      try {
+        const r = await fetch(`${BASE}/api/admin/winners/pending`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+        if (r.ok) {
+          const d = await r.json();
+          setPendingWinnersCount(d.length);
+          setWinners(prev => {
+            // Only update when on winners tab to avoid stale-set overwriting active edits
+            if (tab === "winners") return d;
+            return prev;
+          });
+        }
+      } catch {}
+    };
+    poll();
+    const iv = setInterval(poll, 4000);
+    return () => clearInterval(iv);
+  }, [token, tab]);
 
   async function loadStats() {
     try {
@@ -726,16 +750,8 @@ export default function AdminPage() {
         if (r.ok) setWithdrawals(await r.json());
       }
       if (t === "winners") {
-        const r = await fetch(`${BASE}/api/games`, { headers: authH() });
-        if (r.ok) {
-          const gs = await r.json();
-          setGames(gs);
-          const g = gs.find((g: any) => g.status !== "upcoming");
-          if (g) {
-            const wr = await fetch(`${BASE}/api/games/${g.id}/winners`, { headers: authH() });
-            if (wr.ok) setWinners(await wr.json());
-          }
-        }
+        const r = await fetch(`${BASE}/api/admin/winners/pending`, { headers: authH(), cache: "no-store" });
+        if (r.ok) { setWinners(await r.json()); setPendingWinnersCount(0); }
       }
       if (t === "logs") {
         const r = await fetch(`${BASE}/api/admin/audit-logs`, { headers: authH() });
@@ -895,7 +911,9 @@ export default function AdminPage() {
     });
     if (r.ok) {
       toast.success(approved ? "🏆 Ganador validado y saldo acreditado" : "Reclamo rechazado");
-      setWinners(ws => ws.map(w => w.id === wId ? { ...w, validated: approved } : w));
+      // Remove from pending list (both approved and rejected are no longer pending)
+      setWinners(ws => ws.filter(w => w.id !== wId));
+      setPendingWinnersCount(c => Math.max(0, c - 1));
     } else {
       const d = await r.json();
       toast.error(d.error || "Error");
@@ -1241,12 +1259,18 @@ export default function AdminPage() {
       <div className="flex overflow-x-auto px-4 py-2 gap-1.5" style={{ borderBottom: "1px solid hsl(var(--border))" }}>
         {ALL_TABS.filter(t => !t.perm || hasPermission(user?.admin_permissions ?? [], t.perm)).map(t => (
           <button key={t.id} onClick={() => handleTab(t.id)}
-            className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
+            className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap relative"
             style={{
               background: tab === t.id ? "hsl(var(--primary))" : "transparent",
               color: tab === t.id ? "white" : "hsl(var(--foreground))",
             }}>
             {t.label}
+            {t.id === "winners" && pendingWinnersCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black flex items-center justify-center text-white"
+                style={{ background: "hsl(0 75% 50%)" }}>
+                {pendingWinnersCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -1724,34 +1748,49 @@ export default function AdminPage() {
         {/* ── WINNERS ────────────────────────────────── */}
         {tab === "winners" && !loading && (
           <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-bold text-muted-foreground">
+                {winners.length > 0 ? `${winners.length} reclamo${winners.length !== 1 ? "s" : ""} pendiente${winners.length !== 1 ? "s" : ""}` : "Sin reclamos pendientes"}
+              </p>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                Actualizando en tiempo real
+              </div>
+            </div>
             {winners.map(w => (
-              <div key={w.id} className="bg-card border rounded-2xl p-4">
+              <div key={w.id} className="bg-card border-2 rounded-2xl p-4" style={{ borderColor: "hsl(42 98% 52% / 0.5)" }}>
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-bold">{w.user_name ?? `Usuario #${w.user_id}`}</p>
-                    <p className="text-xs text-muted-foreground">Juego #{w.game_id} · Cartón #{w.card_id} · Puesto #{w.place}</p>
-                    <p className="text-sm font-bold mt-1" style={{ color: "hsl(var(--primary))" }}>Bs {parseFloat(w.prize_amount).toFixed(2)}</p>
-                    {w.admin_notes && <p className="text-xs text-muted-foreground mt-0.5">Nota: {w.admin_notes}</p>}
+                  <div className="min-w-0">
+                    <p className="font-black text-base">{w.user_name ?? `Usuario #${w.user_id}`}</p>
+                    <p className="text-xs font-bold mt-0.5" style={{ color: "hsl(var(--primary))" }}>
+                      🎱 {w.game_title ?? `Juego #${w.game_id}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Cartón #{w.card_id} · Puesto #{w.place}</p>
+                    <p className="text-lg font-black mt-1" style={{ color: "hsl(42 98% 35%)", fontFamily: "'Poppins', sans-serif" }}>
+                      Bs {parseFloat(w.prize_amount).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Reclamado {new Date(w.created_at).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                    </p>
                   </div>
-                  <div className="shrink-0">
-                    {w.validated ? (
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                        style={{ background: "hsl(142 70% 45% / 0.12)", color: "hsl(142 70% 30%)" }}>✓ Validado</span>
-                    ) : (
-                      <div className="flex gap-1">
-                        <button onClick={() => validateWinner(w.id, true)}
-                          className="px-3 py-1.5 rounded-xl text-xs font-bold text-white"
-                          style={{ background: "#16a34a" }}>✓ Validar</button>
-                        <button onClick={() => validateWinner(w.id, false)}
-                          className="px-3 py-1.5 rounded-xl text-xs font-bold text-white"
-                          style={{ background: "hsl(0 75% 50%)" }}>✗</button>
-                      </div>
-                    )}
+                  <div className="shrink-0 flex flex-col gap-1.5">
+                    <button onClick={() => validateWinner(w.id, true)}
+                      className="px-4 py-2 rounded-xl text-sm font-black text-white"
+                      style={{ background: "#16a34a" }}>✓ Validar</button>
+                    <button onClick={() => validateWinner(w.id, false)}
+                      className="px-4 py-2 rounded-xl text-sm font-black text-white"
+                      style={{ background: "hsl(0 75% 50%)" }}>✗ Rechazar</button>
                   </div>
                 </div>
               </div>
             ))}
-            {winners.length === 0 && <p className="text-center text-muted-foreground py-8">Sin ganadores registrados</p>}
+            {winners.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="text-4xl mb-3">🏆</p>
+                <p className="font-bold">Sin reclamos pendientes</p>
+                <p className="text-sm mt-1">Los reclamos de bingo aparecerán aquí en tiempo real</p>
+              </div>
+            )}
           </div>
         )}
 

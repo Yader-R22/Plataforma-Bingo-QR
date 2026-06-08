@@ -185,6 +185,36 @@ router.post("/withdrawals/:id/mark-paid", async (req: AuthRequest, res) => {
   });
 });
 
+// All unvalidated bingo claims across every game — admin uses this for real-time monitoring
+router.get("/winners/pending", async (_req, res) => {
+  const rows = await db
+    .select({
+      id: winnersTable.id,
+      game_id: winnersTable.gameId,
+      game_title: gamesTable.title,
+      user_id: winnersTable.userId,
+      user_name: usersTable.fullName,
+      card_id: winnersTable.cardId,
+      place: winnersTable.place,
+      prize_amount: winnersTable.prizeAmount,
+      claimed_at_ms: winnersTable.claimedAtMs,
+      validated: winnersTable.validated,
+      admin_notes: winnersTable.adminNotes,
+      created_at: winnersTable.createdAt,
+    })
+    .from(winnersTable)
+    .innerJoin(usersTable, eq(winnersTable.userId, usersTable.id))
+    .innerJoin(gamesTable, eq(winnersTable.gameId, gamesTable.id))
+    .where(eq(winnersTable.validated, false))
+    .orderBy(desc(winnersTable.createdAt));
+
+  res.json(rows.map(w => ({
+    ...w,
+    prize_amount: parseFloat(w.prize_amount),
+    claimed_at_ms: parseInt(w.claimed_at_ms),
+  })));
+});
+
 router.post("/winners/:id/validate", async (req: AuthRequest, res) => {
   const p = AdminValidateWinnerParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }

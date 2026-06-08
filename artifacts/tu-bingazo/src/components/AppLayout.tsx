@@ -321,7 +321,7 @@ function PendingReviewScreen() {
           ))}
         </div>
 
-        <button onClick={refresh} disabled={checking}
+        <button onClick={() => refresh()} disabled={checking}
           className="w-full py-3 rounded-2xl font-bold text-sm disabled:opacity-50"
           style={{ background: "hsl(var(--primary))", color: "white" }}>
           {checking ? "Verificando..." : "🔄 Actualizar estado"}
