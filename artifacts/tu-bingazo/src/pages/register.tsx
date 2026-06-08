@@ -131,7 +131,7 @@ export default function RegisterPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          full_name: form.full_name, ci: form.ci, phone: form.phone,
+          full_name: form.full_name, ci: form.ci, phone: `+591${form.phone}`,
           department: form.department, password: form.password,
           id_photo_front: form.id_photo_front || undefined,
           id_photo_back: form.id_photo_back || undefined,
@@ -203,7 +203,21 @@ export default function RegisterPage() {
                 </div>
                 <div>
                   <label className="text-sm font-bold block mb-1.5">Teléfono / WhatsApp</label>
-                  <input className="input-field" type="tel" placeholder="+591 70000000" value={form.phone} onChange={e => update("phone", e.target.value)} required />
+                  <div className="flex items-center input-field p-0 overflow-hidden">
+                    <span className="px-3 py-2.5 text-sm font-bold shrink-0 border-r" style={{ background: "hsl(var(--muted))", borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}>
+                      🇧🇴 +591
+                    </span>
+                    <input
+                      className="flex-1 px-3 py-2.5 text-sm bg-transparent outline-none"
+                      type="tel"
+                      inputMode="numeric"
+                      placeholder="70000000"
+                      maxLength={8}
+                      value={form.phone}
+                      onChange={e => update("phone", e.target.value.replace(/\D/g, ""))}
+                      required
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm font-bold block mb-1.5">Contraseña</label>
