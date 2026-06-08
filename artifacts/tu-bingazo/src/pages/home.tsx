@@ -53,6 +53,31 @@ function FacebookIcon() {
   );
 }
 
+function drawDateLabel(drawDate: string): string {
+  const now = new Date();
+  const draw = new Date(drawDate);
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const drawStart = new Date(draw.getFullYear(), draw.getMonth(), draw.getDate());
+  const diffDays = Math.round((drawStart.getTime() - todayStart.getTime()) / 86400000);
+  if (diffDays <= 0) return "HOY";
+  if (diffDays === 1) return "MAÑANA";
+  if (diffDays <= 6) return "ESTA SEMANA";
+  if (diffDays <= 13) return "LA OTRA SEMANA";
+  return "PRÓXIMO";
+}
+
+function drawDateBadgeStyle(drawDate: string): React.CSSProperties {
+  const now = new Date();
+  const draw = new Date(drawDate);
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const drawStart = new Date(draw.getFullYear(), draw.getMonth(), draw.getDate());
+  const diffDays = Math.round((drawStart.getTime() - todayStart.getTime()) / 86400000);
+  if (diffDays <= 0) return { background: "hsl(42 98% 52%)", color: "#1a0050" };
+  if (diffDays === 1) return { background: "hsl(42 98% 52% / 0.25)", color: "hsl(42 98% 75%)" };
+  if (diffDays <= 6) return { background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.85)" };
+  return { background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)" };
+}
+
 function GameTypeSection({
   category,
   games,
@@ -134,7 +159,10 @@ function GameTypeSection({
               <div className="live-badge mb-2"><div className="live-dot" />EN VIVO</div>
             ) : (
               <div className="mb-2">
-                <span className="text-xs font-bold text-white/70 uppercase tracking-wider">PRÓXIMO</span>
+                <span className="text-xs font-bold uppercase tracking-wider"
+                  style={drawDateBadgeStyle(game.draw_date)}>
+                  {drawDateLabel(game.draw_date)}
+                </span>
               </div>
             )}
             <p className="font-black text-white text-lg leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>

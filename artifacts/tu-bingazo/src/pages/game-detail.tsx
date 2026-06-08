@@ -8,6 +8,31 @@ import { QRCodeSVG } from "qrcode.react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function drawDateLabel(drawDate: string): string {
+  const now = new Date();
+  const draw = new Date(drawDate);
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const drawStart = new Date(draw.getFullYear(), draw.getMonth(), draw.getDate());
+  const diffDays = Math.round((drawStart.getTime() - todayStart.getTime()) / 86400000);
+  if (diffDays <= 0) return "HOY";
+  if (diffDays === 1) return "MAÑANA";
+  if (diffDays <= 6) return "ESTA SEMANA";
+  if (diffDays <= 13) return "LA OTRA SEMANA";
+  return "PRÓXIMO";
+}
+
+function drawDateBadgeStyle(drawDate: string): React.CSSProperties {
+  const now = new Date();
+  const draw = new Date(drawDate);
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const drawStart = new Date(draw.getFullYear(), draw.getMonth(), draw.getDate());
+  const diffDays = Math.round((drawStart.getTime() - todayStart.getTime()) / 86400000);
+  if (diffDays <= 0) return { background: "hsl(42 98% 52%)", color: "#1a0050" };
+  if (diffDays === 1) return { background: "hsl(42 98% 52% / 0.25)", color: "hsl(42 98% 75%)" };
+  if (diffDays <= 6) return { background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.85)" };
+  return { background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)" };
+}
+
 function gameModeLabel(mode: string) {
   const map: Record<string, string> = {
     full_card: "Cartón completo",
@@ -303,7 +328,10 @@ export default function GameDetailPage() {
                 <div>
                   {isActive && <div className="live-badge mb-3"><div className="live-dot" />EN VIVO</div>}
                   {!isActive && !isFinished && (
-                    <div className="mb-3 inline-block bg-white/20 text-white text-xs font-bold px-3 py-1 rounded-full">PRÓXIMO SORTEO</div>
+                    <div className="mb-3 inline-block text-xs font-bold px-3 py-1 rounded-full"
+                      style={drawDateBadgeStyle(game.draw_date)}>
+                      {drawDateLabel(game.draw_date)}
+                    </div>
                   )}
                   {isFinished && (
                     <div className="mb-3 inline-block bg-white/20 text-white/60 text-xs font-bold px-3 py-1 rounded-full">FINALIZADO</div>
