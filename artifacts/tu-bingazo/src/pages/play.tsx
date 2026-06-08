@@ -7,6 +7,19 @@ import AppLayout from "@/components/AppLayout";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const LETTERS = ["B", "I", "N", "G", "O"];
 const LETTER_COLORS = ["#e53e3e", "#d69e2e", "#38a169", "#3182ce", "#805ad5"];
+
+function bingoLabel(n: number): string {
+  if (n >= 1 && n <= 15) return `B${n}`;
+  if (n >= 16 && n <= 30) return `I${n}`;
+  if (n >= 31 && n <= 45) return `N${n}`;
+  if (n >= 46 && n <= 60) return `G${n}`;
+  return `O${n}`;
+}
+
+function bingoColor(n: number): string {
+  const idx = Math.min(Math.floor((n - 1) / 15), 4);
+  return LETTER_COLORS[idx];
+}
 const MODE_LABEL: Record<string, string> = {
   full_card: "Cartón completo",
   horizontal: "Línea horizontal",
@@ -198,7 +211,7 @@ export default function PlayPage() {
       {newNumberAlert && (
         <div className="text-center py-2.5 text-sm font-black"
           style={{ background: "linear-gradient(90deg, hsl(42 98% 52%), hsl(38 98% 48%))", color: "#1a0050", animation: "feed-slide 0.3s ease-out" }}>
-          🎱 ¡Nuevo número: <span className="text-xl">{newNumberAlert}</span> — marcado automáticamente!
+          🎱 ¡Nuevo bolillo: <span className="text-xl font-black">{newNumberAlert ? bingoLabel(newNumberAlert) : ""}</span> — marcado automáticamente!
         </div>
       )}
 
@@ -206,11 +219,16 @@ export default function PlayPage() {
         {/* Last called + recent numbers */}
         <div className="flex items-center gap-4">
           <div className="text-center">
-            <p className="text-white/40 text-xs mb-1">Último</p>
+            <p className="text-white/40 text-xs mb-1">Último bolillo</p>
             {session?.last_called_number ? (
-              <div className="number-ball w-16 h-16 text-2xl"
-                style={{ background: "linear-gradient(135deg, hsl(258 72% 35%), hsl(280 60% 50%))", boxShadow: "0 0 20px rgba(160, 60, 255, 0.5)" }}>
-                {session.last_called_number}
+              <div className="w-16 h-16 rounded-full flex flex-col items-center justify-center font-black leading-none"
+                style={{ background: bingoColor(session.last_called_number), boxShadow: `0 0 20px ${bingoColor(session.last_called_number)}80` }}>
+                <span className="text-white text-[11px] font-black uppercase tracking-wider">
+                  {bingoLabel(session.last_called_number).replace(/\d+/, "")}
+                </span>
+                <span className="text-white text-xl font-black leading-tight">
+                  {session.last_called_number}
+                </span>
               </div>
             ) : (
               <div className="w-16 h-16 rounded-full flex items-center justify-center text-white/30 font-black text-xl"
@@ -221,9 +239,13 @@ export default function PlayPage() {
             <p className="text-white/40 text-xs mb-1.5">Cantados</p>
             <div className="flex flex-wrap gap-1.5">
               {(session?.called_numbers ?? []).slice(-9).reverse().map((n, i) => (
-                <div key={n} className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
-                  style={{ background: i === 0 ? "hsl(42 98% 52%)" : "rgba(255,255,255,0.12)", color: i === 0 ? "#1a0050" : "rgba(255,255,255,0.7)" }}>
-                  {n}
+                <div key={n} className="h-7 px-2 rounded-full flex items-center justify-center text-[11px] font-black min-w-[32px]"
+                  style={{
+                    background: i === 0 ? bingoColor(n) : "rgba(255,255,255,0.12)",
+                    color: i === 0 ? "white" : "rgba(255,255,255,0.7)",
+                    boxShadow: i === 0 ? `0 0 8px ${bingoColor(n)}60` : "none",
+                  }}>
+                  {bingoLabel(n)}
                 </div>
               ))}
               {(session?.called_numbers?.length ?? 0) > 9 && (
@@ -240,8 +262,10 @@ export default function PlayPage() {
             <p className="text-white/40 text-xs mb-2">Todos ({session.called_numbers.length})</p>
             <div className="flex flex-wrap gap-1.5">
               {session.called_numbers.map(n => (
-                <div key={n} className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                  style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.7)" }}>{n}</div>
+                <div key={n} className="h-7 px-2 rounded-full flex items-center justify-center text-[11px] font-black min-w-[32px]"
+                  style={{ background: bingoColor(n), color: "white" }}>
+                  {bingoLabel(n)}
+                </div>
               ))}
             </div>
           </div>

@@ -967,7 +967,7 @@ export default function AdminPage() {
       method: "POST", headers: authH(), body: JSON.stringify({ number: num }),
     });
     if (r.ok) {
-      toast.success(`🎱 Número ${num} cantado`);
+      toast.success(`🎱 ${bingoLabel(num)} cantado`);
       setNumberInput(prev => ({ ...prev, [gameId]: "" }));
       setGames(gs => gs.map(g => g.id === gameId
         ? { ...g, called_numbers: [...(g.called_numbers ?? []), num] }
@@ -1685,6 +1685,26 @@ ${summarySection}
     return map[method] ?? method;
   }
 
+  function bingoLabel(n: number): string {
+    if (n >= 1 && n <= 15) return `B${n}`;
+    if (n >= 16 && n <= 30) return `I${n}`;
+    if (n >= 31 && n <= 45) return `N${n}`;
+    if (n >= 46 && n <= 60) return `G${n}`;
+    return `O${n}`;
+  }
+
+  function bingoLetter(n: number): string {
+    if (n >= 1 && n <= 15) return "B";
+    if (n >= 16 && n <= 30) return "I";
+    if (n >= 31 && n <= 45) return "N";
+    if (n >= 46 && n <= 60) return "G";
+    return "O";
+  }
+
+  const BINGO_COL_COLORS: Record<string, string> = {
+    B: "#e53e3e", I: "#d69e2e", N: "#38a169", G: "#3182ce", O: "#805ad5",
+  };
+
   return (
     <AppLayout>
       {selectedUserId !== null && (
@@ -1977,6 +1997,24 @@ ${summarySection}
                         <span className="text-white/60 text-xs">Bs {g.prize_amount} premio</span>
                       </div>
                       <div className="flex items-center gap-2">
+                        {/* Letter preview badge */}
+                        <div className="shrink-0 w-12 h-10 rounded-xl flex flex-col items-center justify-center font-black leading-none transition-all"
+                          style={{
+                            background: numberInput[g.id] && parseInt(numberInput[g.id]) >= 1 && parseInt(numberInput[g.id]) <= 75
+                              ? BINGO_COL_COLORS[bingoLetter(parseInt(numberInput[g.id]))]
+                              : "rgba(255,255,255,0.1)",
+                          }}>
+                          <span className="text-white text-[11px] font-black">
+                            {numberInput[g.id] && parseInt(numberInput[g.id]) >= 1 && parseInt(numberInput[g.id]) <= 75
+                              ? bingoLetter(parseInt(numberInput[g.id]))
+                              : "?"}
+                          </span>
+                          <span className="text-white/70 text-[10px]">
+                            {numberInput[g.id] && parseInt(numberInput[g.id]) >= 1 && parseInt(numberInput[g.id]) <= 75
+                              ? parseInt(numberInput[g.id])
+                              : "—"}
+                          </span>
+                        </div>
                         <input type="number" min="1" max="75" placeholder="Número 1–75"
                           className="flex-1 bg-white/10 text-white placeholder-white/30 rounded-xl px-3 py-2.5 text-sm font-bold border border-white/15 outline-none focus:border-white/40 transition-colors"
                           value={numberInput[g.id] ?? ""}
@@ -2194,9 +2232,21 @@ ${summarySection}
                     {g.status === "active" && (
                       <div className="space-y-1.5">
                         <div className="live-badge"><div className="live-dot" />EN VIVO</div>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 items-center">
+                          {/* Letter preview */}
+                          <div className="w-9 h-8 rounded-lg flex flex-col items-center justify-center font-black leading-none shrink-0 transition-all"
+                            style={{
+                              background: numberInput[g.id] && parseInt(numberInput[g.id]) >= 1 && parseInt(numberInput[g.id]) <= 75
+                                ? BINGO_COL_COLORS[bingoLetter(parseInt(numberInput[g.id]))]
+                                : "hsl(var(--muted))",
+                            }}>
+                            <span className="text-white text-[10px] font-black">
+                              {numberInput[g.id] && parseInt(numberInput[g.id]) >= 1 && parseInt(numberInput[g.id]) <= 75
+                                ? bingoLetter(parseInt(numberInput[g.id])) : "?"}
+                            </span>
+                          </div>
                           <input type="number" min="1" max="75" placeholder="1-75"
-                            className="w-16 border rounded-lg px-2 py-1 text-xs font-bold text-center"
+                            className="w-14 border rounded-lg px-2 py-1 text-xs font-bold text-center"
                             value={numberInput[g.id] ?? ""}
                             onChange={e => setNumberInput(prev => ({ ...prev, [g.id]: e.target.value }))}
                             onKeyDown={e => e.key === "Enter" && callNumber(g.id)} />
