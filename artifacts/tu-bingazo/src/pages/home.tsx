@@ -236,13 +236,14 @@ export default function HomePage() {
   const balance = wallet?.balance ?? user?.balance ?? 0;
 
   useEffect(() => {
+    const noCache = { cache: "no-store" as RequestCache };
     const load = async () => {
       try {
         const fetches: Promise<Response>[] = [
-          fetch(`${BASE}/api/feed/recent`),
-          fetch(`${BASE}/api/feed/stats`),
+          fetch(`${BASE}/api/feed/recent`, noCache),
+          fetch(`${BASE}/api/feed/stats`, noCache),
         ];
-        if (token) fetches.push(fetch(`${BASE}/api/auth/me/stats`, { headers: { Authorization: `Bearer ${token}` } }));
+        if (token) fetches.push(fetch(`${BASE}/api/auth/me/stats`, { ...noCache, headers: { Authorization: `Bearer ${token}` } }));
         const [fr, sr, ur] = await Promise.all(fetches);
         if (fr.ok) { const d = await fr.json(); setFeed(d.items ?? []); }
         if (sr.ok) { const d = await sr.json(); setStats(d); }
@@ -251,7 +252,7 @@ export default function HomePage() {
       } catch {}
     };
     load();
-    const iv = setInterval(load, 15000);
+    const iv = setInterval(load, 5000);
     return () => clearInterval(iv);
   }, [token]);
 
