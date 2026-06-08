@@ -687,6 +687,8 @@ export default function AdminPage() {
   const [userSearch, setUserSearch] = useState("");
   const [userStatusFilter, setUserStatusFilter] = useState<string>("all");
   const [payForm, setPayForm] = useState<Record<number, { proof: string; pin: string; open: boolean }>>({});
+  const [wdAction, setWdAction] = useState<{ id: number; mode: "approve" | "reject"; notes: string; proof: string | null; loading: boolean } | null>(null);
+  const [viewQrModal, setViewQrModal] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [pendingResets, setPendingResets] = useState<any[]>([]);
   const [approvedResets, setApprovedResets] = useState<any[]>([]);
@@ -964,6 +966,45 @@ export default function AdminPage() {
     } else {
       const d = await r.json();
       toast.error(d.error || "Error");
+    }
+  }
+
+  async function submitWdAction() {
+    if (!wdAction) return;
+    setWdAction(a => a ? { ...a, loading: true } : null);
+    const { id, mode, notes, proof } = wdAction;
+    if (mode === "approve") {
+      const body: any = {};
+      if (proof) body.payment_proof_url = proof;
+      if (notes.trim()) body.notes = notes.trim();
+      const r = await fetch(`${BASE}/api/admin/withdrawals/${id}/mark-paid`, {
+        method: "POST", headers: authH(), body: JSON.stringify(body),
+      });
+      if (r.ok) {
+        const updated = await r.json();
+        toast.success("✅ Retiro aprobado y pagado");
+        setWithdrawals(ws => ws.map(w => w.id === id ? { ...w, status: "paid", payment_proof_url: updated.payment_proof_url, notes: updated.notes } : w));
+        setWdAction(null);
+        loadStats();
+      } else {
+        const d = await r.json();
+        toast.error(d.error || "Error al aprobar");
+        setWdAction(a => a ? { ...a, loading: false } : null);
+      }
+    } else {
+      if (!notes.trim()) { toast.error("El motivo de rechazo es obligatorio"); setWdAction(a => a ? { ...a, loading: false } : null); return; }
+      const r = await fetch(`${BASE}/api/admin/withdrawals/${id}/reject`, {
+        method: "POST", headers: authH(), body: JSON.stringify({ notes }),
+      });
+      if (r.ok) {
+        toast.success("❌ Retiro rechazado");
+        setWithdrawals(ws => ws.map(w => w.id === id ? { ...w, status: "rejected", notes } : w));
+        setWdAction(null);
+      } else {
+        const d = await r.json();
+        toast.error(d.error || "Error al rechazar");
+        setWdAction(a => a ? { ...a, loading: false } : null);
+      }
     }
   }
 
@@ -1720,7 +1761,7 @@ ${summarySection}
 
   function methodLabel(method: string) {
     const map: Record<string, string> = {
-      cash: "Efectivo", bank_transfer: "Transferencia",
+      cash: "Efectivo", bank_transfer: "Transferencia", qr: "📱 QR",
       admin_credit: "✅ Crédito admin", admin_debit: "➖ Débito admin",
     };
     return map[method] ?? method;
@@ -2791,53 +2832,170 @@ ${summarySection}
         {/* ── WITHDRAWALS ────────────────────────────── */}
         {tab === "withdrawals" && !loading && (
           <div className="space-y-3">
+            {/* QR viewer modal */}
+            {viewQrModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.8)" }}
+                onClick={() => setViewQrModal(null)}>
+                <div className="bg-white rounded-3xl p-5 max-w-xs w-full" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="font-black">📱 Código QR del usuario</p>
+                    <button onClick={() => setViewQrModal(null)} className="text-muted-foreground">✕</button>
+                  </div>
+                  <img src={viewQrModal} alt="QR" className="w-full rounded-2xl object-contain max-h-80" />
+                </div>
+              </div>
+            )}
+
+            {/* Approve/Reject action modal */}
+            {wdAction && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}
+                onClick={() => !wdAction.loading && setWdAction(null)}>
+                <div className="bg-card rounded-3xl p-5 max-w-sm w-full space-y-4 border" onClick={e => e.stopPropagation()}>
+                  <p className="font-black text-base">
+                    {wdAction.mode === "approve" ? "✅ Aprobar retiro" : "❌ Rechazar retiro"}
+                  </p>
+
+                  {wdAction.mode === "approve" && (
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-xs font-bold text-muted-foreground mb-1">Comprobante de pago QR <span className="text-muted-foreground font-normal">(opcional)</span></p>
+                        <label className="block cursor-pointer border-2 border-dashed rounded-2xl p-3 text-center text-xs text-muted-foreground hover:border-primary transition-colors"
+                          style={{ borderColor: wdAction.proof ? "hsl(142 70% 45%)" : undefined }}>
+                          {wdAction.proof
+                            ? <img src={wdAction.proof} alt="Comprobante" className="w-full max-h-40 object-contain rounded-xl" />
+                            : <span>📷 Subir imagen del comprobante</span>}
+                          <input type="file" accept="image/*" className="hidden"
+                            onChange={e => {
+                              const f = e.target.files?.[0];
+                              if (!f) return;
+                              const reader = new FileReader();
+                              reader.onload = ev => setWdAction(a => a ? { ...a, proof: ev.target?.result as string } : null);
+                              reader.readAsDataURL(f);
+                            }} />
+                        </label>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-muted-foreground mb-1">Nota de aprobación <span className="text-muted-foreground font-normal">(opcional)</span></p>
+                        <textarea rows={2} placeholder="Ej: Pago realizado el 8/06 a las 14:30" className="input-field text-xs w-full resize-none"
+                          value={wdAction.notes}
+                          onChange={e => setWdAction(a => a ? { ...a, notes: e.target.value } : null)} />
+                      </div>
+                    </div>
+                  )}
+
+                  {wdAction.mode === "reject" && (
+                    <div>
+                      <p className="text-xs font-bold text-muted-foreground mb-1">Motivo del rechazo <span className="text-red-500">*</span></p>
+                      <textarea rows={3} placeholder="Ej: El código QR proporcionado no es válido" className="input-field text-xs w-full resize-none"
+                        value={wdAction.notes}
+                        onChange={e => setWdAction(a => a ? { ...a, notes: e.target.value } : null)} />
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button onClick={() => setWdAction(null)} disabled={wdAction.loading}
+                      className="flex-1 py-2 rounded-xl text-sm font-bold border transition-all"
+                      style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
+                      Cancelar
+                    </button>
+                    <button onClick={submitWdAction} disabled={wdAction.loading}
+                      className="flex-1 py-2 rounded-xl text-sm font-bold text-white transition-all"
+                      style={{ background: wdAction.mode === "approve" ? "#16a34a" : "#dc2626", opacity: wdAction.loading ? 0.7 : 1 }}>
+                      {wdAction.loading ? "..." : wdAction.mode === "approve" ? "✓ Confirmar pago" : "✗ Rechazar"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {withdrawals.map(w => {
               const isPending = w.status === "pending";
               const isAdminAdj = w.method === "admin_credit" || w.method === "admin_debit";
+              const isQr = w.method === "bank_transfer" && (() => { try { return JSON.parse(w.bank_account_info ?? "{}").method === "qr"; } catch { return false; } })();
+              const bankInfo = (() => { try { return JSON.parse(w.bank_account_info ?? "{}"); } catch { return {}; } })();
+              const statusStyle = w.status === "paid"
+                ? { bg: "hsl(142 70% 45% / 0.1)", color: "hsl(142 70% 30%)", label: "✓ Pagado" }
+                : w.status === "pending"
+                ? { bg: "hsl(42 98% 52% / 0.1)", color: "hsl(42 98% 35%)", label: "⏳ Pendiente" }
+                : { bg: "hsl(0 75% 52% / 0.1)", color: "hsl(0 75% 40%)", label: "✗ Rechazado" };
+
               return (
-                <div key={w.id} className="bg-card border rounded-2xl p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-bold">Bs {parseFloat(w.amount).toFixed(2)}</p>
-                        <span className="text-xs px-2 py-0.5 rounded-full font-bold"
-                          style={{
-                            background: w.status === "paid" ? "hsl(142 70% 45% / 0.1)" : w.status === "pending" ? "hsl(42 98% 52% / 0.1)" : "hsl(var(--muted))",
-                            color: w.status === "paid" ? "hsl(142 70% 30%)" : w.status === "pending" ? "hsl(42 98% 35%)" : "hsl(var(--muted-foreground))",
-                          }}>
-                          {w.status === "paid" ? "Pagado" : w.status === "pending" ? "Pendiente" : "Rechazado"}
-                        </span>
-                        <span className="text-xs text-muted-foreground">{methodLabel(w.method)}</span>
+                <div key={w.id} className="bg-card border rounded-2xl overflow-hidden">
+                  {/* Header */}
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-black text-lg">Bs {parseFloat(w.amount).toFixed(2)}</p>
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-bold"
+                            style={{ background: statusStyle.bg, color: statusStyle.color }}>
+                            {statusStyle.label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Usuario #{w.user_id} · {isQr ? "📱 QR / PagosYa" : bankInfo.method === "bank" ? `🏧 ${bankInfo.bank ?? "Banco"}` : methodLabel(w.method)} · {new Date(w.created_at).toLocaleString("es-BO")}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">Usuario #{w.user_id}</p>
-                      {w.notes && <p className="text-xs mt-0.5" style={{ color: "hsl(var(--primary))" }}>Motivo: {w.notes}</p>}
-                      <p className="text-[11px] text-muted-foreground mt-0.5">{new Date(w.created_at).toLocaleString("es-BO")}</p>
                     </div>
-                    {isPending && !isAdminAdj && (
-                      <div className="shrink-0">
-                        {!payForm[w.id]?.open ? (
-                          <button onClick={() => openPayForm(w.id)}
-                            className="px-3 py-1.5 rounded-xl text-xs font-bold text-white"
-                            style={{ background: "#16a34a" }}>
-                            Marcar pagado
-                          </button>
-                        ) : (
-                          <div className="space-y-2 min-w-36">
-                            {w.method === "bank_transfer" && (
-                              <input placeholder="PIN retiro" className="input-field text-xs py-1"
-                                value={payForm[w.id]?.pin ?? ""}
-                                onChange={e => setPayForm(pf => ({ ...pf, [w.id]: { ...pf[w.id], pin: e.target.value } }))} />
-                            )}
-                            <button onClick={() => markWithdrawalPaid(w.id, w.method)}
-                              className="w-full px-3 py-1.5 rounded-xl text-xs font-bold text-white"
-                              style={{ background: "#16a34a" }}>✓ Confirmar</button>
-                            <button onClick={() => setPayForm(pf => { const n = { ...pf }; delete n[w.id]; return n; })}
-                              className="w-full text-xs text-muted-foreground">Cancelar</button>
-                          </div>
-                        )}
+
+                    {/* Bank transfer details */}
+                    {bankInfo.method === "bank" && (
+                      <div className="text-xs rounded-xl px-3 py-2 space-y-0.5"
+                        style={{ background: "hsl(var(--muted))" }}>
+                        <p><span className="text-muted-foreground">Banco:</span> {bankInfo.bank}</p>
+                        {bankInfo.full_name && <p><span className="text-muted-foreground">Titular:</span> {bankInfo.full_name}</p>}
+                        {bankInfo.ci && <p><span className="text-muted-foreground">CI:</span> {bankInfo.ci}</p>}
+                        {bankInfo.whatsapp && <p><span className="text-muted-foreground">WhatsApp:</span> {bankInfo.whatsapp}</p>}
+                      </div>
+                    )}
+
+                    {/* Notes */}
+                    {w.notes && (
+                      <div className="text-xs rounded-xl px-3 py-2"
+                        style={{ background: w.status === "rejected" ? "hsl(0 75% 52% / 0.08)" : "hsl(var(--muted))", color: w.status === "rejected" ? "hsl(0 75% 40%)" : undefined }}>
+                        {w.status === "rejected" ? "❌ Motivo: " : "📝 "}{w.notes}
                       </div>
                     )}
                   </div>
+
+                  {/* Action row */}
+                  {!isAdminAdj && (
+                    <div className="px-4 pb-4 flex flex-wrap gap-2">
+                      {/* View user QR */}
+                      {isQr && w.bank_qr_url && (
+                        <button onClick={() => setViewQrModal(w.bank_qr_url)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold border transition-all"
+                          style={{ borderColor: "hsl(var(--primary) / 0.3)", color: "hsl(var(--primary))" }}>
+                          📱 Ver QR del usuario
+                        </button>
+                      )}
+
+                      {/* View payment proof (if paid) */}
+                      {w.status === "paid" && w.payment_proof_url && (
+                        <button onClick={() => setViewQrModal(w.payment_proof_url)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold border transition-all"
+                          style={{ borderColor: "hsl(142 70% 45% / 0.4)", color: "hsl(142 70% 30%)" }}>
+                          🧾 Ver comprobante enviado
+                        </button>
+                      )}
+
+                      {/* Approve / Reject (pending only) */}
+                      {isPending && (
+                        <>
+                          <button onClick={() => setWdAction({ id: w.id, mode: "approve", notes: "", proof: null, loading: false })}
+                            className="px-3 py-1.5 rounded-xl text-xs font-bold text-white"
+                            style={{ background: "#16a34a" }}>
+                            ✓ Aprobar
+                          </button>
+                          <button onClick={() => setWdAction({ id: w.id, mode: "reject", notes: "", proof: null, loading: false })}
+                            className="px-3 py-1.5 rounded-xl text-xs font-bold text-white"
+                            style={{ background: "#dc2626" }}>
+                            ✗ Rechazar
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

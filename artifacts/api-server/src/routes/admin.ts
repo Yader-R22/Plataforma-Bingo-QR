@@ -113,6 +113,8 @@ router.get("/withdrawals", async (req: AuthRequest, res) => {
     status: w.status,
     bank_qr_url: w.bankQrUrl ?? null,
     bank_account_info: w.bankAccountInfo ?? null,
+    payment_proof_url: w.paymentProofUrl ?? null,
+    withdrawal_pin: w.withdrawalPin ?? null,
     notes: w.notes ?? null,
     created_at: w.createdAt,
     paid_at: w.paidAt ?? null,
@@ -182,6 +184,32 @@ router.post("/withdrawals/:id/mark-paid", async (req: AuthRequest, res) => {
     notes: updated.notes ?? null,
     created_at: updated.createdAt,
     paid_at: updated.paidAt ?? null,
+  });
+});
+
+router.post("/withdrawals/:id/reject", async (req: AuthRequest, res) => {
+  const p = AdminMarkWithdrawalPaidParams.safeParse({ id: parseInt(String(req.params.id)) });
+  if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
+  const { notes } = req.body as { notes?: string };
+  if (!notes?.trim()) { res.status(400).json({ error: "El motivo de rechazo es obligatorio" }); return; }
+
+  const withdrawals = await db.select().from(withdrawalsTable).where(eq(withdrawalsTable.id, p.data.id)).limit(1);
+  if (!withdrawals.length) { res.status(404).json({ error: "Retiro no encontrado" }); return; }
+  if (withdrawals[0].status !== "pending") { res.status(400).json({ error: "Solo se puede rechazar un retiro pendiente" }); return; }
+
+  const [updated] = await db.update(withdrawalsTable)
+    .set({ status: "rejected", notes: notes.trim() })
+    .where(and(eq(withdrawalsTable.id, p.data.id), eq(withdrawalsTable.status, "pending")))
+    .returning();
+
+  if (!updated) { res.status(400).json({ error: "No se pudo rechazar el retiro" }); return; }
+
+  res.json({
+    id: updated.id,
+    user_id: updated.userId,
+    amount: parseFloat(updated.amount),
+    status: updated.status,
+    notes: updated.notes ?? null,
   });
 });
 

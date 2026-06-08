@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { useGetWallet, useListWithdrawals, useListEarnings } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -38,6 +38,12 @@ export default function WalletPage() {
   const { data: wallet, refetch: refetchWallet } = useGetWallet();
   const { data: withdrawals, refetch: refetchWithdrawals } = useListWithdrawals();
   const { data: earnings } = useListEarnings();
+
+  // Auto-poll withdrawals every 6s so users see paid/rejected status changes in real time
+  useEffect(() => {
+    const id = setInterval(() => { refetchWithdrawals(); }, 6000);
+    return () => clearInterval(id);
+  }, [refetchWithdrawals]);
 
   const filteredWithdrawals = useMemo(() => {
     const all = (withdrawals as any[]) ?? [];
@@ -525,6 +531,30 @@ export default function WalletPage() {
                         <div>
                           <p className="text-xs text-muted-foreground">Nota del administrador</p>
                           <p className="text-sm font-medium">{w.notes}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Rejection reason for user-initiated withdrawals */}
+                    {!isAdmin && w.status === "rejected" && w.notes && (
+                      <div className="flex items-start gap-2 rounded-xl px-3 py-2"
+                        style={{ background: "hsl(0 75% 52% / 0.08)", border: "1px solid hsl(0 75% 52% / 0.25)" }}>
+                        <span className="text-sm mt-0.5">❌</span>
+                        <div>
+                          <p className="text-xs font-bold" style={{ color: "hsl(0 75% 40%)" }}>Motivo del rechazo</p>
+                          <p className="text-sm" style={{ color: "hsl(0 75% 35%)" }}>{w.notes}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Approval note for paid withdrawals */}
+                    {!isAdmin && w.status === "paid" && w.notes && (
+                      <div className="flex items-start gap-2 rounded-xl px-3 py-2"
+                        style={{ background: "hsl(142 70% 45% / 0.08)", border: "1px solid hsl(142 70% 45% / 0.25)" }}>
+                        <span className="text-sm mt-0.5">📝</span>
+                        <div>
+                          <p className="text-xs font-bold" style={{ color: "hsl(142 70% 30%)" }}>Nota del pago</p>
+                          <p className="text-sm" style={{ color: "hsl(142 70% 25%)" }}>{w.notes}</p>
                         </div>
                       </div>
                     )}
