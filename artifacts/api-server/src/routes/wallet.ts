@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, withdrawalsTable, usersTable, feedItemsTable } from "@workspace/db";
-import { eq, and, sum, sql } from "drizzle-orm";
+import { db, withdrawalsTable, usersTable, feedItemsTable, winnersTable } from "@workspace/db";
+import { eq, and, sum, sql, notInArray } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { RequestWithdrawalBody } from "@workspace/api-zod";
 
@@ -28,19 +28,34 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   if (!users.length) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
   const user = users[0];
 
+  // Pending withdrawal reservations (actual user-initiated withdrawals)
   const pending = await db.select({ total: sql<string>`coalesce(sum(${withdrawalsTable.amount}), 0)` })
     .from(withdrawalsTable)
-    .where(and(eq(withdrawalsTable.userId, req.userId!), eq(withdrawalsTable.status, "pending")));
+    .where(and(
+      eq(withdrawalsTable.userId, req.userId!),
+      eq(withdrawalsTable.status, "pending"),
+      notInArray(withdrawalsTable.method, ["admin_credit", "admin_debit"] as any[]),
+    ));
 
-  const totalWon = await db.select({ total: sql<string>`coalesce(sum(${withdrawalsTable.amount}), 0)` })
+  // Total prizes won in games (from winners table, validated only)
+  const totalWon = await db.select({ total: sql<string>`coalesce(sum(${winnersTable.prizeAmount}), 0)` })
+    .from(winnersTable)
+    .where(and(eq(winnersTable.userId, req.userId!), eq(winnersTable.validated, true)));
+
+  // Total actually withdrawn (paid user-initiated withdrawals only, not admin adjustments)
+  const totalWithdrawn = await db.select({ total: sql<string>`coalesce(sum(${withdrawalsTable.amount}), 0)` })
     .from(withdrawalsTable)
-    .where(and(eq(withdrawalsTable.userId, req.userId!), eq(withdrawalsTable.status, "paid")));
+    .where(and(
+      eq(withdrawalsTable.userId, req.userId!),
+      eq(withdrawalsTable.status, "paid"),
+      notInArray(withdrawalsTable.method, ["admin_credit", "admin_debit"] as any[]),
+    ));
 
   res.json({
     balance: parseFloat(user.balance),
     pending_withdrawals: parseFloat(pending[0]?.total ?? "0"),
     total_won: parseFloat(totalWon[0]?.total ?? "0"),
-    total_withdrawn: parseFloat(totalWon[0]?.total ?? "0"),
+    total_withdrawn: parseFloat(totalWithdrawn[0]?.total ?? "0"),
   });
 });
 
