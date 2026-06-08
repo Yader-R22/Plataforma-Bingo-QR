@@ -87,7 +87,8 @@ router.get("/", async (req: AuthRequest, res) => {
 router.post("/", requireAdmin, async (req: AuthRequest, res) => {
   const parsed = CreateGameBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Datos del juego inválidos" });
+    const issues = parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ");
+    res.status(400).json({ error: `Datos inválidos — ${issues}` });
     return;
   }
   const data = parsed.data;
@@ -124,7 +125,11 @@ router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
   const p = UpdateGameParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
   const parsed = UpdateGameBody.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Datos inválidos" }); return; }
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ");
+    res.status(400).json({ error: `Datos inválidos — ${issues}` });
+    return;
+  }
   const data = parsed.data;
   const updateData: Partial<typeof gamesTable.$inferInsert> = {};
   if (data.title) updateData.title = data.title;

@@ -157,7 +157,7 @@ export const CreateGameBody = zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
-})).optional().describe('Configuración de múltiples rondas (opcional)'),
+})).nullish().describe('Configuración de múltiples rondas (null = juego de una sola ronda)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)')
 })
 
@@ -224,7 +224,7 @@ export const UpdateGameBody = zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
-})).optional().describe('Actualizar configuración de rondas'),
+})).nullish().describe('Actualizar configuración de rondas (null = quitar multi-ronda)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)')
 })
 

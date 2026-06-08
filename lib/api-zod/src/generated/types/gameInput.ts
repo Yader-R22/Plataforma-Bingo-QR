@@ -25,8 +25,11 @@ export interface GameInput {
   game_mode: GameInputGameMode;
   max_winners?: number;
   prizes?: PrizeTier[];
-  /** Configuración de múltiples rondas (opcional) */
-  rounds?: RoundConfig[];
+  /**
+     * Configuración de múltiples rondas (null = juego de una sola ronda)
+     * @nullable
+     */
+  rounds?: RoundConfig[] | null;
   /**
      * URL o base64 de imagen de portada del juego (opcional)
      * @nullable

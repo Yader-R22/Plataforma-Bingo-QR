@@ -1128,10 +1128,10 @@ components:
           items:
             $ref: "#/components/schemas/PrizeTier"
         rounds:
-          type: array
+          type: ["array", "null"]
           items:
             $ref: "#/components/schemas/RoundConfig"
-          description: Configuración de múltiples rondas (opcional)
+          description: Configuración de múltiples rondas (null = juego de una sola ronda)
         cover_image_url:
           type: ["string", "null"]
           description: URL o base64 de imagen de portada del juego (opcional)
@@ -1163,10 +1163,10 @@ components:
           type: string
           enum: [upcoming, active, finished]
         rounds:
-          type: array
+          type: ["array", "null"]
           items:
             $ref: "#/components/schemas/RoundConfig"
-          description: Actualizar configuración de rondas
+          description: Actualizar configuración de rondas (null = quitar multi-ronda)
         cover_image_url:
           type: ["string", "null"]
           description: URL o base64 de imagen de portada del juego (opcional)

@@ -23,8 +23,11 @@ export interface GameUpdate {
   game_mode?: GameUpdateGameMode;
   max_winners?: number;
   status?: GameUpdateStatus;
-  /** Actualizar configuración de rondas */
-  rounds?: RoundConfig[];
+  /**
+     * Actualizar configuración de rondas (null = quitar multi-ronda)
+     * @nullable
+     */
+  rounds?: RoundConfig[] | null;
   /**
      * URL o base64 de imagen de portada del juego (opcional)
      * @nullable
