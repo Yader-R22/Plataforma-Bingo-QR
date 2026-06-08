@@ -22,6 +22,11 @@ interface Stats {
   upcoming_games: number;
 }
 
+interface UserStats {
+  total_won: number;
+  wins_count: number;
+}
+
 // Official social media SVG icons
 function YouTubeIcon() {
   return (
@@ -212,8 +217,10 @@ function FeaturedGameSection({ game, onNavigate }: { game: any; onNavigate: (p: 
 export default function HomePage() {
   const [, navigate] = useLocation();
   const user = useAuthStore(s => s.user);
+  const token = useAuthStore(s => s.token);
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
 
   const { data: games = [] } = useListGames();
@@ -231,18 +238,22 @@ export default function HomePage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [fr, sr] = await Promise.all([
+        const fetches: Promise<Response>[] = [
           fetch(`${BASE}/api/feed/recent`),
           fetch(`${BASE}/api/feed/stats`),
-        ]);
+        ];
+        if (token) fetches.push(fetch(`${BASE}/api/auth/me/stats`, { headers: { Authorization: `Bearer ${token}` } }));
+        const [fr, sr, ur] = await Promise.all(fetches);
         if (fr.ok) { const d = await fr.json(); setFeed(d.items ?? []); }
         if (sr.ok) { const d = await sr.json(); setStats(d); }
+        if (ur && ur.ok) { const d = await ur.json(); setUserStats(d); }
+        else if (!token) setUserStats(null);
       } catch {}
     };
     load();
     const iv = setInterval(load, 15000);
     return () => clearInterval(iv);
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     if (!feed.length || !feedRef.current) return;
@@ -313,7 +324,10 @@ export default function HomePage() {
         <div className="grid grid-cols-3 gap-0 border-b" style={{ background: "#1a0050" }}>
           {[
             { value: stats.active_players, label: "Jugadores" },
-            { value: `Bs ${stats.total_prizes_paid.toLocaleString("es-BO", { maximumFractionDigits: 0 })}`, label: "En premios" },
+            {
+              value: `Bs ${(user && userStats ? userStats.total_won : stats.total_prizes_paid).toLocaleString("es-BO", { maximumFractionDigits: 0 })}`,
+              label: user && userStats ? "Mis premios" : "En premios",
+            },
             { value: stats.total_winners, label: "Ganadores" },
           ].map((s, i) => (
             <div key={i} className="text-center py-3 px-2" style={{ borderRight: i < 2 ? "1px solid rgba(255,255,255,0.1)" : undefined }}>
