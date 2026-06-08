@@ -367,14 +367,14 @@ export default function WalletPage() {
           {/* Filter bar */}
           {!!(withdrawals as any[])?.length && (
             <div className="mb-3 space-y-2">
-              <div className="flex gap-1.5 flex-wrap">
+              <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none" style={{ scrollbarWidth: "none" }}>
                 {(["all", "week", "month", "year", "custom"] as const).map(f => {
                   const labels: Record<string, string> = { all: "Todo", week: "Esta semana", month: "Este mes", year: "Este año", custom: "Personalizado" };
                   const active = histFilter === f;
                   return (
                     <button key={f} type="button"
                       onClick={() => { setHistFilter(f); setShowAll(false); }}
-                      className="text-xs font-bold px-3 py-1.5 rounded-full border transition-all"
+                      className="text-xs font-bold px-3 py-1.5 rounded-full border transition-all shrink-0"
                       style={{
                         background: active ? "hsl(var(--primary))" : "transparent",
                         color: active ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))",
