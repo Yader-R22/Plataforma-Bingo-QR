@@ -156,13 +156,14 @@ router.get("/:id/session", requireAuth, async (req: AuthRequest, res) => {
   const games = await db.select().from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
   if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
   const game = games[0];
-  const called = game.calledNumbers ?? [];
+  const called = game.status === "active" ? (game.calledNumbers ?? []) : [];
   const rounds = game.rounds as RoundConfig[] | null | undefined;
   const totalRounds = rounds?.length ?? 1;
   const currentRound = game.currentRound ?? 1;
   const roundCfg = getCurrentRoundConfig(game);
   res.json({
     game_id: game.id,
+    game_status: game.status,
     called_numbers: called,
     last_called_number: called.length ? called[called.length - 1] : null,
     game_mode: roundCfg.game_mode,

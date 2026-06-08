@@ -30,6 +30,7 @@ const MODE_LABEL: Record<string, string> = {
 
 interface GameSession {
   game_id: number;
+  game_status: string;
   called_numbers: number[];
   last_called_number: number | null;
   game_mode: string;
@@ -196,7 +197,15 @@ export default function PlayPage() {
           Salir
         </button>
         <div className="flex items-center gap-2 min-w-0">
-          <div className="live-badge shrink-0"><div className="live-dot" />EN VIVO</div>
+          {session?.game_status === "active" && (
+            <div className="live-badge shrink-0"><div className="live-dot" />EN VIVO</div>
+          )}
+          {session && session.game_status !== "active" && (
+            <div className="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full"
+              style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}>
+              {session.game_status === "finished" ? "FINALIZADO" : "EN ESPERA"}
+            </div>
+          )}
           <div className="min-w-0">
             <p className="text-white text-xs font-black truncate leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
               {gameTitle ?? `Juego #${gameId}`}
