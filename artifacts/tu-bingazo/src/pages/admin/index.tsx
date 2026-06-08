@@ -1990,11 +1990,21 @@ ${summarySection}
                     style={{ background: "linear-gradient(135deg, #1a0050 0%, #3b00b8 100%)", border: "1px solid rgba(255,255,255,0.1)" }}>
                     <div className="px-4 pt-4 pb-3">
                       <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <div className="live-badge"><div className="live-dot" />EN VIVO</div>
                           <span className="text-white font-bold text-sm">{g.title}</span>
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                            style={{ background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.9)" }}>
+                            {{
+                              full_card: "🃏 Cartón completo",
+                              horizontal: "➡ Línea horizontal",
+                              vertical: "⬇ Línea vertical",
+                              diagonal: "↗ Diagonal",
+                              quina: "5️⃣ Quina",
+                            }[g.game_mode as string] ?? g.game_mode}
+                          </span>
                         </div>
-                        <span className="text-white/60 text-xs">Bs {g.prize_amount} premio</span>
+                        <span className="text-white/60 text-xs shrink-0">Bs {g.prize_amount} premio</span>
                       </div>
                       <div className="flex items-center gap-2">
                         {/* Letter preview badge */}
