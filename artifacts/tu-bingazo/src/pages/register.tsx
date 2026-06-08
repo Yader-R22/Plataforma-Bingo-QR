@@ -203,12 +203,13 @@ export default function RegisterPage() {
                 </div>
                 <div>
                   <label className="text-sm font-bold block mb-1.5">Teléfono / WhatsApp</label>
-                  <div className="flex items-center input-field p-0 overflow-hidden">
-                    <span className="px-3 py-2.5 text-sm font-bold shrink-0 border-r" style={{ background: "hsl(var(--muted))", borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}>
+                  <div className="input-field flex items-center gap-1.5 py-0 px-4">
+                    <span className="text-sm font-semibold shrink-0 select-none" style={{ color: "hsl(var(--muted-foreground))" }}>
                       🇧🇴 +591
                     </span>
+                    <span className="text-sm shrink-0" style={{ color: "hsl(var(--border))" }}>|</span>
                     <input
-                      className="flex-1 px-3 py-2.5 text-sm bg-transparent outline-none"
+                      className="flex-1 py-3 text-sm bg-transparent outline-none min-w-0"
                       type="tel"
                       inputMode="numeric"
                       placeholder="70000000"
