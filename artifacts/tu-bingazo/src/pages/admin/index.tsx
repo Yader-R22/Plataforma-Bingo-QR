@@ -989,6 +989,22 @@ export default function AdminPage() {
     if (r.ok) { toast.success("⏹ Juego finalizado"); setGames(gs => gs.map(g => g.id === gameId ? { ...g, status: "finished" } : g)); loadStats(); }
   }
 
+  async function nextRound(gameId: number) {
+    const game = games.find(g => g.id === gameId);
+    const nextNum = (game?.current_round ?? 1) + 1;
+    const total = game?.total_rounds ?? 1;
+    if (!confirm(`¿Avanzar a la Ronda ${nextNum} de ${total}? Los bolillos se reiniciarán.`)) return;
+    const r = await fetch(`${BASE}/api/games/${gameId}/next-round`, { method: "POST", headers: authH() });
+    if (r.ok) {
+      const updated = await r.json();
+      setGames(gs => gs.map(g => g.id === gameId ? { ...g, ...updated } : g));
+      toast.success(`🔄 Ronda ${nextNum} iniciada`);
+    } else {
+      const d = await r.json();
+      toast.error(d.error || "Error al avanzar ronda");
+    }
+  }
+
   async function toggleFeatured(gameId: number, current: boolean) {
     const r = await fetch(`${BASE}/api/admin/games/${gameId}/featured`, {
       method: "PATCH", headers: authH(), body: JSON.stringify({ is_featured: !current }),
@@ -2004,6 +2020,12 @@ ${summarySection}
                               quina: "5️⃣ Quina",
                             }[g.game_mode as string] ?? g.game_mode}
                           </span>
+                          {(g.total_rounds ?? 1) > 1 && (
+                            <span className="text-[11px] font-black px-2 py-0.5 rounded-full"
+                              style={{ background: "hsl(42 98% 52% / 0.2)", color: "hsl(42 98% 60%)" }}>
+                              Ronda {g.current_round ?? 1}/{g.total_rounds}
+                            </span>
+                          )}
                         </div>
                         <span className="text-white/60 text-xs shrink-0">Bs {g.prize_amount} premio</span>
                       </div>
@@ -2080,6 +2102,22 @@ ${summarySection}
                         </div>
                       </div>
                     )}
+
+                    {/* Footer bar — Siguiente ronda + Finalizar */}
+                    <div className="px-4 py-2.5 flex items-center justify-between"
+                      style={{ background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                      <span className="text-white/50 text-xs">{g.called_numbers?.length ?? 0} números · {g.participant_count} jugadores</span>
+                      <div className="flex items-center gap-3">
+                        {(g.total_rounds ?? 1) > 1 && (g.current_round ?? 1) < (g.total_rounds ?? 1) && (
+                          <button onClick={() => nextRound(g.id)}
+                            className="text-xs font-bold transition-colors"
+                            style={{ color: "hsl(42 98% 60%)" }}>
+                            🔄 Sig. ronda →
+                          </button>
+                        )}
+                        <button onClick={() => finishGame(g.id)} className="text-xs font-bold text-red-300 hover:text-red-200 transition-colors">⏹ Finalizar</button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -2265,6 +2303,12 @@ ${summarySection}
                           quina: "5️⃣ Quina",
                         }[g.game_mode as string] ?? g.game_mode}
                       </span>
+                      {g.status === "active" && (g.total_rounds ?? 1) > 1 && (
+                        <span className="text-[11px] font-black px-2 py-0.5 rounded-full"
+                          style={{ background: "hsl(42 98% 52% / 0.2)", color: "hsl(42 98% 60%)" }}>
+                          Ronda {g.current_round ?? 1}/{g.total_rounds}
+                        </span>
+                      )}
                     </div>
                     <p className={`text-xs ${g.status === "active" ? "text-white/60" : "text-muted-foreground"}`}>
                       Bs {g.prize_amount} premio · {g.participant_count} participantes · {new Date(g.draw_date).toLocaleDateString("es-BO")}
@@ -2385,12 +2429,21 @@ ${summarySection}
                   </div>
                 )}
 
-                {/* Footer bar — Finalizar */}
+                {/* Footer bar — Siguiente ronda + Finalizar */}
                 {g.status === "active" && (
                   <div className="px-4 py-2.5 flex items-center justify-between"
                     style={{ background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
                     <span className="text-white/50 text-xs">{g.called_numbers?.length ?? 0} números · {g.participant_count} jugadores</span>
-                    <button onClick={() => finishGame(g.id)} className="text-xs font-bold text-red-300 hover:text-red-200 transition-colors">⏹ Finalizar</button>
+                    <div className="flex items-center gap-3">
+                      {(g.total_rounds ?? 1) > 1 && (g.current_round ?? 1) < (g.total_rounds ?? 1) && (
+                        <button onClick={() => nextRound(g.id)}
+                          className="text-xs font-bold transition-colors"
+                          style={{ color: "hsl(42 98% 60%)" }}>
+                          🔄 Sig. ronda →
+                        </button>
+                      )}
+                      <button onClick={() => finishGame(g.id)} className="text-xs font-bold text-red-300 hover:text-red-200 transition-colors">⏹ Finalizar</button>
+                    </div>
                   </div>
                 )}
 

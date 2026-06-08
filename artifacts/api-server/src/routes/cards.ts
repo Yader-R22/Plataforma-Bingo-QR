@@ -1,6 +1,26 @@
 import { Router } from "express";
 import { db, cardsTable, gamesTable, winnersTable, usersTable, auditLogsTable, feedItemsTable } from "@workspace/db";
+import type { RoundConfig } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
+
+function getCurrentRoundConfig(game: typeof gamesTable.$inferSelect) {
+  const rounds = game.rounds as RoundConfig[] | null | undefined;
+  if (rounds?.length) {
+    const r = rounds[(game.currentRound ?? 1) - 1];
+    if (r) {
+      return {
+        game_mode: r.game_mode as "horizontal" | "vertical" | "diagonal" | "quina" | "full_card",
+        max_winners: r.max_winners,
+        prize_amount: r.prize_amount,
+      };
+    }
+  }
+  return {
+    game_mode: game.gameMode,
+    max_winners: game.maxWinners,
+    prize_amount: parseFloat(game.prizeAmount),
+  };
+}
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import {
   ListMyCardsQueryParams,
@@ -332,7 +352,10 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
   }
 
   const calledNumbers = game.calledNumbers ?? [];
-  const isValid = validateBingo(card, game.gameMode, calledNumbers);
+  const currentRound = game.currentRound ?? 1;
+  const roundCfg = getCurrentRoundConfig(game);
+
+  const isValid = validateBingo(card, roundCfg.game_mode, calledNumbers);
 
   if (!isValid) {
     res.json({ valid: false, message: "Los números marcados no coinciden con el patrón ganador. ¡Sigue jugando!" });
@@ -340,10 +363,9 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
   }
 
   // Window-expired check: if the player already had a valid bingo BEFORE the
-  // last number was called, they missed their claim window. They must claim on
-  // the exact number that completes their pattern — not after the next bolillo.
+  // last number was called, they missed their claim window.
   if (calledNumbers.length > 1) {
-    const alreadyWonBefore = validateBingo(card, game.gameMode, calledNumbers.slice(0, -1));
+    const alreadyWonBefore = validateBingo(card, roundCfg.game_mode, calledNumbers.slice(0, -1));
     if (alreadyWonBefore) {
       res.json({
         valid: false,
@@ -358,40 +380,36 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
   // inside ONE transaction that locks the game row (SELECT ... FOR UPDATE).
   // This serializes concurrent valid claims so two players cannot both pass the
   // cap check or collide on the same place. The DB unique constraint on
-  // winners.card_id is the final guard against a same-card double claim.
+  // (card_id, round) is the final guard against a same-card double claim per round.
   let winner: typeof winnersTable.$inferSelect | undefined;
   let dupCard = false;
   let capReached = false;
   let notActive = false;
   try {
     await db.transaction(async (tx) => {
-      // Lock the game row, then RE-READ status inside the lock: the game could
-      // have flipped to finished between the precheck and here, and we must not
-      // admit a late winner after the game closed.
       const lockedRows = await tx.execute(
         sql`SELECT status FROM games WHERE id = ${game.id} FOR UPDATE`
       );
       if ((lockedRows.rows[0]?.status as string | undefined) !== "active") { notActive = true; return; }
 
+      // Check duplicate claim for THIS round (same card can win different rounds)
       const cardWinner = await tx.select().from(winnersTable)
-        .where(eq(winnersTable.cardId, card.id)).limit(1);
+        .where(and(eq(winnersTable.cardId, card.id), eq(winnersTable.round, currentRound))).limit(1);
       if (cardWinner.length) { dupCard = true; return; }
 
-      // Count ALL existing claims (pending + validated): pending claims are
-      // already server-verified wins, so they occupy a slot and set the order.
+      // Count winners for THIS round only
       const existingWinners = await tx.select().from(winnersTable)
-        .where(eq(winnersTable.gameId, game.id));
-      if (existingWinners.length >= game.maxWinners) { capReached = true; return; }
+        .where(and(eq(winnersTable.gameId, game.id), eq(winnersTable.round, currentRound)));
+      if (existingWinners.length >= roundCfg.max_winners) { capReached = true; return; }
 
-      const prizes = (game.prizes as Array<{ place: number; amount: number }>) ?? [];
       const nextPlace = existingWinners.length + 1;
-      const prize = prizes.find(p => p.place === nextPlace);
-      const prizeAmount = prize?.amount ?? parseFloat(game.prizeAmount);
+      const prizeAmount = roundCfg.prize_amount;
 
       [winner] = await tx.insert(winnersTable).values({
         gameId: game.id,
         userId: req.userId!,
         cardId: card.id,
+        round: currentRound,
         place: nextPlace,
         prizeAmount: String(prizeAmount),
         claimedAtMs: String(b.data.claimed_at_ms),
@@ -404,6 +422,7 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
         gameId: game.id,
         cardId: card.id,
         details: {
+          round: currentRound,
           claimed_at_ms: b.data.claimed_at_ms,
           server_timestamp_ms: claimTimestamp,
           marked_numbers: b.data.marked_numbers,

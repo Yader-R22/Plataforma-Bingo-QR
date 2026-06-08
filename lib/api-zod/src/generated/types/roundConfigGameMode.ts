@@ -6,13 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-/**
- * Modalidad de la ronda activa (o única ronda)
- */
-export type GameGameMode = typeof GameGameMode[keyof typeof GameGameMode];
+export type RoundConfigGameMode = typeof RoundConfigGameMode[keyof typeof RoundConfigGameMode];
 
 
-export const GameGameMode = {
+export const RoundConfigGameMode = {
   horizontal: 'horizontal',
   vertical: 'vertical',
   diagonal: 'diagonal',

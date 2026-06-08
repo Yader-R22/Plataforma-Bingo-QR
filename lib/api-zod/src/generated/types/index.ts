@@ -66,6 +66,8 @@ export * from './registerInput';
 export * from './registerInputDepartment';
 export * from './resetPasswordInput';
 export * from './resolveNameChangeInput';
+export * from './roundConfig';
+export * from './roundConfigGameMode';
 export * from './user';
 export * from './userStatus';
 export * from './validateWinnerInput';

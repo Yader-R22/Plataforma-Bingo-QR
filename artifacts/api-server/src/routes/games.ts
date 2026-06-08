@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable } from "@workspace/db";
+import type { RoundConfig } from "@workspace/db";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
 import {
@@ -15,11 +16,36 @@ import {
   StartGameParams,
   FinishGameParams,
   DeleteGameParams,
+  NextRoundParams,
 } from "@workspace/api-zod";
 
 const router = Router();
 
+function getCurrentRoundConfig(game: typeof gamesTable.$inferSelect) {
+  const rounds = game.rounds as RoundConfig[] | null | undefined;
+  if (rounds?.length) {
+    const r = rounds[(game.currentRound ?? 1) - 1];
+    if (r) {
+      return {
+        game_mode: r.game_mode as "horizontal" | "vertical" | "diagonal" | "quina" | "full_card",
+        max_winners: r.max_winners,
+        prize_amount: r.prize_amount,
+      };
+    }
+  }
+  return {
+    game_mode: game.gameMode,
+    max_winners: game.maxWinners,
+    prize_amount: parseFloat(game.prizeAmount),
+  };
+}
+
 function formatGame(game: typeof gamesTable.$inferSelect) {
+  const rounds = game.rounds as RoundConfig[] | null | undefined;
+  const totalRounds = rounds?.length ?? 1;
+  const currentRound = game.currentRound ?? 1;
+  const roundCfg = getCurrentRoundConfig(game);
+
   return {
     id: game.id,
     title: game.title,
@@ -32,9 +58,12 @@ function formatGame(game: typeof gamesTable.$inferSelect) {
     stream_url_youtube: game.streamUrlYoutube ?? null,
     stream_url_tiktok: game.streamUrlTiktok ?? null,
     stream_url_facebook: game.streamUrlFacebook ?? null,
-    game_mode: game.gameMode,
-    max_winners: game.maxWinners,
+    game_mode: roundCfg.game_mode,
+    max_winners: roundCfg.max_winners,
     prizes: (game.prizes as Array<{ place: number; amount: number }>) ?? [],
+    rounds: rounds ?? null,
+    current_round: currentRound,
+    total_rounds: totalRounds,
     is_featured: game.isFeatured,
     cover_image_url: game.coverImageUrl ?? null,
     called_numbers: game.calledNumbers ?? [],
@@ -62,6 +91,8 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
     return;
   }
   const data = parsed.data;
+  const rounds = (data.rounds as RoundConfig[] | undefined) ?? null;
+
   const [game] = await db.insert(gamesTable).values({
     title: data.title,
     type: data.type as "daily" | "weekly" | "monthly",
@@ -74,6 +105,8 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
     gameMode: (data.game_mode ?? "full_card") as "horizontal" | "vertical" | "diagonal" | "quina" | "full_card",
     maxWinners: data.max_winners ?? 1,
     prizes: (data.prizes as Array<{ place: number; amount: number }>) ?? [],
+    rounds,
+    currentRound: 1,
     coverImageUrl: data.cover_image_url ?? null,
   }).returning();
   res.status(201).json(formatGame(game));
@@ -105,6 +138,7 @@ router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
   if (data.max_winners !== undefined) updateData.maxWinners = data.max_winners;
   if (data.status) updateData.status = data.status as "upcoming" | "active" | "finished";
   if (data.cover_image_url !== undefined) updateData.coverImageUrl = data.cover_image_url ?? null;
+  if (data.rounds !== undefined) updateData.rounds = (data.rounds as RoundConfig[]) ?? null;
   const [game] = await db.update(gamesTable).set(updateData).where(eq(gamesTable.id, p.data.id)).returning();
   if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
   res.json(formatGame(game));
@@ -117,11 +151,17 @@ router.get("/:id/session", requireAuth, async (req: AuthRequest, res) => {
   if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
   const game = games[0];
   const called = game.calledNumbers ?? [];
+  const rounds = game.rounds as RoundConfig[] | null | undefined;
+  const totalRounds = rounds?.length ?? 1;
+  const currentRound = game.currentRound ?? 1;
+  const roundCfg = getCurrentRoundConfig(game);
   res.json({
     game_id: game.id,
     called_numbers: called,
     last_called_number: called.length ? called[called.length - 1] : null,
-    game_mode: game.gameMode,
+    game_mode: roundCfg.game_mode,
+    current_round: currentRound,
+    total_rounds: totalRounds,
     updated_at: game.updatedAt,
   });
 });
@@ -135,6 +175,7 @@ router.get("/:id/winners", async (req: AuthRequest, res) => {
       game_id: winnersTable.gameId,
       user_id: winnersTable.userId,
       card_id: winnersTable.cardId,
+      round: winnersTable.round,
       place: winnersTable.place,
       prize_amount: winnersTable.prizeAmount,
       claimed_at_ms: winnersTable.claimedAtMs,
@@ -145,7 +186,7 @@ router.get("/:id/winners", async (req: AuthRequest, res) => {
     .from(winnersTable)
     .innerJoin(usersTable, eq(winnersTable.userId, usersTable.id))
     .where(and(eq(winnersTable.gameId, p.data.id), eq(winnersTable.validated, true)))
-    .orderBy(winnersTable.place);
+    .orderBy(winnersTable.round, winnersTable.place);
 
   res.json(winners.map(w => ({
     ...w,
@@ -163,9 +204,6 @@ router.post("/:id/call-number", requireAdmin, async (req: AuthRequest, res) => {
   if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
   const game = games[0];
   if (game.status !== "active") { res.status(400).json({ error: "El juego no está activo" }); return; }
-  // Each number is drawn only once. The append is atomic (array_append guarded
-  // by NOT (n = ANY(called_numbers))) so concurrent calls cannot lose numbers
-  // or insert a duplicate — real bingo rule, race-safe.
   const appended = await db.execute(
     sql`UPDATE games SET called_numbers = array_append(called_numbers, ${b.data.number})
         WHERE id = ${p.data.id} AND status = 'active' AND NOT (${b.data.number} = ANY(called_numbers))`
@@ -175,11 +213,17 @@ router.post("/:id/call-number", requireAdmin, async (req: AuthRequest, res) => {
     return;
   }
   const [updated] = await db.select().from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
+  const rounds = updated.rounds as RoundConfig[] | null | undefined;
+  const totalRounds = rounds?.length ?? 1;
+  const currentRound = updated.currentRound ?? 1;
+  const roundCfg = getCurrentRoundConfig(updated);
   res.json({
     game_id: updated.id,
     called_numbers: updated.calledNumbers,
     last_called_number: b.data.number,
-    game_mode: updated.gameMode,
+    game_mode: roundCfg.game_mode,
+    current_round: currentRound,
+    total_rounds: totalRounds,
     updated_at: updated.updatedAt,
   });
 });
@@ -187,9 +231,43 @@ router.post("/:id/call-number", requireAdmin, async (req: AuthRequest, res) => {
 router.post("/:id/start", requireAdmin, async (req: AuthRequest, res) => {
   const p = StartGameParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
-  const [game] = await db.update(gamesTable).set({ status: "active", calledNumbers: [] }).where(eq(gamesTable.id, p.data.id)).returning();
+  const [game] = await db.update(gamesTable)
+    .set({ status: "active", calledNumbers: [], currentRound: 1 })
+    .where(eq(gamesTable.id, p.data.id))
+    .returning();
   if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
   res.json(formatGame(game));
+});
+
+router.post("/:id/next-round", requireAdmin, async (req: AuthRequest, res) => {
+  const p = NextRoundParams.safeParse({ id: parseInt(String(req.params.id)) });
+  if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const games = await db.select().from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
+  if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
+  const game = games[0];
+
+  if (game.status !== "active") {
+    res.status(400).json({ error: "El juego no está activo" });
+    return;
+  }
+
+  const rounds = game.rounds as RoundConfig[] | null | undefined;
+  const totalRounds = rounds?.length ?? 1;
+  const currentRound = game.currentRound ?? 1;
+
+  if (currentRound >= totalRounds) {
+    res.status(400).json({ error: "Ya estás en la última ronda. Finaliza el juego." });
+    return;
+  }
+
+  const [updated] = await db.update(gamesTable)
+    .set({ currentRound: currentRound + 1, calledNumbers: [] })
+    .where(eq(gamesTable.id, p.data.id))
+    .returning();
+
+  req.log.info({ gameId: p.data.id, newRound: currentRound + 1 }, "Ronda avanzada por admin");
+  res.json(formatGame(updated));
 });
 
 router.post("/:id/finish", requireAdmin, async (req: AuthRequest, res) => {
@@ -198,7 +276,6 @@ router.post("/:id/finish", requireAdmin, async (req: AuthRequest, res) => {
   const [game] = await db.update(gamesTable).set({ status: "finished" }).where(eq(gamesTable.id, p.data.id)).returning();
   if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
 
-  // Expire all pending cards for this game
   await db.update(cardsTable).set({ status: "expired" })
     .where(and(eq(cardsTable.gameId, p.data.id), eq(cardsTable.status, "active")));
 
@@ -215,9 +292,6 @@ router.delete("/:id", requireAdmin, async (req: AuthRequest, res) => {
 
   const game = games[0];
 
-  // Safety guard: block deletion of upcoming/active games that have paid cards —
-  // those are live financial records tied to an ongoing event.
-  // Finished games can always be deleted (all prizes already settled).
   if (game.status !== "finished") {
     const paidCards = await db.select({ id: cardsTable.id }).from(cardsTable)
       .where(and(eq(cardsTable.gameId, gameId), eq(cardsTable.paymentStatus, "paid")))
@@ -228,7 +302,6 @@ router.delete("/:id", requireAdmin, async (req: AuthRequest, res) => {
     }
   }
 
-  // Remove dependent rows first to satisfy FK constraints (winners → cards → game), atomically.
   await db.transaction(async (tx) => {
     await tx.delete(winnersTable).where(eq(winnersTable.gameId, gameId));
     await tx.delete(cardsTable).where(eq(cardsTable.gameId, gameId));

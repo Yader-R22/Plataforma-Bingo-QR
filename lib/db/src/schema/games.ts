@@ -11,6 +11,13 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
+export type RoundConfig = {
+  round_number: number;
+  game_mode: "horizontal" | "vertical" | "diagonal" | "quina" | "full_card";
+  max_winners: number;
+  prize_amount: number;
+};
+
 export const gamesTable = pgTable("games", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -27,6 +34,8 @@ export const gamesTable = pgTable("games", {
   }).notNull().default("full_card"),
   maxWinners: integer("max_winners").notNull().default(1),
   prizes: jsonb("prizes").$type<Array<{ place: number; amount: number }>>().default([]),
+  rounds: jsonb("rounds").$type<RoundConfig[]>(),
+  currentRound: integer("current_round").notNull().default(1),
   calledNumbers: integer("called_numbers").array().notNull().default([]),
   participantCount: integer("participant_count").notNull().default(0),
   coverImageUrl: text("cover_image_url"),
@@ -42,6 +51,7 @@ export const insertGameSchema = createInsertSchema(gamesTable).omit({
   status: true,
   calledNumbers: true,
   participantCount: true,
+  currentRound: true,
 });
 
 export type InsertGame = z.infer<typeof insertGameSchema>;

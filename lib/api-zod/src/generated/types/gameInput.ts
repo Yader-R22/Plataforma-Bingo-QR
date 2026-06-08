@@ -8,6 +8,7 @@
 import type { GameInputGameMode } from './gameInputGameMode';
 import type { GameInputType } from './gameInputType';
 import type { PrizeTier } from './prizeTier';
+import type { RoundConfig } from './roundConfig';
 
 export interface GameInput {
   title: string;
@@ -24,6 +25,8 @@ export interface GameInput {
   game_mode: GameInputGameMode;
   max_winners?: number;
   prizes?: PrizeTier[];
+  /** Configuración de múltiples rondas (opcional) */
+  rounds?: RoundConfig[];
   /**
      * URL o base64 de imagen de portada del juego (opcional)
      * @nullable

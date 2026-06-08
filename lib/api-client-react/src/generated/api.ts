@@ -1325,6 +1325,76 @@ export const useFinishGame = <TError = ErrorType<unknown>,
       return useMutation(getFinishGameMutationOptions(options));
     }
 
+export const getNextRoundUrl = (id: number,) => {
+
+
+
+
+  return `/api/games/${id}/next-round`
+}
+
+/**
+ * @summary Avanzar a la siguiente ronda del juego (admin)
+ */
+export const nextRound = async (id: number, options?: RequestInit): Promise<Game> => {
+
+  return customFetch<Game>(getNextRoundUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getNextRoundMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nextRound>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof nextRound>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['nextRound'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof nextRound>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  nextRound(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type NextRoundMutationResult = NonNullable<Awaited<ReturnType<typeof nextRound>>>
+
+    export type NextRoundMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Avanzar a la siguiente ronda del juego (admin)
+ */
+export const useNextRound = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof nextRound>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof nextRound>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getNextRoundMutationOptions(options));
+    }
+
 export const getListMyCardsUrl = (params?: ListMyCardsParams,) => {
   const normalizedParams = new URLSearchParams();
 

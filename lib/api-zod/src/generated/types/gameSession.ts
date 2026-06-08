@@ -9,13 +9,18 @@ import type { GameSessionGameMode } from './gameSessionGameMode';
 
 export interface GameSession {
   game_id: number;
-  /** Números cantados hasta el momento */
+  /** Números cantados en la ronda actual */
   called_numbers: number[];
   /**
      * Último número cantado
      * @nullable
      */
   last_called_number: number | null;
+  /** Modalidad de la ronda actual */
   game_mode: GameSessionGameMode;
+  /** Número de ronda actual (1-based) */
+  current_round?: number;
+  /** Total de rondas programadas */
+  total_rounds?: number;
   updated_at: Date;
 }

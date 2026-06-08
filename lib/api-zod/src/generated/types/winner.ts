@@ -11,6 +11,8 @@ export interface Winner {
   game_id: number;
   user_id: number;
   card_id: number;
+  /** Número de ronda en que se ganó (1-based) */
+  round?: number;
   place: number;
   prize_amount: number;
   claimed_at_ms: number;

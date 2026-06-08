@@ -7,6 +7,7 @@
  */
 import type { GameUpdateGameMode } from './gameUpdateGameMode';
 import type { GameUpdateStatus } from './gameUpdateStatus';
+import type { RoundConfig } from './roundConfig';
 
 export interface GameUpdate {
   title?: string;
@@ -22,6 +23,8 @@ export interface GameUpdate {
   game_mode?: GameUpdateGameMode;
   max_winners?: number;
   status?: GameUpdateStatus;
+  /** Actualizar configuración de rondas */
+  rounds?: RoundConfig[];
   /**
      * URL o base64 de imagen de portada del juego (opcional)
      * @nullable

@@ -96,6 +96,25 @@ export interface AuthResponse {
   user: User;
 }
 
+export type RoundConfigGameMode = typeof RoundConfigGameMode[keyof typeof RoundConfigGameMode];
+
+
+export const RoundConfigGameMode = {
+  horizontal: 'horizontal',
+  vertical: 'vertical',
+  diagonal: 'diagonal',
+  quina: 'quina',
+  full_card: 'full_card',
+} as const;
+
+export interface RoundConfig {
+  /** Número de ronda (1-based) */
+  round_number: number;
+  game_mode: RoundConfigGameMode;
+  max_winners: number;
+  prize_amount: number;
+}
+
 export type GameType = typeof GameType[keyof typeof GameType];
 
 
@@ -115,7 +134,7 @@ export const GameStatus = {
 } as const;
 
 /**
- * Modalidad activa del juego
+ * Modalidad de la ronda activa (o única ronda)
  */
 export type GameGameMode = typeof GameGameMode[keyof typeof GameGameMode];
 
@@ -153,11 +172,19 @@ export interface Game {
   stream_url_tiktok?: string | null;
   /** @nullable */
   stream_url_facebook?: string | null;
-  /** Modalidad activa del juego */
+  /** Modalidad de la ronda activa (o única ronda) */
   game_mode?: GameGameMode;
-  /** Número máximo de ganadores */
+  /** Máx. ganadores de la ronda activa (o única ronda) */
   max_winners?: number;
   prizes?: PrizeTier[];
+  /** Configuración de rondas (null = juego de una sola ronda) */
+  rounds?: RoundConfig[];
+  /** Número de ronda actual (1-based) */
+  current_round?: number;
+  /** Total de rondas programadas */
+  total_rounds?: number;
+  /** Números cantados en la ronda actual */
+  called_numbers?: number[];
   /**
      * URL o base64 de imagen de portada del juego (opcional)
      * @nullable
@@ -201,6 +228,8 @@ export interface GameInput {
   game_mode: GameInputGameMode;
   max_winners?: number;
   prizes?: PrizeTier[];
+  /** Configuración de múltiples rondas (opcional) */
+  rounds?: RoundConfig[];
   /**
      * URL o base64 de imagen de portada del juego (opcional)
      * @nullable
@@ -242,6 +271,8 @@ export interface GameUpdate {
   game_mode?: GameUpdateGameMode;
   max_winners?: number;
   status?: GameUpdateStatus;
+  /** Actualizar configuración de rondas */
+  rounds?: RoundConfig[];
   /**
      * URL o base64 de imagen de portada del juego (opcional)
      * @nullable
@@ -313,6 +344,9 @@ export interface GameCategoryUpdate {
   stream_url_facebook?: string | null;
 }
 
+/**
+ * Modalidad de la ronda actual
+ */
 export type GameSessionGameMode = typeof GameSessionGameMode[keyof typeof GameSessionGameMode];
 
 
@@ -326,14 +360,19 @@ export const GameSessionGameMode = {
 
 export interface GameSession {
   game_id: number;
-  /** Números cantados hasta el momento */
+  /** Números cantados en la ronda actual */
   called_numbers: number[];
   /**
      * Último número cantado
      * @nullable
      */
   last_called_number: number | null;
+  /** Modalidad de la ronda actual */
   game_mode: GameSessionGameMode;
+  /** Número de ronda actual (1-based) */
+  current_round?: number;
+  /** Total de rondas programadas */
+  total_rounds?: number;
   updated_at: string;
 }
 
@@ -424,6 +463,8 @@ export interface Winner {
   game_id: number;
   user_id: number;
   card_id: number;
+  /** Número de ronda en que se ganó (1-based) */
+  round?: number;
   place: number;
   prize_amount: number;
   claimed_at_ms: number;

@@ -19,6 +19,16 @@ function toDatetimeLocal(iso: string): string {
   return local.toISOString().slice(0, 16);
 }
 
+type RoundRow = { game_mode: string; max_winners: string; prize_amount: string };
+
+const MODE_OPTIONS = [
+  { value: "full_card", label: "Cartón completo" },
+  { value: "horizontal", label: "Horizontal" },
+  { value: "vertical", label: "Vertical" },
+  { value: "diagonal", label: "Diagonal" },
+  { value: "quina", label: "Quina" },
+];
+
 export default function CreateGamePage() {
   const [, navigate] = useLocation();
   const [matchEdit, editParams] = useRoute("/admin/editar-juego/:id");
@@ -45,6 +55,12 @@ export default function CreateGamePage() {
 
   const [coverImage, setCoverImage] = useState<string | null>(null);
 
+  const [multiRound, setMultiRound] = useState(false);
+  const [rounds, setRounds] = useState<RoundRow[]>([
+    { game_mode: "full_card", max_winners: "1", prize_amount: "" },
+    { game_mode: "full_card", max_winners: "1", prize_amount: "" },
+  ]);
+
   useEffect(() => {
     if (!isEdit) return;
     (async () => {
@@ -65,6 +81,14 @@ export default function CreateGamePage() {
           max_winners: String(g.max_winners ?? "1"),
         });
         setCoverImage(g.cover_image_url ?? null);
+        if (g.rounds?.length > 1) {
+          setMultiRound(true);
+          setRounds(g.rounds.map((r: { game_mode: string; max_winners: number; prize_amount: number }) => ({
+            game_mode: r.game_mode,
+            max_winners: String(r.max_winners),
+            prize_amount: String(r.prize_amount),
+          })));
+        }
       } catch {
         toast.error("Error al cargar el juego");
         navigate("/admin");
@@ -76,21 +100,42 @@ export default function CreateGamePage() {
 
   function upd(k: string, v: string) { setForm(f => ({ ...f, [k]: v })); }
 
+  function updateRound(i: number, k: keyof RoundRow, v: string) {
+    setRounds(rs => rs.map((r, idx) => idx === i ? { ...r, [k]: v } : r));
+  }
+
+  function addRound() {
+    setRounds(rs => [...rs, { game_mode: "full_card", max_winners: "1", prize_amount: "" }]);
+  }
+
+  function removeRound(i: number) {
+    setRounds(rs => rs.filter((_, idx) => idx !== i));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
-      const common = {
+      const roundsPayload = multiRound
+        ? rounds.map(r => ({
+            game_mode: r.game_mode,
+            max_winners: parseInt(r.max_winners) || 1,
+            prize_amount: parseFloat(r.prize_amount) || 0,
+          }))
+        : null;
+
+      const common: Record<string, unknown> = {
         title: form.title,
         prize_amount: parseFloat(form.prize_amount),
         card_price: parseFloat(form.card_price),
-        max_winners: parseInt(form.max_winners),
+        max_winners: multiRound ? 1 : parseInt(form.max_winners),
         draw_date: new Date(form.draw_date).toISOString(),
         game_mode: form.game_mode,
         stream_url_youtube: form.stream_url_youtube || undefined,
         stream_url_tiktok: form.stream_url_tiktok || undefined,
         stream_url_facebook: form.stream_url_facebook || undefined,
         cover_image_url: coverImage ?? null,
+        rounds: roundsPayload,
       };
       const url = isEdit ? `${BASE}/api/games/${editId}` : `${BASE}/api/games`;
       const method = isEdit ? "PATCH" : "POST";
@@ -131,7 +176,7 @@ export default function CreateGamePage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label>Título del juego</Label>
-            <Input placeholder="Ej: Bingo Diario — Miércoles" value={form.title} onChange={e => upd("title", e.target.value)} required />
+            <Input placeholder="Ej: Bingo Martes — 3 Rondas" value={form.title} onChange={e => upd("title", e.target.value)} required />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -147,41 +192,111 @@ export default function CreateGamePage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Modalidad</Label>
-              <Select value={form.game_mode} onValueChange={v => upd("game_mode", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="full_card">Cartón completo</SelectItem>
-                  <SelectItem value="horizontal">Horizontal</SelectItem>
-                  <SelectItem value="vertical">Vertical</SelectItem>
-                  <SelectItem value="diagonal">Diagonal</SelectItem>
-                  <SelectItem value="quina">Quina</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Premio (Bs)</Label>
-              <Input type="number" min="1" step="0.01" placeholder="500.00" value={form.prize_amount} onChange={e => upd("prize_amount", e.target.value)} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Precio cartón (Bs)</Label>
-              <Input type="number" min="0.5" step="0.5" placeholder="5.00" value={form.card_price} onChange={e => upd("card_price", e.target.value)} required />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
               <Label>Fecha y hora del sorteo</Label>
               <Input type="datetime-local" value={form.draw_date} onChange={e => upd("draw_date", e.target.value)} required />
             </div>
-            <div className="space-y-1.5">
-              <Label>Máx. ganadores</Label>
-              <Input type="number" min="1" max="10" value={form.max_winners} onChange={e => upd("max_winners", e.target.value)} />
-            </div>
           </div>
+
+          <div className="space-y-1.5">
+            <Label>Precio cartón (Bs)</Label>
+            <Input type="number" min="0.5" step="0.5" placeholder="5.00" value={form.card_price} onChange={e => upd("card_price", e.target.value)} required />
+          </div>
+
+          {/* ── Multi-round toggle ── */}
+          <div className="rounded-xl border p-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold">Multi-ronda</p>
+              <p className="text-xs text-muted-foreground">Varias rondas con diferente modalidad y premio cada una</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMultiRound(v => !v)}
+              className="shrink-0 relative w-11 h-6 rounded-full transition-colors"
+              style={{ background: multiRound ? "hsl(var(--primary))" : "hsl(var(--muted))" }}>
+              <span className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform"
+                style={{ left: multiRound ? "calc(100% - 22px)" : "2px" }} />
+            </button>
+          </div>
+
+          {/* ── Single-round fields (shown when multi-round OFF) ── */}
+          {!multiRound && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Modalidad</Label>
+                  <Select value={form.game_mode} onValueChange={v => upd("game_mode", v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MODE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Máx. ganadores</Label>
+                  <Input type="number" min="1" max="10" value={form.max_winners} onChange={e => upd("max_winners", e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Premio (Bs)</Label>
+                <Input type="number" min="1" step="0.01" placeholder="500.00" value={form.prize_amount} onChange={e => upd("prize_amount", e.target.value)} required />
+              </div>
+            </>
+          )}
+
+          {/* ── Multi-round config ── */}
+          {multiRound && (
+            <div className="space-y-2">
+              <Label>Configuración de rondas</Label>
+              <p className="text-xs text-muted-foreground -mt-1">Premio total (campo arriba) es informativo. Cada ronda tiene su propio premio.</p>
+
+              <div className="space-y-1.5">
+                <Label>Premio total del juego (Bs) <span className="font-normal text-muted-foreground">(referencia)</span></Label>
+                <Input type="number" min="1" step="0.01" placeholder="500.00" value={form.prize_amount} onChange={e => upd("prize_amount", e.target.value)} required />
+              </div>
+
+              {rounds.map((r, i) => (
+                <div key={i} className="rounded-xl border p-3 space-y-2"
+                  style={{ background: "hsl(var(--muted) / 0.4)" }}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-black">Ronda {i + 1}</p>
+                    {rounds.length > 2 && (
+                      <button type="button" onClick={() => removeRound(i)}
+                        className="text-xs font-bold text-red-500 hover:text-red-400">
+                        ✕ Quitar
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-muted-foreground font-medium">Modalidad</p>
+                      <Select value={r.game_mode} onValueChange={v => updateRound(i, "game_mode", v)}>
+                        <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {MODE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-muted-foreground font-medium">Premio (Bs)</p>
+                      <Input className="h-9 text-xs" type="number" min="1" step="0.01" placeholder="250.00"
+                        value={r.prize_amount} onChange={e => updateRound(i, "prize_amount", e.target.value)} required />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-muted-foreground font-medium">Ganadores</p>
+                      <Input className="h-9 text-xs" type="number" min="1" max="10" placeholder="1"
+                        value={r.max_winners} onChange={e => updateRound(i, "max_winners", e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <button type="button" onClick={addRound}
+                className="w-full py-2 rounded-xl border-2 border-dashed text-sm font-bold transition-colors hover:border-primary/60"
+                style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
+                + Agregar ronda
+              </button>
+            </div>
+          )}
 
           {/* Cover image */}
           <div className="space-y-2">

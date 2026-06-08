@@ -9,6 +9,7 @@ import type { GameGameMode } from './gameGameMode';
 import type { GameStatus } from './gameStatus';
 import type { GameType } from './gameType';
 import type { PrizeTier } from './prizeTier';
+import type { RoundConfig } from './roundConfig';
 
 export interface Game {
   id: number;
@@ -28,11 +29,19 @@ export interface Game {
   stream_url_tiktok?: string | null;
   /** @nullable */
   stream_url_facebook?: string | null;
-  /** Modalidad activa del juego */
+  /** Modalidad de la ronda activa (o única ronda) */
   game_mode?: GameGameMode;
-  /** Número máximo de ganadores */
+  /** Máx. ganadores de la ronda activa (o única ronda) */
   max_winners?: number;
   prizes?: PrizeTier[];
+  /** Configuración de rondas (null = juego de una sola ronda) */
+  rounds?: RoundConfig[];
+  /** Número de ronda actual (1-based) */
+  current_round?: number;
+  /** Total de rondas programadas */
+  total_rounds?: number;
+  /** Números cantados en la ronda actual */
+  called_numbers?: number[];
   /**
      * URL o base64 de imagen de portada del juego (opcional)
      * @nullable

@@ -33,6 +33,8 @@ interface GameSession {
   called_numbers: number[];
   last_called_number: number | null;
   game_mode: string;
+  current_round: number;
+  total_rounds: number;
   updated_at: string;
 }
 
@@ -199,11 +201,19 @@ export default function PlayPage() {
             <p className="text-white text-xs font-black truncate leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
               {gameTitle ?? `Juego #${gameId}`}
             </p>
-            {session?.game_mode && (
-              <p className="text-white/50 text-[10px] leading-tight truncate">
-                {MODE_LABEL[session.game_mode] ?? session.game_mode}
-              </p>
-            )}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {session?.game_mode && (
+                <p className="text-white/50 text-[10px] leading-tight truncate">
+                  {MODE_LABEL[session.game_mode] ?? session.game_mode}
+                </p>
+              )}
+              {session && (session.total_rounds ?? 1) > 1 && (
+                <span className="shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-full leading-tight"
+                  style={{ background: "hsl(42 98% 52% / 0.2)", color: "hsl(42 98% 60%)" }}>
+                  Ronda {session.current_round}/{session.total_rounds}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <span className="text-white/60 text-xs">{session?.called_numbers?.length ?? 0} 🎱</span>
