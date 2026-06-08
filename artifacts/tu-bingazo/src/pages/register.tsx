@@ -140,7 +140,7 @@ export default function RegisterPage() {
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Error al registrarse"); return; }
       setAuth(data.token, data.user);
-      toast.success("¡Cuenta creada! Verificaremos tu identidad pronto.");
+      toast.success("¡Cuenta creada! Ya puedes usar la plataforma.");
       navigate("/");
     } catch {
       toast.error("Error de conexión. Intenta de nuevo.");
@@ -278,9 +278,6 @@ export default function RegisterPage() {
                   Continuar →
                 </button>
               </div>
-              <button type="button" className="w-full text-sm text-muted-foreground underline py-1" onClick={() => setStep(3)}>
-                Omitir por ahora (requerido para jugar)
-              </button>
             </div>
           )}
 
