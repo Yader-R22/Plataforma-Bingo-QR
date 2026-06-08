@@ -256,14 +256,18 @@ export default function HomePage() {
     return () => clearInterval(iv);
   }, [token]);
 
+  // Persist scroll position across feed refreshes so the ticker never jumps
+  const scrollPosRef = useRef(0);
   useEffect(() => {
     if (!feed.length || !feedRef.current) return;
     const el = feedRef.current;
-    let pos = 0;
+    // Resume from where we left off (not from 0)
+    el.scrollLeft = scrollPosRef.current;
     const scroll = () => {
-      pos += 0.5;
-      if (pos >= el.scrollWidth / 2) pos = 0;
-      el.scrollLeft = pos;
+      scrollPosRef.current += 0.6;
+      const half = el.scrollWidth / 2;
+      if (half > 0 && scrollPosRef.current >= half) scrollPosRef.current = 0;
+      el.scrollLeft = scrollPosRef.current;
     };
     const id = setInterval(scroll, 30);
     return () => clearInterval(id);
