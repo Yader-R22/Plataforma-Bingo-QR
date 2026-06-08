@@ -30,7 +30,7 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
 }) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [section, setSection] = useState<"info" | "role" | "password" | "balance" | "danger">("info");
+  const [section, setSection] = useState<"verify" | "info" | "role" | "password" | "balance" | "danger">("info");
 
   const [tempPwd, setTempPwd] = useState("");
   const [tempPwdHours, setTempPwdHours] = useState(24);
@@ -45,13 +45,19 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
   const [savingBan, setSavingBan] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [savingRole, setSavingRole] = useState(false);
+  const [savingVerify, setSavingVerify] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   const auth = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
   useEffect(() => {
     fetch(`${BASE}/api/admin/users/${userId}`, { headers: auth() })
       .then(r => r.ok ? r.json() : null)
-      .then(d => { setUser(d); setLoading(false); })
+      .then(d => {
+        setUser(d);
+        setLoading(false);
+        if (d?.status === "pending") setSection("verify");
+      })
       .catch(() => setLoading(false));
   }, [userId]);
 
@@ -116,6 +122,23 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
     } else { const d = await r.json(); toast.error(d.error || "Error"); }
   }
 
+  async function verifyAccount(approved: boolean) {
+    if (!approved && !rejectReason.trim()) { toast.error("Indica el motivo del rechazo"); return; }
+    setSavingVerify(true);
+    const r = await fetch(`${BASE}/api/admin/users/${userId}/verify`, {
+      method: "POST", headers: auth(),
+      body: JSON.stringify({ approved, reason: approved ? undefined : rejectReason }),
+    });
+    setSavingVerify(false);
+    if (r.ok) {
+      const d = await r.json();
+      toast.success(approved ? "✅ Cuenta aprobada — usuario activo" : "❌ Cuenta rechazada");
+      setUser((u: any) => ({ ...u, status: d.status }));
+      onUserUpdated({ ...user, status: d.status });
+      setSection("info");
+    } else { const d = await r.json(); toast.error(d.error || "Error"); }
+  }
+
   async function setUserRole(makeAdmin: boolean) {
     setSavingRole(true);
     const r = await fetch(`${BASE}/api/admin/users/${userId}/role`, {
@@ -149,12 +172,13 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
   const whatsappUrl = `https://wa.me/${user.phone?.replace(/\D/g, "")}`;
 
   const sectionBtns = [
-    { id: "info", label: "📋 Info" },
-    { id: "role", label: "🛡️ Rol" },
-    { id: "password", label: "🔑 Contraseña" },
-    { id: "balance", label: "💰 Saldo" },
-    { id: "danger", label: "⚠️ Acciones" },
-  ] as const;
+    ...(user.status === "pending" ? [{ id: "verify" as const, label: "✅ Verificar" }] : []),
+    { id: "info" as const, label: "📋 Info" },
+    { id: "role" as const, label: "🛡️ Rol" },
+    { id: "password" as const, label: "🔑 Contraseña" },
+    { id: "balance" as const, label: "💰 Saldo" },
+    { id: "danger" as const, label: "⚠️ Acciones" },
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: "rgba(0,0,0,0.6)" }}
@@ -200,6 +224,92 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
         </div>
 
         <div className="p-4 space-y-4">
+
+          {/* ── VERIFICAR IDENTIDAD ───────────────────── */}
+          {section === "verify" && (
+            <div className="space-y-4">
+              {/* Status banner */}
+              <div className="rounded-2xl p-4 text-center"
+                style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.35)" }}>
+                <p className="text-2xl mb-1">⏳</p>
+                <p className="font-black">Cuenta pendiente de verificación</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Revisa los documentos enviados y aprueba o rechaza la cuenta.
+                </p>
+              </div>
+
+              {/* Registration info summary */}
+              <div className="rounded-2xl px-3 py-3 space-y-1.5"
+                style={{ background: "hsl(var(--muted) / 0.5)", border: "1px solid hsl(var(--border))" }}>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2">Datos de registro a verificar</p>
+                {[
+                  { label: "Nombre completo", value: user.full_name },
+                  { label: "CI", value: user.ci },
+                  { label: "Teléfono", value: user.phone },
+                  { label: "Departamento", value: user.department },
+                ].map(row => (
+                  <div key={row.label} className="flex justify-between items-center gap-3">
+                    <span className="text-xs text-muted-foreground shrink-0">{row.label}</span>
+                    <span className="text-xs font-bold text-right">{row.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* CI photos */}
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">📄 Documentos del CI enviados</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { url: user.id_photo_front_url, label: "Anverso" },
+                    { url: user.id_photo_back_url, label: "Reverso" },
+                  ].map(({ url, label }) => (
+                    <div key={label} className="space-y-1">
+                      <p className="text-[11px] font-bold text-muted-foreground">{label}</p>
+                      {url ? (
+                        <img src={url} alt={label}
+                          className="w-full rounded-xl object-cover cursor-zoom-in border hover:opacity-90 transition-opacity"
+                          style={{ height: 140 }}
+                          onClick={() => window.open(url, "_blank")} />
+                      ) : (
+                        <div className="w-full rounded-xl border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground"
+                          style={{ height: 140 }}>
+                          <span className="text-2xl mb-1">📷</span>
+                          <span className="text-[11px]">Aún no enviada</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {(!user.id_photo_front_url || !user.id_photo_back_url) && (
+                  <p className="text-xs text-center text-muted-foreground">
+                    ⚠️ El usuario aún no ha enviado todos los documentos.
+                  </p>
+                )}
+              </div>
+
+              {/* Approve button */}
+              <button onClick={() => verifyAccount(true)} disabled={savingVerify}
+                className="w-full py-3.5 rounded-2xl font-black text-white text-sm disabled:opacity-50"
+                style={{ background: "#16a34a" }}>
+                {savingVerify ? "Procesando..." : "✅ Aprobar cuenta — activar usuario"}
+              </button>
+
+              {/* Reject */}
+              <div className="space-y-2">
+                <input type="text" className="input-field"
+                  placeholder="Motivo del rechazo (obligatorio para rechazar)"
+                  value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
+                <button onClick={() => verifyAccount(false)} disabled={savingVerify || !rejectReason.trim()}
+                  className="w-full py-3 rounded-2xl font-bold text-sm text-white disabled:opacity-50"
+                  style={{ background: "hsl(0 75% 50%)" }}>
+                  {savingVerify ? "..." : "❌ Rechazar cuenta"}
+                </button>
+                <p className="text-[11px] text-muted-foreground text-center">
+                  Al rechazar, el usuario no podrá iniciar sesión. El motivo quedará registrado.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* ── INFO ─────────────────────────────────── */}
           {section === "info" && (
