@@ -339,19 +339,38 @@ export default function WalletPage() {
           ) : (
             <div className="space-y-2">
               {(withdrawals as any[]).map((w: any) => {
-                const sc = statusConfig(w.status);
+                const isAdminCredit = w.method === "admin_credit";
+                const isAdminDebit = w.method === "admin_debit";
+                const isAdmin = isAdminCredit || isAdminDebit;
+
                 let methodInfo: any = {};
                 try { methodInfo = JSON.parse(w.bank_account_info ?? "{}"); } catch {}
                 const isQr = methodInfo.method === "qr";
                 const isBank = methodInfo.method === "bank";
-                const methodLabel = isQr ? "📱 QR" : isBank ? `🏧 Cajero · ${methodInfo.bank ?? ""}` : "Transferencia";
+
+                let methodLabel: string;
+                if (isAdminCredit) methodLabel = "💰 Acreditado por Admin";
+                else if (isAdminDebit) methodLabel = "💸 Débito por Admin";
+                else if (isQr) methodLabel = "📱 QR";
+                else if (isBank) methodLabel = `🏧 Cajero · ${methodInfo.bank ?? ""}`;
+                else methodLabel = "Transferencia";
+
+                // For admin adjustments override the status chip
+                const sc = isAdminCredit
+                  ? { label: "✓ Acreditado", bg: "hsl(142 70% 45% / 0.12)", border: "hsl(142 70% 45% / 0.3)", color: "hsl(142 70% 30%)" }
+                  : isAdminDebit
+                  ? { label: "Débito", bg: "hsl(0 75% 52% / 0.12)", border: "hsl(0 75% 52% / 0.3)", color: "hsl(0 75% 40%)" }
+                  : statusConfig(w.status);
 
                 return (
                   <div key={w.id} className="bg-card border rounded-2xl p-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                          Bs {parseFloat(w.amount).toLocaleString("es-BO", { minimumFractionDigits: 2 })}
+                        <p className="font-black text-lg" style={{
+                          fontFamily: "'Poppins', sans-serif",
+                          color: isAdminCredit ? "hsl(142 70% 30%)" : isAdminDebit ? "hsl(0 75% 40%)" : undefined,
+                        }}>
+                          {isAdminCredit ? "+" : isAdminDebit ? "−" : "−"}Bs {parseFloat(w.amount).toLocaleString("es-BO", { minimumFractionDigits: 2 })}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {methodLabel} · {new Date(w.created_at).toLocaleDateString("es-BO")}
@@ -362,6 +381,18 @@ export default function WalletPage() {
                         {sc.label}
                       </div>
                     </div>
+
+                    {/* Admin note / comment */}
+                    {isAdmin && w.notes && (
+                      <div className="flex items-start gap-2 rounded-xl px-3 py-2"
+                        style={{ background: "hsl(var(--muted))", border: "1px solid hsl(var(--border))" }}>
+                        <span className="text-sm mt-0.5">🗒️</span>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Nota del administrador</p>
+                          <p className="text-sm font-medium">{w.notes}</p>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Paid QR: show proof button */}
                     {w.status === "paid" && isQr && w.payment_proof_url && (
