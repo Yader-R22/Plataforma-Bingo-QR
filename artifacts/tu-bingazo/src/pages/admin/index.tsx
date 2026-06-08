@@ -557,7 +557,7 @@ export default function AdminPage() {
     const form = payForm[wId];
     const body: any = {};
     if (method === "qr" && form?.proof) body.payment_proof_url = form.proof;
-    if (method === "bank" && form?.pin) body.withdrawal_pin = form.pin;
+    if (method === "bank_transfer" && form?.pin) body.withdrawal_pin = form.pin;
     const r = await fetch(`${BASE}/api/admin/withdrawals/${wId}/mark-paid`, {
       method: "POST", headers: authH(), body: JSON.stringify(body),
     });
