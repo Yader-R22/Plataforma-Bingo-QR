@@ -2027,6 +2027,53 @@ ${summarySection}
                         </button>
                       </div>
                     </div>
+                    {/* Called numbers display */}
+                    {(g.called_numbers?.length ?? 0) > 0 && (
+                      <div className="px-4 pb-3 space-y-2"
+                        style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                        <div className="flex items-center gap-3 pt-3">
+                          {/* Last called ball */}
+                          <div className="shrink-0 text-center">
+                            <p className="text-white/40 text-[10px] mb-1">Último</p>
+                            {(() => {
+                              const last = g.called_numbers[g.called_numbers.length - 1];
+                              return (
+                                <div className="w-12 h-12 rounded-full flex flex-col items-center justify-center font-black leading-none"
+                                  style={{ background: BINGO_COL_COLORS[bingoLetter(last)], boxShadow: `0 0 12px ${BINGO_COL_COLORS[bingoLetter(last)]}80` }}>
+                                  <span className="text-white text-[10px] font-black">{bingoLetter(last)}</span>
+                                  <span className="text-white text-base font-black leading-tight">{last}</span>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          {/* Recent chips */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white/40 text-[10px] mb-1.5">Cantados ({g.called_numbers.length}/75)</p>
+                            <div className="flex flex-wrap gap-1">
+                              {[...g.called_numbers].reverse().slice(0, 20).map((n, i) => (
+                                <span key={n}
+                                  className="h-6 px-1.5 rounded-full flex items-center text-[11px] font-black"
+                                  style={{
+                                    background: i === 0 ? BINGO_COL_COLORS[bingoLetter(n)] : "rgba(255,255,255,0.12)",
+                                    color: "rgba(255,255,255,0.9)",
+                                    minWidth: 32,
+                                    justifyContent: "center",
+                                  }}>
+                                  {bingoLabel(n)}
+                                </span>
+                              ))}
+                              {g.called_numbers.length > 20 && (
+                                <span className="h-6 px-1.5 rounded-full flex items-center text-[11px] text-white/40"
+                                  style={{ background: "rgba(255,255,255,0.07)" }}>
+                                  +{g.called_numbers.length - 20}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="px-4 py-2.5 flex items-center justify-between"
                       style={{ background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
                       <span className="text-white/50 text-xs">{g.called_numbers?.length ?? 0} números · {g.participant_count} jugadores</span>
