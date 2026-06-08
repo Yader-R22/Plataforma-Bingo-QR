@@ -306,6 +306,10 @@ router.get("/stats", async (req: AuthRequest, res) => {
   const totalPrizes = await db.select({ total: sql<string>`coalesce(sum(prize_amount), 0)` }).from(winnersTable).where(eq(winnersTable.validated, true));
   const pendingWithdrawals = await db.select({ count: sql<number>`count(*)` }).from(withdrawalsTable).where(eq(withdrawalsTable.status, "pending"));
   const pendingVerifications = await db.select({ count: sql<number>`count(*)` }).from(usersTable).where(eq(usersTable.status, "pending"));
+  const totalRevenue = await db.select({ total: sql<string>`coalesce(sum(${gamesTable.cardPrice}), 0)` })
+    .from(cardsTable)
+    .innerJoin(gamesTable, eq(cardsTable.gameId, gamesTable.id))
+    .where(eq(cardsTable.paymentStatus, "paid"));
 
   res.json({
     total_users: Number(totalUsers[0]?.count ?? 0),
@@ -314,6 +318,7 @@ router.get("/stats", async (req: AuthRequest, res) => {
     total_prizes_paid: parseFloat(totalPrizes[0]?.total ?? "0"),
     pending_withdrawals_count: Number(pendingWithdrawals[0]?.count ?? 0),
     pending_verifications_count: Number(pendingVerifications[0]?.count ?? 0),
+    total_revenue: parseFloat(totalRevenue[0]?.total ?? "0"),
   });
 });
 
