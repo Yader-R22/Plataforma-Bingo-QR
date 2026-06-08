@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, withdrawalsTable, usersTable, feedItemsTable, winnersTable } from "@workspace/db";
+import { db, withdrawalsTable, usersTable, feedItemsTable, winnersTable, gamesTable } from "@workspace/db";
 import { eq, and, sum, sql, notInArray, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { RequestWithdrawalBody } from "@workspace/api-zod";
@@ -57,6 +57,28 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
     total_won: parseFloat(totalWon[0]?.total ?? "0"),
     total_withdrawn: parseFloat(totalWithdrawn[0]?.total ?? "0"),
   });
+});
+
+router.get("/earnings", requireAuth, async (req: AuthRequest, res) => {
+  const rows = await db
+    .select({
+      id: winnersTable.id,
+      game_id: winnersTable.gameId,
+      game_title: gamesTable.title,
+      game_type: gamesTable.type,
+      prize_amount: winnersTable.prizeAmount,
+      place: winnersTable.place,
+      credited_at: winnersTable.createdAt,
+    })
+    .from(winnersTable)
+    .innerJoin(gamesTable, eq(winnersTable.gameId, gamesTable.id))
+    .where(and(eq(winnersTable.userId, req.userId!), eq(winnersTable.validated, true)))
+    .orderBy(desc(winnersTable.createdAt));
+
+  res.json(rows.map(r => ({
+    ...r,
+    prize_amount: parseFloat(r.prize_amount),
+  })));
 });
 
 router.get("/withdrawals", requireAuth, async (req: AuthRequest, res) => {

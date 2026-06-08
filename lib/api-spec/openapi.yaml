@@ -544,6 +544,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/Wallet"
 
+  /wallet/earnings:
+    get:
+      operationId: listEarnings
+      tags: [wallet]
+      summary: Historial de premios ganados por el usuario
+      responses:
+        "200":
+          description: Lista de premios acreditados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WalletEarning"
+
   /wallet/withdrawals:
     get:
       operationId: listWithdrawals
@@ -1459,6 +1474,26 @@ components:
           format: date-time
         paid_at:
           type: ["string", "null"]
+
+    WalletEarning:
+      type: object
+      required: [id, game_id, game_title, game_type, prize_amount, place, credited_at]
+      properties:
+        id:
+          type: integer
+        game_id:
+          type: integer
+        game_title:
+          type: string
+        game_type:
+          type: string
+        prize_amount:
+          type: number
+        place:
+          type: integer
+        credited_at:
+          type: string
+          format: date-time
 
     WithdrawalInput:
       type: object

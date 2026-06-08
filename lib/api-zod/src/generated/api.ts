@@ -599,6 +599,21 @@ export const GetWalletResponse = zod.object({
 
 
 /**
+ * @summary Historial de premios ganados por el usuario
+ */
+export const ListEarningsResponseItem = zod.object({
+  "id": zod.number(),
+  "game_id": zod.number(),
+  "game_title": zod.string(),
+  "game_type": zod.string(),
+  "prize_amount": zod.number(),
+  "place": zod.number(),
+  "credited_at": zod.coerce.date()
+})
+export const ListEarningsResponse = zod.array(ListEarningsResponseItem)
+
+
+/**
  * @summary Historial de retiros del usuario
  */
 export const ListWithdrawalsResponseItem = zod.object({

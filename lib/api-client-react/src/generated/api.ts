@@ -60,6 +60,7 @@ import type {
   ValidateWinnerInput,
   VerifyUserInput,
   Wallet,
+  WalletEarning,
   Winner,
   Withdrawal,
   WithdrawalInput
@@ -2054,6 +2055,83 @@ export function useGetWallet<TData = Awaited<ReturnType<typeof getWallet>>, TErr
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetWalletQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getListEarningsUrl = () => {
+
+
+
+
+  return `/api/wallet/earnings`
+}
+
+/**
+ * @summary Historial de premios ganados por el usuario
+ */
+export const listEarnings = async ( options?: RequestInit): Promise<WalletEarning[]> => {
+
+  return customFetch<WalletEarning[]>(getListEarningsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEarningsQueryKey = () => {
+    return [
+    `/api/wallet/earnings`
+    ] as const;
+    }
+
+
+export const getListEarningsQueryOptions = <TData = Awaited<ReturnType<typeof listEarnings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEarnings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEarningsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEarnings>>> = ({ signal }) => listEarnings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEarnings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEarningsQueryResult = NonNullable<Awaited<ReturnType<typeof listEarnings>>>
+export type ListEarningsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Historial de premios ganados por el usuario
+ */
+
+export function useListEarnings<TData = Awaited<ReturnType<typeof listEarnings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEarnings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEarningsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

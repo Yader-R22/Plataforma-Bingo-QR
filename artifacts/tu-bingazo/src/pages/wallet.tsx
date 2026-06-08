@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo } from "react";
-import { useGetWallet, useListWithdrawals } from "@workspace/api-client-react";
+import { useGetWallet, useListWithdrawals, useListEarnings } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
@@ -33,8 +33,11 @@ export default function WalletPage() {
   const [showAll, setShowAll] = useState(false);
   const PAGE = 5;
 
+  const [histTab, setHistTab] = useState<"earnings" | "withdrawals">("earnings");
+
   const { data: wallet, refetch: refetchWallet } = useGetWallet();
   const { data: withdrawals, refetch: refetchWithdrawals } = useListWithdrawals();
+  const { data: earnings } = useListEarnings();
 
   const filteredWithdrawals = useMemo(() => {
     const all = (withdrawals as any[]) ?? [];
@@ -358,12 +361,73 @@ export default function WalletPage() {
           </div>
         )}
 
-        {/* Withdrawal history */}
+        {/* History tabs */}
         <div>
-          <h2 className="font-black text-lg mb-3" style={{ fontFamily: "'Poppins', sans-serif" }}>
-            Historial de Retiros
-          </h2>
+          {/* Tab switcher */}
+          <div className="grid grid-cols-2 gap-1.5 mb-4">
+            {([
+              { key: "earnings", label: "🏆 Premios ganados" },
+              { key: "withdrawals", label: "💸 Retiros" },
+            ] as const).map(t => (
+              <button key={t.key} type="button"
+                onClick={() => { setHistTab(t.key); setShowAll(false); }}
+                className="py-2.5 rounded-xl text-xs font-bold border transition-all"
+                style={{
+                  background: histTab === t.key ? "hsl(var(--primary))" : "transparent",
+                  color: histTab === t.key ? "white" : "hsl(var(--muted-foreground))",
+                  borderColor: histTab === t.key ? "transparent" : "hsl(var(--border))",
+                  boxShadow: histTab === t.key ? "0 2px 10px hsl(var(--primary) / 0.3)" : "none",
+                }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
 
+          {/* Earnings panel */}
+          {histTab === "earnings" && (() => {
+            const list = (earnings as any[]) ?? [];
+            const shown = list.slice(0, showAll ? undefined : PAGE);
+            return list.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="text-4xl mb-2">🎱</p>
+                <p className="font-semibold">Aún no has ganado ningún premio</p>
+                <p className="text-sm mt-1">¡Juega y reclama tu bingo!</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {shown.map((e: any) => {
+                  const typeLabel: Record<string, string> = { daily: "Bingo Diario", weekly: "Bingo Semanal", monthly: "Bingo Mensual" };
+                  return (
+                    <div key={e.id} className="bg-card border rounded-2xl p-4 flex items-center justify-between">
+                      <div>
+                        <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(142 70% 30%)" }}>
+                          +Bs {parseFloat(e.prize_amount).toLocaleString("es-BO", { minimumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-sm font-medium mt-0.5">{e.game_title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {typeLabel[e.game_type] ?? e.game_type} · {new Date(e.credited_at).toLocaleDateString("es-BO")}
+                        </p>
+                      </div>
+                      <div className="text-xs font-bold px-3 py-1.5 rounded-full"
+                        style={{ background: "hsl(142 70% 45% / 0.12)", border: "1px solid hsl(142 70% 45% / 0.3)", color: "hsl(142 70% 30%)" }}>
+                        ✓ Acreditado
+                      </div>
+                    </div>
+                  );
+                })}
+                {list.length > PAGE && (
+                  <button type="button" onClick={() => setShowAll(v => !v)}
+                    className="w-full py-3 rounded-2xl text-sm font-bold border-2 transition-all"
+                    style={{ borderColor: "hsl(var(--primary) / 0.3)", color: "hsl(var(--primary))", background: "hsl(var(--primary) / 0.06)" }}>
+                    {showAll ? "▲ Ver menos" : `▼ Ver más (${list.length - PAGE} más)`}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Withdrawals panel */}
+          {histTab === "withdrawals" && (<>
           {/* Filter bar */}
           {!!(withdrawals as any[])?.length && (
             <div className="mb-3 space-y-2">
@@ -510,6 +574,7 @@ export default function WalletPage() {
               )}
             </div>
           )}
+          </>)}
         </div>
       </div>
     </AppLayout>

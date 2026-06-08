@@ -567,6 +567,16 @@ export interface Withdrawal {
   paid_at?: string | null;
 }
 
+export interface WalletEarning {
+  id: number;
+  game_id: number;
+  game_title: string;
+  game_type: string;
+  prize_amount: number;
+  place: number;
+  credited_at: string;
+}
+
 export type WithdrawalInputMethod = typeof WithdrawalInputMethod[keyof typeof WithdrawalInputMethod];
 
 

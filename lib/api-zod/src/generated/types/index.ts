@@ -73,6 +73,7 @@ export * from './userStatus';
 export * from './validateWinnerInput';
 export * from './verifyUserInput';
 export * from './wallet';
+export * from './walletEarning';
 export * from './winner';
 export * from './withdrawal';
 export * from './withdrawalInput';
