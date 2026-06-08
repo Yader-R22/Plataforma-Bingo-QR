@@ -39,6 +39,44 @@ function PhotoCapture({ label, value, onChange }: { label: string; value: string
   );
 }
 
+function RejectedScreen({ reason }: { reason: string | null }) {
+  const logout = useAuthStore(s => s.logout);
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-4"
+      style={{ background: "hsl(var(--background))" }}>
+      <div className="w-full max-w-sm space-y-5 text-center">
+        <p className="text-5xl">❌</p>
+        <div>
+          <h1 className="font-black text-xl mb-1">Cuenta rechazada</h1>
+          <p className="text-sm text-muted-foreground">Tu solicitud de verificación fue revisada por un administrador y no fue aprobada.</p>
+        </div>
+
+        {reason && (
+          <div className="rounded-2xl p-4 text-left"
+            style={{ background: "hsl(0 75% 52% / 0.07)", border: "1px solid hsl(0 75% 52% / 0.3)" }}>
+            <p className="text-xs font-bold text-red-600 mb-1">Motivo del rechazo:</p>
+            <p className="text-sm font-semibold">{reason}</p>
+          </div>
+        )}
+
+        <div className="rounded-2xl p-4 space-y-1.5"
+          style={{ background: "hsl(var(--muted) / 0.5)", border: "1px solid hsl(var(--border))" }}>
+          <p className="text-xs font-bold text-muted-foreground">¿Qué puedes hacer?</p>
+          <p className="text-xs text-muted-foreground">
+            Comunícate con el administrador de Tu Bingazo para resolver el problema o solicitar una revisión de tu caso.
+          </p>
+        </div>
+
+        <button onClick={logout}
+          className="w-full py-3 rounded-2xl font-bold text-sm"
+          style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function CiUploadScreen() {
   const token = useAuthStore(s => s.token);
   const setUser = useAuthStore(s => s.setUser);
@@ -243,6 +281,11 @@ export default function AppLayout({ children, hideNav, title, showBack, onBack }
   // Guard: admin-created user must upload CI before accessing the app
   if (user && user.needs_ci_upload) {
     return <CiUploadScreen />;
+  }
+
+  // Guard: rejected account — show reason and allow logout
+  if (user && user.status === "rejected") {
+    return <RejectedScreen reason={user.rejection_reason} />;
   }
 
   const navItems = [

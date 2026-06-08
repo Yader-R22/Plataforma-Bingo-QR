@@ -67,6 +67,7 @@ function formatUser(user: typeof usersTable.$inferSelect) {
     id_photo_front_url: user.idPhotoFrontUrl ?? null,
     id_photo_back_url: user.idPhotoBackUrl ?? null,
     needs_ci_upload: user.needsCiUpload,
+    rejection_reason: user.rejectionReason ?? null,
     must_change_password: user.mustChangePassword,
     temp_password_expires_at: user.tempPasswordExpiresAt ?? null,
     is_banned: user.isBanned,

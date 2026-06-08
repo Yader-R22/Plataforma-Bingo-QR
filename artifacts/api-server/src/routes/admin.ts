@@ -40,7 +40,10 @@ router.post("/users/:id/verify", async (req: AuthRequest, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Datos inválidos" }); return; }
 
   const newStatus = parsed.data.approved ? "active" : "rejected";
-  const [user] = await db.update(usersTable).set({ status: newStatus }).where(eq(usersTable.id, p.data.id)).returning();
+  const [user] = await db.update(usersTable).set({
+    status: newStatus,
+    rejectionReason: parsed.data.approved ? null : ((req.body as any).reason?.trim() || "Documentos no válidos"),
+  }).where(eq(usersTable.id, p.data.id)).returning();
   if (!user) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
   res.json(formatUser(user));
 });
