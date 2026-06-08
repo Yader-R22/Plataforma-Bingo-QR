@@ -808,6 +808,7 @@ export const AdminGetStatsResponse = zod.object({
  */
 export const ListCategoriesResponseItem = zod.object({
   "id": zod.number(),
+  "background_image_url": zod.string().nullish().describe('URL o base64 de imagen de fondo (reemplaza el degradado si está presente)'),
   "type": zod.enum(['daily', 'weekly', 'monthly']),
   "label": zod.string().describe('Nombre visible de la categoría'),
   "emoji": zod.string(),
@@ -836,6 +837,7 @@ export const UpdateCategoryBody = zod.object({
   "description": zod.string().optional(),
   "color_from": zod.string().optional(),
   "color_to": zod.string().optional(),
+  "background_image_url": zod.string().nullish(),
   "sort_order": zod.number().optional(),
   "is_active": zod.boolean().optional(),
   "stream_url_youtube": zod.string().nullish(),
@@ -845,6 +847,7 @@ export const UpdateCategoryBody = zod.object({
 
 export const UpdateCategoryResponse = zod.object({
   "id": zod.number(),
+  "background_image_url": zod.string().nullish().describe('URL o base64 de imagen de fondo (reemplaza el degradado si está presente)'),
   "type": zod.enum(['daily', 'weekly', 'monthly']),
   "label": zod.string().describe('Nombre visible de la categoría'),
   "emoji": zod.string(),

@@ -15,6 +15,7 @@ function formatCategory(c: typeof gameCategoriesTable.$inferSelect) {
     description: c.description,
     color_from: c.colorFrom,
     color_to: c.colorTo,
+    background_image_url: c.backgroundImageUrl ?? null,
     sort_order: c.sortOrder,
     is_active: c.isActive,
     stream_url_youtube: c.streamUrlYoutube,
@@ -40,6 +41,7 @@ router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
   if (b.data.description !== undefined) updates.description = b.data.description;
   if (b.data.color_from !== undefined) updates.colorFrom = b.data.color_from;
   if (b.data.color_to !== undefined) updates.colorTo = b.data.color_to;
+  if (b.data.background_image_url !== undefined) updates.backgroundImageUrl = b.data.background_image_url ?? null;
   if (b.data.sort_order !== undefined) updates.sortOrder = b.data.sort_order;
   if (b.data.is_active !== undefined) updates.isActive = b.data.is_active;
   if (b.data.stream_url_youtube !== undefined) updates.streamUrlYoutube = b.data.stream_url_youtube;

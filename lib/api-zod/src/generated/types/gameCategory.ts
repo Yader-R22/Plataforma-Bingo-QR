@@ -9,6 +9,11 @@ import type { GameCategoryType } from './gameCategoryType';
 
 export interface GameCategory {
   id: number;
+  /**
+     * URL o base64 de imagen de fondo (reemplaza el degradado si está presente)
+     * @nullable
+     */
+  background_image_url?: string | null;
   type: GameCategoryType;
   /** Nombre visible de la categoría */
   label: string;

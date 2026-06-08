@@ -12,6 +12,8 @@ export interface GameCategoryUpdate {
   description?: string;
   color_from?: string;
   color_to?: string;
+  /** @nullable */
+  background_image_url?: string | null;
   sort_order?: number;
   is_active?: boolean;
   /** @nullable */

@@ -62,6 +62,10 @@ function GameTypeSection({
   const emoji = category.emoji as string;
   const description = category.description as string;
   const gradient = `linear-gradient(135deg, ${category.color_from}, ${category.color_to})`;
+  const bgImageUrl = category.background_image_url as string | null | undefined;
+  const cardStyle = bgImageUrl
+    ? { backgroundImage: `url(${bgImageUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+    : { background: gradient };
 
   const game = games.find((g: any) => g.type === type && g.status !== "finished")
     ?? games.find((g: any) => g.type === type);
@@ -73,7 +77,8 @@ function GameTypeSection({
   if (!game) {
     return (
       <div className="rounded-3xl p-5 relative overflow-hidden cursor-pointer opacity-60"
-        style={{ background: gradient }} onClick={() => onNavigate(`/juegos?type=${type}`)}>
+        style={cardStyle} onClick={() => onNavigate(`/juegos?type=${type}`)}>
+        {bgImageUrl && <div className="absolute inset-0 rounded-3xl" style={{ background: "rgba(0,0,0,0.35)" }} />}
         <div className="relative z-10 text-white">
           <p className="text-2xl mb-1">{emoji}</p>
           <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>{label}</p>
@@ -112,7 +117,8 @@ function GameTypeSection({
 
   return (
     <div className="rounded-3xl p-5 relative overflow-hidden cursor-pointer stars-bg"
-      style={{ background: gradient }} onClick={() => onNavigate(`/juegos?type=${type}`)}>
+      style={cardStyle} onClick={() => onNavigate(`/juegos?type=${type}`)}>
+      {bgImageUrl && <div className="absolute inset-0 rounded-3xl" style={{ background: "rgba(0,0,0,0.40)" }} />}
       <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full opacity-20" style={{ background: "rgba(255,255,255,0.3)" }} />
       <div className="absolute -right-2 -bottom-8 w-20 h-20 rounded-full opacity-10" style={{ background: "rgba(255,255,255,0.5)" }} />
 

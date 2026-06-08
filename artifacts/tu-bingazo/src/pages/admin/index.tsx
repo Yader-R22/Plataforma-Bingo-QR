@@ -659,6 +659,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           label: d.label, emoji: d.emoji, description: d.description,
           color_from: d.color_from, color_to: d.color_to,
+          background_image_url: d.background_image_url ?? null,
           sort_order: parseInt(String(d.sort_order)) || 0,
           is_active: d.is_active,
           stream_url_youtube: d.stream_url_youtube?.trim() || null,
@@ -1055,15 +1056,23 @@ export default function AdminPage() {
             {[...categories].sort((a, b) => a.sort_order - b.sort_order).map(c => {
               const d = catDraft[c.id] ?? c;
               const gradient = `linear-gradient(135deg, ${d.color_from}, ${d.color_to})`;
+              const hasImage = !!d.background_image_url;
+              const previewStyle = hasImage
+                ? { backgroundImage: `url(${d.background_image_url})`, backgroundSize: "cover", backgroundPosition: "center" }
+                : { background: gradient };
               return (
                 <div key={c.id} className="bg-card border rounded-2xl overflow-hidden">
-                  <div className="p-4 relative" style={{ background: gradient }}>
-                    <div className="flex items-center justify-between">
+                  <div className="p-4 relative" style={previewStyle}>
+                    <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.25)" }} />
+                    <div className="relative z-10 flex items-center justify-between">
                       <div>
                         <p className="font-black text-white text-lg leading-tight">{d.emoji} {d.label}</p>
                         {d.description && <p className="text-white/70 text-xs mt-0.5">{d.description}</p>}
                       </div>
-                      {!d.is_active && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-black/40 text-white">Oculta</span>}
+                      <div className="flex items-center gap-2">
+                        {hasImage && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-black/50 text-white">🖼️ Imagen</span>}
+                        {!d.is_active && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-black/40 text-white">Oculta</span>}
+                      </div>
                     </div>
                   </div>
                   <div className="p-4 space-y-3">
@@ -1082,15 +1091,72 @@ export default function AdminPage() {
                       <label className="text-xs font-bold text-muted-foreground">Descripción</label>
                       <input value={d.description ?? ""} onChange={e => updCatDraft(c.id, "description", e.target.value)} className="input-field" placeholder="Descripción opcional" />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-muted-foreground">Color inicio</label>
-                        <input type="color" value={d.color_from} onChange={e => updCatDraft(c.id, "color_from", e.target.value)} className="w-full h-10 rounded-xl border cursor-pointer" />
+
+                    {/* Background: gradient OR image (optional) */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-muted-foreground">Fondo de la tarjeta</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => updCatDraft(c.id, "background_image_url", null)}
+                          className="py-2 px-3 rounded-xl border-2 text-xs font-bold transition-all"
+                          style={{
+                            borderColor: !hasImage ? "hsl(var(--primary))" : "hsl(var(--border))",
+                            background: !hasImage ? "hsl(var(--primary) / 0.08)" : "transparent",
+                            color: !hasImage ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
+                          }}>
+                          🎨 Degradado
+                        </button>
+                        <label
+                          className="py-2 px-3 rounded-xl border-2 text-xs font-bold transition-all text-center cursor-pointer"
+                          style={{
+                            borderColor: hasImage ? "hsl(var(--primary))" : "hsl(var(--border))",
+                            background: hasImage ? "hsl(var(--primary) / 0.08)" : "transparent",
+                            color: hasImage ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
+                          }}>
+                          🖼️ Imagen
+                          <input type="file" accept="image/*" className="hidden" onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = ev => updCatDraft(c.id, "background_image_url", ev.target?.result as string);
+                            reader.readAsDataURL(file);
+                            e.target.value = "";
+                          }} />
+                        </label>
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-muted-foreground">Color fin</label>
-                        <input type="color" value={d.color_to} onChange={e => updCatDraft(c.id, "color_to", e.target.value)} className="w-full h-10 rounded-xl border cursor-pointer" />
-                      </div>
+
+                      {/* Gradient pickers (shown when no image) */}
+                      {!hasImage && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-xs text-muted-foreground">Color inicio</label>
+                            <input type="color" value={d.color_from} onChange={e => updCatDraft(c.id, "color_from", e.target.value)} className="w-full h-10 rounded-xl border cursor-pointer" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-muted-foreground">Color fin</label>
+                            <input type="color" value={d.color_to} onChange={e => updCatDraft(c.id, "color_to", e.target.value)} className="w-full h-10 rounded-xl border cursor-pointer" />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Image preview + clear (shown when image is set) */}
+                      {hasImage && (
+                        <div className="flex items-center gap-3 p-2 rounded-xl border" style={{ background: "hsl(var(--muted))" }}>
+                          <img src={d.background_image_url} alt="preview" className="w-16 h-10 rounded-lg object-cover shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold">Imagen cargada</p>
+                            <p className="text-xs text-muted-foreground truncate">Se usará como fondo de la tarjeta</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => updCatDraft(c.id, "background_image_url", null)}
+                            className="shrink-0 text-xs font-bold px-2 py-1 rounded-lg"
+                            style={{ background: "hsl(0 75% 52% / 0.12)", color: "hsl(0 75% 45%)" }}>
+                            Quitar
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div className="grid grid-cols-[1fr_80px] gap-3">
                       <div className="space-y-1">

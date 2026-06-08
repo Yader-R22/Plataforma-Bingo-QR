@@ -1108,6 +1108,9 @@ components:
       properties:
         id:
           type: integer
+        background_image_url:
+          type: ["string", "null"]
+          description: URL o base64 de imagen de fondo (reemplaza el degradado si está presente)
         type:
           type: string
           enum: [daily, weekly, monthly]
@@ -1139,6 +1142,7 @@ components:
         stream_url_facebook:
           type: ["string", "null"]
           description: Canal de Facebook donde se transmite
+        
 
     GameCategoryUpdate:
       type: object
@@ -1153,6 +1157,8 @@ components:
           type: string
         color_to:
           type: string
+        background_image_url:
+          type: ["string", "null"]
         sort_order:
           type: integer
         is_active:

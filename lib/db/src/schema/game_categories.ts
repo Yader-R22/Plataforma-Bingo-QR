@@ -19,6 +19,7 @@ export const gameCategoriesTable = pgTable("game_categories", {
   colorTo: text("color_to").notNull().default("#3b00b8"),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
+  backgroundImageUrl: text("background_image_url"),
   streamUrlYoutube: text("stream_url_youtube"),
   streamUrlTiktok: text("stream_url_tiktok"),
   streamUrlFacebook: text("stream_url_facebook"),

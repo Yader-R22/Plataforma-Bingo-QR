@@ -245,6 +245,11 @@ export const GameCategoryType = {
 
 export interface GameCategory {
   id: number;
+  /**
+     * URL o base64 de imagen de fondo (reemplaza el degradado si está presente)
+     * @nullable
+     */
+  background_image_url?: string | null;
   type: GameCategoryType;
   /** Nombre visible de la categoría */
   label: string;
@@ -281,6 +286,8 @@ export interface GameCategoryUpdate {
   description?: string;
   color_from?: string;
   color_to?: string;
+  /** @nullable */
+  background_image_url?: string | null;
   sort_order?: number;
   is_active?: boolean;
   /** @nullable */
