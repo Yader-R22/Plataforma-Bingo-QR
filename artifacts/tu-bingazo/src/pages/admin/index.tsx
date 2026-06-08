@@ -13,6 +13,7 @@ const tabs = [
   { id: "categories", label: "🗂️ Categorías" },
   { id: "withdrawals", label: "💸 Retiros" },
   { id: "winners", label: "🏆 Ganadores" },
+  { id: "resets", label: "🔑 Resets" },
   { id: "logs", label: "📋 Auditoría" },
 ] as const;
 
@@ -475,6 +476,9 @@ export default function AdminPage() {
   const [userStatusFilter, setUserStatusFilter] = useState<string>("all");
   const [payForm, setPayForm] = useState<Record<number, { proof: string; pin: string; open: boolean }>>({});
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [passwordResets, setPasswordResets] = useState<any[]>([]);
+  const [generatedPasswords, setGeneratedPasswords] = useState<Record<number, string>>({});
+  const [approvingReset, setApprovingReset] = useState<number | null>(null);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
@@ -530,8 +534,39 @@ export default function AdminPage() {
           setCatDraft(draft);
         }
       }
+      if (t === "resets") {
+        const r = await fetch(`${BASE}/api/admin/password-resets`, { headers: authH() });
+        if (r.ok) setPasswordResets(await r.json());
+      }
     } catch {}
     setLoading(false);
+  }
+
+  async function approveReset(userId: number, phone: string | null) {
+    setApprovingReset(userId);
+    try {
+      const r = await fetch(`${BASE}/api/admin/users/${userId}/approve-reset`, {
+        method: "POST", headers: authH(),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        setGeneratedPasswords(prev => ({ ...prev, [userId]: d.temp_password }));
+        setPasswordResets(prev => prev.filter(u => u.id !== userId));
+        toast.success("✅ Contraseña temporal generada");
+        if (phone) {
+          const cleanPhone = phone.replace(/\D/g, "");
+          const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hola! Tu contraseña temporal de Tu Bingazo es: *${d.temp_password}*\nCámbiala después de iniciar sesión.`)}`;
+          window.open(waUrl, "_blank");
+        }
+      } else {
+        const d = await r.json();
+        toast.error(d.error || "Error al generar contraseña");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setApprovingReset(null);
+    }
   }
 
   useEffect(() => { loadStats(); loadTab("overview"); }, []);
@@ -1284,6 +1319,78 @@ export default function AdminPage() {
               </div>
             ))}
             {winners.length === 0 && <p className="text-center text-muted-foreground py-8">Sin ganadores registrados</p>}
+          </div>
+        )}
+
+        {/* ── PASSWORD RESETS ────────────────────────── */}
+        {tab === "resets" && !loading && (
+          <div className="space-y-4">
+            {/* Contraseñas generadas en esta sesión */}
+            {Object.keys(generatedPasswords).length > 0 && (
+              <div className="rounded-2xl p-4 space-y-3" style={{ background: "hsl(142 70% 45% / 0.08)", border: "1px solid hsl(142 70% 45% / 0.2)" }}>
+                <p className="text-sm font-bold" style={{ color: "hsl(142 70% 30%)" }}>✅ Contraseñas generadas esta sesión</p>
+                {Object.entries(generatedPasswords).map(([uid, pwd]) => (
+                  <div key={uid} className="flex items-center justify-between gap-3 bg-white rounded-xl p-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Usuario #{uid}</p>
+                      <p className="font-mono font-bold text-lg tracking-wider">{pwd}</p>
+                    </div>
+                    <button
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold text-white"
+                      style={{ background: "hsl(var(--primary))" }}
+                      onClick={() => { navigator.clipboard.writeText(pwd); toast.success("Copiado"); }}
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <p className="text-sm font-bold text-muted-foreground">Solicitudes pendientes ({passwordResets.length})</p>
+
+            {passwordResets.length === 0 && Object.keys(generatedPasswords).length === 0 && (
+              <div className="text-center py-16 text-muted-foreground">
+                <div className="text-4xl mb-3">🔑</div>
+                <p className="font-bold">Sin solicitudes pendientes</p>
+                <p className="text-sm mt-1">Aquí aparecerán los usuarios que olvidaron su contraseña</p>
+              </div>
+            )}
+
+            {passwordResets.map(u => (
+              <div key={u.id} className="bg-card border rounded-2xl p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm truncate">{u.full_name}</p>
+                    <p className="text-xs text-muted-foreground">CI: {u.ci}</p>
+                    {u.department && <p className="text-xs text-muted-foreground">{u.department}</p>}
+                    {u.phone && (
+                      <a href={`https://wa.me/${u.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer"
+                        className="text-xs font-semibold mt-1 inline-flex items-center gap-1"
+                        style={{ color: "#25D366" }}>
+                        📱 {u.phone}
+                      </a>
+                    )}
+                  </div>
+                  <button
+                    className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white"
+                    style={{ background: approvingReset === u.id ? "hsl(var(--muted))" : "hsl(var(--primary))" }}
+                    disabled={approvingReset === u.id}
+                    onClick={() => approveReset(u.id, u.phone)}
+                  >
+                    {approvingReset === u.id ? "..." : "Generar contraseña"}
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <button
+              className="w-full py-2.5 rounded-xl text-sm font-bold border"
+              style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}
+              onClick={() => loadTab("resets")}
+            >
+              🔄 Actualizar
+            </button>
           </div>
         )}
 

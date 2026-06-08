@@ -317,6 +317,48 @@ router.get("/users/:id", async (req: AuthRequest, res) => {
   });
 });
 
+// ── List pending password reset requests ────────────────────────────────────
+router.get("/password-resets", async (_req: AuthRequest, res) => {
+  const rows = await db.select().from(usersTable)
+    .where(sql`${usersTable.resetToken} IS NOT NULL AND ${usersTable.resetTokenExpiresAt} > NOW()`)
+    .orderBy(desc(usersTable.resetTokenExpiresAt));
+  res.json(rows.map(u => ({
+    id: u.id,
+    full_name: u.fullName,
+    ci: u.ci,
+    phone: u.phone,
+    department: u.department,
+    requested_at: u.resetTokenExpiresAt,
+  })));
+});
+
+// ── Approve reset: generate temp password and clear reset token ──────────────
+router.post("/users/:id/approve-reset", async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+  const rows = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+  if (!rows.length) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
+  if (!rows[0].resetToken) { res.status(400).json({ error: "Este usuario no tiene una solicitud de reset pendiente" }); return; }
+
+  // Generate a readable temporary password
+  const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+  let tempPassword = "";
+  for (let i = 0; i < 8; i++) tempPassword += chars[Math.floor(Math.random() * chars.length)];
+
+  const tempPasswordExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const passwordHash = await bcrypt.hash(tempPassword, 12);
+  await db.update(usersTable)
+    .set({ passwordHash, mustChangePassword: true, tempPasswordExpiresAt, resetToken: null, resetTokenExpiresAt: null })
+    .where(eq(usersTable.id, id));
+  await db.insert(auditLogsTable).values({
+    action: "admin_approve_password_reset",
+    userId: id,
+    details: { admin_id: req.userId },
+    ipAddress: req.ip,
+  });
+  res.json({ temp_password: tempPassword, message: "Contraseña temporal generada. Envíala al usuario por WhatsApp." });
+});
+
 // ── Set temporary password ──────────────────────────────────────────────────
 router.post("/users/:id/set-temp-password", async (req: AuthRequest, res) => {
   const id = parseInt(String(req.params.id));

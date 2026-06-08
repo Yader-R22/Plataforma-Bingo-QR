@@ -12,6 +12,29 @@ export default function LoginPage() {
   const { setAuth } = useAuthStore();
   const [, navigate] = useLocation();
 
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotCi, setForgotCi] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault();
+    if (!forgotCi.trim()) return;
+    setForgotLoading(true);
+    try {
+      await fetch(`${BASE}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ci: forgotCi.trim() }),
+      });
+      setForgotSent(true);
+    } catch {
+      toast.error("Error de conexión. Intenta de nuevo.");
+    } finally {
+      setForgotLoading(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -41,6 +64,63 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--grad-hero)" }}>
+      {/* Modal ¿Olvidaste tu contraseña? */}
+      {showForgot && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.6)" }}
+          onClick={() => { setShowForgot(false); setForgotSent(false); setForgotCi(""); }}>
+          <div className="w-full max-w-md bg-white rounded-t-3xl p-6 pb-10"
+            onClick={e => e.stopPropagation()}>
+            {!forgotSent ? (
+              <>
+                <div className="w-10 h-1 rounded-full bg-muted mx-auto mb-6" />
+                <h3 className="font-black text-xl mb-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                  🔑 Recuperar contraseña
+                </h3>
+                <p className="text-sm text-muted-foreground mb-5">
+                  Ingresa tu CI y el administrador te enviará una contraseña temporal por WhatsApp.
+                </p>
+                <form onSubmit={handleForgot} className="space-y-4">
+                  <div>
+                    <label className="text-sm font-bold block mb-1.5">Carnet de Identidad (CI)</label>
+                    <input
+                      className="input-field"
+                      placeholder="Ej: 1234567"
+                      inputMode="numeric"
+                      value={forgotCi}
+                      onChange={e => setForgotCi(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <button type="submit" className="btn-primary" disabled={forgotLoading || !forgotCi.trim()}>
+                    {forgotLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        Enviando...
+                      </span>
+                    ) : "Solicitar contraseña temporal"}
+                  </button>
+                </form>
+              </>
+            ) : (
+              <div className="text-center py-4">
+                <div className="text-5xl mb-4">✅</div>
+                <h3 className="font-black text-xl mb-2" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                  ¡Solicitud enviada!
+                </h3>
+                <p className="text-sm text-muted-foreground mb-2">
+                  El administrador revisará tu solicitud y te enviará una contraseña temporal por <strong>WhatsApp</strong>.
+                </p>
+                <p className="text-xs text-muted-foreground mb-6">
+                  Una vez que la recibas, inicia sesión y el sistema te pedirá cambiarla.
+                </p>
+                <button className="btn-primary" onClick={() => { setShowForgot(false); setForgotSent(false); setForgotCi(""); }}>
+                  Entendido
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {/* Decorative elements */}
       <div className="absolute top-10 left-6 text-6xl opacity-10 pointer-events-none select-none rotate-12">🎱</div>
       <div className="absolute top-24 right-4 text-4xl opacity-10 pointer-events-none select-none -rotate-6">⭐</div>
@@ -88,7 +168,8 @@ export default function LoginPage() {
           <div>
             <div className="flex justify-between items-center mb-1.5">
               <label className="text-sm font-bold text-foreground">Contraseña</label>
-              <span className="text-xs font-semibold cursor-pointer" style={{ color: "hsl(var(--primary))" }}>
+              <span className="text-xs font-semibold cursor-pointer" style={{ color: "hsl(var(--primary))" }}
+                onClick={() => setShowForgot(true)}>
                 ¿Olvidaste tu contraseña?
               </span>
             </div>
