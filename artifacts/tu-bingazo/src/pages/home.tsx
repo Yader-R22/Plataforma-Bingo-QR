@@ -53,20 +53,27 @@ function FacebookIcon() {
   );
 }
 
-function drawDateLabel(drawDate: string): string {
+function drawDateDiffDays(drawDate: string): number {
   const now = new Date();
   const draw = new Date(drawDate);
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const drawStart = new Date(draw.getFullYear(), draw.getMonth(), draw.getDate());
-  const diffDays = Math.round((drawStart.getTime() - todayStart.getTime()) / 86400000);
-  if (diffDays <= 0) return "HOY";
-  if (diffDays === 1) return "MAÑANA";
-  if (diffDays <= 6) return "ESTA SEMANA";
-  if (diffDays <= 13) return "LA OTRA SEMANA";
+  return Math.round((drawStart.getTime() - todayStart.getTime()) / 86400000);
+}
+
+function drawDateLabel(drawDate: string): string {
+  const d = drawDateDiffDays(drawDate);
+  if (d < 0) return "PASADO";
+  if (d === 0) return "HOY";
+  if (d === 1) return "MAÑANA";
+  if (d <= 6) return "ESTA SEMANA";
+  if (d <= 13) return "LA OTRA SEMANA";
   return "PRÓXIMO";
 }
 
-function drawDateBadgeStyle(_drawDate: string): React.CSSProperties {
+function drawDateBadgeStyle(drawDate: string): React.CSSProperties {
+  if (drawDateDiffDays(drawDate) < 0)
+    return { background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.6)" };
   return { background: "hsl(42 98% 52%)", color: "#1a0050" };
 }
 
