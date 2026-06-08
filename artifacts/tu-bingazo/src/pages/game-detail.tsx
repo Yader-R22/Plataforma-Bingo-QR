@@ -340,8 +340,8 @@ export default function GameDetailPage() {
                     Bs {(game.prize_amount as number).toLocaleString("es-BO")}
                   </p>
                   <p className="text-white/60 text-sm mt-0.5">Premio</p>
-                  <p className="text-white/50 text-xs mt-1">
-                    🎲 {(game as any).total_rounds ?? 1} {((game as any).total_rounds ?? 1) === 1 ? "ronda" : "rondas"}
+                  <p className="text-white/80 text-xs font-semibold mt-1">
+                    🎱 {(game as any).total_rounds ?? 1} {((game as any).total_rounds ?? 1) === 1 ? "ronda" : "rondas"}
                   </p>
                 </div>
               </div>
