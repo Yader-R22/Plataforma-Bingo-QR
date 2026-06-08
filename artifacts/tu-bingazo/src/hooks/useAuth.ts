@@ -14,6 +14,7 @@ export interface AuthUser {
   avatar_url: string | null;
   id_photo_front_url: string | null;
   id_photo_back_url: string | null;
+  needs_ci_upload: boolean;
   must_change_password: boolean;
   temp_password_expires_at: string | null;
   created_at: string;

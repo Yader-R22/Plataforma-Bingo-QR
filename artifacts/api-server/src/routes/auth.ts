@@ -66,6 +66,7 @@ function formatUser(user: typeof usersTable.$inferSelect) {
     avatar_url: user.avatarUrl ?? null,
     id_photo_front_url: user.idPhotoFrontUrl ?? null,
     id_photo_back_url: user.idPhotoBackUrl ?? null,
+    needs_ci_upload: user.needsCiUpload,
     must_change_password: user.mustChangePassword,
     temp_password_expires_at: user.tempPasswordExpiresAt ?? null,
     is_banned: user.isBanned,
@@ -220,6 +221,32 @@ router.get("/me", requireAuth, async (req: AuthRequest, res) => {
     return;
   }
   res.json(formatUser(users[0]));
+});
+
+// ── Upload CI photos (for admin-created users) ───────────────────────────────
+router.post("/upload-ci", requireAuth, async (req: AuthRequest, res) => {
+  const users = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
+  if (!users.length) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
+  const u = users[0];
+  if (!u.needsCiUpload) { res.status(400).json({ error: "No se requiere subida de CI" }); return; }
+
+  const { id_photo_front, id_photo_back } = req.body as { id_photo_front?: string; id_photo_back?: string };
+  if (!id_photo_front || !id_photo_back) {
+    res.status(400).json({ error: "Se requieren ambas fotos del CI (anverso y reverso)" }); return;
+  }
+
+  const [updated] = await db.update(usersTable)
+    .set({
+      idPhotoFrontUrl: id_photo_front,
+      idPhotoBackUrl: id_photo_back,
+      needsCiUpload: false,
+      status: "pending",
+    })
+    .where(eq(usersTable.id, req.userId!))
+    .returning();
+
+  req.log.info({ userId: req.userId }, "User uploaded CI photos — pending admin review");
+  res.json(formatUser(updated));
 });
 
 router.post("/logout", (req, res) => {

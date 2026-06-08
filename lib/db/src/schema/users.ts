@@ -27,6 +27,7 @@ export const usersTable = pgTable("users", {
   resetPhotoFront: text("reset_photo_front"),
   resetPhotoBack: text("reset_photo_back"),
   resetPhotoSelfie: text("reset_photo_selfie"),
+  needsCiUpload: boolean("needs_ci_upload").notNull().default(false),
   mustChangePassword: boolean("must_change_password").notNull().default(false),
   tempPasswordDisplay: text("temp_password_display"),
   tempPasswordExpiresAt: timestamp("temp_password_expires_at", { withTimezone: true }),

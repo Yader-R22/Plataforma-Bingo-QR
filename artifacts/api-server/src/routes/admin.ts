@@ -337,6 +337,7 @@ router.post("/users", async (req: AuthRequest, res) => {
     department: department.trim(),
     isAdmin: is_admin === true,
     status: "active",
+    needsCiUpload: true,
   }).returning();
   req.log.info({ adminId: req.userId, newUserId: created.id }, "Admin created user");
   res.status(201).json(formatUser(created));

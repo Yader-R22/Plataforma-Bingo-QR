@@ -1,6 +1,129 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
+import { toast } from "sonner";
+
+const BASE = "";
+
+function PhotoCapture({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => onChange(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  }
+  return (
+    <div>
+      <p className="text-sm font-bold text-foreground mb-1.5">{label}</p>
+      <div className="relative rounded-2xl border-2 border-dashed cursor-pointer overflow-hidden"
+        style={{ borderColor: value ? "hsl(var(--primary))" : "hsl(var(--border))", background: value ? "transparent" : "hsl(var(--muted))", minHeight: 100 }}
+        onClick={() => inputRef.current?.click()}>
+        {value ? (
+          <div className="relative">
+            <img src={value} alt={label} className="w-full h-32 object-cover" />
+            <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+              <span className="text-white text-sm font-bold">Cambiar foto</span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-24 gap-1.5">
+            <span className="text-3xl">📷</span>
+            <span className="text-xs font-semibold text-muted-foreground">Toca para tomar o subir foto</span>
+          </div>
+        )}
+        <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
+      </div>
+    </div>
+  );
+}
+
+function CiUploadScreen() {
+  const token = useAuthStore(s => s.token);
+  const setUser = useAuthStore(s => s.setUser);
+  const [front, setFront] = useState("");
+  const [back, setBack] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function submit() {
+    if (!front || !back) { toast.error("Debes subir ambas fotos del CI"); return; }
+    setSubmitting(true);
+    try {
+      const r = await fetch(`${BASE}/api/auth/upload-ci`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ id_photo_front: front, id_photo_back: back }),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        setUser(d);
+        toast.success("✅ Documentos enviados. El admin verificará tu cuenta pronto.");
+      } else {
+        toast.error(d.error || "Error al enviar documentos");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    }
+    setSubmitting(false);
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: "hsl(var(--background))" }}>
+      {/* Header */}
+      <div className="px-4 py-5 text-white text-center"
+        style={{ background: "linear-gradient(135deg, #1a0050, #3b00b8)" }}>
+        <p className="text-3xl mb-1">📄</p>
+        <h1 className="font-black text-xl" style={{ fontFamily: "'Poppins', sans-serif" }}>Verificación de identidad</h1>
+        <p className="text-white/70 text-sm mt-1">Para continuar debes subir las fotos de tu CI</p>
+      </div>
+
+      <div className="flex-1 px-4 py-6 space-y-5 max-w-sm mx-auto w-full">
+        {/* Info box */}
+        <div className="rounded-2xl p-4 space-y-2"
+          style={{ background: "hsl(var(--primary) / 0.06)", border: "1px solid hsl(var(--primary) / 0.2)" }}>
+          <p className="font-bold text-sm">¿Por qué necesitamos esto?</p>
+          <p className="text-xs text-muted-foreground">
+            Tu cuenta fue creada por un administrador. Necesitamos verificar tu identidad con tu Cédula de Identidad (CI) boliviana para activar tu cuenta completamente.
+          </p>
+          <ul className="text-xs text-muted-foreground space-y-1 mt-1">
+            <li className="flex items-center gap-1.5"><span className="text-green-500">✓</span> Foto clara y legible</li>
+            <li className="flex items-center gap-1.5"><span className="text-green-500">✓</span> Sin reflejos ni sombras</li>
+            <li className="flex items-center gap-1.5"><span className="text-green-500">✓</span> CI vigente</li>
+          </ul>
+        </div>
+
+        <PhotoCapture label="📷 Anverso del CI (parte delantera)" value={front} onChange={setFront} />
+        <PhotoCapture label="📷 Reverso del CI (parte trasera)" value={back} onChange={setBack} />
+
+        <button onClick={submit} disabled={submitting || !front || !back}
+          className="w-full py-3.5 rounded-2xl font-black text-white text-sm disabled:opacity-50 transition-all"
+          style={{ background: front && back ? "hsl(var(--primary))" : "hsl(var(--muted))", color: front && back ? "white" : "hsl(var(--muted-foreground))" }}>
+          {submitting ? "Enviando documentos..." : "✅ Enviar documentos para verificación"}
+        </button>
+
+        {/* What happens next */}
+        <div className="rounded-2xl p-4 space-y-2"
+          style={{ background: "hsl(var(--muted) / 0.5)", border: "1px solid hsl(var(--border))" }}>
+          <p className="text-xs font-bold text-muted-foreground">¿Qué pasa después?</p>
+          <div className="space-y-2">
+            {[
+              { step: "1", text: "El administrador revisará tus documentos" },
+              { step: "2", text: "Recibirás acceso completo una vez aprobado" },
+              { step: "3", text: "Podrás comprar cartones y participar en juegos" },
+            ].map(({ step, text }) => (
+              <div key={step} className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
+                  style={{ background: "hsl(var(--primary))" }}>{step}</div>
+                <p className="text-xs text-muted-foreground">{text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -116,6 +239,11 @@ function IconRegister({ active }: { active: boolean }) {
 export default function AppLayout({ children, hideNav, title, showBack, onBack }: AppLayoutProps) {
   const [location] = useLocation();
   const user = useAuthStore(s => s.user);
+
+  // Guard: admin-created user must upload CI before accessing the app
+  if (user && user.needs_ci_upload) {
+    return <CiUploadScreen />;
+  }
 
   const navItems = [
     { href: "/", icon: IconHome, label: "Inicio" },
