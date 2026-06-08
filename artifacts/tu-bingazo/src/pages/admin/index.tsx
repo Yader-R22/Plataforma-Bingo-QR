@@ -186,40 +186,39 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
           {/* ── INFO ─────────────────────────────────── */}
           {section === "info" && (
             <div className="space-y-4">
-              {/* Avatar + docs */}
-              {(user.id_photo_front_url || user.id_photo_back_url) && (
-                <div className="space-y-2">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Documentos de identidad</p>
-                  <div className="flex gap-3">
-                    {user.id_photo_front_url && (
-                      <div className="flex-1 space-y-1">
-                        <p className="text-[11px] font-bold text-muted-foreground">Anverso</p>
-                        <img src={user.id_photo_front_url} alt="CI anverso"
-                          className="w-full rounded-xl object-cover cursor-pointer" style={{ maxHeight: 120 }}
-                          onClick={() => window.open(user.id_photo_front_url, "_blank")} />
-                        <button onClick={() => downloadUrl(user.id_photo_front_url, `CI_anverso_${user.ci}.jpg`)}
-                          className="w-full text-xs font-bold py-1 rounded-lg"
-                          style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
-                          ⬇ Descargar
-                        </button>
-                      </div>
-                    )}
-                    {user.id_photo_back_url && (
-                      <div className="flex-1 space-y-1">
-                        <p className="text-[11px] font-bold text-muted-foreground">Reverso</p>
-                        <img src={user.id_photo_back_url} alt="CI reverso"
-                          className="w-full rounded-xl object-cover cursor-pointer" style={{ maxHeight: 120 }}
-                          onClick={() => window.open(user.id_photo_back_url, "_blank")} />
-                        <button onClick={() => downloadUrl(user.id_photo_back_url, `CI_reverso_${user.ci}.jpg`)}
-                          className="w-full text-xs font-bold py-1 rounded-lg"
-                          style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
-                          ⬇ Descargar
-                        </button>
-                      </div>
-                    )}
-                  </div>
+              {/* Documentos de identidad — siempre visible */}
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">📄 Documentos de identidad (CI)</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { url: user.id_photo_front_url, label: "Anverso", filename: `CI_anverso_${user.ci}.jpg` },
+                    { url: user.id_photo_back_url, label: "Reverso", filename: `CI_reverso_${user.ci}.jpg` },
+                  ].map(({ url, label, filename }) => (
+                    <div key={label} className="space-y-1">
+                      <p className="text-[11px] font-bold text-muted-foreground">{label}</p>
+                      {url ? (
+                        <>
+                          <img src={url} alt={label}
+                            className="w-full rounded-xl object-cover cursor-zoom-in border hover:opacity-90 transition-opacity"
+                            style={{ maxHeight: 130 }}
+                            onClick={() => window.open(url, "_blank")} />
+                          <button onClick={() => downloadUrl(url, filename)}
+                            className="w-full text-xs font-bold py-1.5 rounded-lg"
+                            style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
+                            ⬇ Descargar
+                          </button>
+                        </>
+                      ) : (
+                        <div className="w-full rounded-xl border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground"
+                          style={{ height: 130, borderColor: "hsl(var(--border))" }}>
+                          <span className="text-2xl mb-1">📷</span>
+                          <span className="text-[11px] font-semibold">Sin foto</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              )}
+              </div>
 
               {/* Registration info */}
               <div className="space-y-2">
