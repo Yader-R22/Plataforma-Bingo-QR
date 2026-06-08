@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, withdrawalsTable, usersTable, feedItemsTable, winnersTable } from "@workspace/db";
-import { eq, and, sum, sql, notInArray } from "drizzle-orm";
+import { eq, and, sum, sql, notInArray, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { RequestWithdrawalBody } from "@workspace/api-zod";
 
@@ -62,7 +62,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
 router.get("/withdrawals", requireAuth, async (req: AuthRequest, res) => {
   const withdrawals = await db.select().from(withdrawalsTable)
     .where(eq(withdrawalsTable.userId, req.userId!))
-    .orderBy(withdrawalsTable.createdAt);
+    .orderBy(desc(withdrawalsTable.createdAt));
   res.json(withdrawals.map(formatWithdrawal));
 });
 
