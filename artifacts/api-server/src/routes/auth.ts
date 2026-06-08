@@ -247,12 +247,12 @@ router.post("/upload-ci", requireAuth, async (req: AuthRequest, res) => {
       idPhotoBackUrl: id_photo_back,
       needsCiUpload: false,
       rejectionReason: null,
-      status: "active",
+      status: "pending",
     })
     .where(eq(usersTable.id, req.userId!))
     .returning();
 
-  req.log.info({ userId: req.userId }, "User uploaded CI photos — automatically activated");
+  req.log.info({ userId: req.userId }, "User uploaded CI photos — pending admin review");
   res.json(formatUser(updated));
 });
 
