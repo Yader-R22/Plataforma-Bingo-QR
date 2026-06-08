@@ -351,7 +351,7 @@ export default function GameDetailPage() {
               {[
                 { icon: "💳", label: "Precio cartón", value: `Bs ${game.card_price as number}` },
                 { icon: "👥", label: "Participantes", value: `${game.participant_count}` },
-                { icon: "🎯", label: "Modalidad", value: gameModeLabel(game.game_mode ?? "full_card") },
+                { icon: "🎯", label: "Modalidad", value: `${gameModeLabel(game.game_mode ?? "full_card")} · ${(game as any).total_rounds ?? 1} ${((game as any).total_rounds ?? 1) === 1 ? "ronda" : "rondas"}` },
                 { icon: "🏆", label: "Ganadores máx.", value: `${game.max_winners}` },
               ].map(item => (
                 <div key={item.label} className="bg-card border rounded-2xl p-4">
