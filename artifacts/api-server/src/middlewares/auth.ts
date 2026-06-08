@@ -8,6 +8,7 @@ const JWT_SECRET = process.env.SESSION_SECRET || "tu-bingazo-secret-key";
 export interface AuthRequest extends Request {
   userId?: number;
   isAdmin?: boolean;
+  adminPermissions?: string[];
 }
 
 export function generateToken(userId: number): string {
@@ -35,10 +36,31 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
     }
     req.userId = users[0].id;
     req.isAdmin = users[0].isAdmin;
+    req.adminPermissions = users[0].adminPermissions ?? [];
     next();
   } catch {
     res.status(401).json({ error: "Token inválido o expirado" });
   }
+}
+
+/** Returns true if the current admin has a specific permission (empty array = super admin = all). */
+export function hasAdminPermission(req: AuthRequest, perm: string): boolean {
+  if (!req.isAdmin) return false;
+  const perms = req.adminPermissions ?? [];
+  return perms.length === 0 || perms.includes(perm);
+}
+
+/** Middleware that checks for a specific admin permission after requireAdmin. */
+export function requirePermission(perm: string) {
+  return async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    await requireAdmin(req, res, () => {
+      if (!hasAdminPermission(req, perm)) {
+        res.status(403).json({ error: `Sin permiso para esta sección (${perm})`, code: "FORBIDDEN" });
+        return;
+      }
+      next();
+    });
+  };
 }
 
 export async function requireAdmin(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {

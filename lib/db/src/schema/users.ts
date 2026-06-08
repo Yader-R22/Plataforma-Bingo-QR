@@ -6,6 +6,7 @@ import {
   numeric,
   boolean,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -34,6 +35,7 @@ export const usersTable = pgTable("users", {
   tempPasswordExpiresAt: timestamp("temp_password_expires_at", { withTimezone: true }),
   isBanned: boolean("is_banned").notNull().default(false),
   banReason: text("ban_reason"),
+  adminPermissions: text("admin_permissions").array().notNull().default(sql`ARRAY[]::text[]`),
   lastKnownIp: text("last_known_ip"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

@@ -328,8 +328,9 @@ router.get("/users/:id", async (req: AuthRequest, res) => {
 
 // ── Create user ─────────────────────────────────────────────────────────────
 router.post("/users", async (req: AuthRequest, res) => {
-  const { full_name, ci, phone, password, department, is_admin } = req.body as {
-    full_name?: string; ci?: string; phone?: string; password?: string; department?: string; is_admin?: boolean;
+  const { full_name, ci, phone, password, department, is_admin, permissions, skip_ci } = req.body as {
+    full_name?: string; ci?: string; phone?: string; password?: string; department?: string;
+    is_admin?: boolean; permissions?: string[]; skip_ci?: boolean;
   };
   if (!full_name?.trim() || !ci?.trim() || !phone?.trim() || !password || !department?.trim()) {
     res.status(400).json({ error: "Todos los campos son requeridos" }); return;
@@ -338,17 +339,21 @@ router.post("/users", async (req: AuthRequest, res) => {
   const existing = await db.select().from(usersTable).where(eq(usersTable.ci, ci.trim())).limit(1);
   if (existing.length) { res.status(409).json({ error: "Ya existe un usuario con ese CI" }); return; }
   const hash = await bcrypt.hash(password, 10);
+  const isAdminUser = is_admin === true;
+  // Admins with specific permissions get those permissions; super admin (is_admin but no perms) gets []
+  const adminPerms = isAdminUser && Array.isArray(permissions) ? permissions : [];
   const [created] = await db.insert(usersTable).values({
     fullName: full_name.trim(),
     ci: ci.trim(),
     phone: phone.trim(),
     passwordHash: hash,
     department: department.trim(),
-    isAdmin: is_admin === true,
+    isAdmin: isAdminUser,
+    adminPermissions: adminPerms,
     status: "active",
-    needsCiUpload: true,
+    needsCiUpload: skip_ci ? false : true,
   }).returning();
-  req.log.info({ adminId: req.userId, newUserId: created.id }, "Admin created user");
+  req.log.info({ adminId: req.userId, newUserId: created.id, isAdmin: isAdminUser, perms: adminPerms }, "Admin created user");
   res.status(201).json(formatUser(created));
 });
 

@@ -72,6 +72,7 @@ function formatUser(user: typeof usersTable.$inferSelect) {
     temp_password_expires_at: user.tempPasswordExpiresAt ?? null,
     is_banned: user.isBanned,
     ban_reason: user.banReason ?? null,
+    admin_permissions: user.adminPermissions ?? [],
     last_known_ip: user.lastKnownIp ?? null,
     created_at: user.createdAt,
   };

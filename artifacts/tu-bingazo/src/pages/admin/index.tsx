@@ -6,18 +6,32 @@ import AppLayout from "@/components/AppLayout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const tabs = [
-  { id: "overview", label: "📊 Resumen" },
-  { id: "users", label: "👥 Usuarios" },
-  { id: "games", label: "🎱 Juegos" },
-  { id: "categories", label: "🗂️ Categorías" },
-  { id: "withdrawals", label: "💸 Retiros" },
-  { id: "winners", label: "🏆 Ganadores" },
-  { id: "resets", label: "🔑 Resets" },
-  { id: "logs", label: "📋 Auditoría" },
+// ── Permission definitions ────────────────────────────────────────────────────
+export const ADMIN_PERMS = [
+  { id: "admin:users",       label: "👥 Usuarios",     desc: "Ver, verificar, banear y crear usuarios" },
+  { id: "admin:games",       label: "🎱 Juegos",        desc: "Crear juegos, cantar números, validar ganadores" },
+  { id: "admin:withdrawals", label: "💸 Retiros",       desc: "Ver y procesar solicitudes de retiro" },
+  { id: "admin:resets",      label: "🔑 Reseteos",      desc: "Aprobar/rechazar reseteos de contraseña" },
+  { id: "admin:logs",        label: "📋 Auditoría",     desc: "Ver logs de auditoría del sistema" },
 ] as const;
 
-type Tab = typeof tabs[number]["id"];
+/** Returns true if the user has a permission. Empty array = super admin = all. */
+function hasPermission(perms: string[], perm: string): boolean {
+  return perms.length === 0 || perms.includes(perm);
+}
+
+const ALL_TABS = [
+  { id: "overview",     label: "📊 Resumen",     perm: null },
+  { id: "users",        label: "👥 Usuarios",    perm: "admin:users" },
+  { id: "games",        label: "🎱 Juegos",       perm: "admin:games" },
+  { id: "categories",   label: "🗂️ Categorías",  perm: "admin:games" },
+  { id: "withdrawals",  label: "💸 Retiros",      perm: "admin:withdrawals" },
+  { id: "winners",      label: "🏆 Ganadores",   perm: "admin:games" },
+  { id: "resets",       label: "🔑 Resets",       perm: "admin:resets" },
+  { id: "logs",         label: "📋 Auditoría",   perm: "admin:logs" },
+] as const;
+
+type Tab = typeof ALL_TABS[number]["id"];
 
 const DEPTS = ["Beni","Chuquisaca","Cochabamba","La Paz","Oruro","Pando","Potosí","Santa Cruz","Tarija"];
 
@@ -672,7 +686,7 @@ export default function AdminPage() {
   const [rejectingReset, setRejectingReset] = useState<number | null>(null);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [createForm, setCreateForm] = useState({
-    full_name: "", ci: "", phone: "", password: "", department: "", is_admin: false,
+    full_name: "", ci: "", phone: "", password: "", department: "", is_admin: false, permissions: [] as string[], skip_ci: false,
   });
   const [creatingUser, setCreatingUser] = useState(false);
 
@@ -801,15 +815,19 @@ export default function AdminPage() {
   useEffect(() => { loadStats(); loadTab("overview"); }, []);
 
   async function createUser() {
-    const { full_name, ci, phone, password, department, is_admin } = createForm;
+    const { full_name, ci, phone, password, department, is_admin, permissions, skip_ci } = createForm;
     if (!full_name.trim() || !ci.trim() || !phone.trim() || !password || !department.trim()) {
       toast.error("Completa todos los campos"); return;
     }
     if (password.length < 6) { toast.error("Contraseña mínimo 6 caracteres"); return; }
+    if (is_admin && permissions.length === 0) {
+      const proceed = window.confirm("¿Crear como super administrador con acceso total? Pulsa Cancelar para asignar permisos específicos.");
+      if (!proceed) return;
+    }
     setCreatingUser(true);
     const r = await fetch(`${BASE}/api/admin/users`, {
       method: "POST", headers: authH(),
-      body: JSON.stringify({ full_name, ci, phone, password, department, is_admin }),
+      body: JSON.stringify({ full_name, ci, phone, password, department, is_admin, permissions, skip_ci }),
     });
     setCreatingUser(false);
     if (r.ok) {
@@ -817,7 +835,7 @@ export default function AdminPage() {
       toast.success(`✅ Usuario ${newUser.full_name} creado`);
       setUsers(us => [newUser, ...us]);
       setShowCreateUser(false);
-      setCreateForm({ full_name: "", ci: "", phone: "", password: "", department: "", is_admin: false });
+      setCreateForm({ full_name: "", ci: "", phone: "", password: "", department: "", is_admin: false, permissions: [], skip_ci: false });
       loadStats();
     } else { const d = await r.json(); toast.error(d.error || "Error al crear usuario"); }
   }
@@ -1081,7 +1099,7 @@ export default function AdminPage() {
               {/* Role toggle */}
               <button
                 type="button"
-                onClick={() => setCreateForm(f => ({ ...f, is_admin: !f.is_admin }))}
+                onClick={() => setCreateForm(f => ({ ...f, is_admin: !f.is_admin, permissions: [] }))}
                 className="w-full flex items-center justify-between px-4 py-3 rounded-2xl font-bold text-sm transition-all"
                 style={{
                   background: createForm.is_admin ? "hsl(270 60% 50% / 0.1)" : "hsl(var(--muted))",
@@ -1092,6 +1110,79 @@ export default function AdminPage() {
                 <span className="text-xs font-normal opacity-70">
                   {createForm.is_admin ? "Acceso al panel admin" : "Sin acceso al panel admin"}
                 </span>
+              </button>
+
+              {/* Permissions — shown only when is_admin */}
+              {createForm.is_admin && (
+                <div className="rounded-2xl p-4 space-y-3"
+                  style={{ background: "hsl(270 60% 50% / 0.05)", border: "1px solid hsl(270 60% 50% / 0.2)" }}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-black text-muted-foreground uppercase tracking-wide">Secciones que administrará</p>
+                    <button type="button"
+                      className="text-[11px] font-bold underline"
+                      style={{ color: "hsl(270 60% 45%)" }}
+                      onClick={() => setCreateForm(f => ({
+                        ...f,
+                        permissions: f.permissions.length === ADMIN_PERMS.length ? [] : ADMIN_PERMS.map(p => p.id),
+                      }))}>
+                      {createForm.permissions.length === ADMIN_PERMS.length ? "Quitar todos" : "Seleccionar todos"}
+                    </button>
+                  </div>
+
+                  {createForm.permissions.length === 0 && (
+                    <div className="rounded-xl px-3 py-2 text-xs text-center font-semibold"
+                      style={{ background: "hsl(270 60% 50% / 0.1)", color: "hsl(270 60% 35%)" }}>
+                      ⚡ Sin selección = Super admin (acceso total)
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    {ADMIN_PERMS.map(p => {
+                      const active = createForm.permissions.includes(p.id);
+                      return (
+                        <button key={p.id} type="button"
+                          onClick={() => setCreateForm(f => ({
+                            ...f,
+                            permissions: active
+                              ? f.permissions.filter(x => x !== p.id)
+                              : [...f.permissions, p.id],
+                          }))}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
+                          style={{
+                            background: active ? "hsl(270 60% 50% / 0.12)" : "hsl(var(--muted) / 0.5)",
+                            border: `1px solid ${active ? "hsl(270 60% 50% / 0.4)" : "hsl(var(--border))"}`,
+                          }}>
+                          <div className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-all"
+                            style={{ background: active ? "hsl(270 60% 45%)" : "hsl(var(--border))" }}>
+                            {active && <span className="text-white text-xs font-black">✓</span>}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold">{p.label}</p>
+                            <p className="text-[11px] text-muted-foreground">{p.desc}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Skip CI option */}
+              <button type="button"
+                onClick={() => setCreateForm(f => ({ ...f, skip_ci: !f.skip_ci }))}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left transition-all"
+                style={{
+                  background: createForm.skip_ci ? "hsl(142 70% 40% / 0.08)" : "hsl(var(--muted) / 0.5)",
+                  border: `1px solid ${createForm.skip_ci ? "hsl(142 70% 40% / 0.35)" : "hsl(var(--border))"}`,
+                }}>
+                <div className="w-5 h-5 rounded-md flex items-center justify-center shrink-0"
+                  style={{ background: createForm.skip_ci ? "hsl(142 70% 40%)" : "hsl(var(--border))" }}>
+                  {createForm.skip_ci && <span className="text-white text-xs font-black">✓</span>}
+                </div>
+                <div>
+                  <p className="text-xs font-bold">Omitir verificación de CI</p>
+                  <p className="text-[11px] text-muted-foreground">El usuario entra directo sin subir fotos de documento</p>
+                </div>
               </button>
 
               <button onClick={createUser} disabled={creatingUser}
@@ -1138,9 +1229,9 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Tab navigation */}
+      {/* Tab navigation — filtered by current admin's permissions */}
       <div className="flex overflow-x-auto px-4 py-2 gap-1.5" style={{ borderBottom: "1px solid hsl(var(--border))" }}>
-        {tabs.map(t => (
+        {ALL_TABS.filter(t => !t.perm || hasPermission(user?.admin_permissions ?? [], t.perm)).map(t => (
           <button key={t.id} onClick={() => handleTab(t.id)}
             className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
             style={{

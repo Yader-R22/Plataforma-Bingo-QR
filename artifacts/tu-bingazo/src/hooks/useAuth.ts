@@ -18,6 +18,7 @@ export interface AuthUser {
   rejection_reason: string | null;
   is_banned: boolean;
   ban_reason: string | null;
+  admin_permissions: string[];
   must_change_password: boolean;
   temp_password_expires_at: string | null;
   created_at: string;
