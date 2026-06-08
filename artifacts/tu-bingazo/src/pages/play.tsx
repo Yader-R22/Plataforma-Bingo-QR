@@ -255,7 +255,7 @@ export default function PlayPage() {
 
         {/* Card selector */}
         {cards.length > 1 && (
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none" style={{ scrollbarWidth: "none" }}>
             {cards.map((c, i) => (
               <button key={c.id} onClick={() => setSelectedCardIdx(i)}
                 className="shrink-0 px-3 py-1.5 rounded-xl text-sm font-bold transition-all"
