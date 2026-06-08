@@ -229,7 +229,9 @@ router.post("/upload-ci", requireAuth, async (req: AuthRequest, res) => {
   const users = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
   if (!users.length) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
   const u = users[0];
-  if (!u.needsCiUpload) { res.status(400).json({ error: "No se requiere subida de CI" }); return; }
+  if (!u.needsCiUpload && u.status !== "rejected") {
+    res.status(400).json({ error: "No se requiere subida de CI" }); return;
+  }
 
   const { id_photo_front, id_photo_back } = req.body as { id_photo_front?: string; id_photo_back?: string };
   if (!id_photo_front || !id_photo_back) {
@@ -241,6 +243,7 @@ router.post("/upload-ci", requireAuth, async (req: AuthRequest, res) => {
       idPhotoFrontUrl: id_photo_front,
       idPhotoBackUrl: id_photo_back,
       needsCiUpload: false,
+      rejectionReason: null,
       status: "pending",
     })
     .where(eq(usersTable.id, req.userId!))

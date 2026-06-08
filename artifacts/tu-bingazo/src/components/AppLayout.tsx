@@ -392,9 +392,9 @@ export default function AppLayout({ children, hideNav, title, showBack, onBack }
     return <PendingReviewScreen />;
   }
 
-  // Guard: permanently rejected account (e.g. banned from a different flow)
+  // Guard: rejected — same as needs_ci_upload: show reason + allow resubmit
   if (user && user.status === "rejected") {
-    return <RejectedScreen reason={user.rejection_reason} />;
+    return <CiUploadScreen rejectionReason={user.rejection_reason} />;
   }
 
   const navItems = [
