@@ -8,3 +8,4 @@ export * from "./audit_logs";
 export * from "./feed_items";
 export * from "./game_categories";
 export * from "./partners";
+export * from "./expenses";

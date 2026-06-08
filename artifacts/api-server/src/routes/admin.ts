@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, usersTable, nameChangeRequestsTable, withdrawalsTable, winnersTable, auditLogsTable, gamesTable, feedItemsTable, cardsTable, partnersTable, partnerPaymentsTable } from "@workspace/db";
+import { db, usersTable, nameChangeRequestsTable, withdrawalsTable, winnersTable, auditLogsTable, gamesTable, feedItemsTable, cardsTable, partnersTable, partnerPaymentsTable, operatingExpensesTable } from "@workspace/db";
 import { eq, and, like, sql, desc } from "drizzle-orm";
 import { requireAdmin, type AuthRequest } from "../middlewares/auth";
 import bcrypt from "bcryptjs";
@@ -641,6 +641,93 @@ router.get("/stats/departments", async (req: AuthRequest, res) => {
   })));
 });
 
+// ── Operating Expenses ───────────────────────────────────────────────────────
+
+router.get("/expenses", async (_req: AuthRequest, res) => {
+  const rows = await db.select().from(operatingExpensesTable).orderBy(desc(operatingExpensesTable.createdAt));
+  res.json(rows.map(r => ({
+    id:        r.id,
+    name:      r.name,
+    amount:    r.amount,
+    frequency: r.frequency,
+    is_active: r.isActive,
+    notes:     r.notes,
+    created_at: r.createdAt,
+  })));
+});
+
+router.post("/expenses", async (req: AuthRequest, res) => {
+  const { name, amount, frequency, notes } = req.body;
+  if (!name || amount == null || !frequency) { res.status(400).json({ error: "name, amount y frequency son requeridos" }); return; }
+  const amt = parseFloat(String(amount));
+  if (isNaN(amt) || amt < 0) { res.status(400).json({ error: "amount debe ser un número positivo" }); return; }
+  const validFreqs = ["daily", "weekly", "monthly", "yearly", "one_time"];
+  if (!validFreqs.includes(String(frequency))) { res.status(400).json({ error: `frequency debe ser uno de: ${validFreqs.join(", ")}` }); return; }
+  const [row] = await db.insert(operatingExpensesTable).values({
+    name: String(name).trim(),
+    amount: String(amt),
+    frequency: frequency as "daily" | "weekly" | "monthly" | "yearly" | "one_time",
+    notes: notes ? String(notes).trim() : null,
+    isActive: true,
+  }).returning();
+  res.status(201).json({ ...row, amount: row.amount, is_active: row.isActive });
+});
+
+router.patch("/expenses/:id", async (req: AuthRequest, res) => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "id inválido" }); return; }
+  const { name, amount, frequency, notes, isActive } = req.body;
+  const update: Record<string, any> = {};
+  if (name !== undefined)      update.name      = String(name).trim();
+  if (amount !== undefined)    update.amount    = String(parseFloat(String(amount)));
+  if (frequency !== undefined) update.frequency = String(frequency);
+  if (notes !== undefined)     update.notes     = notes ? String(notes).trim() : null;
+  if (isActive !== undefined)  update.isActive  = Boolean(isActive);
+  if (Object.keys(update).length === 0) { res.status(400).json({ error: "nada que actualizar" }); return; }
+  const [row] = await db.update(operatingExpensesTable).set(update).where(eq(operatingExpensesTable.id, id)).returning();
+  if (!row) { res.status(404).json({ error: "gasto no encontrado" }); return; }
+  res.json({ ...row, is_active: row.isActive });
+});
+
+router.delete("/expenses/:id", async (req: AuthRequest, res) => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "id inválido" }); return; }
+  await db.update(operatingExpensesTable).set({ isActive: false }).where(eq(operatingExpensesTable.id, id));
+  res.json({ ok: true });
+});
+
+// Helper: prorate expenses for a date range
+function prorateExpenses(expenses: any[], from: Date | null, to: Date | null): { total: number; detail: any[] } {
+  const now = new Date();
+  const effectiveTo = to ?? now;
+  const effectiveFrom = from ?? new Date(now.getTime() - 365 * 86400000);
+  const daysInPeriod = Math.max(1, (effectiveTo.getTime() - effectiveFrom.getTime()) / 86400000);
+
+  const detail = expenses.map((e: any) => {
+    const amt = parseFloat(String(e.amount));
+    let prorated: number;
+    switch (e.frequency) {
+      case "daily":    prorated = amt * daysInPeriod; break;
+      case "weekly":   prorated = amt * (daysInPeriod / 7); break;
+      case "monthly":  prorated = amt * (daysInPeriod / 30.4375); break;
+      case "yearly":   prorated = amt * (daysInPeriod / 365.25); break;
+      case "one_time": prorated = amt; break;
+      default:         prorated = 0;
+    }
+    return {
+      id:               e.id,
+      name:             e.name,
+      frequency:        e.frequency,
+      amount_full:      parseFloat(amt.toFixed(2)),
+      amount_prorated:  parseFloat(prorated.toFixed(2)),
+      notes:            e.notes ?? null,
+    };
+  });
+
+  const total = parseFloat(detail.reduce((s: number, d: any) => s + d.amount_prorated, 0).toFixed(2));
+  return { total, detail };
+}
+
 // ── Finance ─────────────────────────────────────────────────────────────────
 
 function resolveDateRange(query: Record<string, any>): { from: Date | null; to: Date | null; label: string } {
@@ -678,6 +765,10 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
   const grossRevenue    = parseFloat((rev.rows[0] as any)?.total ?? "0");
   const prizesPaid      = parseFloat((prizes.rows[0] as any)?.total ?? "0");
   const withdrawalsPaid = parseFloat((wdrs.rows[0] as any)?.paid_total ?? "0");
+  const netProfit       = grossRevenue - prizesPaid - withdrawalsPaid;
+
+  const activeExpenses = await db.select().from(operatingExpensesTable).where(eq(operatingExpensesTable.isActive, true));
+  const { total: totalExpenses, detail: expensesDetail } = prorateExpenses(activeExpenses, from, to);
 
   res.json({
     period: label,
@@ -693,7 +784,10 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
     pending_withdrawals_count: Number((wdrs.rows[0] as any)?.pending_count ?? 0),
     balance_in_circulation:    parseFloat((balances.rows[0] as any)?.total ?? "0"),
     users_with_balance:        Number((balances.rows[0] as any)?.user_count ?? 0),
-    net_profit: grossRevenue - prizesPaid - withdrawalsPaid,
+    net_profit:            netProfit,
+    total_expenses:        totalExpenses,
+    expenses_detail:       expensesDetail,
+    distributable_profit:  parseFloat((netProfit - totalExpenses).toFixed(2)),
   });
 });
 

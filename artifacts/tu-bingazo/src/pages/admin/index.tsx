@@ -714,6 +714,11 @@ export default function AdminPage() {
   const [partnerPaymentNotes, setPartnerPaymentNotes] = useState("");
   const [savingPartnerPayment, setSavingPartnerPayment] = useState(false);
   const [showPartnerHistory, setShowPartnerHistory] = useState(false);
+  const [expenses, setExpenses] = useState<any[]>([]);
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<any>(null);
+  const [expenseForm, setExpenseForm] = useState({ name: "", amount: "", frequency: "monthly", notes: "" });
+  const [savingExpense, setSavingExpense] = useState(false);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
@@ -794,18 +799,20 @@ export default function AdminPage() {
       }
       if (t === "finance") {
         const period = financePeriod;
-        const [sR, gR, tR, pR, ppR] = await Promise.all([
+        const [sR, gR, tR, pR, ppR, eR] = await Promise.all([
           fetch(`${BASE}/api/admin/finance/summary?period=${period}`, { headers: authH() }),
           fetch(`${BASE}/api/admin/finance/games`, { headers: authH() }),
           fetch(`${BASE}/api/admin/finance/transactions?limit=100`, { headers: authH() }),
           fetch(`${BASE}/api/admin/partners`, { headers: authH() }),
           fetch(`${BASE}/api/admin/partners/payments`, { headers: authH() }),
+          fetch(`${BASE}/api/admin/expenses`, { headers: authH() }),
         ]);
         if (sR.ok) setFinanceSummary(await sR.json());
         if (gR.ok) setFinanceGames(await gR.json());
         if (tR.ok) setFinanceTransactions(await tR.json());
         if (pR.ok) setPartners(await pR.json());
         if (ppR.ok) setPartnerPayments(await ppR.json());
+        if (eR.ok) setExpenses(await eR.json());
       }
     } catch {}
     setLoading(false);
@@ -1041,12 +1048,56 @@ export default function AdminPage() {
   }
 
   async function loadPartners() {
-    const [pR, ppR] = await Promise.all([
+    const [pR, ppR, eR] = await Promise.all([
       fetch(`${BASE}/api/admin/partners`, { headers: authH() }),
       fetch(`${BASE}/api/admin/partners/payments`, { headers: authH() }),
+      fetch(`${BASE}/api/admin/expenses`, { headers: authH() }),
     ]);
     if (pR.ok) setPartners(await pR.json());
     if (ppR.ok) setPartnerPayments(await ppR.json());
+    if (eR.ok) setExpenses(await eR.json());
+  }
+
+  async function saveExpense() {
+    if (!expenseForm.name.trim() || !expenseForm.amount) {
+      toast.error("Nombre y monto son requeridos"); return;
+    }
+    const amt = parseFloat(expenseForm.amount);
+    if (isNaN(amt) || amt < 0) { toast.error("Ingresa un monto válido"); return; }
+    setSavingExpense(true);
+    try {
+      const url = editingExpense ? `${BASE}/api/admin/expenses/${editingExpense.id}` : `${BASE}/api/admin/expenses`;
+      const method = editingExpense ? "PATCH" : "POST";
+      const r = await fetch(url, { method, headers: authH(), body: JSON.stringify({
+        name: expenseForm.name.trim(),
+        amount: amt,
+        frequency: expenseForm.frequency,
+        notes: expenseForm.notes.trim() || null,
+      })});
+      if (r.ok) {
+        toast.success(editingExpense ? "Gasto actualizado" : "Gasto agregado");
+        setShowExpenseForm(false); setEditingExpense(null);
+        setExpenseForm({ name: "", amount: "", frequency: "monthly", notes: "" });
+        await loadPartners();
+      } else {
+        const d = await r.json();
+        toast.error(d.error || "Error al guardar");
+      }
+    } catch { toast.error("Error de conexión"); }
+    setSavingExpense(false);
+  }
+
+  async function deleteExpense(expense: any) {
+    if (!confirm(`¿Desactivar el gasto "${expense.name}"?`)) return;
+    const r = await fetch(`${BASE}/api/admin/expenses/${expense.id}`, { method: "DELETE", headers: authH() });
+    if (r.ok) { toast.success("Gasto desactivado"); await loadPartners(); }
+    else toast.error("No se pudo desactivar");
+  }
+
+  async function reactivateExpense(expense: any) {
+    const r = await fetch(`${BASE}/api/admin/expenses/${expense.id}`, { method: "PATCH", headers: authH(), body: JSON.stringify({ isActive: true }) });
+    if (r.ok) { toast.success("Gasto reactivado"); await loadPartners(); }
+    else toast.error("No se pudo reactivar");
   }
 
   async function savePartner() {
@@ -2070,14 +2121,17 @@ ${partnersSection}
           const typeGameLabel: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual" };
 
           const activePartners = partners.filter(p => p.is_active);
+          const activeExpensesList = expenses.filter(e => e.is_active);
           const totalPct = activePartners.reduce((sum, p) => sum + parseFloat(p.share_percentage), 0);
+          const distributableProfit = s ? (s.distributable_profit ?? s.net_profit) : 0;
           const dividendSnapshot = s ? activePartners.map(p => ({
             partner_id: p.id,
             name: p.name,
             identifier: p.identifier ?? null,
             share_percentage: parseFloat(p.share_percentage),
-            amount: Math.round(s.net_profit * parseFloat(p.share_percentage) / 100 * 100) / 100,
+            amount: Math.round(distributableProfit * parseFloat(p.share_percentage) / 100 * 100) / 100,
           })) : [];
+          const FREQ_LABELS: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual", yearly: "Anual", one_time: "Único" };
 
           return (
             <div className="space-y-4">
@@ -2229,6 +2283,136 @@ ${partnersSection}
                 </div>
               )}
 
+              {/* ── GASTOS OPERATIVOS ────────────────────── */}
+              <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))" }}>
+                <div className="flex items-center justify-between px-4 py-3"
+                  style={{ background: "hsl(0 75% 50% / 0.06)", borderBottom: "1px solid hsl(var(--border))" }}>
+                  <div>
+                    <p className="font-black text-sm">🏭 Gastos Operativos</p>
+                    {s && (s.total_expenses ?? 0) > 0 && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Período: <span className="font-bold" style={{ color: "#dc2626" }}>−{fmt(s.total_expenses ?? 0)}</span>
+                      </p>
+                    )}
+                  </div>
+                  <button onClick={() => { setShowExpenseForm(true); setEditingExpense(null); setExpenseForm({ name: "", amount: "", frequency: "monthly", notes: "" }); }}
+                    className="px-2.5 py-1 rounded-lg text-xs font-bold text-white"
+                    style={{ background: "#dc2626" }}>
+                    + Agregar gasto
+                  </button>
+                </div>
+
+                <div className="p-4 space-y-3">
+                  {/* Expense form */}
+                  {showExpenseForm && (
+                    <div className="rounded-xl p-3 space-y-2" style={{ background: "hsl(0 75% 50% / 0.04)", border: "1px solid hsl(0 75% 50% / 0.2)" }}>
+                      <p className="text-xs font-black">{editingExpense ? "Editar gasto" : "Nuevo gasto operativo"}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="col-span-2 space-y-0.5">
+                          <label className="text-[11px] text-muted-foreground">Nombre *</label>
+                          <input className="input-field text-xs py-1.5" placeholder="Ej: Hosting web, Energía eléctrica" value={expenseForm.name}
+                            onChange={e => setExpenseForm(f => ({ ...f, name: e.target.value }))} />
+                        </div>
+                        <div className="space-y-0.5">
+                          <label className="text-[11px] text-muted-foreground">Monto (Bs) *</label>
+                          <input type="number" min="0" step="0.01" className="input-field text-xs py-1.5" placeholder="Ej: 211.50" value={expenseForm.amount}
+                            onChange={e => setExpenseForm(f => ({ ...f, amount: e.target.value }))} />
+                        </div>
+                        <div className="space-y-0.5">
+                          <label className="text-[11px] text-muted-foreground">Frecuencia *</label>
+                          <select className="input-field text-xs py-1.5" value={expenseForm.frequency}
+                            onChange={e => setExpenseForm(f => ({ ...f, frequency: e.target.value }))}>
+                            <option value="daily">Diario</option>
+                            <option value="weekly">Semanal</option>
+                            <option value="monthly">Mensual</option>
+                            <option value="yearly">Anual</option>
+                            <option value="one_time">Pago único</option>
+                          </select>
+                        </div>
+                        <div className="col-span-2 space-y-0.5">
+                          <label className="text-[11px] text-muted-foreground">Notas (opcional)</label>
+                          <input className="input-field text-xs py-1.5" placeholder="Ej: USD 30 = Bs 211.50 al cambio de hoy" value={expenseForm.notes}
+                            onChange={e => setExpenseForm(f => ({ ...f, notes: e.target.value }))} />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={saveExpense} disabled={savingExpense}
+                          className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-50"
+                          style={{ background: "#dc2626" }}>
+                          {savingExpense ? "..." : editingExpense ? "Guardar cambios" : "Agregar gasto"}
+                        </button>
+                        <button onClick={() => { setShowExpenseForm(false); setEditingExpense(null); }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold"
+                          style={{ background: "hsl(var(--muted))" }}>
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeExpensesList.length === 0 && !showExpenseForm && (
+                    <p className="text-xs text-center text-muted-foreground py-3">Sin gastos configurados. Los gastos se descuentan de la ganancia neta antes de calcular dividendos.</p>
+                  )}
+
+                  {activeExpensesList.map(exp => (
+                    <div key={exp.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                      style={{ background: "hsl(var(--muted)/0.5)", border: "1px solid hsl(var(--border))" }}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-sm">{exp.name}</p>
+                          <span className="text-xs font-black px-2 py-0.5 rounded-full text-white" style={{ background: "#dc2626" }}>
+                            {FREQ_LABELS[exp.frequency] ?? exp.frequency}
+                          </span>
+                        </div>
+                        <p className="text-xs font-bold mt-0.5" style={{ color: "#dc2626" }}>Bs {parseFloat(exp.amount).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        {exp.notes && <p className="text-xs text-muted-foreground">{exp.notes}</p>}
+                        {s && (s.expenses_detail ?? []).find((d: any) => d.id === exp.id) && (
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            Este período: <span className="font-bold" style={{ color: "#dc2626" }}>
+                              −{fmt((s.expenses_detail as any[]).find((d: any) => d.id === exp.id)?.amount_prorated ?? 0)}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => { setEditingExpense(exp); setExpenseForm({ name: exp.name, amount: String(parseFloat(exp.amount)), frequency: exp.frequency, notes: exp.notes ?? "" }); setShowExpenseForm(true); }}
+                          className="text-[11px] px-1.5 py-0.5 rounded font-bold"
+                          style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
+                          Editar
+                        </button>
+                        <button onClick={() => deleteExpense(exp)}
+                          className="text-[11px] px-1.5 py-0.5 rounded font-bold"
+                          style={{ background: "hsl(0 75% 50% / 0.1)", color: "#dc2626" }}>
+                          Quitar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Inactive expenses */}
+                  {expenses.filter(e => !e.is_active).length > 0 && (
+                    <details className="text-xs">
+                      <summary className="text-muted-foreground cursor-pointer select-none">
+                        {expenses.filter(e => !e.is_active).length} gasto(s) desactivado(s)
+                      </summary>
+                      <div className="mt-2 space-y-1.5">
+                        {expenses.filter(e => !e.is_active).map(exp => (
+                          <div key={exp.id} className="flex items-center justify-between px-3 py-2 rounded-lg opacity-50"
+                            style={{ background: "hsl(var(--muted)/0.3)", border: "1px solid hsl(var(--border))" }}>
+                            <span>{exp.name} — {FREQ_LABELS[exp.frequency]} — Bs {parseFloat(exp.amount).toFixed(2)}</span>
+                            <button onClick={() => reactivateExpense(exp)}
+                              className="px-1.5 py-0.5 rounded text-[11px] font-bold"
+                              style={{ background: "#16a34a", color: "white" }}>
+                              Reactivar
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              </div>
+
               {/* ── SOCIOS / DIVIDEND CALCULATOR ─────────── */}
               <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))" }}>
                 {/* Header */}
@@ -2308,7 +2492,7 @@ ${partnersSection}
                         {p.phone && <p className="text-xs text-muted-foreground">📱 {p.phone}</p>}
                       </div>
                       <div className="text-right">
-                        {s && <p className="font-black text-sm" style={{ color: "#7c3aed" }}>{fmt(s.net_profit * parseFloat(p.share_percentage) / 100)}</p>}
+                        {s && <p className="font-black text-sm" style={{ color: "#7c3aed" }}>{fmt(distributableProfit * parseFloat(p.share_percentage) / 100)}</p>}
                         <div className="flex gap-1 mt-1">
                           <button onClick={() => { setEditingPartner(p); setPartnerForm({ name: p.name, identifier: p.identifier ?? "", phone: p.phone ?? "", sharePercentage: String(parseFloat(p.share_percentage)), notes: p.notes ?? "" }); setShowPartnerForm(true); }}
                             className="text-[11px] px-1.5 py-0.5 rounded font-bold"
@@ -2338,7 +2522,26 @@ ${partnersSection}
                   {s && activePartners.length > 0 && (
                     <div className="rounded-xl p-3 space-y-2" style={{ background: "hsl(var(--primary)/0.04)", border: "1px solid hsl(var(--primary)/0.2)" }}>
                       <p className="text-xs font-black">📊 Calculadora de dividendos</p>
-                      <p className="text-xs text-muted-foreground">Basado en ganancia neta del período seleccionado: <span className="font-bold" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>{fmt(s.net_profit)}</span></p>
+
+                      {/* Profit breakdown */}
+                      <div className="rounded-lg p-2 space-y-1 text-xs" style={{ background: "hsl(var(--muted)/0.5)" }}>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Ganancia neta del período</span>
+                          <span className="font-bold" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>{fmt(s.net_profit)}</span>
+                        </div>
+                        {(s.total_expenses ?? 0) > 0 && (s.expenses_detail as any[]).map((ed: any) => (
+                          <div key={ed.id} className="flex justify-between pl-3">
+                            <span className="text-muted-foreground">↳ {ed.name} <span className="opacity-60">({FREQ_LABELS[ed.frequency]})</span></span>
+                            <span className="font-bold" style={{ color: "#dc2626" }}>−{fmt(ed.amount_prorated)}</span>
+                          </div>
+                        ))}
+                        {(s.total_expenses ?? 0) > 0 && (
+                          <div className="flex justify-between border-t pt-1 font-black">
+                            <span>Monto distribuible</span>
+                            <span style={{ color: distributableProfit >= 0 ? "#5b21b6" : "#dc2626" }}>{fmt(distributableProfit)}</span>
+                          </div>
+                        )}
+                      </div>
 
                       <div className="space-y-1.5">
                         {dividendSnapshot.map(ds => (
