@@ -774,7 +774,16 @@ router.get("/finance/transactions", async (req: AuthRequest, res) => {
 
 router.get("/partners", async (_req: AuthRequest, res) => {
   const rows = await db.select().from(partnersTable).orderBy(desc(partnersTable.createdAt));
-  res.json(rows);
+  res.json(rows.map(r => ({
+    id:               r.id,
+    name:             r.name,
+    identifier:       r.identifier,
+    phone:            r.phone,
+    share_percentage: r.sharePercentage,
+    notes:            r.notes,
+    is_active:        r.isActive,
+    created_at:       r.createdAt,
+  })));
 });
 
 router.post("/partners", async (req: AuthRequest, res) => {
@@ -821,10 +830,16 @@ router.delete("/partners/:id", async (req: AuthRequest, res) => {
 router.get("/partners/payments", async (_req: AuthRequest, res) => {
   const rows = await db.select().from(partnerPaymentsTable).orderBy(desc(partnerPaymentsTable.createdAt));
   res.json(rows.map(r => ({
-    ...r,
-    gross_revenue: parseFloat(String(r.grossRevenue)),
-    net_profit:    parseFloat(String(r.netProfit)),
-    total_paid:    parseFloat(String(r.totalPaid)),
+    id:                  r.id,
+    period_label:        r.periodLabel,
+    period_from:         r.periodFrom,
+    period_to:           r.periodTo,
+    gross_revenue:       parseFloat(String(r.grossRevenue)),
+    net_profit:          parseFloat(String(r.netProfit)),
+    total_paid:          parseFloat(String(r.totalPaid)),
+    partners_snapshot:   r.partnersSnapshot,
+    admin_notes:         r.adminNotes,
+    created_at:          r.createdAt,
   })));
 });
 
