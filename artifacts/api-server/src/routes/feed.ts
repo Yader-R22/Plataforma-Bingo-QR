@@ -20,22 +20,19 @@ router.get("/recent", async (req, res) => {
 });
 
 router.get("/stats", async (req, res) => {
-  const [winnersResult, activePlayers, upcomingGames] = await Promise.all([
-    db.select({
-      count: sql<number>`count(*)`,
-      total: sql<string>`coalesce(sum(prize_amount), 0)`,
-    }).from(winnersTable),
+  const [winnersResult, activePlayers, scheduledPrizes] = await Promise.all([
+    db.select({ count: sql<number>`count(*)` }).from(winnersTable),
     db.select({ count: sql<number>`count(*)` })
       .from(usersTable).where(eq(usersTable.status, "active")),
-    db.select({ count: sql<number>`count(*)` })
-      .from(gamesTable).where(eq(gamesTable.status, "upcoming")),
+    db.select({ total: sql<string>`coalesce(sum(prize_amount), 0)` })
+      .from(gamesTable)
+      .where(sql`${gamesTable.status} IN ('upcoming', 'active')`),
   ]);
 
   res.json({
     total_winners: Number(winnersResult[0]?.count ?? 0),
-    total_prizes_paid: parseFloat(winnersResult[0]?.total ?? "0"),
+    total_prizes_paid: parseFloat(scheduledPrizes[0]?.total ?? "0"),
     active_players: Number(activePlayers[0]?.count ?? 0),
-    upcoming_games: Number(upcomingGames[0]?.count ?? 0),
   });
 });
 
