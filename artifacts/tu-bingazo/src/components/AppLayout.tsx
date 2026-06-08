@@ -519,17 +519,7 @@ export default function AppLayout({ children, hideNav, title, showBack, onBack }
                 : user.full_name.charAt(0).toUpperCase()}
             </div>
           </Link>
-        ) : (
-          <div className="flex gap-2 shrink-0">
-            <Link href="/login">
-              <span className="text-sm font-bold text-white/80 hover:text-white cursor-pointer">Entrar</span>
-            </Link>
-            <Link href="/registro">
-              <span className="text-sm font-bold px-3 py-1.5 rounded-xl cursor-pointer"
-                style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>Registro</span>
-            </Link>
-          </div>
-        )}
+        ) : null}
       </header>
 
       {/* Content */}
