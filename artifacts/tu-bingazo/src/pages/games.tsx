@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useSearch } from "wouter";
+import { Link, useSearch, useLocation } from "wouter";
 import { useListGames } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
@@ -22,6 +22,7 @@ export default function GamesPage() {
   const params = new URLSearchParams(search);
   const initialType = params.get("type") ?? "all";
   const [filter, setFilter] = useState(initialType);
+  const [, navigate] = useLocation();
 
   useEffect(() => {
     const p = new URLSearchParams(search);
@@ -149,6 +150,7 @@ export default function GamesPage() {
                         <div
                           className="text-xs font-bold px-4 py-2 rounded-xl"
                           style={{ background: "rgba(255,255,255,0.2)", color: "white" }}
+                          onClick={!isFinished && !user ? (e) => { e.preventDefault(); e.stopPropagation(); navigate("/login"); } : undefined}
                         >
                           {isLive ? "🎯 Jugar" : isFinished ? "Ver" : "Comprar →"}
                         </div>
