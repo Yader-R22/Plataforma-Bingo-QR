@@ -767,8 +767,28 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
   const withdrawalsPaid = parseFloat((wdrs.rows[0] as any)?.paid_total ?? "0");
   const netProfit       = grossRevenue - prizesPaid - withdrawalsPaid;
 
-  const activeExpenses = await db.select().from(operatingExpensesTable).where(eq(operatingExpensesTable.isActive, true));
+  const [activeExpenses, committedRows] = await Promise.all([
+    db.select().from(operatingExpensesTable).where(eq(operatingExpensesTable.isActive, true)),
+    db.execute(sql`
+      SELECT g.id, g.title, g.type, g.prize_amount::text AS prize_amount
+      FROM games g
+      WHERE g.status IN ('active','upcoming')
+        AND NOT EXISTS (
+          SELECT 1 FROM winners w WHERE w.game_id = g.id AND w.validated = true
+        )
+      ORDER BY g.draw_date ASC
+    `),
+  ]);
+
   const { total: totalExpenses, detail: expensesDetail } = prorateExpenses(activeExpenses, from, to);
+
+  const committedGames = (committedRows.rows as any[]).map(r => ({
+    id:           Number(r.id),
+    title:        r.title as string,
+    type:         r.type as string,
+    prize_amount: parseFloat(r.prize_amount ?? "0"),
+  }));
+  const committedPrizes = parseFloat(committedGames.reduce((s, g) => s + g.prize_amount, 0).toFixed(2));
 
   res.json({
     period: label,
@@ -784,10 +804,12 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
     pending_withdrawals_count: Number((wdrs.rows[0] as any)?.pending_count ?? 0),
     balance_in_circulation:    parseFloat((balances.rows[0] as any)?.total ?? "0"),
     users_with_balance:        Number((balances.rows[0] as any)?.user_count ?? 0),
-    net_profit:            netProfit,
-    total_expenses:        totalExpenses,
-    expenses_detail:       expensesDetail,
-    distributable_profit:  parseFloat((netProfit - totalExpenses).toFixed(2)),
+    net_profit:               netProfit,
+    total_expenses:           totalExpenses,
+    expenses_detail:          expensesDetail,
+    committed_prizes:         committedPrizes,
+    committed_prizes_detail:  committedGames,
+    distributable_profit:     parseFloat((netProfit - totalExpenses - committedPrizes).toFixed(2)),
   });
 });
 

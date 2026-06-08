@@ -2529,13 +2529,42 @@ ${partnersSection}
                           <span className="text-muted-foreground">Ganancia neta del período</span>
                           <span className="font-bold" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>{fmt(s.net_profit)}</span>
                         </div>
-                        {(s.total_expenses ?? 0) > 0 && (s.expenses_detail as any[]).map((ed: any) => (
-                          <div key={ed.id} className="flex justify-between pl-3">
-                            <span className="text-muted-foreground">↳ {ed.name} <span className="opacity-60">({FREQ_LABELS[ed.frequency]})</span></span>
-                            <span className="font-bold" style={{ color: "#dc2626" }}>−{fmt(ed.amount_prorated)}</span>
-                          </div>
-                        ))}
+
+                        {/* Gastos operativos */}
                         {(s.total_expenses ?? 0) > 0 && (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground font-bold">Gastos operativos</span>
+                              <span className="font-bold" style={{ color: "#dc2626" }}>−{fmt(s.total_expenses)}</span>
+                            </div>
+                            {(s.expenses_detail as any[]).map((ed: any) => (
+                              <div key={ed.id} className="flex justify-between pl-3">
+                                <span className="text-muted-foreground">↳ {ed.name} <span className="opacity-60">({FREQ_LABELS[ed.frequency]})</span></span>
+                                <span className="font-bold" style={{ color: "#dc2626" }}>−{fmt(ed.amount_prorated)}</span>
+                              </div>
+                            ))}
+                          </>
+                        )}
+
+                        {/* Premios comprometidos */}
+                        {(s.committed_prizes ?? 0) > 0 && (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="font-bold" style={{ color: "#b45309" }}>🔒 Premios comprometidos</span>
+                              <span className="font-bold" style={{ color: "#b45309" }}>−{fmt(s.committed_prizes)}</span>
+                            </div>
+                            {(s.committed_prizes_detail as any[]).map((g: any) => (
+                              <div key={g.id} className="flex justify-between pl-3">
+                                <span className="text-muted-foreground">↳ {g.title}</span>
+                                <span className="font-bold" style={{ color: "#b45309" }}>−{fmt(g.prize_amount)}</span>
+                              </div>
+                            ))}
+                            <p className="pl-3 text-[10px] text-muted-foreground italic">Reservado para sorteos activos/próximos sin ganador validado</p>
+                          </>
+                        )}
+
+                        {/* Total distribuible */}
+                        {((s.total_expenses ?? 0) > 0 || (s.committed_prizes ?? 0) > 0) && (
                           <div className="flex justify-between border-t pt-1 font-black">
                             <span>Monto distribuible</span>
                             <span style={{ color: distributableProfit >= 0 ? "#5b21b6" : "#dc2626" }}>{fmt(distributableProfit)}</span>
