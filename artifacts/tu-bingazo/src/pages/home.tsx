@@ -151,7 +151,7 @@ function GameTypeSection({
               <div className="live-badge mb-2"><div className="live-dot" />EN VIVO</div>
             ) : (
               <div className="mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider"
+                <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
                   style={drawDateBadgeStyle(game.draw_date)}>
                   {drawDateLabel(game.draw_date)}
                 </span>
