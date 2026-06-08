@@ -45,6 +45,7 @@ export const gamesTable = pgTable("games", {
   participantCount: integer("participant_count").notNull().default(0),
   coverImageUrl: text("cover_image_url"),
   isFeatured: boolean("is_featured").notNull().default(false),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

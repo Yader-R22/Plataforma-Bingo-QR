@@ -53,6 +53,107 @@ function FacebookIcon() {
   );
 }
 
+function GameCard({
+  game,
+  cardStyle,
+  bgImageUrl,
+  emoji,
+  label,
+  description,
+  ytUrl,
+  ttUrl,
+  fbUrl,
+  onNavigate,
+  finished = false,
+}: {
+  game: any;
+  cardStyle: React.CSSProperties;
+  bgImageUrl?: string | null;
+  emoji: string;
+  label: string;
+  description: string;
+  ytUrl?: string;
+  ttUrl?: string;
+  fbUrl?: string;
+  onNavigate: (path: string) => void;
+  finished?: boolean;
+}) {
+  const isLive = game.status === "active";
+
+  return (
+    <div
+      className="rounded-3xl p-5 relative overflow-hidden cursor-pointer stars-bg"
+      style={{
+        ...cardStyle,
+        ...(finished ? { filter: "grayscale(1)", opacity: 0.72 } : {}),
+      }}
+      onClick={() => onNavigate(`/juegos/${game.id}`)}
+    >
+      {bgImageUrl && <div className="absolute inset-0 rounded-3xl" style={{ background: "rgba(0,0,0,0.40)" }} />}
+      <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full opacity-20" style={{ background: "rgba(255,255,255,0.3)" }} />
+      <div className="absolute -right-2 -bottom-8 w-20 h-20 rounded-full opacity-10" style={{ background: "rgba(255,255,255,0.5)" }} />
+
+      <div className="relative z-10">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            {finished ? (
+              <div className="mb-2">
+                <span className="text-xs font-black text-white/80 uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: "rgba(0,0,0,0.35)" }}>
+                  ⏹ FINALIZADO
+                </span>
+              </div>
+            ) : isLive ? (
+              <div className="live-badge mb-2"><div className="live-dot" />EN VIVO</div>
+            ) : (
+              <div className="mb-2">
+                <span className="text-xs font-bold text-white/70 uppercase tracking-wider">PRÓXIMO</span>
+              </div>
+            )}
+            <p className="font-black text-white text-lg leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+              {emoji} {label}
+            </p>
+            {description && (
+              <p className="text-white/60 text-xs mt-1">{description}</p>
+            )}
+          </div>
+          <div className="text-right">
+            <p className="text-3xl font-black" style={{ fontFamily: "'Poppins', sans-serif", color: finished ? "rgba(255,255,255,0.6)" : "hsl(42 98% 60%)", textShadow: finished ? "none" : "0 0 12px rgba(255,180,0,0.5)" }}>
+              Bs {(game.prize_amount as number).toLocaleString("es-BO")}
+            </p>
+            <p className="text-white/60 text-xs">{finished ? "Premio otorgado" : "Premio"}</p>
+          </div>
+        </div>
+
+        {!finished && (ytUrl || ttUrl || fbUrl) && (
+          <div className="flex gap-2 mt-3">
+            {ytUrl && (
+              <a href={ytUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold text-xs" style={{ background: "#FF0000" }}>
+                  <YouTubeIcon /><span className="text-white text-[11px]">YouTube</span>
+                </div>
+              </a>
+            )}
+            {ttUrl && (
+              <a href={ttUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold text-xs" style={{ background: "#010101" }}>
+                  <TikTokIcon /><span className="text-white text-[11px]">TikTok</span>
+                </div>
+              </a>
+            )}
+            {fbUrl && (
+              <a href={fbUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold text-xs" style={{ background: "#1877F2" }}>
+                  <FacebookIcon /><span className="text-white text-[11px]">Facebook</span>
+                </div>
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function GameTypeSection({
   category,
   games,
@@ -68,18 +169,18 @@ function GameTypeSection({
   const description = category.description as string;
   const gradient = `linear-gradient(135deg, ${category.color_from}, ${category.color_to})`;
   const bgImageUrl = category.background_image_url as string | null | undefined;
-  const cardStyle = bgImageUrl
+  const cardStyle: React.CSSProperties = bgImageUrl
     ? { backgroundImage: `url(${bgImageUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
     : { background: gradient };
 
-  const game = games.find((g: any) => g.type === type && g.status !== "finished")
-    ?? games.find((g: any) => g.type === type);
+  const activeGame = games.find((g: any) => g.type === type && g.status !== "finished");
+  const finishedGame = games.find((g: any) => g.type === type && g.status === "finished");
 
   const ytUrl = (category.stream_url_youtube || undefined) as string | undefined;
   const ttUrl = (category.stream_url_tiktok || undefined) as string | undefined;
   const fbUrl = (category.stream_url_facebook || undefined) as string | undefined;
 
-  if (!game) {
+  if (!activeGame && !finishedGame) {
     return (
       <div className="rounded-3xl p-5 relative overflow-hidden cursor-pointer opacity-60"
         style={cardStyle} onClick={() => onNavigate(`/juegos?type=${type}`)}>
@@ -118,70 +219,16 @@ function GameTypeSection({
     );
   }
 
-  const isLive = game.status === "active";
+  const sharedProps = { cardStyle, bgImageUrl, emoji, label, description, ytUrl, ttUrl, fbUrl, onNavigate };
 
   return (
-    <div className="rounded-3xl p-5 relative overflow-hidden cursor-pointer stars-bg"
-      style={cardStyle} onClick={() => onNavigate(`/juegos?type=${type}`)}>
-      {bgImageUrl && <div className="absolute inset-0 rounded-3xl" style={{ background: "rgba(0,0,0,0.40)" }} />}
-      <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full opacity-20" style={{ background: "rgba(255,255,255,0.3)" }} />
-      <div className="absolute -right-2 -bottom-8 w-20 h-20 rounded-full opacity-10" style={{ background: "rgba(255,255,255,0.5)" }} />
-
-      <div className="relative z-10">
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            {isLive ? (
-              <div className="live-badge mb-2"><div className="live-dot" />EN VIVO</div>
-            ) : (
-              <div className="mb-2">
-                <span className="text-xs font-bold text-white/70 uppercase tracking-wider">PRÓXIMO</span>
-              </div>
-            )}
-            <p className="font-black text-white text-lg leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
-              {emoji} {label}
-            </p>
-            {description && (
-              <p className="text-white/60 text-xs mt-1">{description}</p>
-            )}
-          </div>
-          <div className="text-right">
-            <p className="text-3xl font-black" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 60%)", textShadow: "0 0 12px rgba(255,180,0,0.5)" }}>
-              Bs {(game.prize_amount as number).toLocaleString("es-BO")}
-            </p>
-            <p className="text-white/60 text-xs">Premio</p>
-          </div>
-        </div>
-
-        {/* Official social icons (canales de la categoría, con respaldo al juego) */}
-        {(ytUrl || ttUrl || fbUrl) && (
-          <div className="flex gap-2 mt-3">
-            {ytUrl && (
-              <a href={ytUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold text-xs" style={{ background: "#FF0000" }}>
-                  <YouTubeIcon />
-                  <span className="text-white text-[11px]">YouTube</span>
-                </div>
-              </a>
-            )}
-            {ttUrl && (
-              <a href={ttUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold text-xs" style={{ background: "#010101" }}>
-                  <TikTokIcon />
-                  <span className="text-white text-[11px]">TikTok</span>
-                </div>
-              </a>
-            )}
-            {fbUrl && (
-              <a href={fbUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold text-xs" style={{ background: "#1877F2" }}>
-                  <FacebookIcon />
-                  <span className="text-white text-[11px]">Facebook</span>
-                </div>
-              </a>
-            )}
-          </div>
-        )}
-      </div>
+    <div className="space-y-3">
+      {activeGame && (
+        <GameCard game={activeGame} finished={false} {...sharedProps} />
+      )}
+      {finishedGame && (
+        <GameCard game={finishedGame} finished={true} {...sharedProps} />
+      )}
     </div>
   );
 }
