@@ -451,6 +451,25 @@ function IconRegister({ active }: { active: boolean }) {
 export default function AppLayout({ children, hideNav, title, showBack, onBack }: AppLayoutProps) {
   const [location] = useLocation();
   const user = useAuthStore(s => s.user);
+  const token = useAuthStore(s => s.token);
+  const setUser = useAuthStore(s => s.setUser);
+  const logout = useAuthStore(s => s.logout);
+
+  // On every mount (including page reloads) re-fetch the real user state from
+  // the server so stale localStorage never shows a wrong screen.
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${BASE}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    })
+      .then(r => {
+        if (r.status === 401) { logout(); return null; }
+        return r.ok ? r.json() : null;
+      })
+      .then(d => { if (d) setUser(d); })
+      .catch(() => {});
+  }, []);
 
   // Guard: banned account
   if (user && user.is_banned) {
