@@ -1,4 +1,4 @@
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -41,6 +41,27 @@ function PhotoCapture({ label, value, onChange }: { label: string; value: string
 
 function BannedScreen({ reason }: { reason: string | null }) {
   const logout = useAuthStore(s => s.logout);
+  const token = useAuthStore(s => s.token);
+  const setUser = useAuthStore(s => s.setUser);
+
+  // Poll /api/auth/me every 10s — when ban is lifted the server returns 200 with is_banned:false
+  useEffect(() => {
+    const check = async () => {
+      if (!token) return;
+      try {
+        const r = await fetch(`${BASE}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (r.ok) {
+          const d = await r.json();
+          if (!d.is_banned) setUser(d);
+        }
+      } catch { /* ignore */ }
+    };
+    const id = setInterval(check, 10_000);
+    return () => clearInterval(id);
+  }, [token, setUser]);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4"
       style={{ background: "hsl(var(--background))" }}>
