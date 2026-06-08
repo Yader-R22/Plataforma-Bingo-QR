@@ -191,7 +191,7 @@ function CiUploadScreen({ rejectionReason }: { rejectionReason?: string | null }
           <div className="rounded-2xl p-4 space-y-1.5"
             style={{ background: "hsl(0 75% 52% / 0.07)", border: "1px solid hsl(0 75% 52% / 0.35)" }}>
             <p className="text-xs font-black text-red-600 uppercase tracking-wide">⛔ Motivo del rechazo:</p>
-            <p className="text-sm font-semibold">{rejectionReason}</p>
+            <p className="text-sm font-semibold break-words whitespace-pre-wrap">{rejectionReason}</p>
             <p className="text-xs text-muted-foreground mt-1">
               Asegúrate de que las nuevas fotos sean claras, legibles y sin reflejos.
             </p>
