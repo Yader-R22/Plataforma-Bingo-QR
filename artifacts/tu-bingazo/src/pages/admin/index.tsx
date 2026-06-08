@@ -2254,21 +2254,30 @@ ${summarySection}
         {tab === "games" && !loading && (
           <div className="space-y-3">
             {games.map(g => (
-              <div key={g.id} className="bg-card border rounded-2xl p-4">
-                <div className="flex items-start justify-between gap-3">
+              <div key={g.id} className={`rounded-2xl overflow-hidden ${g.status === "active" ? "" : "bg-card border"}`}
+                style={g.status === "active" ? { background: "linear-gradient(135deg, #1a0050 0%, #3b00b8 100%)", border: "1px solid rgba(255,255,255,0.1)" } : {}}>
+                <div className={`flex items-start justify-between gap-3 ${g.status === "active" ? "px-4 pt-4 pb-3" : "p-4"}`}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="font-bold">{g.title}</span>
+                      {g.status === "active" && <div className="live-badge"><div className="live-dot" />EN VIVO</div>}
+                      <span className={`font-bold ${g.status === "active" ? "text-white text-sm" : ""}`}>{g.title}</span>
                       {g.is_featured && <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: "hsl(42 98% 52% / 0.15)", color: "hsl(42 98% 35%)" }}>⭐ Destacado</span>}
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                        style={g.status === "active"
+                          ? { background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.9)" }
+                          : { background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
+                        {{
+                          full_card: "🃏 Cartón completo",
+                          horizontal: "➡ Línea horizontal",
+                          vertical: "⬇ Línea vertical",
+                          diagonal: "↗ Diagonal",
+                          quina: "5️⃣ Quina",
+                        }[g.game_mode as string] ?? g.game_mode}
+                      </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className={`text-xs ${g.status === "active" ? "text-white/60" : "text-muted-foreground"}`}>
                       Bs {g.prize_amount} premio · {g.participant_count} participantes · {new Date(g.draw_date).toLocaleDateString("es-BO")}
                     </p>
-                    {g.status === "active" && (
-                      <p className="text-xs mt-1" style={{ color: "hsl(var(--primary))" }}>
-                        {g.called_numbers?.length ?? 0} números cantados de 75
-                      </p>
-                    )}
                   </div>
                   <div className="flex flex-col items-end gap-1.5 shrink-0">
                     {g.status === "upcoming" && (
@@ -2288,7 +2297,6 @@ ${summarySection}
                     )}
                     {g.status === "active" && (
                       <div className="space-y-1.5">
-                        <div className="live-badge"><div className="live-dot" />EN VIVO</div>
                         <div className="flex gap-1 items-center">
                           {/* Letter preview */}
                           <div className="w-9 h-8 rounded-lg flex flex-col items-center justify-center font-black leading-none shrink-0 transition-all"
@@ -2328,6 +2336,54 @@ ${summarySection}
                     )}
                   </div>
                 </div>
+
+                {/* ── Bolillos cantados (solo juego activo) ── */}
+                {g.status === "active" && (g.called_numbers?.length ?? 0) > 0 && (
+                  <div className="px-4 pb-3"
+                    style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                    <div className="flex items-center gap-3 pt-3">
+                      {/* Last called ball */}
+                      <div className="shrink-0 text-center">
+                        <p className="text-white/40 text-[10px] mb-1">Último</p>
+                        {(() => {
+                          const last = g.called_numbers[g.called_numbers.length - 1];
+                          return (
+                            <div className="w-12 h-12 rounded-full flex flex-col items-center justify-center font-black leading-none"
+                              style={{ background: BINGO_COL_COLORS[bingoLetter(last)], boxShadow: `0 0 12px ${BINGO_COL_COLORS[bingoLetter(last)]}80` }}>
+                              <span className="text-white text-[10px] font-black">{bingoLetter(last)}</span>
+                              <span className="text-white text-base font-black leading-tight">{last}</span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                      {/* Chips */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white/40 text-[10px] mb-1.5">Cantados ({g.called_numbers.length}/75)</p>
+                        <div className="flex flex-wrap gap-1">
+                          {[...g.called_numbers].reverse().slice(0, 20).map((n: number, i: number) => (
+                            <span key={n}
+                              className="h-6 px-1.5 rounded-full flex items-center text-[11px] font-black"
+                              style={{
+                                background: i === 0 ? BINGO_COL_COLORS[bingoLetter(n)] : "rgba(255,255,255,0.12)",
+                                color: "rgba(255,255,255,0.9)",
+                                minWidth: 32,
+                                justifyContent: "center",
+                              }}>
+                              {bingoLabel(n)}
+                            </span>
+                          ))}
+                          {g.called_numbers.length > 20 && (
+                            <span className="h-6 px-1.5 rounded-full flex items-center text-[11px] text-white/40"
+                              style={{ background: "rgba(255,255,255,0.07)" }}>
+                              +{g.called_numbers.length - 20}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
               </div>
             ))}
             {games.length === 0 && (
