@@ -317,6 +317,47 @@ router.get("/users/:id", async (req: AuthRequest, res) => {
   });
 });
 
+// ── Create user ─────────────────────────────────────────────────────────────
+router.post("/users", async (req: AuthRequest, res) => {
+  const { full_name, ci, phone, password, department, is_admin } = req.body as {
+    full_name?: string; ci?: string; phone?: string; password?: string; department?: string; is_admin?: boolean;
+  };
+  if (!full_name?.trim() || !ci?.trim() || !phone?.trim() || !password || !department?.trim()) {
+    res.status(400).json({ error: "Todos los campos son requeridos" }); return;
+  }
+  if (password.length < 6) { res.status(400).json({ error: "Contraseña mínimo 6 caracteres" }); return; }
+  const existing = await db.select().from(usersTable).where(eq(usersTable.ci, ci.trim())).limit(1);
+  if (existing.length) { res.status(409).json({ error: "Ya existe un usuario con ese CI" }); return; }
+  const hash = await bcrypt.hash(password, 10);
+  const [created] = await db.insert(usersTable).values({
+    fullName: full_name.trim(),
+    ci: ci.trim(),
+    phone: phone.trim(),
+    passwordHash: hash,
+    department: department.trim(),
+    isAdmin: is_admin === true,
+    status: "active",
+  }).returning();
+  req.log.info({ adminId: req.userId, newUserId: created.id }, "Admin created user");
+  res.status(201).json(formatUser(created));
+});
+
+// ── Set user role ────────────────────────────────────────────────────────────
+router.put("/users/:id/role", async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+  const { is_admin } = req.body as { is_admin?: boolean };
+  if (typeof is_admin !== "boolean") { res.status(400).json({ error: "is_admin (boolean) requerido" }); return; }
+  if (req.userId === id && !is_admin) {
+    res.status(400).json({ error: "No puedes quitarte el rol de admin a ti mismo" }); return;
+  }
+  const [updated] = await db.update(usersTable).set({ isAdmin: is_admin })
+    .where(eq(usersTable.id, id)).returning();
+  if (!updated) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
+  req.log.info({ adminId: req.userId, targetId: id, is_admin }, "Admin changed user role");
+  res.json(formatUser(updated));
+});
+
 // ── List pending + recently approved password reset requests ─────────────────
 router.get("/password-resets", async (_req: AuthRequest, res) => {
   // Pending: have a resetToken (no expiry filter — stays until admin acts)

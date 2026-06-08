@@ -30,7 +30,7 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
 }) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [section, setSection] = useState<"info" | "password" | "balance" | "danger">("info");
+  const [section, setSection] = useState<"info" | "role" | "password" | "balance" | "danger">("info");
 
   const [tempPwd, setTempPwd] = useState("");
   const [tempPwdHours, setTempPwdHours] = useState(24);
@@ -44,6 +44,7 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
   const [banReason, setBanReason] = useState("");
   const [savingBan, setSavingBan] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [savingRole, setSavingRole] = useState(false);
 
   const auth = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
@@ -115,6 +116,21 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
     } else { const d = await r.json(); toast.error(d.error || "Error"); }
   }
 
+  async function setUserRole(makeAdmin: boolean) {
+    setSavingRole(true);
+    const r = await fetch(`${BASE}/api/admin/users/${userId}/role`, {
+      method: "PUT", headers: auth(),
+      body: JSON.stringify({ is_admin: makeAdmin }),
+    });
+    setSavingRole(false);
+    if (r.ok) {
+      const d = await r.json();
+      toast.success(makeAdmin ? "🛡️ Rol de administrador asignado" : "👤 Rol cambiado a jugador");
+      setUser((u: any) => ({ ...u, is_admin: d.is_admin }));
+      onUserUpdated({ ...user, is_admin: d.is_admin });
+    } else { const d = await r.json(); toast.error(d.error || "Error"); }
+  }
+
   function downloadUrl(url: string, name: string) {
     const a = document.createElement("a");
     a.href = url; a.download = name; a.target = "_blank"; a.rel = "noopener noreferrer";
@@ -134,6 +150,7 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
 
   const sectionBtns = [
     { id: "info", label: "📋 Info" },
+    { id: "role", label: "🛡️ Rol" },
     { id: "password", label: "🔑 Contraseña" },
     { id: "balance", label: "💰 Saldo" },
     { id: "danger", label: "⚠️ Acciones" },
@@ -159,6 +176,7 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-bold truncate">{user.full_name}</p>
+              {user.is_admin && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">🛡️ ADMIN</span>}
               {user.is_banned && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">BANEADO</span>}
               {user.must_change_password && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">Debe cambiar pwd</span>}
             </div>
@@ -271,6 +289,67 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
                   Enviar mensaje por WhatsApp
                 </a>
               )}
+            </div>
+          )}
+
+          {/* ── ROL ──────────────────────────────────── */}
+          {section === "role" && (
+            <div className="space-y-4">
+              {/* Current role card */}
+              <div className="rounded-2xl p-4 text-center"
+                style={{
+                  background: user.is_admin ? "hsl(270 60% 50% / 0.08)" : "hsl(var(--muted) / 0.5)",
+                  border: `1px solid ${user.is_admin ? "hsl(270 60% 50% / 0.3)" : "hsl(var(--border))"}`,
+                }}>
+                <p className="text-3xl mb-1">{user.is_admin ? "🛡️" : "👤"}</p>
+                <p className="font-black text-lg">{user.is_admin ? "Administrador" : "Jugador"}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {user.is_admin
+                    ? "Tiene acceso completo al panel de administración"
+                    : "Solo puede comprar cartones y participar en juegos"}
+                </p>
+              </div>
+
+              {/* Admin permissions info */}
+              {user.is_admin && (
+                <div className="rounded-2xl p-3 space-y-1.5"
+                  style={{ background: "hsl(270 60% 50% / 0.06)", border: "1px solid hsl(270 60% 50% / 0.2)" }}>
+                  <p className="text-xs font-bold" style={{ color: "hsl(270 60% 40%)" }}>Permisos de administrador:</p>
+                  {[
+                    "Ver y gestionar todos los usuarios",
+                    "Crear y administrar juegos de bingo",
+                    "Cantar números en juegos en vivo",
+                    "Validar ganadores y procesar retiros",
+                    "Ver logs de auditoría",
+                    "Crear nuevos usuarios y asignar roles",
+                  ].map(p => (
+                    <p key={p} className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                      <span style={{ color: "hsl(270 60% 50%)" }}>✓</span> {p}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {/* Toggle role button */}
+              {user.is_admin ? (
+                <button onClick={() => setUserRole(false)} disabled={savingRole}
+                  className="w-full py-3 rounded-2xl font-bold text-sm disabled:opacity-50"
+                  style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))", border: "1px solid hsl(var(--border))" }}>
+                  {savingRole ? "Cambiando..." : "👤 Quitar rol de administrador"}
+                </button>
+              ) : (
+                <button onClick={() => setUserRole(true)} disabled={savingRole}
+                  className="w-full py-3 rounded-2xl font-bold text-sm text-white disabled:opacity-50"
+                  style={{ background: "hsl(270 60% 50%)" }}>
+                  {savingRole ? "Asignando..." : "🛡️ Hacer administrador"}
+                </button>
+              )}
+
+              <p className="text-[11px] text-muted-foreground text-center">
+                {user.is_admin
+                  ? "Al quitar el rol, el usuario perderá acceso inmediato al panel de admin."
+                  : "Al asignar el rol, el usuario tendrá acceso completo al panel de admin."}
+              </p>
             </div>
           )}
 
@@ -479,6 +558,11 @@ export default function AdminPage() {
   const [approvedResets, setApprovedResets] = useState<any[]>([]);
   const [approvingReset, setApprovingReset] = useState<number | null>(null);
   const [rejectingReset, setRejectingReset] = useState<number | null>(null);
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    full_name: "", ci: "", phone: "", password: "", department: "", is_admin: false,
+  });
+  const [creatingUser, setCreatingUser] = useState(false);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
@@ -603,6 +687,28 @@ export default function AdminPage() {
   }
 
   useEffect(() => { loadStats(); loadTab("overview"); }, []);
+
+  async function createUser() {
+    const { full_name, ci, phone, password, department, is_admin } = createForm;
+    if (!full_name.trim() || !ci.trim() || !phone.trim() || !password || !department.trim()) {
+      toast.error("Completa todos los campos"); return;
+    }
+    if (password.length < 6) { toast.error("Contraseña mínimo 6 caracteres"); return; }
+    setCreatingUser(true);
+    const r = await fetch(`${BASE}/api/admin/users`, {
+      method: "POST", headers: authH(),
+      body: JSON.stringify({ full_name, ci, phone, password, department, is_admin }),
+    });
+    setCreatingUser(false);
+    if (r.ok) {
+      const newUser = await r.json();
+      toast.success(`✅ Usuario ${newUser.full_name} creado`);
+      setUsers(us => [newUser, ...us]);
+      setShowCreateUser(false);
+      setCreateForm({ full_name: "", ci: "", phone: "", password: "", department: "", is_admin: false });
+      loadStats();
+    } else { const d = await r.json(); toast.error(d.error || "Error al crear usuario"); }
+  }
 
   function handleTab(t: Tab) { setTab(t); loadTab(t); }
 
@@ -810,6 +916,78 @@ export default function AdminPage() {
         />
       )}
 
+      {/* ── MODAL CREAR USUARIO ──────────────────────────── */}
+      {showCreateUser && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          style={{ background: "rgba(0,0,0,0.6)" }}
+          onClick={e => e.target === e.currentTarget && setShowCreateUser(false)}>
+          <div className="w-full sm:max-w-md max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl"
+            style={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }}>
+            <div className="p-4 flex items-center justify-between sticky top-0 z-10"
+              style={{ background: "hsl(var(--background))", borderBottom: "1px solid hsl(var(--border))" }}>
+              <p className="font-black text-lg">➕ Crear usuario</p>
+              <button onClick={() => setShowCreateUser(false)} className="text-muted-foreground hover:text-foreground text-xl font-bold p-1">✕</button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <div className="rounded-2xl p-3 text-xs text-muted-foreground"
+                style={{ background: "hsl(var(--primary) / 0.06)", border: "1px solid hsl(var(--primary) / 0.2)" }}>
+                El usuario se creará como <strong>activo</strong> directamente (sin verificación de CI).
+              </div>
+
+              {[
+                { label: "Nombre completo", key: "full_name", type: "text", placeholder: "Ej: Juan Pérez Mamani" },
+                { label: "CI (número)", key: "ci", type: "text", placeholder: "Ej: 12345678" },
+                { label: "Teléfono / WhatsApp", key: "phone", type: "text", placeholder: "Ej: 70012345" },
+                { label: "Contraseña (mín. 6 caracteres)", key: "password", type: "password", placeholder: "Contraseña inicial" },
+              ].map(({ label, key, type, placeholder }) => (
+                <div key={key} className="space-y-1">
+                  <label className="text-xs font-bold text-muted-foreground">{label}</label>
+                  <input type={type} className="input-field"
+                    placeholder={placeholder}
+                    value={(createForm as any)[key]}
+                    onChange={e => setCreateForm(f => ({ ...f, [key]: e.target.value }))} />
+                </div>
+              ))}
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-muted-foreground">Departamento</label>
+                <select className="input-field"
+                  value={createForm.department}
+                  onChange={e => setCreateForm(f => ({ ...f, department: e.target.value }))}>
+                  <option value="">Seleccionar departamento</option>
+                  {["Beni","Chuquisaca","Cochabamba","La Paz","Oruro","Pando","Potosí","Santa Cruz","Tarija"].map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Role toggle */}
+              <button
+                type="button"
+                onClick={() => setCreateForm(f => ({ ...f, is_admin: !f.is_admin }))}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-2xl font-bold text-sm transition-all"
+                style={{
+                  background: createForm.is_admin ? "hsl(270 60% 50% / 0.1)" : "hsl(var(--muted))",
+                  border: `1px solid ${createForm.is_admin ? "hsl(270 60% 50% / 0.4)" : "hsl(var(--border))"}`,
+                  color: createForm.is_admin ? "hsl(270 60% 35%)" : "hsl(var(--foreground))",
+                }}>
+                <span>{createForm.is_admin ? "🛡️ Administrador" : "👤 Jugador"}</span>
+                <span className="text-xs font-normal opacity-70">
+                  {createForm.is_admin ? "Acceso al panel admin" : "Sin acceso al panel admin"}
+                </span>
+              </button>
+
+              <button onClick={createUser} disabled={creatingUser}
+                className="w-full py-3 rounded-2xl font-bold text-sm text-white disabled:opacity-50 mt-2"
+                style={{ background: "hsl(var(--primary))" }}>
+                {creatingUser ? "Creando..." : "✅ Crear usuario"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Admin header */}
       <div className="hero-bg px-4 py-5 text-white">
         <div className="flex items-center justify-between">
@@ -972,8 +1150,15 @@ export default function AdminPage() {
         {/* ── USERS ─────────────────────────────────── */}
         {tab === "users" && !loading && (
           <div className="space-y-3">
-            <input className="input-field" placeholder="🔍 Buscar por nombre, CI, teléfono, departamento..."
-              value={userSearch} onChange={e => setUserSearch(e.target.value)} />
+            <div className="flex gap-2">
+              <input className="input-field flex-1" placeholder="🔍 Buscar por nombre, CI, teléfono, departamento..."
+                value={userSearch} onChange={e => setUserSearch(e.target.value)} />
+              <button onClick={() => setShowCreateUser(true)}
+                className="shrink-0 px-4 py-2.5 rounded-2xl font-bold text-sm text-white whitespace-nowrap"
+                style={{ background: "hsl(var(--primary))" }}>
+                ➕ Crear
+              </button>
+            </div>
 
             {/* Status filter chips */}
             <div className="flex gap-2 overflow-x-auto pb-1">
