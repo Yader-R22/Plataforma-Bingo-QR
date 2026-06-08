@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useGetWallet, useListWithdrawals } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -25,8 +25,40 @@ export default function WalletPage() {
   const [proofModal, setProofModal] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // History filter state
+  type HistoryFilter = "all" | "week" | "month" | "year" | "custom";
+  const [histFilter, setHistFilter] = useState<HistoryFilter>("all");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [showAll, setShowAll] = useState(false);
+  const PAGE = 5;
+
   const { data: wallet, refetch: refetchWallet } = useGetWallet();
   const { data: withdrawals, refetch: refetchWithdrawals } = useListWithdrawals();
+
+  const filteredWithdrawals = useMemo(() => {
+    const all = (withdrawals as any[]) ?? [];
+    const now = new Date();
+    let from: Date | null = null;
+    let to: Date | null = null;
+    if (histFilter === "week") {
+      const day = now.getDay() === 0 ? 6 : now.getDay() - 1;
+      from = new Date(now); from.setDate(now.getDate() - day); from.setHours(0,0,0,0);
+    } else if (histFilter === "month") {
+      from = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (histFilter === "year") {
+      from = new Date(now.getFullYear(), 0, 1);
+    } else if (histFilter === "custom") {
+      if (customFrom) { from = new Date(customFrom); from.setHours(0,0,0,0); }
+      if (customTo) { to = new Date(customTo); to.setHours(23,59,59,999); }
+    }
+    return all.filter(w => {
+      const d = new Date(w.created_at);
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    });
+  }, [withdrawals, histFilter, customFrom, customTo]);
 
   function handleQrFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -331,14 +363,53 @@ export default function WalletPage() {
           <h2 className="font-black text-lg mb-3" style={{ fontFamily: "'Poppins', sans-serif" }}>
             Historial de Retiros
           </h2>
-          {!(withdrawals as any[])?.length ? (
+
+          {/* Filter bar */}
+          {!!(withdrawals as any[])?.length && (
+            <div className="mb-3 space-y-2">
+              <div className="flex gap-1.5 flex-wrap">
+                {(["all", "week", "month", "year", "custom"] as const).map(f => {
+                  const labels: Record<string, string> = { all: "Todo", week: "Esta semana", month: "Este mes", year: "Este año", custom: "Personalizado" };
+                  const active = histFilter === f;
+                  return (
+                    <button key={f} type="button"
+                      onClick={() => { setHistFilter(f); setShowAll(false); }}
+                      className="text-xs font-bold px-3 py-1.5 rounded-full border transition-all"
+                      style={{
+                        background: active ? "hsl(var(--primary))" : "transparent",
+                        color: active ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))",
+                        borderColor: active ? "hsl(var(--primary))" : "hsl(var(--border))",
+                      }}>
+                      {labels[f]}
+                    </button>
+                  );
+                })}
+              </div>
+              {histFilter === "custom" && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-[11px] text-muted-foreground mb-1">Desde</p>
+                    <input type="date" value={customFrom} onChange={e => { setCustomFrom(e.target.value); setShowAll(false); }}
+                      className="w-full border rounded-xl px-3 py-2 text-sm bg-background" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground mb-1">Hasta</p>
+                    <input type="date" value={customTo} onChange={e => { setCustomTo(e.target.value); setShowAll(false); }}
+                      className="w-full border rounded-xl px-3 py-2 text-sm bg-background" />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!filteredWithdrawals.length ? (
             <div className="text-center py-12 text-muted-foreground">
               <p className="text-4xl mb-2">💸</p>
-              <p className="font-semibold">Sin retiros todavía</p>
+              <p className="font-semibold">{!(withdrawals as any[])?.length ? "Sin retiros todavía" : "Sin movimientos en este período"}</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {(withdrawals as any[]).map((w: any) => {
+              {filteredWithdrawals.slice(0, showAll ? undefined : PAGE).map((w: any) => {
                 const isAdminCredit = w.method === "admin_credit";
                 const isAdminDebit = w.method === "admin_debit";
                 const isAdmin = isAdminCredit || isAdminDebit;
@@ -420,6 +491,23 @@ export default function WalletPage() {
                   </div>
                 );
               })}
+
+              {/* Ver más / Ver menos */}
+              {filteredWithdrawals.length > PAGE && (
+                <button
+                  type="button"
+                  onClick={() => setShowAll(v => !v)}
+                  className="w-full py-3 rounded-2xl text-sm font-bold border-2 transition-all"
+                  style={{
+                    borderColor: "hsl(var(--primary) / 0.3)",
+                    color: "hsl(var(--primary))",
+                    background: "hsl(var(--primary) / 0.06)",
+                  }}>
+                  {showAll
+                    ? "▲ Ver menos"
+                    : `▼ Ver más (${filteredWithdrawals.length - PAGE} más)`}
+                </button>
+              )}
             </div>
           )}
         </div>
