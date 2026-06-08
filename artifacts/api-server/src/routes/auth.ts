@@ -8,6 +8,51 @@ import { LoginBody, RegisterBody, ForgotPasswordBody, ResetPasswordBody } from "
 
 const router = Router();
 
+// ── In-memory rate limiter for CI check (3 failures → 24h block per IP) ──────
+const ciCheckAttempts = new Map<string, { failures: number; blockedUntil: Date | null }>();
+
+function getCiCheckEntry(ip: string) {
+  if (!ciCheckAttempts.has(ip)) ciCheckAttempts.set(ip, { failures: 0, blockedUntil: null });
+  return ciCheckAttempts.get(ip)!;
+}
+
+router.post("/check-ci", async (req, res) => {
+  const ip = req.ip ?? "unknown";
+  const entry = getCiCheckEntry(ip);
+
+  if (entry.blockedUntil && entry.blockedUntil > new Date()) {
+    const minutesLeft = Math.ceil((entry.blockedUntil.getTime() - Date.now()) / 60000);
+    res.status(429).json({ error: `Demasiados intentos fallidos. Intenta de nuevo en ${minutesLeft} minuto${minutesLeft !== 1 ? "s" : ""}.`, blocked: true });
+    return;
+  }
+
+  const { ci } = req.body as { ci?: string };
+  if (!ci || !/^\d+$/.test(ci.trim())) {
+    res.status(400).json({ error: "CI inválido" });
+    return;
+  }
+
+  const users = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.ci, ci.trim())).limit(1);
+
+  if (!users.length) {
+    entry.failures += 1;
+    if (entry.failures >= 3) {
+      entry.blockedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      entry.failures = 0;
+      res.status(429).json({ error: "Demasiados intentos fallidos. Tu acceso ha sido bloqueado por 24 horas.", blocked: true });
+    } else {
+      const remaining = 3 - entry.failures;
+      res.status(404).json({ error: `CI no registrado en el sistema. Te quedan ${remaining} intento${remaining !== 1 ? "s" : ""}.`, remaining });
+    }
+    return;
+  }
+
+  // CI found — reset counter
+  entry.failures = 0;
+  entry.blockedUntil = null;
+  res.json({ ok: true });
+});
+
 function formatUser(user: typeof usersTable.$inferSelect) {
   return {
     id: user.id,

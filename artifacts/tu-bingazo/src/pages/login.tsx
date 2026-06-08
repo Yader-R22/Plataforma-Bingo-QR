@@ -16,13 +16,39 @@ export default function LoginPage() {
   const [forgotStep, setForgotStep] = useState<1 | 2 | 3>(1);
   const [forgotCi, setForgotCi] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotCheckLoading, setForgotCheckLoading] = useState(false);
+  const [forgotError, setForgotError] = useState("");
   const [forgotPhotos, setForgotPhotos] = useState<{ front: string; back: string; selfie: string }>({ front: "", back: "", selfie: "" });
 
   function closeForgot() {
     setShowForgot(false);
     setForgotStep(1);
     setForgotCi("");
+    setForgotError("");
     setForgotPhotos({ front: "", back: "", selfie: "" });
+  }
+
+  async function handleCheckCi() {
+    if (!forgotCi.trim()) return;
+    setForgotError("");
+    setForgotCheckLoading(true);
+    try {
+      const res = await fetch(`${BASE}/api/auth/check-ci`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ci: forgotCi.trim() }),
+      });
+      if (res.ok) {
+        setForgotStep(2);
+      } else {
+        const d = await res.json();
+        setForgotError(d.error || "Error al verificar CI");
+      }
+    } catch {
+      setForgotError("Error de conexión. Intenta de nuevo.");
+    } finally {
+      setForgotCheckLoading(false);
+    }
   }
 
   function readPhoto(file: File): Promise<string> {
@@ -113,7 +139,7 @@ export default function LoginPage() {
               <>
                 <h3 className="font-black text-xl mb-1" style={{ fontFamily: "'Poppins', sans-serif" }}>🔑 Recuperar contraseña</h3>
                 <p className="text-sm text-muted-foreground mb-5">
-                  Ingresa tu CI para continuar con la verificación de identidad.
+                  Ingresa tu número de carnet para continuar con la verificación de identidad.
                 </p>
                 <div className="space-y-4">
                   <div>
@@ -122,13 +148,24 @@ export default function LoginPage() {
                       className="input-field"
                       placeholder="Ej: 1234567"
                       inputMode="numeric"
+                      type="text"
                       value={forgotCi}
-                      onChange={e => setForgotCi(e.target.value)}
+                      onChange={e => {
+                        const val = e.target.value.replace(/\D/g, "");
+                        setForgotCi(val);
+                        if (forgotError) setForgotError("");
+                      }}
                     />
+                    {forgotError && (
+                      <p className="text-xs font-semibold mt-2 px-3 py-2 rounded-xl"
+                        style={{ background: "hsl(0 75% 50% / 0.08)", color: "hsl(0 75% 35%)", border: "1px solid hsl(0 75% 50% / 0.2)" }}>
+                        ⚠️ {forgotError}
+                      </p>
+                    )}
                   </div>
-                  <button className="btn-primary" disabled={!forgotCi.trim()}
-                    onClick={() => setForgotStep(2)}>
-                    Siguiente →
+                  <button className="btn-primary" disabled={!forgotCi.trim() || forgotCheckLoading}
+                    onClick={handleCheckCi}>
+                    {forgotCheckLoading ? "Verificando..." : "Siguiente →"}
                   </button>
                 </div>
               </>
