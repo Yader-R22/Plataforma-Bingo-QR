@@ -339,6 +339,21 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
     return;
   }
 
+  // Window-expired check: if the player already had a valid bingo BEFORE the
+  // last number was called, they missed their claim window. They must claim on
+  // the exact number that completes their pattern — not after the next bolillo.
+  if (calledNumbers.length > 1) {
+    const alreadyWonBefore = validateBingo(card, game.gameMode, calledNumbers.slice(0, -1));
+    if (alreadyWonBefore) {
+      res.json({
+        valid: false,
+        expired: true,
+        message: "¡Tiempo expirado! Ya cantaron el siguiente bolillo después de tu BINGO. Debes reclamar antes de que se cante el siguiente número.",
+      });
+      return;
+    }
+  }
+
   // Dedupe, max-winners cap, place assignment, winner insert and audit all run
   // inside ONE transaction that locks the game row (SELECT ... FOR UPDATE).
   // This serializes concurrent valid claims so two players cannot both pass the

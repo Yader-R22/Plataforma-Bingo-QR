@@ -172,6 +172,8 @@ export default function PlayPage() {
       const data = await res.json();
       if (data.valid) {
         toast.success(`🎉 ${data.message}`, { duration: 10000 });
+      } else if (data.expired) {
+        toast.error(data.message, { duration: 8000, description: "Recuerda: debes gritar BINGO antes de que se cante el siguiente bolillo." });
       } else {
         toast.error(data.message || "Reclamo inválido. Verifica tu cartón.");
       }
@@ -357,7 +359,7 @@ export default function PlayPage() {
               </span>
             ) : "¡BINGO! 🎉"}
           </button>
-          <p className="text-center text-white/30 text-xs mt-2">Solo presiona cuando completes el patrón ganador</p>
+          <p className="text-center text-white/30 text-xs mt-2">Presiona <strong className="text-white/50">inmediatamente</strong> al completar el patrón — si se canta otro bolillo, pierdes la ventana</p>
         </div>
       )}
     </div>
