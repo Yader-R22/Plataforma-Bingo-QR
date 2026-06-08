@@ -303,27 +303,34 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
                 )}
               </div>
 
-              {/* Approve button */}
-              <button onClick={() => verifyAccount(true)} disabled={savingVerify}
-                className="w-full py-3.5 rounded-2xl font-black text-white text-sm disabled:opacity-50"
-                style={{ background: "#16a34a" }}>
-                {savingVerify ? "Procesando..." : "✅ Aprobar cuenta — activar usuario"}
-              </button>
-
-              {/* Reject */}
-              <div className="space-y-2">
-                <input type="text" className="input-field"
-                  placeholder="Motivo del rechazo (obligatorio para rechazar)"
-                  value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
-                <button onClick={() => verifyAccount(false)} disabled={savingVerify || !rejectReason.trim()}
-                  className="w-full py-3 rounded-2xl font-bold text-sm text-white disabled:opacity-50"
-                  style={{ background: "hsl(0 75% 50%)" }}>
-                  {savingVerify ? "..." : "🔄 Rechazar — pedir reenvío de documentos"}
-                </button>
-                <p className="text-[11px] text-muted-foreground text-center">
-                  El usuario verá el motivo y deberá volver a enviar sus fotos de CI.
-                </p>
-              </div>
+              {/* Only show approve/reject when photos are uploaded */}
+              {user.id_photo_front_url && user.id_photo_back_url ? (
+                <>
+                  <button onClick={() => verifyAccount(true)} disabled={savingVerify}
+                    className="w-full py-3.5 rounded-2xl font-black text-white text-sm disabled:opacity-50"
+                    style={{ background: "#16a34a" }}>
+                    {savingVerify ? "Procesando..." : "✅ Aprobar cuenta — activar usuario"}
+                  </button>
+                  <div className="space-y-2">
+                    <input type="text" className="input-field"
+                      placeholder="Motivo del rechazo (obligatorio para rechazar)"
+                      value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
+                    <button onClick={() => verifyAccount(false)} disabled={savingVerify || !rejectReason.trim()}
+                      className="w-full py-3 rounded-2xl font-bold text-sm text-white disabled:opacity-50"
+                      style={{ background: "hsl(0 75% 50%)" }}>
+                      {savingVerify ? "..." : "🔄 Rechazar — pedir reenvío de documentos"}
+                    </button>
+                    <p className="text-[11px] text-muted-foreground text-center">
+                      El usuario verá el motivo y deberá volver a enviar sus fotos de CI.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-2xl p-4 text-center text-sm text-muted-foreground"
+                  style={{ background: "hsl(var(--muted) / 0.5)", border: "1px solid hsl(var(--border))" }}>
+                  ⏳ Esperando que el usuario suba sus documentos de CI para poder verificar.
+                </div>
+              )}
             </div>
           )}
 
@@ -847,11 +854,12 @@ export default function AdminPage() {
       method: "POST", headers: authH(), body: JSON.stringify({ approved }),
     });
     if (r.ok) {
+      const d = await r.json();
       toast.success(approved ? "✅ Usuario aprobado" : "🔄 Documentos rechazados — el usuario deberá reenviarlos");
       setUsers(us => us.map(u => u.id === userId
         ? approved
           ? { ...u, status: "active" }
-          : { ...u, status: "active", needs_ci_upload: true, id_photo_front_url: null, id_photo_back_url: null }
+          : { ...u, status: "rejected", needs_ci_upload: true, id_photo_front_url: null, id_photo_back_url: null, rejection_reason: d.rejection_reason }
         : u));
       loadStats();
     }
@@ -1417,8 +1425,8 @@ export default function AdminPage() {
                       <span className="text-xs font-bold px-2 py-0.5 rounded-full"
                         style={{ background: sc.bg, color: sc.text }}>{sc.label}</span>
 
-                      {/* Quick verify for pending */}
-                      {u.status === "pending" && !u.is_banned && (
+                      {/* Quick verify for pending — only when photos are uploaded */}
+                      {u.status === "pending" && !u.is_banned && u.id_photo_front_url && u.id_photo_back_url && !u.needs_ci_upload && (
                         <div className="flex gap-1">
                           <button onClick={() => verifyUser(u.id, true)}
                             className="px-2 py-1 rounded-lg text-xs font-bold text-white"

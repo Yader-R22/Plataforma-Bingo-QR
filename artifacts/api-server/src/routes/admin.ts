@@ -43,7 +43,7 @@ router.post("/users/:id/verify", async (req: AuthRequest, res) => {
     parsed.data.approved
       ? { status: "active", rejectionReason: null }
       : {
-          status: "active",
+          status: "rejected",
           needsCiUpload: true,
           idPhotoFrontUrl: null,
           idPhotoBackUrl: null,
