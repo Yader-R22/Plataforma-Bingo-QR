@@ -1295,6 +1295,45 @@ export default function AdminPage() {
     únicamente informativo y no genera obligación de pago. La distribución se efectuará cuando la plataforma
     acumule un saldo distribuible positivo en un período futuro.
   </p>
+
+  <div style="margin-top:24px;padding-top:20px;border-top:2px dashed #fca5a5">
+    <p style="font-size:11px;font-weight:900;color:#7f1d1d;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.04em">✍️ Constancia de Notificación</p>
+    <p style="font-size:10px;color:#374151;line-height:1.6;margin-bottom:18px">
+      La firma en los espacios indicados a continuación certifica que el socio fue debidamente notificado
+      de la situación financiera del período, del déficit registrado y de la razón por la que
+      no corresponde efectuar pago de dividendos en este período. No implica acuerdo con el contenido,
+      sino únicamente constancia de recepción del documento.
+    </p>
+    <div style="display:grid;grid-template-columns:${(includeSnapshot ?? []).length === 1 ? "1fr 1fr" : "repeat(" + Math.min((includeSnapshot ?? []).length, 2) + ",1fr)"};gap:24px;margin-bottom:20px">
+      ${(includeSnapshot ?? []).map((p: any) => `
+      <div style="border:2px solid #fca5a5;border-radius:10px;padding:16px;background:white">
+        <p style="font-size:9px;font-weight:900;color:#dc2626;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Notificado conforme — Socio</p>
+        <p style="font-size:12px;font-weight:700;color:#1a1a2e">${p.name}</p>
+        <p style="font-size:10px;color:#64748b">${p.identifier ? "CI: " + p.identifier : ""}</p>
+        <p style="font-size:10px;color:#64748b;margin-top:2px">${p.share_percentage}% de participación</p>
+        <p style="font-size:9px;color:#94a3b8;margin-top:4px;font-style:italic">Declaro haber recibido este informe y entiendo que no corresponde cobro alguno en este período.</p>
+        <div style="margin-top:28px;border-top:1px solid #1a1a2e;padding-top:6px">
+          <p style="font-size:9px;color:#64748b">Firma &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Fecha: ___/___/______</p>
+        </div>
+        <div style="margin-top:14px;border-top:1px solid #fee2e2;padding-top:4px">
+          <p style="font-size:9px;color:#94a3b8">Aclaración de firma: _________________________________</p>
+        </div>
+      </div>`).join("")}
+    </div>
+    <div style="border:2px solid #b45309;border-radius:10px;padding:16px;max-width:400px;background:white">
+      <p style="font-size:9px;font-weight:900;color:#b45309;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Notifiqué conforme — Administrador Tu Bingazo</p>
+      <p style="font-size:12px;font-weight:700;color:#1a1a2e">Tu Bingazo — Plataforma de Bingo</p>
+      <p style="font-size:10px;color:#64748b">Período notificado: ${PERIOD_LABELS[s?.period ?? "all"] ?? s?.period}</p>
+      <p style="font-size:10px;color:#64748b">Déficit comunicado: <b style="color:#dc2626">${fmt(deficitAmount)}</b></p>
+      <p style="font-size:9px;color:#94a3b8;margin-top:4px;font-style:italic">Certifico que la información financiera contenida en este documento es veraz y fue entregada al socio.</p>
+      <div style="margin-top:28px;border-top:1px solid #1a1a2e;padding-top:6px">
+        <p style="font-size:9px;color:#64748b">Firma &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Fecha: ___/___/______</p>
+      </div>
+      <div style="margin-top:14px;border-top:1px solid #fde68a;padding-top:4px">
+        <p style="font-size:9px;color:#94a3b8">Aclaración de firma: _________________________________</p>
+      </div>
+    </div>
+  </div>
 </div>` : "";
 
     const signaturesSection = !isDeficit && includeSnapshot && includeSnapshot.length > 0 ? `
