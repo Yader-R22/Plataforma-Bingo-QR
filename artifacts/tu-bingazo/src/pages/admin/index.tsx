@@ -1835,61 +1835,78 @@ ${summarySection}
         </div>
       )}
 
-      {/* Admin header */}
-      <div className="hero-bg px-4 py-5 text-white">
-        <div className="flex items-center justify-between">
+      {/* ── ADMIN HEADER ─────────────────────────────────────────── */}
+      <div className="hero-bg px-4 pt-5 pb-0 text-white">
+        <div className="flex items-start justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>🛡️ Panel Admin</h1>
-            <p className="text-white/60 text-sm">Tu Bingazo — Control total</p>
+            <p className="text-white/50 text-xs font-semibold uppercase tracking-widest mb-0.5">Panel de Administración</p>
+            <h1 className="text-2xl font-black leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+              Hola, {user?.full_name?.split(" ")[0] ?? "Admin"} 👋
+            </h1>
+            <p className="text-white/50 text-xs mt-0.5">Tu Bingazo · {new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" })}</p>
           </div>
           <button onClick={() => navigate("/admin/crear-juego")}
-            className="text-sm font-bold px-4 py-2 rounded-xl"
+            className="shrink-0 flex items-center gap-1.5 text-sm font-black px-4 py-2.5 rounded-2xl transition-transform active:scale-95"
             style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>
-            + Crear juego
+            <span className="text-base">＋</span> Nuevo juego
           </button>
         </div>
+
+        {/* KPI cards inside header */}
+        {stats && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pb-4">
+            {[
+              { icon: "👥", label: "Usuarios registrados", value: stats.total_users, sub: pendingUsers > 0 ? `${pendingUsers} pendientes` : "al día", subOk: pendingUsers === 0, onClick: () => handleTab("users") },
+              { icon: "🎱", label: "Sorteos en vivo", value: stats.active_games, sub: stats.active_games > 0 ? "activos ahora" : "sin actividad", subOk: stats.active_games > 0, onClick: () => handleTab("games") },
+              { icon: "💸", label: "Retiros pendientes", value: stats.pending_withdrawals_count, sub: stats.pending_withdrawals_count > 0 ? "requieren acción" : "al día", subOk: stats.pending_withdrawals_count === 0, onClick: () => handleTab("withdrawals") },
+              { icon: "💰", label: "Ingresos totales", value: `Bs ${(stats.total_revenue ?? 0).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`, sub: "histórico", subOk: true, onClick: () => handleTab("finance") },
+            ].map(s => (
+              <button key={s.label} onClick={s.onClick}
+                className="text-left rounded-2xl px-3 py-3 transition-all active:scale-95"
+                style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-lg">{s.icon}</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                    style={{ background: s.subOk ? "rgba(22,163,74,0.25)" : "rgba(220,38,38,0.25)", color: s.subOk ? "#86efac" : "#fca5a5" }}>
+                    {s.sub}
+                  </span>
+                </div>
+                <p className="text-xl font-black leading-none" style={{ fontFamily: "'Poppins', sans-serif" }}>{s.value}</p>
+                <p className="text-white/50 text-[10px] mt-1">{s.label}</p>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Stats bar */}
-      {stats && (
-        <div className="grid grid-cols-4 gap-2 px-4 py-3"
-          style={{ background: "hsl(var(--card))", borderBottom: "1px solid hsl(var(--border))" }}>
-          {[
-            { label: "Usuarios", value: stats.total_users, color: "hsl(var(--primary))", alert: pendingUsers > 0 ? `${pendingUsers} pendientes` : null },
-            { label: "En vivo", value: stats.active_games, color: "#16a34a" },
-            { label: "Retiros pend.", value: stats.pending_withdrawals_count, color: "hsl(42 98% 40%)", alert: stats.pending_withdrawals_count > 0 ? "requieren acción" : null },
-            { label: "Ingresos", value: `Bs ${(stats.total_revenue ?? 0).toFixed(0)}`, color: "hsl(var(--primary))" },
-          ].map(s => (
-            <div key={s.label} className="text-center">
-              <p className="font-black text-xl" style={{ color: s.color, fontFamily: "'Poppins', sans-serif" }}>{s.value}</p>
-              <p className="text-[10px] text-muted-foreground">{s.label}</p>
-              {s.alert && <p className="text-[9px] font-bold" style={{ color: "hsl(0 75% 50%)" }}>{s.alert}</p>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Tab navigation — filtered by current admin's permissions */}
-      <div className="flex overflow-x-auto px-4 py-2 gap-1.5" style={{ borderBottom: "1px solid hsl(var(--border))" }}>
+      {/* ── TAB NAVIGATION ─────────────────────────────────────── */}
+      <div className="sticky top-0 z-20 flex overflow-x-auto scrollbar-none"
+        style={{ background: "hsl(var(--card))", borderBottom: "1px solid hsl(var(--border))" }}>
         {ALL_TABS.filter(t => !t.perm || hasPermission(user?.admin_permissions ?? [], t.perm)).map(t => (
           <button key={t.id} onClick={() => handleTab(t.id)}
-            className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap relative"
+            className="shrink-0 px-4 py-3 text-xs font-bold transition-colors whitespace-nowrap relative"
             style={{
-              background: tab === t.id ? "hsl(var(--primary))" : "transparent",
-              color: tab === t.id ? "white" : "hsl(var(--foreground))",
+              color: tab === t.id ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
+              borderBottom: tab === t.id ? "2px solid hsl(var(--primary))" : "2px solid transparent",
             }}>
             {t.label}
             {t.id === "winners" && pendingWinnersCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black flex items-center justify-center text-white"
+              <span className="ml-1.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-black text-white"
                 style={{ background: "hsl(0 75% 50%)" }}>
                 {pendingWinnersCount}
+              </span>
+            )}
+            {t.id === "users" && pendingUsers > 0 && (
+              <span className="ml-1.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-black text-white"
+                style={{ background: "hsl(42 98% 40%)" }}>
+                {pendingUsers}
               </span>
             )}
           </button>
         ))}
       </div>
 
-      <div className="px-4 py-4 max-w-2xl mx-auto space-y-3 pb-24">
+      <div className="px-4 py-4 max-w-5xl mx-auto space-y-4 pb-24">
         {loading && (
           <div className="flex items-center justify-center py-10 text-muted-foreground">
             <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />Cargando...
@@ -1899,104 +1916,136 @@ ${summarySection}
         {/* ── OVERVIEW ─────────────────────────────── */}
         {tab === "overview" && !loading && (
           <div className="space-y-4">
-            {/* Active games */}
-            {games.filter(g => g.status === "active").map(g => (
-              <div key={g.id} className="rounded-2xl p-4 text-white"
-                style={{ background: "linear-gradient(135deg, #1a0050, #3b00b8)" }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="live-badge"><div className="live-dot" />EN VIVO</div>
-                  <span className="text-white/70 text-sm">{g.title}</span>
-                </div>
-                <div className="flex items-center gap-3 mb-3">
-                  <input type="number" min="1" max="75" placeholder="Número (1-75)"
-                    className="flex-1 bg-white/10 text-white placeholder-white/40 rounded-xl px-3 py-2 text-sm font-bold border border-white/20 outline-none"
-                    value={numberInput[g.id] ?? ""}
-                    onChange={e => setNumberInput(prev => ({ ...prev, [g.id]: e.target.value }))}
-                    onKeyDown={e => e.key === "Enter" && callNumber(g.id)} />
-                  <button onClick={() => callNumber(g.id)}
-                    className="px-4 py-2 rounded-xl font-bold text-sm"
-                    style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>
-                    🎱 Cantar
-                  </button>
-                </div>
-                <div className="text-white/60 text-xs">
-                  {g.called_numbers?.length ?? 0} números cantados · Bs {g.prize_amount} premio · {g.participant_count} jugadores
-                </div>
-                <button onClick={() => finishGame(g.id)} className="mt-2 text-xs text-red-300 underline">⏹ Finalizar juego</button>
-              </div>
-            ))}
 
-            {/* Pending users alert */}
-            {pendingUsers > 0 && (
-              <div className="rounded-2xl p-4 flex items-center justify-between"
-                style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.3)" }}>
-                <div>
-                  <p className="font-bold">⏳ {pendingUsers} usuarios pendientes de verificación</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Revisa las fotos de CI para aprobar o rechazar</p>
-                </div>
-                <button onClick={() => handleTab("users")} className="text-xs font-bold px-3 py-1.5 rounded-xl"
-                  style={{ background: "hsl(var(--primary))", color: "white" }}>Ver →</button>
+            {/* Alert banners */}
+            <div className="space-y-2">
+              {pendingUsers > 0 && (
+                <button onClick={() => handleTab("users")} className="w-full text-left rounded-2xl px-4 py-3 flex items-center justify-between gap-3 transition-all active:scale-[0.99]"
+                  style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.35)" }}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">⏳</span>
+                    <div>
+                      <p className="font-bold text-sm">{pendingUsers} usuario{pendingUsers !== 1 ? "s" : ""} pendiente{pendingUsers !== 1 ? "s" : ""} de verificación</p>
+                      <p className="text-xs text-muted-foreground">Revisar fotos de CI para aprobar o rechazar</p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-black px-3 py-1.5 rounded-xl text-white shrink-0" style={{ background: "hsl(42 98% 40%)" }}>Revisar →</span>
+                </button>
+              )}
+              {pendingWithdrawals > 0 && (
+                <button onClick={() => handleTab("withdrawals")} className="w-full text-left rounded-2xl px-4 py-3 flex items-center justify-between gap-3 transition-all active:scale-[0.99]"
+                  style={{ background: "hsl(0 75% 52% / 0.08)", border: "1px solid hsl(0 75% 52% / 0.3)" }}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">💸</span>
+                    <div>
+                      <p className="font-bold text-sm">{pendingWithdrawals} retiro{pendingWithdrawals !== 1 ? "s" : ""} esperando pago</p>
+                      <p className="text-xs text-muted-foreground">Jugadores esperando su cobro</p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-black px-3 py-1.5 rounded-xl text-white shrink-0" style={{ background: "hsl(0 75% 45%)" }}>Pagar →</span>
+                </button>
+              )}
+            </div>
+
+            {/* Active games — live controls */}
+            {games.filter(g => g.status === "active").length > 0 && (
+              <div className="space-y-3">
+                <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">🔴 Sorteos en vivo</p>
+                {games.filter(g => g.status === "active").map(g => (
+                  <div key={g.id} className="rounded-2xl overflow-hidden"
+                    style={{ background: "linear-gradient(135deg, #1a0050 0%, #3b00b8 100%)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                    <div className="px-4 pt-4 pb-3">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="live-badge"><div className="live-dot" />EN VIVO</div>
+                          <span className="text-white font-bold text-sm">{g.title}</span>
+                        </div>
+                        <span className="text-white/60 text-xs">Bs {g.prize_amount} premio</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="number" min="1" max="75" placeholder="Número 1–75"
+                          className="flex-1 bg-white/10 text-white placeholder-white/30 rounded-xl px-3 py-2.5 text-sm font-bold border border-white/15 outline-none focus:border-white/40 transition-colors"
+                          value={numberInput[g.id] ?? ""}
+                          onChange={e => setNumberInput(prev => ({ ...prev, [g.id]: e.target.value }))}
+                          onKeyDown={e => e.key === "Enter" && callNumber(g.id)} />
+                        <button onClick={() => callNumber(g.id)}
+                          className="shrink-0 px-5 py-2.5 rounded-xl font-black text-sm transition-all active:scale-95"
+                          style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>
+                          🎱 Cantar
+                        </button>
+                      </div>
+                    </div>
+                    <div className="px-4 py-2.5 flex items-center justify-between"
+                      style={{ background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                      <span className="text-white/50 text-xs">{g.called_numbers?.length ?? 0} números · {g.participant_count} jugadores</span>
+                      <button onClick={() => finishGame(g.id)} className="text-xs font-bold text-red-300 hover:text-red-200 transition-colors">⏹ Finalizar</button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
-            {/* Quick stats */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-card border rounded-2xl p-4">
-                <p className="text-xs text-muted-foreground">Próximos juegos</p>
-                <p className="font-black text-2xl" style={{ color: "hsl(var(--primary))" }}>
-                  {games.filter(g => g.status === "upcoming").length}
-                </p>
-              </div>
-              <div className="bg-card border rounded-2xl p-4">
-                <p className="text-xs text-muted-foreground">Juegos finalizados</p>
-                <p className="font-black text-2xl">{games.filter(g => g.status === "finished").length}</p>
-              </div>
+            {/* Games status grid + financial quick view */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { icon: "🟢", label: "En vivo", value: games.filter(g => g.status === "active").length, color: "#16a34a", bg: "hsl(142 70% 45% / 0.08)", border: "hsl(142 70% 45% / 0.2)", tab: "games" },
+                { icon: "🕐", label: "Próximos", value: games.filter(g => g.status === "upcoming").length, color: "hsl(var(--primary))", bg: "hsl(var(--primary) / 0.06)", border: "hsl(var(--primary) / 0.2)", tab: "games" },
+                { icon: "✅", label: "Finalizados", value: games.filter(g => g.status === "finished").length, color: "hsl(var(--muted-foreground))", bg: "hsl(var(--muted) / 0.5)", border: "hsl(var(--border))", tab: "games" },
+                { icon: "🏆", label: "Ganadores pend.", value: pendingWinnersCount, color: pendingWinnersCount > 0 ? "hsl(42 98% 40%)" : "#16a34a", bg: pendingWinnersCount > 0 ? "hsl(42 98% 52% / 0.08)" : "hsl(142 70% 45% / 0.06)", border: pendingWinnersCount > 0 ? "hsl(42 98% 52% / 0.3)" : "hsl(142 70% 45% / 0.15)", tab: "winners" },
+              ].map(s => (
+                <button key={s.label} onClick={() => handleTab(s.tab as Tab)}
+                  className="text-left rounded-2xl p-4 transition-all active:scale-95"
+                  style={{ background: s.bg, border: `1px solid ${s.border}` }}>
+                  <p className="text-2xl mb-2">{s.icon}</p>
+                  <p className="text-2xl font-black leading-none" style={{ color: s.color, fontFamily: "'Poppins', sans-serif" }}>{s.value}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
+                </button>
+              ))}
             </div>
 
-            {/* Department stats */}
+            {/* Department breakdown */}
             {deptStats.length > 0 && (
-              <div className="bg-card border rounded-2xl p-4 space-y-3">
-                <p className="font-bold text-sm">📍 Usuarios por departamento</p>
-                <div className="space-y-2">
+              <div className="bg-card border rounded-2xl overflow-hidden">
+                <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid hsl(var(--border))" }}>
+                  <p className="font-black text-sm">📍 Jugadores por departamento</p>
+                  <div className="flex gap-3 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ background: "hsl(var(--primary))" }} />Activos</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block bg-amber-400" />Pend.</span>
+                  </div>
+                </div>
+                <div className="p-4 space-y-3">
                   {deptStats.map(d => (
                     <div key={d.department}>
-                      <div className="flex justify-between items-center mb-0.5">
+                      <div className="flex justify-between items-center mb-1.5">
                         <span className="text-xs font-bold">{d.department}</span>
-                        <div className="flex gap-2 text-[11px]">
+                        <div className="flex items-center gap-2 text-[11px]">
                           <span className="font-black">{d.total}</span>
-                          <span className="text-muted-foreground">({d.active} activos</span>
-                          {d.pending > 0 && <span style={{ color: "hsl(42 98% 35%)" }}>{d.pending} pend.</span>}
-                          {d.banned > 0 && <span style={{ color: "hsl(0 75% 45%)" }}>{d.banned} ban.</span>}
-                          <span className="text-muted-foreground">)</span>
+                          {d.pending > 0 && <span className="px-1.5 py-0.5 rounded-full font-bold" style={{ background: "hsl(42 98% 52% / 0.15)", color: "hsl(42 98% 35%)" }}>{d.pending} pend.</span>}
+                          {d.banned > 0 && <span className="px-1.5 py-0.5 rounded-full font-bold" style={{ background: "hsl(0 75% 52% / 0.12)", color: "hsl(0 75% 40%)" }}>{d.banned} ban.</span>}
                         </div>
                       </div>
                       <div className="h-2 rounded-full overflow-hidden" style={{ background: "hsl(var(--muted))" }}>
                         <div className="h-full rounded-full transition-all"
-                          style={{ width: `${(d.total / maxDeptTotal) * 100}%`, background: "hsl(var(--primary))" }} />
+                          style={{ width: `${(d.total / maxDeptTotal) * 100}%`, background: "linear-gradient(90deg, hsl(var(--primary)), hsl(270 80% 70%))" }} />
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  <div className="text-center">
-                    <p className="text-[11px] text-muted-foreground">Total usuarios</p>
-                    <p className="font-black text-lg" style={{ color: "hsl(var(--primary))" }}>
-                      {deptStats.reduce((s, d) => s + d.total, 0)}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-[11px] text-muted-foreground">Departamentos</p>
-                    <p className="font-black text-lg">{deptStats.length}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-[11px] text-muted-foreground">Saldo total</p>
-                    <p className="font-black text-lg" style={{ color: "#16a34a" }}>
-                      Bs {deptStats.reduce((s, d) => s + d.total_balance, 0).toFixed(0)}
-                    </p>
-                  </div>
+                <div className="grid grid-cols-3 divide-x" style={{ borderTop: "1px solid hsl(var(--border))" }}>
+                  {[
+                    { label: "Total", value: deptStats.reduce((s, d) => s + d.total, 0), color: "hsl(var(--primary))" },
+                    { label: "Departamentos", value: deptStats.length, color: "hsl(var(--foreground))" },
+                    { label: "Saldo total", value: `Bs ${deptStats.reduce((s, d) => s + d.total_balance, 0).toFixed(0)}`, color: "#16a34a" },
+                  ].map(stat => (
+                    <div key={stat.label} className="text-center py-3">
+                      <p className="font-black text-lg" style={{ color: stat.color, fontFamily: "'Poppins', sans-serif" }}>{stat.value}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{stat.label}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
+
           </div>
         )}
 
