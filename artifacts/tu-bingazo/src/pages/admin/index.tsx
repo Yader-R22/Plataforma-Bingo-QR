@@ -1129,6 +1129,20 @@ export default function AdminPage() {
     finally { setSavingPartner(false); }
   }
 
+  async function deletePartner(partner: any) {
+    if (!window.confirm(`¿Eliminar permanentemente al socio "${partner.name}"?\n\nEsta acción no se puede deshacer.`)) return;
+    const r = await fetch(`${BASE}/api/admin/partners/${partner.id}`, {
+      method: "DELETE", headers: authH(),
+    });
+    if (r.ok) {
+      setPartners(ps => ps.filter(p => p.id !== partner.id));
+      toast.success("🗑️ Socio eliminado");
+    } else {
+      const d = await r.json().catch(() => ({}));
+      toast.error(d.error || "No se pudo eliminar el socio");
+    }
+  }
+
   async function togglePartnerActive(partner: any) {
     const r = await fetch(`${BASE}/api/admin/partners/${partner.id}`, {
       method: "PATCH", headers: authH(),
@@ -2866,10 +2880,10 @@ ${summarySection}
                             style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
                             Editar
                           </button>
-                          <button onClick={() => togglePartnerActive(p)}
+                          <button onClick={() => deletePartner(p)}
                             className="text-[11px] px-1.5 py-0.5 rounded font-bold"
                             style={{ background: "hsl(0 75% 50% / 0.1)", color: "#dc2626" }}>
-                            Desactivar
+                            🗑️ Eliminar
                           </button>
                         </div>
                       </div>

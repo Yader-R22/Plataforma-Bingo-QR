@@ -938,7 +938,8 @@ router.patch("/partners/:id", async (req: AuthRequest, res) => {
 router.delete("/partners/:id", async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "id inválido" }); return; }
-  await db.update(partnersTable).set({ isActive: false }).where(eq(partnersTable.id, id));
+  const [deleted] = await db.delete(partnersTable).where(eq(partnersTable.id, id)).returning();
+  if (!deleted) { res.status(404).json({ error: "socio no encontrado" }); return; }
   res.json({ ok: true });
 });
 
