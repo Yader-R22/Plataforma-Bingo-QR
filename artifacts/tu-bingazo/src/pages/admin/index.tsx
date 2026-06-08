@@ -476,9 +476,10 @@ export default function AdminPage() {
   const [userStatusFilter, setUserStatusFilter] = useState<string>("all");
   const [payForm, setPayForm] = useState<Record<number, { proof: string; pin: string; open: boolean }>>({});
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-  const [passwordResets, setPasswordResets] = useState<any[]>([]);
-  const [generatedPasswords, setGeneratedPasswords] = useState<Record<number, string>>({});
+  const [pendingResets, setPendingResets] = useState<any[]>([]);
+  const [approvedResets, setApprovedResets] = useState<any[]>([]);
   const [approvingReset, setApprovingReset] = useState<number | null>(null);
+  const [rejectingReset, setRejectingReset] = useState<number | null>(null);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
@@ -536,7 +537,11 @@ export default function AdminPage() {
       }
       if (t === "resets") {
         const r = await fetch(`${BASE}/api/admin/password-resets`, { headers: authH() });
-        if (r.ok) setPasswordResets(await r.json());
+        if (r.ok) {
+          const d = await r.json();
+          setPendingResets(d.pending ?? []);
+          setApprovedResets(d.approved ?? []);
+        }
       }
     } catch {}
     setLoading(false);
@@ -550,14 +555,15 @@ export default function AdminPage() {
       });
       if (r.ok) {
         const d = await r.json();
-        setGeneratedPasswords(prev => ({ ...prev, [userId]: d.temp_password }));
-        setPasswordResets(prev => prev.filter(u => u.id !== userId));
         toast.success("✅ Contraseña temporal generada");
-        if (phone) {
-          const cleanPhone = phone.replace(/\D/g, "");
-          const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hola! Tu contraseña temporal de Tu Bingazo es: *${d.temp_password}*\nCámbiala después de iniciar sesión.`)}`;
-          window.open(waUrl, "_blank");
+        // Reload to get updated pending/approved lists
+        const lr = await fetch(`${BASE}/api/admin/password-resets`, { headers: authH() });
+        if (lr.ok) {
+          const ld = await lr.json();
+          setPendingResets(ld.pending ?? []);
+          setApprovedResets(ld.approved ?? []);
         }
+        if (phone) sendWhatsApp(phone, d.temp_password);
       } else {
         const d = await r.json();
         toast.error(d.error || "Error al generar contraseña");
@@ -566,6 +572,34 @@ export default function AdminPage() {
       toast.error("Error de conexión");
     } finally {
       setApprovingReset(null);
+    }
+  }
+
+  function sendWhatsApp(phone: string, tempPwd: string) {
+    const cleanPhone = phone.replace(/\D/g, "");
+    const msg = `Hola! Tu contraseña temporal de Tu Bingazo es: *${tempPwd}*\nCámbiala inmediatamente después de iniciar sesión. 🔑`;
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+  }
+
+  async function rejectReset(userId: number, ban = false) {
+    const banReason = ban ? prompt("Motivo del baneo (opcional):") ?? "" : "";
+    setRejectingReset(userId);
+    try {
+      const r = await fetch(`${BASE}/api/admin/users/${userId}/reject-reset`, {
+        method: "POST", headers: authH(),
+        body: JSON.stringify({ ban, ban_reason: banReason || undefined }),
+      });
+      if (r.ok) {
+        toast.success(ban ? "🔴 Solicitud rechazada y usuario baneado" : "Solicitud rechazada");
+        setPendingResets(prev => prev.filter(u => u.id !== userId));
+      } else {
+        const d = await r.json();
+        toast.error(d.error || "Error");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setRejectingReset(null);
     }
   }
 
@@ -1324,90 +1358,144 @@ export default function AdminPage() {
 
         {/* ── PASSWORD RESETS ────────────────────────── */}
         {tab === "resets" && !loading && (
-          <div className="space-y-4">
-            {/* Contraseñas generadas en esta sesión */}
-            {Object.keys(generatedPasswords).length > 0 && (
-              <div className="rounded-2xl p-4 space-y-3" style={{ background: "hsl(142 70% 45% / 0.08)", border: "1px solid hsl(142 70% 45% / 0.2)" }}>
-                <p className="text-sm font-bold" style={{ color: "hsl(142 70% 30%)" }}>✅ Contraseñas generadas esta sesión</p>
-                {Object.entries(generatedPasswords).map(([uid, pwd]) => (
-                  <div key={uid} className="flex items-center justify-between gap-3 bg-white rounded-xl p-3">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Usuario #{uid}</p>
-                      <p className="font-mono font-bold text-lg tracking-wider">{pwd}</p>
+          <div className="space-y-5">
+
+            {/* ── Aprobadas: pendientes de envío ── */}
+            {approvedResets.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "hsl(142 70% 30%)" }}>
+                  ✅ Aprobadas — pendientes de envío por WhatsApp ({approvedResets.length})
+                </p>
+                {approvedResets.map(u => (
+                  <div key={u.id} className="rounded-2xl p-4 space-y-3"
+                    style={{ background: "hsl(142 70% 45% / 0.06)", border: "1px solid hsl(142 70% 45% / 0.25)" }}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm">{u.full_name}</p>
+                        <p className="text-xs text-muted-foreground">CI: {u.ci} {u.department && `· ${u.department}`}</p>
+                        {u.phone && (
+                          <p className="text-xs font-semibold mt-0.5" style={{ color: "#25D366" }}>📱 {u.phone}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="text-xs text-muted-foreground">Contraseña:</span>
+                          <span className="font-mono font-bold text-base tracking-wider">{u.temp_password_display}</span>
+                          <button className="text-[11px] font-bold px-2 py-0.5 rounded-lg border"
+                            style={{ color: "hsl(var(--primary))", borderColor: "hsl(var(--primary)/0.3)" }}
+                            onClick={() => { navigator.clipboard.writeText(u.temp_password_display); toast.success("Copiado"); }}>
+                            Copiar
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold text-white"
+                        style={{ background: "#25D366" }}
+                        onClick={() => u.phone && sendWhatsApp(u.phone, u.temp_password_display)}
+                      >
+                        📲 Reenviar
+                      </button>
                     </div>
-                    <button
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold text-white"
-                      style={{ background: "hsl(var(--primary))" }}
-                      onClick={() => { navigator.clipboard.writeText(pwd); toast.success("Copiado"); }}
-                    >
-                      Copiar
-                    </button>
+                    <div className="flex gap-2">
+                      <button className="flex-1 py-1.5 rounded-xl text-xs font-bold border"
+                        style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}
+                        onClick={() => setSelectedUserId(u.id)}>
+                        👤 Ver usuario
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
 
-            <p className="text-sm font-bold text-muted-foreground">Solicitudes pendientes ({passwordResets.length})</p>
+            {/* ── Solicitudes pendientes ── */}
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                🕐 Solicitudes pendientes ({pendingResets.length})
+              </p>
 
-            {passwordResets.length === 0 && Object.keys(generatedPasswords).length === 0 && (
-              <div className="text-center py-16 text-muted-foreground">
-                <div className="text-4xl mb-3">🔑</div>
-                <p className="font-bold">Sin solicitudes pendientes</p>
-                <p className="text-sm mt-1">Aquí aparecerán los usuarios que olvidaron su contraseña</p>
-              </div>
-            )}
-
-            {passwordResets.map(u => (
-              <div key={u.id} className="bg-card border rounded-2xl p-4 space-y-3">
-                {/* Header */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm truncate">{u.full_name}</p>
-                    <p className="text-xs text-muted-foreground">CI: {u.ci}</p>
-                    {u.department && <p className="text-xs text-muted-foreground">{u.department}</p>}
-                    {u.phone && (
-                      <a href={`https://wa.me/${u.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer"
-                        className="text-xs font-semibold mt-1 inline-flex items-center gap-1"
-                        style={{ color: "#25D366" }}>
-                        📱 {u.phone}
-                      </a>
-                    )}
-                  </div>
-                  <button
-                    className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white"
-                    style={{ background: approvingReset === u.id ? "hsl(var(--muted))" : "hsl(var(--primary))" }}
-                    disabled={approvingReset === u.id}
-                    onClick={() => approveReset(u.id, u.phone)}
-                  >
-                    {approvingReset === u.id ? "..." : "✓ Aprobar"}
-                  </button>
+              {pendingResets.length === 0 && approvedResets.length === 0 && (
+                <div className="text-center py-16 text-muted-foreground">
+                  <div className="text-4xl mb-3">🔑</div>
+                  <p className="font-bold">Sin solicitudes pendientes</p>
+                  <p className="text-sm mt-1">Aquí aparecerán los usuarios que olvidaron su contraseña</p>
                 </div>
+              )}
 
-                {/* Fotos de verificación */}
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { photo: u.photo_front, label: "Anverso" },
-                    { photo: u.photo_back, label: "Reverso" },
-                    { photo: u.photo_selfie, label: "Selfie c/CI" },
-                  ].map(({ photo, label }) => (
-                    <div key={label} className="space-y-1">
-                      <p className="text-[10px] font-bold text-muted-foreground text-center">{label}</p>
-                      {photo ? (
-                        <a href={photo} target="_blank" rel="noopener noreferrer">
-                          <img src={photo} alt={label}
-                            className="w-full h-20 object-cover rounded-xl border cursor-zoom-in hover:opacity-90 transition-opacity" />
+              {pendingResets.length === 0 && approvedResets.length > 0 && (
+                <p className="text-center text-sm text-muted-foreground py-4">Sin solicitudes pendientes</p>
+              )}
+
+              {pendingResets.map(u => (
+                <div key={u.id} className="bg-card border rounded-2xl p-4 space-y-3">
+                  {/* Info + acciones */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm truncate">{u.full_name}</p>
+                      <p className="text-xs text-muted-foreground">CI: {u.ci} {u.department && `· ${u.department}`}</p>
+                      {u.phone && (
+                        <a href={`https://wa.me/${u.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer"
+                          className="text-xs font-semibold mt-0.5 inline-block"
+                          style={{ color: "#25D366" }}>
+                          📱 {u.phone}
                         </a>
-                      ) : (
-                        <div className="w-full h-20 rounded-xl border-2 border-dashed flex items-center justify-center text-muted-foreground text-xs"
-                          style={{ borderColor: "hsl(var(--border))" }}>
-                          Sin foto
-                        </div>
                       )}
                     </div>
-                  ))}
+                    <button
+                      className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold text-white"
+                      style={{ background: approvingReset === u.id ? "hsl(var(--muted))" : "hsl(var(--primary))" }}
+                      disabled={approvingReset === u.id}
+                      onClick={() => approveReset(u.id, u.phone)}
+                    >
+                      {approvingReset === u.id ? "..." : "✓ Aprobar"}
+                    </button>
+                  </div>
+
+                  {/* Fotos de verificación */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { photo: u.photo_front, label: "Anverso" },
+                      { photo: u.photo_back, label: "Reverso" },
+                      { photo: u.photo_selfie, label: "Selfie c/CI" },
+                    ].map(({ photo, label }) => (
+                      <div key={label} className="space-y-1">
+                        <p className="text-[10px] font-bold text-muted-foreground text-center">{label}</p>
+                        {photo ? (
+                          <a href={photo} target="_blank" rel="noopener noreferrer">
+                            <img src={photo} alt={label}
+                              className="w-full h-20 object-cover rounded-xl border cursor-zoom-in hover:opacity-90 transition-opacity" />
+                          </a>
+                        ) : (
+                          <div className="w-full h-20 rounded-xl border-2 border-dashed flex items-center justify-center text-muted-foreground text-xs"
+                            style={{ borderColor: "hsl(var(--border))" }}>
+                            Sin foto
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Acciones secundarias */}
+                  <div className="flex gap-2">
+                    <button className="flex-1 py-1.5 rounded-xl text-xs font-bold border"
+                      style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}
+                      onClick={() => setSelectedUserId(u.id)}>
+                      👤 Ver usuario
+                    </button>
+                    <button className="flex-1 py-1.5 rounded-xl text-xs font-bold border"
+                      style={{ borderColor: "hsl(0 75% 50% / 0.4)", color: "hsl(0 75% 40%)" }}
+                      disabled={rejectingReset === u.id}
+                      onClick={() => rejectReset(u.id, false)}>
+                      {rejectingReset === u.id ? "..." : "✗ Rechazar"}
+                    </button>
+                    <button className="flex-1 py-1.5 rounded-xl text-xs font-bold border"
+                      style={{ borderColor: "hsl(0 75% 50% / 0.4)", background: "hsl(0 75% 50% / 0.08)", color: "hsl(0 75% 35%)" }}
+                      disabled={rejectingReset === u.id}
+                      onClick={() => rejectReset(u.id, true)}>
+                      🔴 Rechazar + Banear
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
 
             <button
               className="w-full py-2.5 rounded-xl text-sm font-bold border"

@@ -71,7 +71,7 @@ router.post("/change-password", requireAuth, async (req: AuthRequest, res) => {
   }
   const passwordHash = await bcrypt.hash(new_password, 12);
   const [updated] = await db.update(usersTable)
-    .set({ passwordHash, mustChangePassword: false, tempPasswordExpiresAt: null })
+    .set({ passwordHash, mustChangePassword: false, tempPasswordDisplay: null, tempPasswordExpiresAt: null })
     .where(eq(usersTable.id, req.userId!))
     .returning();
   await db.insert(auditLogsTable).values({

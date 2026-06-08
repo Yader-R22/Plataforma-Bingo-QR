@@ -153,7 +153,7 @@ router.post("/reset-password", async (req, res) => {
     return;
   }
   const passwordHash = await bcrypt.hash(new_password, 12);
-  await db.update(usersTable).set({ passwordHash, resetToken: null, resetTokenExpiresAt: null }).where(eq(usersTable.id, users[0].id));
+  await db.update(usersTable).set({ passwordHash, mustChangePassword: false, tempPasswordDisplay: null, resetToken: null, resetTokenExpiresAt: null }).where(eq(usersTable.id, users[0].id));
   res.json({ message: "Contraseña actualizada correctamente" });
 });
 

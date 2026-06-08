@@ -317,22 +317,43 @@ router.get("/users/:id", async (req: AuthRequest, res) => {
   });
 });
 
-// ── List pending password reset requests ────────────────────────────────────
+// ── List pending + recently approved password reset requests ─────────────────
 router.get("/password-resets", async (_req: AuthRequest, res) => {
-  const rows = await db.select().from(usersTable)
+  // Pending: have a valid resetToken
+  const pending = await db.select().from(usersTable)
     .where(sql`${usersTable.resetToken} IS NOT NULL AND ${usersTable.resetTokenExpiresAt} > NOW()`)
     .orderBy(desc(usersTable.resetTokenExpiresAt));
-  res.json(rows.map(u => ({
-    id: u.id,
-    full_name: u.fullName,
-    ci: u.ci,
-    phone: u.phone,
-    department: u.department,
-    requested_at: u.resetTokenExpiresAt,
-    photo_front: u.resetPhotoFront,
-    photo_back: u.resetPhotoBack,
-    photo_selfie: u.resetPhotoSelfie,
-  })));
+
+  // Approved (awaiting WhatsApp send): mustChangePassword=true AND tempPasswordDisplay set
+  const approved = await db.select().from(usersTable)
+    .where(sql`${usersTable.mustChangePassword} = true AND ${usersTable.tempPasswordDisplay} IS NOT NULL`)
+    .orderBy(desc(usersTable.updatedAt));
+
+  function mapUser(u: typeof usersTable.$inferSelect, state: "pending" | "approved") {
+    return {
+      id: u.id,
+      full_name: u.fullName,
+      ci: u.ci,
+      phone: u.phone,
+      department: u.department,
+      status: u.status,
+      is_banned: u.isBanned,
+      ban_reason: u.banReason,
+      balance: u.balance,
+      requested_at: u.resetTokenExpiresAt,
+      updated_at: u.updatedAt,
+      photo_front: u.resetPhotoFront,
+      photo_back: u.resetPhotoBack,
+      photo_selfie: u.resetPhotoSelfie,
+      temp_password_display: u.tempPasswordDisplay,
+      state,
+    };
+  }
+
+  res.json({
+    pending: pending.map(u => mapUser(u, "pending")),
+    approved: approved.map(u => mapUser(u, "approved")),
+  });
 });
 
 // ── Approve reset: generate temp password and clear reset token ──────────────
@@ -343,15 +364,24 @@ router.post("/users/:id/approve-reset", async (req: AuthRequest, res) => {
   if (!rows.length) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
   if (!rows[0].resetToken) { res.status(400).json({ error: "Este usuario no tiene una solicitud de reset pendiente" }); return; }
 
-  // Generate a readable temporary password
   const chars = "abcdefghjkmnpqrstuvwxyz23456789";
   let tempPassword = "";
   for (let i = 0; i < 8; i++) tempPassword += chars[Math.floor(Math.random() * chars.length)];
 
-  const tempPasswordExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const tempPasswordExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
   const passwordHash = await bcrypt.hash(tempPassword, 12);
   await db.update(usersTable)
-    .set({ passwordHash, mustChangePassword: true, tempPasswordExpiresAt, resetToken: null, resetTokenExpiresAt: null })
+    .set({
+      passwordHash,
+      mustChangePassword: true,
+      tempPasswordDisplay: tempPassword,
+      tempPasswordExpiresAt,
+      resetToken: null,
+      resetTokenExpiresAt: null,
+      resetPhotoFront: null,
+      resetPhotoBack: null,
+      resetPhotoSelfie: null,
+    })
     .where(eq(usersTable.id, id));
   await db.insert(auditLogsTable).values({
     action: "admin_approve_password_reset",
@@ -359,7 +389,38 @@ router.post("/users/:id/approve-reset", async (req: AuthRequest, res) => {
     details: { admin_id: req.userId },
     ipAddress: req.ip,
   });
-  res.json({ temp_password: tempPassword, message: "Contraseña temporal generada. Envíala al usuario por WhatsApp." });
+  res.json({ temp_password: tempPassword, message: "Contraseña temporal generada." });
+});
+
+// ── Reject reset request ─────────────────────────────────────────────────────
+router.post("/users/:id/reject-reset", async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+  const { ban, ban_reason } = req.body as { ban?: boolean; ban_reason?: string };
+
+  const updateData: Partial<typeof usersTable.$inferInsert> = {
+    resetToken: null,
+    resetTokenExpiresAt: null,
+    resetPhotoFront: null,
+    resetPhotoBack: null,
+    resetPhotoSelfie: null,
+  };
+  if (ban) {
+    updateData.isBanned = true;
+    updateData.banReason = ban_reason || "Solicitud de reset rechazada por el admin";
+    updateData.status = "rejected";
+  }
+
+  const [updated] = await db.update(usersTable).set(updateData).where(eq(usersTable.id, id)).returning();
+  if (!updated) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
+
+  await db.insert(auditLogsTable).values({
+    action: ban ? "admin_reject_reset_and_ban" : "admin_reject_reset",
+    userId: id,
+    details: { admin_id: req.userId, ban_reason: ban_reason ?? null },
+    ipAddress: req.ip,
+  });
+  res.json({ message: ban ? "Solicitud rechazada y usuario baneado" : "Solicitud rechazada" });
 });
 
 // ── Set temporary password ──────────────────────────────────────────────────
