@@ -349,11 +349,6 @@ export default function HomePage() {
           <FeaturedGameSection game={featuredGame} onNavigate={navigate} />
         )}
 
-        <button onClick={() => navigate("/juegos")}
-          className="w-full py-3 rounded-2xl border-2 font-bold text-sm transition-all"
-          style={{ borderColor: "hsl(var(--primary) / 0.3)", color: "hsl(var(--primary))" }}>
-          Ver todos los sorteos →
-        </button>
       </div>
 
       {/* How it works */}
