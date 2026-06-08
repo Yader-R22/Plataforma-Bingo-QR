@@ -130,6 +130,7 @@ router.post("/register", async (req, res) => {
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
+  const hasPhotos = !!(id_photo_front && id_photo_back);
   const [user] = await db.insert(usersTable).values({
     fullName: full_name,
     ci,
@@ -138,6 +139,7 @@ router.post("/register", async (req, res) => {
     passwordHash,
     idPhotoFrontUrl: id_photo_front ?? null,
     idPhotoBackUrl: id_photo_back ?? null,
+    status: hasPhotos ? "active" : "pending",
   }).returning();
 
   const token = generateToken(user.id);
@@ -245,12 +247,12 @@ router.post("/upload-ci", requireAuth, async (req: AuthRequest, res) => {
       idPhotoBackUrl: id_photo_back,
       needsCiUpload: false,
       rejectionReason: null,
-      status: "pending",
+      status: "active",
     })
     .where(eq(usersTable.id, req.userId!))
     .returning();
 
-  req.log.info({ userId: req.userId }, "User uploaded CI photos — pending admin review");
+  req.log.info({ userId: req.userId }, "User uploaded CI photos — automatically activated");
   res.json(formatUser(updated));
 });
 
