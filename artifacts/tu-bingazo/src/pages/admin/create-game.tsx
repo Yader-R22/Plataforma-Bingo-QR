@@ -43,6 +43,8 @@ export default function CreateGamePage() {
     max_winners: "1",
   });
 
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+
   useEffect(() => {
     if (!isEdit) return;
     (async () => {
@@ -62,6 +64,7 @@ export default function CreateGamePage() {
           game_mode: g.game_mode ?? "full_card",
           max_winners: String(g.max_winners ?? "1"),
         });
+        setCoverImage(g.cover_image_url ?? null);
       } catch {
         toast.error("Error al cargar el juego");
         navigate("/admin");
@@ -87,6 +90,7 @@ export default function CreateGamePage() {
         stream_url_youtube: form.stream_url_youtube || undefined,
         stream_url_tiktok: form.stream_url_tiktok || undefined,
         stream_url_facebook: form.stream_url_facebook || undefined,
+        cover_image_url: coverImage ?? null,
       };
       const url = isEdit ? `${BASE}/api/games/${editId}` : `${BASE}/api/games`;
       const method = isEdit ? "PATCH" : "POST";
@@ -177,6 +181,39 @@ export default function CreateGamePage() {
               <Label>Máx. ganadores</Label>
               <Input type="number" min="1" max="10" value={form.max_winners} onChange={e => upd("max_winners", e.target.value)} />
             </div>
+          </div>
+
+          {/* Cover image */}
+          <div className="space-y-2">
+            <Label>Imagen de portada <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
+            {coverImage ? (
+              <div className="rounded-2xl overflow-hidden border relative">
+                <img src={coverImage} alt="portada" className="w-full h-40 object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setCoverImage(null)}
+                  className="absolute top-2 right-2 text-xs font-bold px-3 py-1.5 rounded-xl"
+                  style={{ background: "rgba(0,0,0,0.65)", color: "#fff" }}>
+                  ✕ Quitar
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center w-full h-32 rounded-2xl border-2 border-dashed cursor-pointer hover:border-primary/50 transition-colors"
+                style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--muted))" }}>
+                <span className="text-2xl mb-1">🖼️</span>
+                <span className="text-sm font-medium">Subir imagen de portada</span>
+                <span className="text-xs text-muted-foreground mt-0.5">JPG, PNG, WebP — máx. 8 MB</span>
+                <input type="file" accept="image/*" className="hidden" onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 8 * 1024 * 1024) { toast.error("La imagen es demasiado grande (máx. 8 MB)"); return; }
+                  const reader = new FileReader();
+                  reader.onload = ev => setCoverImage(ev.target?.result as string);
+                  reader.readAsDataURL(file);
+                  e.target.value = "";
+                }} />
+              </label>
+            )}
           </div>
 
           <div className="space-y-1.5">

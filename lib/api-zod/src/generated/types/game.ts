@@ -33,5 +33,10 @@ export interface Game {
   /** Número máximo de ganadores */
   max_winners?: number;
   prizes?: PrizeTier[];
+  /**
+     * URL o base64 de imagen de portada del juego (opcional)
+     * @nullable
+     */
+  cover_image_url?: string | null;
   created_at: Date;
 }

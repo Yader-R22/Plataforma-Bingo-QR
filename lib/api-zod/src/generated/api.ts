@@ -119,6 +119,7 @@ export const ListGamesResponseItem = zod.object({
   "place": zod.number().describe('Puesto (1, 2, 3)'),
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
+  "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
   "created_at": zod.coerce.date()
 })
 export const ListGamesResponse = zod.array(ListGamesResponseItem)
@@ -141,7 +142,8 @@ export const CreateGameBody = zod.object({
   "prizes": zod.array(zod.object({
   "place": zod.number().describe('Puesto (1, 2, 3)'),
   "amount": zod.number().describe('Premio en Bs')
-})).optional()
+})).optional(),
+  "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)')
 })
 
 
@@ -170,6 +172,7 @@ export const GetGameResponse = zod.object({
   "place": zod.number().describe('Puesto (1, 2, 3)'),
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
+  "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
   "created_at": zod.coerce.date()
 })
 
@@ -191,7 +194,8 @@ export const UpdateGameBody = zod.object({
   "stream_url_facebook": zod.string().nullish(),
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']).optional(),
   "max_winners": zod.number().optional(),
-  "status": zod.enum(['upcoming', 'active', 'finished']).optional()
+  "status": zod.enum(['upcoming', 'active', 'finished']).optional(),
+  "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)')
 })
 
 export const UpdateGameResponse = zod.object({
@@ -212,6 +216,7 @@ export const UpdateGameResponse = zod.object({
   "place": zod.number().describe('Puesto (1, 2, 3)'),
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
+  "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
   "created_at": zod.coerce.date()
 })
 
@@ -316,6 +321,7 @@ export const StartGameResponse = zod.object({
   "place": zod.number().describe('Puesto (1, 2, 3)'),
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
+  "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
   "created_at": zod.coerce.date()
 })
 
@@ -345,6 +351,7 @@ export const FinishGameResponse = zod.object({
   "place": zod.number().describe('Puesto (1, 2, 3)'),
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
+  "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
   "created_at": zod.coerce.date()
 })
 

@@ -22,4 +22,9 @@ export interface GameUpdate {
   game_mode?: GameUpdateGameMode;
   max_winners?: number;
   status?: GameUpdateStatus;
+  /**
+     * URL o base64 de imagen de portada del juego (opcional)
+     * @nullable
+     */
+  cover_image_url?: string | null;
 }

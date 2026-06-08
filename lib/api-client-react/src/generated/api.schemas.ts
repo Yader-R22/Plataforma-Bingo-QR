@@ -158,6 +158,11 @@ export interface Game {
   /** Número máximo de ganadores */
   max_winners?: number;
   prizes?: PrizeTier[];
+  /**
+     * URL o base64 de imagen de portada del juego (opcional)
+     * @nullable
+     */
+  cover_image_url?: string | null;
   created_at: string;
 }
 
@@ -196,6 +201,11 @@ export interface GameInput {
   game_mode: GameInputGameMode;
   max_winners?: number;
   prizes?: PrizeTier[];
+  /**
+     * URL o base64 de imagen de portada del juego (opcional)
+     * @nullable
+     */
+  cover_image_url?: string | null;
 }
 
 export type GameUpdateGameMode = typeof GameUpdateGameMode[keyof typeof GameUpdateGameMode];
@@ -232,6 +242,11 @@ export interface GameUpdate {
   game_mode?: GameUpdateGameMode;
   max_winners?: number;
   status?: GameUpdateStatus;
+  /**
+     * URL o base64 de imagen de portada del juego (opcional)
+     * @nullable
+     */
+  cover_image_url?: string | null;
 }
 
 export type GameCategoryType = typeof GameCategoryType[keyof typeof GameCategoryType];

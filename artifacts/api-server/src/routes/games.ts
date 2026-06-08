@@ -36,6 +36,7 @@ function formatGame(game: typeof gamesTable.$inferSelect) {
     max_winners: game.maxWinners,
     prizes: (game.prizes as Array<{ place: number; amount: number }>) ?? [],
     is_featured: game.isFeatured,
+    cover_image_url: game.coverImageUrl ?? null,
     created_at: game.createdAt,
   };
 }
@@ -72,6 +73,7 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
     gameMode: (data.game_mode ?? "full_card") as "horizontal" | "vertical" | "diagonal" | "quina" | "full_card",
     maxWinners: data.max_winners ?? 1,
     prizes: (data.prizes as Array<{ place: number; amount: number }>) ?? [],
+    coverImageUrl: data.cover_image_url ?? null,
   }).returning();
   res.status(201).json(formatGame(game));
 });
@@ -101,6 +103,7 @@ router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
   if (data.game_mode) updateData.gameMode = data.game_mode as "horizontal" | "vertical" | "diagonal" | "quina" | "full_card";
   if (data.max_winners !== undefined) updateData.maxWinners = data.max_winners;
   if (data.status) updateData.status = data.status as "upcoming" | "active" | "finished";
+  if (data.cover_image_url !== undefined) updateData.coverImageUrl = data.cover_image_url ?? null;
   const [game] = await db.update(gamesTable).set(updateData).where(eq(gamesTable.id, p.data.id)).returning();
   if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
   res.json(formatGame(game));

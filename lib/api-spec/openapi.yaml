@@ -1028,6 +1028,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PrizeTier"
+        cover_image_url:
+          type: ["string", "null"]
+          description: URL o base64 de imagen de portada del juego (opcional)
         created_at:
           type: string
           format: date-time
@@ -1074,6 +1077,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PrizeTier"
+        cover_image_url:
+          type: ["string", "null"]
+          description: URL o base64 de imagen de portada del juego (opcional)
 
     GameUpdate:
       type: object
@@ -1101,6 +1107,9 @@ components:
         status:
           type: string
           enum: [upcoming, active, finished]
+        cover_image_url:
+          type: ["string", "null"]
+          description: URL o base64 de imagen de portada del juego (opcional)
 
     GameCategory:
       type: object

@@ -29,6 +29,7 @@ export const gamesTable = pgTable("games", {
   prizes: jsonb("prizes").$type<Array<{ place: number; amount: number }>>().default([]),
   calledNumbers: integer("called_numbers").array().notNull().default([]),
   participantCount: integer("participant_count").notNull().default(0),
+  coverImageUrl: text("cover_image_url"),
   isFeatured: boolean("is_featured").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
