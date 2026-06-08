@@ -66,7 +66,6 @@ function formatGame(game: typeof gamesTable.$inferSelect) {
     total_rounds: totalRounds,
     round_history: (game.roundHistory as RoundHistoryEntry[] | null) ?? [],
     is_featured: game.isFeatured,
-    finished_at: game.finishedAt ?? null,
     cover_image_url: game.coverImageUrl ?? null,
     called_numbers: game.calledNumbers ?? [],
     created_at: game.createdAt,
@@ -287,7 +286,7 @@ router.post("/:id/next-round", requireAdmin, async (req: AuthRequest, res) => {
 router.post("/:id/finish", requireAdmin, async (req: AuthRequest, res) => {
   const p = FinishGameParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
-  const [game] = await db.update(gamesTable).set({ status: "finished", finishedAt: new Date() }).where(eq(gamesTable.id, p.data.id)).returning();
+  const [game] = await db.update(gamesTable).set({ status: "finished" }).where(eq(gamesTable.id, p.data.id)).returning();
   if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
 
   await db.update(cardsTable).set({ status: "expired" })

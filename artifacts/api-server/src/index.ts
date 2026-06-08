@@ -1,7 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { seedGameCategories } from "./lib/seed";
-import { startFinishedGameCleanup } from "./lib/cleanup";
 
 const rawPort = process.env["PORT"];
 
@@ -25,5 +24,4 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
   void seedGameCategories();
-  startFinishedGameCleanup();
 });
