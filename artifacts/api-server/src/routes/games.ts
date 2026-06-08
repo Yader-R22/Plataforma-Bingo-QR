@@ -212,13 +212,19 @@ router.delete("/:id", requireAdmin, async (req: AuthRequest, res) => {
   const games = await db.select().from(gamesTable).where(eq(gamesTable.id, gameId)).limit(1);
   if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
 
-  // Safety guard: never destroy money records. Block deletion if any card was paid.
-  const paidCards = await db.select({ id: cardsTable.id }).from(cardsTable)
-    .where(and(eq(cardsTable.gameId, gameId), eq(cardsTable.paymentStatus, "paid")))
-    .limit(1);
-  if (paidCards.length) {
-    res.status(409).json({ error: "No se puede eliminar: este juego tiene cartones pagados. Finalízalo en su lugar." });
-    return;
+  const game = games[0];
+
+  // Safety guard: block deletion of upcoming/active games that have paid cards —
+  // those are live financial records tied to an ongoing event.
+  // Finished games can always be deleted (all prizes already settled).
+  if (game.status !== "finished") {
+    const paidCards = await db.select({ id: cardsTable.id }).from(cardsTable)
+      .where(and(eq(cardsTable.gameId, gameId), eq(cardsTable.paymentStatus, "paid")))
+      .limit(1);
+    if (paidCards.length) {
+      res.status(409).json({ error: "No se puede eliminar: este juego tiene cartones pagados. Finalízalo primero antes de eliminar." });
+      return;
+    }
   }
 
   // Remove dependent rows first to satisfy FK constraints (winners → cards → game), atomically.

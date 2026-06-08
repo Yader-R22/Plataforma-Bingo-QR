@@ -7,8 +7,8 @@ description: Rules for deleting/reactivating bingo games safely without destroyi
 
 DELETE /api/games/:id (admin) must NEVER destroy financial records.
 
-**Rule:** block deletion (HTTP 409) when the game has any card with `payment_status='paid'`.
-Admin must finish such games instead of deleting them.
+**Rule:** block deletion (HTTP 409) when the game is `upcoming` or `active` AND has any card with `payment_status='paid'`.
+**Finished games can always be deleted** — all prizes are already settled at that point.
 
 **Why:** card purchases debit wallets and validated winners credit them; deleting a
 paid game with no refund/ledger reversal would silently lose real money.
