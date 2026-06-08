@@ -240,13 +240,14 @@ export default function GameDetailPage() {
       if (!res.ok) { toast.error(data.error || "Error al comprar cartones"); return; }
 
       if (payWith === "wallet") {
-        toast.success(`🎉 ${qty} cartón${qty > 1 ? "es" : ""} comprado${qty > 1 ? "s" : ""} con tu saldo. ¡A jugar!`);
+        toast.success(`🎉 ${qty} cartón${qty > 1 ? "es" : ""} comprado${qty > 1 ? "s" : ""}. ¡A jugar!`);
         // Refresh balance from server after wallet purchase
         fetch(`${BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
           .then(r => r.ok ? r.json() : null)
           .then(d => { if (d) setUser(d); })
           .catch(() => {});
-        navigate("/mis-cartones");
+        // If game is active, go directly to play; otherwise to my-cards
+        navigate(isActive ? `/juegos/${gameId}/jugar` : "/mis-cartones");
       } else {
         // Show QR inline
         setQrData({ checkoutId: data.checkout_id, checkoutUrl: data.checkout_url ?? "" });
@@ -366,9 +367,11 @@ export default function GameDetailPage() {
             )}
 
             {/* Buy section */}
-            {!isFinished && !isActive && (
+            {!isFinished && (
               <div className="bg-card border rounded-2xl p-5 space-y-4">
-                <h3 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>🃏 Comprar Cartones</h3>
+                <h3 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                  🃏 {isActive ? "Comprar Cartones (EN VIVO)" : "Comprar Cartones"}
+                </h3>
 
                 {/* Quantity selector */}
                 <div className="flex items-center justify-between">
