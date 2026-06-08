@@ -1358,7 +1358,8 @@ export default function AdminPage() {
             )}
 
             {passwordResets.map(u => (
-              <div key={u.id} className="bg-card border rounded-2xl p-4">
+              <div key={u.id} className="bg-card border rounded-2xl p-4 space-y-3">
+                {/* Header */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm truncate">{u.full_name}</p>
@@ -1378,8 +1379,32 @@ export default function AdminPage() {
                     disabled={approvingReset === u.id}
                     onClick={() => approveReset(u.id, u.phone)}
                   >
-                    {approvingReset === u.id ? "..." : "Generar contraseña"}
+                    {approvingReset === u.id ? "..." : "✓ Aprobar"}
                   </button>
+                </div>
+
+                {/* Fotos de verificación */}
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { photo: u.photo_front, label: "Anverso" },
+                    { photo: u.photo_back, label: "Reverso" },
+                    { photo: u.photo_selfie, label: "Selfie c/CI" },
+                  ].map(({ photo, label }) => (
+                    <div key={label} className="space-y-1">
+                      <p className="text-[10px] font-bold text-muted-foreground text-center">{label}</p>
+                      {photo ? (
+                        <a href={photo} target="_blank" rel="noopener noreferrer">
+                          <img src={photo} alt={label}
+                            className="w-full h-20 object-cover rounded-xl border cursor-zoom-in hover:opacity-90 transition-opacity" />
+                        </a>
+                      ) : (
+                        <div className="w-full h-20 rounded-xl border-2 border-dashed flex items-center justify-center text-muted-foreground text-xs"
+                          style={{ borderColor: "hsl(var(--border))" }}>
+                          Sin foto
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}

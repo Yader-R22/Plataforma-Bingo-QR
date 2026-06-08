@@ -13,21 +13,57 @@ export default function LoginPage() {
   const [, navigate] = useLocation();
 
   const [showForgot, setShowForgot] = useState(false);
+  const [forgotStep, setForgotStep] = useState<1 | 2 | 3>(1);
   const [forgotCi, setForgotCi] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
-  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotPhotos, setForgotPhotos] = useState<{ front: string; back: string; selfie: string }>({ front: "", back: "", selfie: "" });
 
-  async function handleForgot(e: React.FormEvent) {
-    e.preventDefault();
-    if (!forgotCi.trim()) return;
+  function closeForgot() {
+    setShowForgot(false);
+    setForgotStep(1);
+    setForgotCi("");
+    setForgotPhotos({ front: "", back: "", selfie: "" });
+  }
+
+  function readPhoto(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target?.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handlePhotoChange(key: "front" | "back" | "selfie", e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const b64 = await readPhoto(file);
+    setForgotPhotos(prev => ({ ...prev, [key]: b64 }));
+  }
+
+  async function handleForgotSubmit() {
+    if (!forgotPhotos.front || !forgotPhotos.back || !forgotPhotos.selfie) {
+      toast.error("Debes subir las 3 fotos");
+      return;
+    }
     setForgotLoading(true);
     try {
-      await fetch(`${BASE}/api/auth/forgot-password`, {
+      const res = await fetch(`${BASE}/api/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ci: forgotCi.trim() }),
+        body: JSON.stringify({
+          ci: forgotCi.trim(),
+          photo_front: forgotPhotos.front,
+          photo_back: forgotPhotos.back,
+          photo_selfie: forgotPhotos.selfie,
+        }),
       });
-      setForgotSent(true);
+      if (!res.ok) {
+        const d = await res.json();
+        toast.error(d.error || "Error al enviar solicitud");
+        return;
+      }
+      setForgotStep(3);
     } catch {
       toast.error("Error de conexión. Intenta de nuevo.");
     } finally {
@@ -67,19 +103,19 @@ export default function LoginPage() {
       {/* Modal ¿Olvidaste tu contraseña? */}
       {showForgot && (
         <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.6)" }}
-          onClick={() => { setShowForgot(false); setForgotSent(false); setForgotCi(""); }}>
-          <div className="w-full max-w-md bg-white rounded-t-3xl p-6 pb-10"
+          onClick={forgotStep !== 3 ? closeForgot : undefined}>
+          <div className="w-full max-w-md bg-white rounded-t-3xl p-6 pb-10 overflow-y-auto max-h-[92vh]"
             onClick={e => e.stopPropagation()}>
-            {!forgotSent ? (
+            <div className="w-10 h-1 rounded-full bg-muted mx-auto mb-5" />
+
+            {/* Paso 1 — CI */}
+            {forgotStep === 1 && (
               <>
-                <div className="w-10 h-1 rounded-full bg-muted mx-auto mb-6" />
-                <h3 className="font-black text-xl mb-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                  🔑 Recuperar contraseña
-                </h3>
+                <h3 className="font-black text-xl mb-1" style={{ fontFamily: "'Poppins', sans-serif" }}>🔑 Recuperar contraseña</h3>
                 <p className="text-sm text-muted-foreground mb-5">
-                  Ingresa tu CI y el administrador te enviará una contraseña temporal por WhatsApp.
+                  Ingresa tu CI para continuar con la verificación de identidad.
                 </p>
-                <form onSubmit={handleForgot} className="space-y-4">
+                <div className="space-y-4">
                   <div>
                     <label className="text-sm font-bold block mb-1.5">Carnet de Identidad (CI)</label>
                     <input
@@ -88,34 +124,79 @@ export default function LoginPage() {
                       inputMode="numeric"
                       value={forgotCi}
                       onChange={e => setForgotCi(e.target.value)}
-                      required
                     />
                   </div>
-                  <button type="submit" className="btn-primary" disabled={forgotLoading || !forgotCi.trim()}>
+                  <button className="btn-primary" disabled={!forgotCi.trim()}
+                    onClick={() => setForgotStep(2)}>
+                    Siguiente →
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Paso 2 — Fotos */}
+            {forgotStep === 2 && (
+              <>
+                <button className="text-xs font-bold mb-3 flex items-center gap-1" style={{ color: "hsl(var(--muted-foreground))" }}
+                  onClick={() => setForgotStep(1)}>← Volver</button>
+                <h3 className="font-black text-xl mb-1" style={{ fontFamily: "'Poppins', sans-serif" }}>📸 Verificación de identidad</h3>
+                <p className="text-sm text-muted-foreground mb-5">
+                  Sube las siguientes fotos para que el admin pueda verificar tu identidad.
+                </p>
+                <div className="space-y-4">
+                  {([ 
+                    { key: "front" as const, label: "📄 Carnet — Anverso", hint: "Foto del frente de tu CI" },
+                    { key: "back" as const, label: "📄 Carnet — Reverso", hint: "Foto de la parte de atrás de tu CI" },
+                    { key: "selfie" as const, label: "🤳 Selfie con carnet", hint: "Una foto tuya sosteniendo el CI pegado a tu rostro" },
+                  ]).map(({ key, label, hint }) => (
+                    <div key={key}>
+                      <label className="text-sm font-bold block mb-0.5">{label}</label>
+                      <p className="text-xs text-muted-foreground mb-2">{hint}</p>
+                      {forgotPhotos[key] ? (
+                        <div className="relative">
+                          <img src={forgotPhotos[key]} alt={label} className="w-full h-32 object-cover rounded-xl border" />
+                          <button
+                            className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white text-xs flex items-center justify-center"
+                            onClick={() => setForgotPhotos(p => ({ ...p, [key]: "" }))}
+                          >✕</button>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-28 rounded-xl border-2 border-dashed cursor-pointer transition-all"
+                          style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--muted)/0.4)" }}>
+                          <span className="text-2xl mb-1">📷</span>
+                          <span className="text-xs font-semibold text-muted-foreground">Toca para subir foto</span>
+                          <input type="file" accept="image/*" capture="environment" className="hidden"
+                            onChange={e => handlePhotoChange(key, e)} />
+                        </label>
+                      )}
+                    </div>
+                  ))}
+                  <button className="btn-primary"
+                    disabled={forgotLoading || !forgotPhotos.front || !forgotPhotos.back || !forgotPhotos.selfie}
+                    onClick={handleForgotSubmit}>
                     {forgotLoading ? (
                       <span className="flex items-center justify-center gap-2">
                         <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                         Enviando...
                       </span>
-                    ) : "Solicitar contraseña temporal"}
+                    ) : "Enviar solicitud"}
                   </button>
-                </form>
+                </div>
               </>
-            ) : (
+            )}
+
+            {/* Paso 3 — Confirmación */}
+            {forgotStep === 3 && (
               <div className="text-center py-4">
                 <div className="text-5xl mb-4">✅</div>
-                <h3 className="font-black text-xl mb-2" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                  ¡Solicitud enviada!
-                </h3>
+                <h3 className="font-black text-xl mb-2" style={{ fontFamily: "'Poppins', sans-serif" }}>¡Solicitud enviada!</h3>
                 <p className="text-sm text-muted-foreground mb-2">
-                  El administrador revisará tu solicitud y te enviará una contraseña temporal por <strong>WhatsApp</strong>.
+                  El administrador revisará tus fotos y te enviará una contraseña temporal por <strong>WhatsApp</strong>.
                 </p>
                 <p className="text-xs text-muted-foreground mb-6">
                   Una vez que la recibas, inicia sesión y el sistema te pedirá cambiarla.
                 </p>
-                <button className="btn-primary" onClick={() => { setShowForgot(false); setForgotSent(false); setForgotCi(""); }}>
-                  Entendido
-                </button>
+                <button className="btn-primary" onClick={closeForgot}>Entendido</button>
               </div>
             )}
           </div>

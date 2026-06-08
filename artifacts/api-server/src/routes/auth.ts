@@ -113,16 +113,31 @@ router.post("/forgot-password", async (req, res) => {
     res.status(400).json({ error: "Datos inválidos" });
     return;
   }
-  const users = await db.select().from(usersTable).where(eq(usersTable.ci, parsed.data.ci)).limit(1);
+  const { ci, photo_front, photo_back, photo_selfie } = req.body as {
+    ci: string;
+    photo_front?: string;
+    photo_back?: string;
+    photo_selfie?: string;
+  };
+  if (!photo_front || !photo_back || !photo_selfie) {
+    res.status(400).json({ error: "Se requieren las 3 fotos de verificación" });
+    return;
+  }
+  const users = await db.select().from(usersTable).where(eq(usersTable.ci, ci)).limit(1);
   if (!users.length) {
-    res.json({ message: "Si el CI existe, recibirás instrucciones de restablecimiento" });
+    res.json({ message: "Si el CI existe, tu solicitud será revisada por el administrador" });
     return;
   }
   const token = crypto.randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
-  await db.update(usersTable).set({ resetToken: token, resetTokenExpiresAt: expiresAt }).where(eq(usersTable.ci, parsed.data.ci));
-  req.log.info({ token }, "Password reset token generated (use this token to reset)");
-  res.json({ message: "Token de restablecimiento generado. Token: " + token });
+  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+  await db.update(usersTable).set({
+    resetToken: token,
+    resetTokenExpiresAt: expiresAt,
+    resetPhotoFront: photo_front,
+    resetPhotoBack: photo_back,
+    resetPhotoSelfie: photo_selfie,
+  }).where(eq(usersTable.ci, ci));
+  res.json({ message: "Solicitud enviada. El administrador la revisará pronto." });
 });
 
 router.post("/reset-password", async (req, res) => {

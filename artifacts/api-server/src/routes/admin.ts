@@ -329,6 +329,9 @@ router.get("/password-resets", async (_req: AuthRequest, res) => {
     phone: u.phone,
     department: u.department,
     requested_at: u.resetTokenExpiresAt,
+    photo_front: u.resetPhotoFront,
+    photo_back: u.resetPhotoBack,
+    photo_selfie: u.resetPhotoSelfie,
   })));
 });
 
