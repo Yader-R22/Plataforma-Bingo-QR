@@ -256,26 +256,32 @@ function PendingReviewScreen() {
   const logout = useAuthStore(s => s.logout);
   const [checking, setChecking] = useState(false);
 
-  async function refresh() {
-    setChecking(true);
+  async function refresh(silent = false) {
+    if (!silent) setChecking(true);
     try {
       const r = await fetch(`${BASE}/api/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
       });
       if (r.ok) {
         const d = await r.json();
         setUser(d);
         if (d.status === "active" && !d.needs_ci_upload) {
           toast.success("🎉 ¡Tu cuenta fue aprobada!");
-        } else if (d.needs_ci_upload) {
+        } else if (d.needs_ci_upload && !silent) {
           toast.info("Tus documentos fueron devueltos para corrección.");
-        } else {
+        } else if (!silent) {
           toast.info("Tu cuenta todavía está en revisión.");
         }
       }
     } catch { /* ignore */ }
-    setChecking(false);
+    if (!silent) setChecking(false);
   }
+
+  useEffect(() => {
+    const iv = setInterval(() => refresh(true), 5000);
+    return () => clearInterval(iv);
+  }, [token]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4"
