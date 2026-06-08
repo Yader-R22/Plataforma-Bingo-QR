@@ -81,7 +81,7 @@ function GameTypeSection({
 
   if (!game) {
     return (
-      <div className="rounded-3xl p-5 relative overflow-hidden cursor-pointer opacity-60"
+      <div className="rounded-3xl p-5 relative overflow-hidden cursor-pointer"
         style={cardStyle} onClick={() => onNavigate(`/juegos?type=${type}`)}>
         {bgImageUrl && <div className="absolute inset-0 rounded-3xl" style={{ background: "rgba(0,0,0,0.35)" }} />}
         <div className="relative z-10 text-white">
