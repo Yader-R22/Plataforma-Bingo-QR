@@ -77,12 +77,14 @@ function RejectedScreen({ reason }: { reason: string | null }) {
   );
 }
 
-function CiUploadScreen() {
+function CiUploadScreen({ rejectionReason }: { rejectionReason?: string | null }) {
   const token = useAuthStore(s => s.token);
   const setUser = useAuthStore(s => s.setUser);
   const [front, setFront] = useState("");
   const [back, setBack] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const isResubmit = !!rejectionReason;
 
   async function submit() {
     if (!front || !back) { toast.error("Debes subir ambas fotos del CI"); return; }
@@ -108,56 +110,158 @@ function CiUploadScreen() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "hsl(var(--background))" }}>
-      {/* Header */}
       <div className="px-4 py-5 text-white text-center"
-        style={{ background: "linear-gradient(135deg, #1a0050, #3b00b8)" }}>
-        <p className="text-3xl mb-1">📄</p>
-        <h1 className="font-black text-xl" style={{ fontFamily: "'Poppins', sans-serif" }}>Verificación de identidad</h1>
-        <p className="text-white/70 text-sm mt-1">Para continuar debes subir las fotos de tu CI</p>
+        style={{ background: isResubmit ? "linear-gradient(135deg, #5a0000, #b80000)" : "linear-gradient(135deg, #1a0050, #3b00b8)" }}>
+        <p className="text-3xl mb-1">{isResubmit ? "⚠️" : "📄"}</p>
+        <h1 className="font-black text-xl" style={{ fontFamily: "'Poppins', sans-serif" }}>
+          {isResubmit ? "Documentos rechazados" : "Verificación de identidad"}
+        </h1>
+        <p className="text-white/70 text-sm mt-1">
+          {isResubmit ? "Debes volver a enviar las fotos de tu CI" : "Para continuar debes subir las fotos de tu CI"}
+        </p>
       </div>
 
       <div className="flex-1 px-4 py-6 space-y-5 max-w-sm mx-auto w-full">
-        {/* Info box */}
-        <div className="rounded-2xl p-4 space-y-2"
-          style={{ background: "hsl(var(--primary) / 0.06)", border: "1px solid hsl(var(--primary) / 0.2)" }}>
-          <p className="font-bold text-sm">¿Por qué necesitamos esto?</p>
-          <p className="text-xs text-muted-foreground">
-            Tu cuenta fue creada por un administrador. Necesitamos verificar tu identidad con tu Cédula de Identidad (CI) boliviana para activar tu cuenta completamente.
-          </p>
-          <ul className="text-xs text-muted-foreground space-y-1 mt-1">
-            <li className="flex items-center gap-1.5"><span className="text-green-500">✓</span> Foto clara y legible</li>
-            <li className="flex items-center gap-1.5"><span className="text-green-500">✓</span> Sin reflejos ni sombras</li>
-            <li className="flex items-center gap-1.5"><span className="text-green-500">✓</span> CI vigente</li>
-          </ul>
-        </div>
+        {/* Rejection reason — shown if this is a resubmit */}
+        {isResubmit && (
+          <div className="rounded-2xl p-4 space-y-1.5"
+            style={{ background: "hsl(0 75% 52% / 0.07)", border: "1px solid hsl(0 75% 52% / 0.35)" }}>
+            <p className="text-xs font-black text-red-600 uppercase tracking-wide">⛔ Motivo del rechazo:</p>
+            <p className="text-sm font-semibold">{rejectionReason}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Asegúrate de que las nuevas fotos sean claras, legibles y sin reflejos.
+            </p>
+          </div>
+        )}
+
+        {/* Info box — shown only on first upload */}
+        {!isResubmit && (
+          <div className="rounded-2xl p-4 space-y-2"
+            style={{ background: "hsl(var(--primary) / 0.06)", border: "1px solid hsl(var(--primary) / 0.2)" }}>
+            <p className="font-bold text-sm">¿Por qué necesitamos esto?</p>
+            <p className="text-xs text-muted-foreground">
+              Tu cuenta fue creada por un administrador. Necesitamos verificar tu identidad con tu Cédula de Identidad (CI) boliviana para activar tu cuenta completamente.
+            </p>
+            <ul className="text-xs text-muted-foreground space-y-1 mt-1">
+              <li className="flex items-center gap-1.5"><span className="text-green-500">✓</span> Foto clara y legible</li>
+              <li className="flex items-center gap-1.5"><span className="text-green-500">✓</span> Sin reflejos ni sombras</li>
+              <li className="flex items-center gap-1.5"><span className="text-green-500">✓</span> CI vigente</li>
+            </ul>
+          </div>
+        )}
 
         <PhotoCapture label="📷 Anverso del CI (parte delantera)" value={front} onChange={setFront} />
         <PhotoCapture label="📷 Reverso del CI (parte trasera)" value={back} onChange={setBack} />
 
         <button onClick={submit} disabled={submitting || !front || !back}
-          className="w-full py-3.5 rounded-2xl font-black text-white text-sm disabled:opacity-50 transition-all"
-          style={{ background: front && back ? "hsl(var(--primary))" : "hsl(var(--muted))", color: front && back ? "white" : "hsl(var(--muted-foreground))" }}>
-          {submitting ? "Enviando documentos..." : "✅ Enviar documentos para verificación"}
+          className="w-full py-3.5 rounded-2xl font-black text-sm disabled:opacity-50 transition-all"
+          style={{
+            background: front && back ? (isResubmit ? "hsl(0 75% 45%)" : "hsl(var(--primary))") : "hsl(var(--muted))",
+            color: front && back ? "white" : "hsl(var(--muted-foreground))",
+          }}>
+          {submitting ? "Enviando documentos..." : isResubmit ? "🔄 Reenviar documentos" : "✅ Enviar documentos para verificación"}
         </button>
 
-        {/* What happens next */}
-        <div className="rounded-2xl p-4 space-y-2"
-          style={{ background: "hsl(var(--muted) / 0.5)", border: "1px solid hsl(var(--border))" }}>
-          <p className="text-xs font-bold text-muted-foreground">¿Qué pasa después?</p>
-          <div className="space-y-2">
-            {[
-              { step: "1", text: "El administrador revisará tus documentos" },
-              { step: "2", text: "Recibirás acceso completo una vez aprobado" },
-              { step: "3", text: "Podrás comprar cartones y participar en juegos" },
-            ].map(({ step, text }) => (
-              <div key={step} className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
-                  style={{ background: "hsl(var(--primary))" }}>{step}</div>
-                <p className="text-xs text-muted-foreground">{text}</p>
-              </div>
-            ))}
+        {!isResubmit && (
+          <div className="rounded-2xl p-4 space-y-2"
+            style={{ background: "hsl(var(--muted) / 0.5)", border: "1px solid hsl(var(--border))" }}>
+            <p className="text-xs font-bold text-muted-foreground">¿Qué pasa después?</p>
+            <div className="space-y-2">
+              {[
+                { step: "1", text: "El administrador revisará tus documentos" },
+                { step: "2", text: "Recibirás acceso completo una vez aprobado" },
+                { step: "3", text: "Podrás comprar cartones y participar en juegos" },
+              ].map(({ step, text }) => (
+                <div key={step} className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
+                    style={{ background: "hsl(var(--primary))" }}>{step}</div>
+                  <p className="text-xs text-muted-foreground">{text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PendingReviewScreen() {
+  const token = useAuthStore(s => s.token);
+  const setUser = useAuthStore(s => s.setUser);
+  const logout = useAuthStore(s => s.logout);
+  const [checking, setChecking] = useState(false);
+
+  async function refresh() {
+    setChecking(true);
+    try {
+      const r = await fetch(`${BASE}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (r.ok) {
+        const d = await r.json();
+        setUser(d);
+        if (d.status === "active" && !d.needs_ci_upload) {
+          toast.success("🎉 ¡Tu cuenta fue aprobada!");
+        } else if (d.needs_ci_upload) {
+          toast.info("Tus documentos fueron devueltos para corrección.");
+        } else {
+          toast.info("Tu cuenta todavía está en revisión.");
+        }
+      }
+    } catch { /* ignore */ }
+    setChecking(false);
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-4"
+      style={{ background: "hsl(var(--background))" }}>
+      <div className="w-full max-w-sm space-y-5 text-center">
+        <div className="flex items-center justify-center">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl"
+            style={{ background: "hsl(42 98% 52% / 0.15)", border: "2px solid hsl(42 98% 52% / 0.4)" }}>
+            ⏳
           </div>
         </div>
+
+        <div>
+          <h1 className="font-black text-xl mb-1">Verificación en proceso</h1>
+          <p className="text-sm text-muted-foreground">
+            El administrador está revisando los documentos que enviaste. Te avisaremos cuando tu cuenta esté activa.
+          </p>
+        </div>
+
+        <div className="rounded-2xl p-4 space-y-3 text-left"
+          style={{ background: "hsl(var(--muted) / 0.5)", border: "1px solid hsl(var(--border))" }}>
+          <p className="text-xs font-bold text-muted-foreground text-center">Estado actual</p>
+          {[
+            { icon: "✅", text: "Documentos enviados", done: true },
+            { icon: "🔍", text: "Revisión por el administrador", done: false, active: true },
+            { icon: "🎉", text: "Activación de cuenta", done: false },
+          ].map(({ icon, text, done, active }) => (
+            <div key={text} className="flex items-center gap-3">
+              <span className="text-lg">{icon}</span>
+              <p className="text-xs font-semibold flex-1"
+                style={{ color: done ? "hsl(142 70% 35%)" : active ? "hsl(42 98% 35%)" : "hsl(var(--muted-foreground))" }}>
+                {text}
+              </p>
+              {done && <span className="text-[10px] font-bold text-green-600">Listo</span>}
+              {active && <span className="text-[10px] font-bold" style={{ color: "hsl(42 98% 35%)" }}>En curso</span>}
+            </div>
+          ))}
+        </div>
+
+        <button onClick={refresh} disabled={checking}
+          className="w-full py-3 rounded-2xl font-bold text-sm disabled:opacity-50"
+          style={{ background: "hsl(var(--primary))", color: "white" }}>
+          {checking ? "Verificando..." : "🔄 Actualizar estado"}
+        </button>
+
+        <button onClick={logout}
+          className="w-full py-2.5 rounded-2xl font-bold text-sm"
+          style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
+          Cerrar sesión
+        </button>
       </div>
     </div>
   );
@@ -278,12 +382,17 @@ export default function AppLayout({ children, hideNav, title, showBack, onBack }
   const [location] = useLocation();
   const user = useAuthStore(s => s.user);
 
-  // Guard: admin-created user must upload CI before accessing the app
+  // Guard: needs CI upload (first time or after rejection)
   if (user && user.needs_ci_upload) {
-    return <CiUploadScreen />;
+    return <CiUploadScreen rejectionReason={user.rejection_reason} />;
   }
 
-  // Guard: rejected account — show reason and allow logout
+  // Guard: CI submitted, waiting for admin approval
+  if (user && user.status === "pending") {
+    return <PendingReviewScreen />;
+  }
+
+  // Guard: permanently rejected account (e.g. banned from a different flow)
   if (user && user.status === "rejected") {
     return <RejectedScreen reason={user.rejection_reason} />;
   }

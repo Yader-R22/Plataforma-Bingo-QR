@@ -132,9 +132,11 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
     setSavingVerify(false);
     if (r.ok) {
       const d = await r.json();
-      toast.success(approved ? "✅ Cuenta aprobada — usuario activo" : "❌ Cuenta rechazada");
-      setUser((u: any) => ({ ...u, status: d.status }));
-      onUserUpdated({ ...user, status: d.status });
+      toast.success(approved ? "✅ Cuenta aprobada — usuario activo" : "🔄 Documentos rechazados — el usuario deberá reenviarlos");
+      setUser((u: any) => approved
+        ? { ...u, status: d.status }
+        : { ...u, status: d.status, needs_ci_upload: true, id_photo_front_url: null, id_photo_back_url: null });
+      onUserUpdated(d);
       setSection("info");
     } else { const d = await r.json(); toast.error(d.error || "Error"); }
   }
@@ -302,10 +304,10 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
                 <button onClick={() => verifyAccount(false)} disabled={savingVerify || !rejectReason.trim()}
                   className="w-full py-3 rounded-2xl font-bold text-sm text-white disabled:opacity-50"
                   style={{ background: "hsl(0 75% 50%)" }}>
-                  {savingVerify ? "..." : "❌ Rechazar cuenta"}
+                  {savingVerify ? "..." : "🔄 Rechazar — pedir reenvío de documentos"}
                 </button>
                 <p className="text-[11px] text-muted-foreground text-center">
-                  Al rechazar, el usuario no podrá iniciar sesión. El motivo quedará registrado.
+                  El usuario verá el motivo y deberá volver a enviar sus fotos de CI.
                 </p>
               </div>
             </div>
@@ -827,8 +829,12 @@ export default function AdminPage() {
       method: "POST", headers: authH(), body: JSON.stringify({ approved }),
     });
     if (r.ok) {
-      toast.success(approved ? "✅ Usuario aprobado" : "Usuario rechazado");
-      setUsers(us => us.map(u => u.id === userId ? { ...u, status: approved ? "active" : "rejected" } : u));
+      toast.success(approved ? "✅ Usuario aprobado" : "🔄 Documentos rechazados — el usuario deberá reenviarlos");
+      setUsers(us => us.map(u => u.id === userId
+        ? approved
+          ? { ...u, status: "active" }
+          : { ...u, status: "active", needs_ci_upload: true, id_photo_front_url: null, id_photo_back_url: null }
+        : u));
       loadStats();
     }
   }
