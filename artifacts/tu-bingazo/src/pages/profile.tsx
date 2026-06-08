@@ -66,10 +66,10 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Error al cambiar contraseña"); return; }
-      setUser({ ...user, must_change_password: false, temp_password_expires_at: null } as AuthUser);
+      setUser(data as AuthUser);
       toast.success("✅ Contraseña actualizada correctamente. ¡Ya puedes jugar!");
       setNewPwd(""); setNewPwdConfirm("");
-    } catch { toast.error("Error de conexión"); }
+    } catch { toast.error("Error de conexión. Verifica tu conexión e intenta nuevamente."); }
     finally { setChangingPwd(false); }
   }
   const sc = statusConfig(user.status);

@@ -191,6 +191,7 @@ export default function GameDetailPage() {
   const [, navigate] = useLocation();
   const user = useAuthStore(s => s.user);
   const token = useAuthStore(s => s.token);
+  const setUser = useAuthStore(s => s.setUser);
   const [qty, setQty] = useState(1);
   const [buying, setBuying] = useState(false);
   const [payWith, setPayWith] = useState<"qr" | "wallet">("qr");
@@ -199,6 +200,15 @@ export default function GameDetailPage() {
 
   const gameId = parseInt(params?.id ?? "0");
   const { data: game, isLoading } = useGetGame(gameId);
+
+  // Refresh user balance from server so wallet display is always current
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setUser(data); })
+      .catch(() => {});
+  }, [token]);
 
   useEffect(() => {
     if (game?.status === "finished") {
@@ -231,6 +241,11 @@ export default function GameDetailPage() {
 
       if (payWith === "wallet") {
         toast.success(`🎉 ${qty} cartón${qty > 1 ? "es" : ""} comprado${qty > 1 ? "s" : ""} con tu saldo. ¡A jugar!`);
+        // Refresh balance from server after wallet purchase
+        fetch(`${BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+          .then(r => r.ok ? r.json() : null)
+          .then(d => { if (d) setUser(d); })
+          .catch(() => {});
         navigate("/mis-cartones");
       } else {
         // Show QR inline
