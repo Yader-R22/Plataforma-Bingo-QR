@@ -7,6 +7,13 @@ import AppLayout from "@/components/AppLayout";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const LETTERS = ["B", "I", "N", "G", "O"];
 const LETTER_COLORS = ["#e53e3e", "#d69e2e", "#38a169", "#3182ce", "#805ad5"];
+const MODE_LABEL: Record<string, string> = {
+  full_card: "Cartón completo",
+  horizontal: "Línea horizontal",
+  vertical: "Línea vertical",
+  diagonal: "Diagonal",
+  quina: "Quina",
+};
 
 interface GameSession {
   game_id: number;
@@ -36,6 +43,7 @@ export default function PlayPage() {
   const [claiming, setClaiming] = useState(false);
   const [newNumberAlert, setNewNumberAlert] = useState<number | null>(null);
   const [showAllNumbers, setShowAllNumbers] = useState(false);
+  const [gameTitle, setGameTitle] = useState<string | null>(null);
 
   const cardsRef = useRef<BingoCard[]>([]);
   const prevCalledRef = useRef<number[]>([]);
@@ -100,6 +108,10 @@ export default function PlayPage() {
   }, [gameId, token]);
 
   useEffect(() => {
+    fetch(`${BASE}/api/games/${gameId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(g => { if (g?.title) setGameTitle(g.title); })
+      .catch(() => {});
     fetchSession();
     fetchCards();
     const iv = setInterval(fetchSession, 3000);
@@ -166,9 +178,18 @@ export default function PlayPage() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           Salir
         </button>
-        <div className="flex items-center gap-2">
-          <div className="live-badge"><div className="live-dot" />EN VIVO</div>
-          <span className="text-white/60 text-xs">Juego #{gameId}</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="live-badge shrink-0"><div className="live-dot" />EN VIVO</div>
+          <div className="min-w-0">
+            <p className="text-white text-xs font-black truncate leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+              {gameTitle ?? `Juego #${gameId}`}
+            </p>
+            {session?.game_mode && (
+              <p className="text-white/50 text-[10px] leading-tight truncate">
+                {MODE_LABEL[session.game_mode] ?? session.game_mode}
+              </p>
+            )}
+          </div>
         </div>
         <span className="text-white/60 text-xs">{session?.called_numbers?.length ?? 0} 🎱</span>
       </div>
