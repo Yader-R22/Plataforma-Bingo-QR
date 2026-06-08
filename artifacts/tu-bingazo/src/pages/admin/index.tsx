@@ -1304,33 +1304,33 @@ export default function AdminPage() {
       no corresponde efectuar pago de dividendos en este período. No implica acuerdo con el contenido,
       sino únicamente constancia de recepción del documento.
     </p>
-    <div style="display:grid;grid-template-columns:${(includeSnapshot ?? []).length === 1 ? "1fr 1fr" : "repeat(" + Math.min((includeSnapshot ?? []).length, 2) + ",1fr)"};gap:24px;margin-bottom:20px">
+    <div style="display:grid;grid-template-columns:repeat(${(includeSnapshot ?? []).length + 1},1fr);gap:16px">
       ${(includeSnapshot ?? []).map((p: any) => `
-      <div style="border:2px solid #fca5a5;border-radius:10px;padding:16px;background:white">
+      <div style="border:2px solid #fca5a5;border-radius:10px;padding:14px;background:white">
         <p style="font-size:9px;font-weight:900;color:#dc2626;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Notificado conforme — Socio</p>
         <p style="font-size:12px;font-weight:700;color:#1a1a2e">${p.name}</p>
         <p style="font-size:10px;color:#64748b">${p.identifier ? "CI: " + p.identifier : ""}</p>
         <p style="font-size:10px;color:#64748b;margin-top:2px">${p.share_percentage}% de participación</p>
         <p style="font-size:9px;color:#94a3b8;margin-top:4px;font-style:italic">Declaro haber recibido este informe y entiendo que no corresponde cobro alguno en este período.</p>
         <div style="margin-top:28px;border-top:1px solid #1a1a2e;padding-top:6px">
-          <p style="font-size:9px;color:#64748b">Firma &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Fecha: ___/___/______</p>
+          <p style="font-size:9px;color:#64748b">Firma: ___________________________ Fecha: ___/___/______</p>
         </div>
-        <div style="margin-top:14px;border-top:1px solid #fee2e2;padding-top:4px">
-          <p style="font-size:9px;color:#94a3b8">Aclaración de firma: _________________________________</p>
+        <div style="margin-top:12px;border-top:1px solid #fee2e2;padding-top:4px">
+          <p style="font-size:9px;color:#94a3b8">Aclaración: ___________________________</p>
         </div>
       </div>`).join("")}
-    </div>
-    <div style="border:2px solid #b45309;border-radius:10px;padding:16px;max-width:400px;background:white">
-      <p style="font-size:9px;font-weight:900;color:#b45309;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Notifiqué conforme — Administrador Tu Bingazo</p>
-      <p style="font-size:12px;font-weight:700;color:#1a1a2e">Tu Bingazo — Plataforma de Bingo</p>
-      <p style="font-size:10px;color:#64748b">Período notificado: ${PERIOD_LABELS[s?.period ?? "all"] ?? s?.period}</p>
-      <p style="font-size:10px;color:#64748b">Déficit comunicado: <b style="color:#dc2626">${fmt(deficitAmount)}</b></p>
-      <p style="font-size:9px;color:#94a3b8;margin-top:4px;font-style:italic">Certifico que la información financiera contenida en este documento es veraz y fue entregada al socio.</p>
-      <div style="margin-top:28px;border-top:1px solid #1a1a2e;padding-top:6px">
-        <p style="font-size:9px;color:#64748b">Firma &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Fecha: ___/___/______</p>
-      </div>
-      <div style="margin-top:14px;border-top:1px solid #fde68a;padding-top:4px">
-        <p style="font-size:9px;color:#94a3b8">Aclaración de firma: _________________________________</p>
+      <div style="border:2px solid #b45309;border-radius:10px;padding:14px;background:white">
+        <p style="font-size:9px;font-weight:900;color:#b45309;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Notifiqué conforme — Administrador</p>
+        <p style="font-size:12px;font-weight:700;color:#1a1a2e">Tu Bingazo</p>
+        <p style="font-size:10px;color:#64748b">Período: ${PERIOD_LABELS[s?.period ?? "all"] ?? s?.period}</p>
+        <p style="font-size:10px;color:#64748b">Déficit: <b style="color:#dc2626">${fmt(deficitAmount)}</b></p>
+        <p style="font-size:9px;color:#94a3b8;margin-top:4px;font-style:italic">Certifico que la información financiera es veraz y fue entregada al socio.</p>
+        <div style="margin-top:28px;border-top:1px solid #1a1a2e;padding-top:6px">
+          <p style="font-size:9px;color:#64748b">Firma: ___________________________ Fecha: ___/___/______</p>
+        </div>
+        <div style="margin-top:12px;border-top:1px solid #fde68a;padding-top:4px">
+          <p style="font-size:9px;color:#94a3b8">Aclaración: ___________________________</p>
+        </div>
       </div>
     </div>
   </div>
@@ -1347,33 +1347,34 @@ export default function AdminPage() {
     y la entrega del pago.
   </p>
 
-  <div style="display:grid;grid-template-columns:${includeSnapshot.length === 1 ? "1fr 1fr" : "repeat(" + Math.min(includeSnapshot.length, 2) + ",1fr)"};gap:24px;margin-bottom:24px">
+  <div style="display:grid;grid-template-columns:repeat(${includeSnapshot.length + 1},1fr);gap:16px">
     ${includeSnapshot.map((p: any) => `
-    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:16px">
-      <p style="font-size:10px;font-weight:900;color:#5b21b6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Recibí conforme</p>
-      <p style="font-size:12px;font-weight:700">${p.name}</p>
+    <div style="border:2px solid #ede9fe;border-radius:10px;padding:14px;background:#faf5ff">
+      <p style="font-size:9px;font-weight:900;color:#5b21b6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Recibí conforme — Socio</p>
+      <p style="font-size:12px;font-weight:700;color:#1a1a2e">${p.name}</p>
       <p style="font-size:10px;color:#64748b">${p.identifier ? "CI: " + p.identifier : ""}</p>
-      <p style="font-size:13px;font-weight:900;color:#5b21b6;margin:6px 0">${fmt(p.amount)}</p>
+      <p style="font-size:14px;font-weight:900;color:#5b21b6;margin:6px 0">${fmt(p.amount)}</p>
       <p style="font-size:9px;color:#94a3b8">${p.share_percentage}% del monto distribuible</p>
-      <div style="margin-top:24px;border-top:1px solid #1a1a2e;padding-top:4px">
-        <p style="font-size:9px;color:#64748b">Firma &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Fecha: ___/___/______</p>
+      <p style="font-size:9px;color:#94a3b8;margin-top:4px;font-style:italic">Declaro haber recibido el monto indicado a mi entera conformidad.</p>
+      <div style="margin-top:28px;border-top:1px solid #1a1a2e;padding-top:6px">
+        <p style="font-size:9px;color:#64748b">Firma: ___________________________ Fecha: ___/___/______</p>
       </div>
-      <div style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:4px">
-        <p style="font-size:9px;color:#94a3b8">Aclaración: ___________________________________</p>
+      <div style="margin-top:12px;border-top:1px solid #ede9fe;padding-top:4px">
+        <p style="font-size:9px;color:#94a3b8">Aclaración: ___________________________</p>
       </div>
     </div>`).join("")}
-  </div>
-
-  <div style="border:2px solid #5b21b6;border-radius:10px;padding:16px;max-width:400px">
-    <p style="font-size:10px;font-weight:900;color:#5b21b6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Entregué conforme — Administrador</p>
-    <p style="font-size:12px;font-weight:700">Tu Bingazo</p>
-    <p style="font-size:10px;color:#64748b">Total entregado: <b>${fmt(includeSnapshot.reduce((a: number, p: any) => a + p.amount, 0))}</b></p>
-    <p style="font-size:9px;color:#64748b;margin-top:4px">Período: ${PERIOD_LABELS[s?.period ?? "all"] ?? s?.period}</p>
-    <div style="margin-top:24px;border-top:1px solid #1a1a2e;padding-top:4px">
-      <p style="font-size:9px;color:#64748b">Firma &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Fecha: ___/___/______</p>
-    </div>
-    <div style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:4px">
-      <p style="font-size:9px;color:#94a3b8">Aclaración: ___________________________________</p>
+    <div style="border:2px solid #5b21b6;border-radius:10px;padding:14px;background:white">
+      <p style="font-size:9px;font-weight:900;color:#5b21b6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Entregué conforme — Administrador</p>
+      <p style="font-size:12px;font-weight:700;color:#1a1a2e">Tu Bingazo</p>
+      <p style="font-size:10px;color:#64748b">Total: <b>${fmt(includeSnapshot.reduce((a: number, p: any) => a + p.amount, 0))}</b></p>
+      <p style="font-size:10px;color:#64748b">Período: ${PERIOD_LABELS[s?.period ?? "all"] ?? s?.period}</p>
+      <p style="font-size:9px;color:#94a3b8;margin-top:4px;font-style:italic">Certifico haber entregado los montos indicados conforme a los acuerdos entre las partes.</p>
+      <div style="margin-top:28px;border-top:1px solid #1a1a2e;padding-top:6px">
+        <p style="font-size:9px;color:#64748b">Firma: ___________________________ Fecha: ___/___/______</p>
+      </div>
+      <div style="margin-top:12px;border-top:1px solid #ede9fe;padding-top:4px">
+        <p style="font-size:9px;color:#94a3b8">Aclaración: ___________________________</p>
+      </div>
     </div>
   </div>
 </div>` : "";
