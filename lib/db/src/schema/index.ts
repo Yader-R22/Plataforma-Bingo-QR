@@ -7,3 +7,4 @@ export * from "./name_change_requests";
 export * from "./audit_logs";
 export * from "./feed_items";
 export * from "./game_categories";
+export * from "./partners";

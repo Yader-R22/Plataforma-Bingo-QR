@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, usersTable, nameChangeRequestsTable, withdrawalsTable, winnersTable, auditLogsTable, gamesTable, feedItemsTable, cardsTable } from "@workspace/db";
+import { db, usersTable, nameChangeRequestsTable, withdrawalsTable, winnersTable, auditLogsTable, gamesTable, feedItemsTable, cardsTable, partnersTable, partnerPaymentsTable } from "@workspace/db";
 import { eq, and, like, sql, desc } from "drizzle-orm";
 import { requireAdmin, type AuthRequest } from "../middlewares/auth";
 import bcrypt from "bcryptjs";
@@ -643,27 +643,35 @@ router.get("/stats/departments", async (req: AuthRequest, res) => {
 
 // ── Finance ─────────────────────────────────────────────────────────────────
 
+function resolveDateRange(query: Record<string, any>): { from: Date | null; to: Date | null; label: string } {
+  // Custom range takes priority
+  if (query.from || query.to) {
+    const from = query.from ? new Date(String(query.from)) : null;
+    const to   = query.to   ? new Date(String(query.to))   : null;
+    return { from, to, label: "custom" };
+  }
+  const period = String(query.period ?? "all");
+  const now = new Date();
+  if (period === "today")  return { from: new Date(now.getFullYear(), now.getMonth(), now.getDate()), to: null, label: "today" };
+  if (period === "week")   return { from: new Date(Date.now() - 7  * 86400000), to: null, label: "week" };
+  if (period === "month")  return { from: new Date(Date.now() - 30 * 86400000), to: null, label: "month" };
+  if (period === "year")   return { from: new Date(Date.now() - 365 * 86400000), to: null, label: "year" };
+  return { from: null, to: null, label: "all" };
+}
+
 router.get("/finance/summary", async (req: AuthRequest, res) => {
-  const period = String(req.query.period ?? "all");
-  const dateFilter = period === "today"
-    ? new Date(new Date().setHours(0, 0, 0, 0))
-    : period === "week"  ? new Date(Date.now() - 7  * 24 * 3600 * 1000)
-    : period === "month" ? new Date(Date.now() - 30 * 24 * 3600 * 1000)
-    : null;
+  const { from, to, label } = resolveDateRange(req.query as any);
+
+  const dateWhere = (col: string) => {
+    if (from && to)  return sql.raw(`AND ${col} >= '${from.toISOString()}' AND ${col} <= '${to.toISOString()}'`);
+    if (from)        return sql.raw(`AND ${col} >= '${from.toISOString()}'`);
+    return sql.raw("");
+  };
 
   const [rev, prizes, wdrs, balances] = await Promise.all([
-    db.execute(dateFilter
-      ? sql`SELECT coalesce(sum(g.card_price),0)::text as total, count(*)::int as count FROM cards c JOIN games g ON c.game_id=g.id WHERE c.payment_status='paid' AND c.created_at >= ${dateFilter}`
-      : sql`SELECT coalesce(sum(g.card_price),0)::text as total, count(*)::int as count FROM cards c JOIN games g ON c.game_id=g.id WHERE c.payment_status='paid'`
-    ),
-    db.execute(dateFilter
-      ? sql`SELECT coalesce(sum(prize_amount),0)::text as total, count(*)::int as count FROM winners WHERE validated=true AND created_at >= ${dateFilter}`
-      : sql`SELECT coalesce(sum(prize_amount),0)::text as total, count(*)::int as count FROM winners WHERE validated=true`
-    ),
-    db.execute(dateFilter
-      ? sql`SELECT coalesce(sum(CASE WHEN status='paid' THEN amount ELSE 0 END),0)::text as paid_total, count(*) FILTER (WHERE status='paid') as paid_count, coalesce(sum(CASE WHEN status='pending' THEN amount ELSE 0 END),0)::text as pending_total, count(*) FILTER (WHERE status='pending') as pending_count FROM withdrawals WHERE created_at >= ${dateFilter}`
-      : sql`SELECT coalesce(sum(CASE WHEN status='paid' THEN amount ELSE 0 END),0)::text as paid_total, count(*) FILTER (WHERE status='paid') as paid_count, coalesce(sum(CASE WHEN status='pending' THEN amount ELSE 0 END),0)::text as pending_total, count(*) FILTER (WHERE status='pending') as pending_count FROM withdrawals`
-    ),
+    db.execute(sql`SELECT coalesce(sum(g.card_price),0)::text as total, count(*)::int as count FROM cards c JOIN games g ON c.game_id=g.id WHERE c.payment_status='paid' ${dateWhere("c.created_at")}`),
+    db.execute(sql`SELECT coalesce(sum(prize_amount),0)::text as total, count(*)::int as count FROM winners WHERE validated=true ${dateWhere("created_at")}`),
+    db.execute(sql`SELECT coalesce(sum(CASE WHEN status='paid' THEN amount ELSE 0 END),0)::text as paid_total, count(*) FILTER (WHERE status='paid') as paid_count, coalesce(sum(CASE WHEN status='pending' THEN amount ELSE 0 END),0)::text as pending_total, count(*) FILTER (WHERE status='pending') as pending_count FROM withdrawals WHERE true ${dateWhere("created_at")}`),
     db.execute(sql`SELECT coalesce(sum(balance),0)::text as total, count(*) FILTER (WHERE balance > 0) as user_count FROM users WHERE is_admin=false`),
   ]);
 
@@ -672,7 +680,9 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
   const withdrawalsPaid = parseFloat((wdrs.rows[0] as any)?.paid_total ?? "0");
 
   res.json({
-    period,
+    period: label,
+    from: from?.toISOString() ?? null,
+    to:   to?.toISOString()   ?? null,
     gross_revenue:             grossRevenue,
     cards_sold:                Number((rev.rows[0] as any)?.count ?? 0),
     prizes_paid:               prizesPaid,
@@ -721,23 +731,31 @@ router.get("/finance/games", async (req: AuthRequest, res) => {
 
 router.get("/finance/transactions", async (req: AuthRequest, res) => {
   const limit = Math.min(Number(req.query.limit ?? 100), 500);
+  const { from, to } = resolveDateRange(req.query as any);
+
+  const dw = (col: string) => {
+    if (from && to)  return sql.raw(`AND ${col} >= '${from.toISOString()}' AND ${col} <= '${to.toISOString()}'`);
+    if (from)        return sql.raw(`AND ${col} >= '${from.toISOString()}'`);
+    return sql.raw("");
+  };
+
   const rows = await db.execute(sql`
     SELECT * FROM (
       SELECT 'ingreso'::text AS type, c.created_at AS date, u.full_name AS user_name,
              g.title AS game_title, g.card_price::text AS amount,
              ('Compra cartón #' || c.id)::text AS description
       FROM cards c JOIN users u ON c.user_id=u.id JOIN games g ON c.game_id=g.id
-      WHERE c.payment_status='paid'
+      WHERE c.payment_status='paid' ${dw("c.created_at")}
       UNION ALL
       SELECT 'premio'::text, w.created_at, u.full_name, g.title,
              w.prize_amount::text, ('Premio puesto #' || w.place)::text
       FROM winners w JOIN users u ON w.user_id=u.id JOIN games g ON w.game_id=g.id
-      WHERE w.validated=true
+      WHERE w.validated=true ${dw("w.created_at")}
       UNION ALL
       SELECT 'retiro'::text, wd.created_at, u.full_name, NULL,
              wd.amount::text, ('Retiro via ' || wd.method)::text
       FROM withdrawals wd JOIN users u ON wd.user_id=u.id
-      WHERE wd.status='paid'
+      WHERE wd.status='paid' ${dw("wd.created_at")}
     ) t
     ORDER BY t.date DESC
     LIMIT ${limit}`);
@@ -750,6 +768,82 @@ router.get("/finance/transactions", async (req: AuthRequest, res) => {
     amount:     parseFloat(r.amount),
     description: r.description as string,
   })));
+});
+
+// ── Partners / Socios ────────────────────────────────────────────────────────
+
+router.get("/partners", async (_req: AuthRequest, res) => {
+  const rows = await db.select().from(partnersTable).orderBy(desc(partnersTable.createdAt));
+  res.json(rows);
+});
+
+router.post("/partners", async (req: AuthRequest, res) => {
+  const { name, identifier, phone, sharePercentage, notes } = req.body;
+  if (!name || sharePercentage == null) { res.status(400).json({ error: "name y sharePercentage son requeridos" }); return; }
+  const pct = parseFloat(String(sharePercentage));
+  if (isNaN(pct) || pct <= 0 || pct > 100) { res.status(400).json({ error: "sharePercentage debe ser entre 0.01 y 100" }); return; }
+  const [row] = await db.insert(partnersTable).values({
+    name: String(name).trim(),
+    identifier: identifier ? String(identifier).trim() : null,
+    phone:      phone      ? String(phone).trim()      : null,
+    sharePercentage: String(pct),
+    notes: notes ? String(notes).trim() : null,
+    isActive: true,
+  }).returning();
+  res.status(201).json(row);
+});
+
+router.patch("/partners/:id", async (req: AuthRequest, res) => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "id inválido" }); return; }
+  const { name, identifier, phone, sharePercentage, notes, isActive } = req.body;
+  const update: Record<string, any> = {};
+  if (name !== undefined)            update.name            = String(name).trim();
+  if (identifier !== undefined)      update.identifier      = identifier ? String(identifier).trim() : null;
+  if (phone !== undefined)           update.phone           = phone      ? String(phone).trim()      : null;
+  if (sharePercentage !== undefined) update.sharePercentage = String(parseFloat(String(sharePercentage)));
+  if (notes !== undefined)           update.notes           = notes      ? String(notes).trim()      : null;
+  if (isActive !== undefined)        update.isActive        = Boolean(isActive);
+  if (Object.keys(update).length === 0) { res.status(400).json({ error: "nada que actualizar" }); return; }
+  const [row] = await db.update(partnersTable).set(update).where(eq(partnersTable.id, id)).returning();
+  if (!row) { res.status(404).json({ error: "socio no encontrado" }); return; }
+  res.json(row);
+});
+
+router.delete("/partners/:id", async (req: AuthRequest, res) => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "id inválido" }); return; }
+  await db.update(partnersTable).set({ isActive: false }).where(eq(partnersTable.id, id));
+  res.json({ ok: true });
+});
+
+// Partner payment history
+router.get("/partners/payments", async (_req: AuthRequest, res) => {
+  const rows = await db.select().from(partnerPaymentsTable).orderBy(desc(partnerPaymentsTable.createdAt));
+  res.json(rows.map(r => ({
+    ...r,
+    gross_revenue: parseFloat(String(r.grossRevenue)),
+    net_profit:    parseFloat(String(r.netProfit)),
+    total_paid:    parseFloat(String(r.totalPaid)),
+  })));
+});
+
+router.post("/partners/payments", async (req: AuthRequest, res) => {
+  const { periodLabel, periodFrom, periodTo, grossRevenue, netProfit, totalPaid, partnersSnapshot, adminNotes } = req.body;
+  if (!periodLabel || !periodFrom || !periodTo || grossRevenue == null || netProfit == null || totalPaid == null) {
+    res.status(400).json({ error: "Campos requeridos: periodLabel, periodFrom, periodTo, grossRevenue, netProfit, totalPaid" }); return;
+  }
+  const [row] = await db.insert(partnerPaymentsTable).values({
+    periodLabel:      String(periodLabel),
+    periodFrom:       new Date(String(periodFrom)),
+    periodTo:         new Date(String(periodTo)),
+    grossRevenue:     String(parseFloat(String(grossRevenue))),
+    netProfit:        String(parseFloat(String(netProfit))),
+    totalPaid:        String(parseFloat(String(totalPaid))),
+    partnersSnapshot: Array.isArray(partnersSnapshot) ? partnersSnapshot : [],
+    adminNotes:       adminNotes ? String(adminNotes).trim() : null,
+  }).returning();
+  res.status(201).json(row);
 });
 
 export { router as adminRouter };

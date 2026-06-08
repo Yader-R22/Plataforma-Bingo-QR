@@ -702,7 +702,18 @@ export default function AdminPage() {
   const [financeSummary, setFinanceSummary] = useState<any>(null);
   const [financeGames, setFinanceGames] = useState<any[]>([]);
   const [financeTransactions, setFinanceTransactions] = useState<any[]>([]);
-  const [financePeriod, setFinancePeriod] = useState<"today"|"week"|"month"|"all">("all");
+  const [financePeriod, setFinancePeriod] = useState<string>("all");
+  const [financeFrom, setFinanceFrom] = useState("");
+  const [financeTo, setFinanceTo] = useState("");
+  const [partners, setPartners] = useState<any[]>([]);
+  const [partnerPayments, setPartnerPayments] = useState<any[]>([]);
+  const [showPartnerForm, setShowPartnerForm] = useState(false);
+  const [editingPartner, setEditingPartner] = useState<any>(null);
+  const [partnerForm, setPartnerForm] = useState({ name: "", identifier: "", phone: "", sharePercentage: "", notes: "" });
+  const [savingPartner, setSavingPartner] = useState(false);
+  const [partnerPaymentNotes, setPartnerPaymentNotes] = useState("");
+  const [savingPartnerPayment, setSavingPartnerPayment] = useState(false);
+  const [showPartnerHistory, setShowPartnerHistory] = useState(false);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
@@ -783,14 +794,18 @@ export default function AdminPage() {
       }
       if (t === "finance") {
         const period = financePeriod;
-        const [sR, gR, tR] = await Promise.all([
+        const [sR, gR, tR, pR, ppR] = await Promise.all([
           fetch(`${BASE}/api/admin/finance/summary?period=${period}`, { headers: authH() }),
           fetch(`${BASE}/api/admin/finance/games`, { headers: authH() }),
           fetch(`${BASE}/api/admin/finance/transactions?limit=100`, { headers: authH() }),
+          fetch(`${BASE}/api/admin/partners`, { headers: authH() }),
+          fetch(`${BASE}/api/admin/partners/payments`, { headers: authH() }),
         ]);
         if (sR.ok) setFinanceSummary(await sR.json());
         if (gR.ok) setFinanceGames(await gR.json());
         if (tR.ok) setFinanceTransactions(await tR.json());
+        if (pR.ok) setPartners(await pR.json());
+        if (ppR.ok) setPartnerPayments(await ppR.json());
       }
     } catch {}
     setLoading(false);
@@ -1003,14 +1018,20 @@ export default function AdminPage() {
     }
   }
 
-  async function loadFinanceWithPeriod(period: "today"|"week"|"month"|"all") {
+  async function loadFinanceWithPeriod(period: string, from?: string, to?: string) {
     setFinancePeriod(period);
     setLoading(true);
     try {
+      const params = period === "custom" && from
+        ? `from=${encodeURIComponent(from)}${to ? `&to=${encodeURIComponent(to)}` : ""}`
+        : `period=${period}`;
+      const txParams = period === "custom" && from
+        ? `from=${encodeURIComponent(from)}${to ? `&to=${encodeURIComponent(to)}` : ""}&limit=100`
+        : `period=${period}&limit=100`;
       const [sR, gR, tR] = await Promise.all([
-        fetch(`${BASE}/api/admin/finance/summary?period=${period}`, { headers: authH() }),
+        fetch(`${BASE}/api/admin/finance/summary?${params}`, { headers: authH() }),
         fetch(`${BASE}/api/admin/finance/games`, { headers: authH() }),
-        fetch(`${BASE}/api/admin/finance/transactions?limit=100`, { headers: authH() }),
+        fetch(`${BASE}/api/admin/finance/transactions?${txParams}`, { headers: authH() }),
       ]);
       if (sR.ok) setFinanceSummary(await sR.json());
       if (gR.ok) setFinanceGames(await gR.json());
@@ -1019,9 +1040,91 @@ export default function AdminPage() {
     setLoading(false);
   }
 
-  function downloadFinancePDF() {
+  async function loadPartners() {
+    const [pR, ppR] = await Promise.all([
+      fetch(`${BASE}/api/admin/partners`, { headers: authH() }),
+      fetch(`${BASE}/api/admin/partners/payments`, { headers: authH() }),
+    ]);
+    if (pR.ok) setPartners(await pR.json());
+    if (ppR.ok) setPartnerPayments(await ppR.json());
+  }
+
+  async function savePartner() {
+    if (!partnerForm.name.trim() || !partnerForm.sharePercentage) {
+      toast.error("Nombre y porcentaje son requeridos"); return;
+    }
+    setSavingPartner(true);
+    try {
+      const url = editingPartner ? `${BASE}/api/admin/partners/${editingPartner.id}` : `${BASE}/api/admin/partners`;
+      const method = editingPartner ? "PATCH" : "POST";
+      const r = await fetch(url, { method, headers: authH(), body: JSON.stringify({
+        name: partnerForm.name.trim(),
+        identifier: partnerForm.identifier.trim() || null,
+        phone: partnerForm.phone.trim() || null,
+        sharePercentage: parseFloat(partnerForm.sharePercentage),
+        notes: partnerForm.notes.trim() || null,
+      }) });
+      if (r.ok) {
+        toast.success(editingPartner ? "✅ Socio actualizado" : "✅ Socio agregado");
+        setShowPartnerForm(false);
+        setEditingPartner(null);
+        setPartnerForm({ name: "", identifier: "", phone: "", sharePercentage: "", notes: "" });
+        loadPartners();
+      } else {
+        const d = await r.json().catch(() => ({}));
+        toast.error(d.error || "No se pudo guardar el socio");
+      }
+    } catch { toast.error("Error al guardar socio"); }
+    finally { setSavingPartner(false); }
+  }
+
+  async function togglePartnerActive(partner: any) {
+    const r = await fetch(`${BASE}/api/admin/partners/${partner.id}`, {
+      method: "PATCH", headers: authH(),
+      body: JSON.stringify({ isActive: !partner.is_active }),
+    });
+    if (r.ok) setPartners(ps => ps.map(p => p.id === partner.id ? { ...p, is_active: !partner.is_active } : p));
+    else toast.error("No se pudo actualizar");
+  }
+
+  async function registerPartnerPayment(snapshot: any[]) {
+    if (!financeSummary) return;
+    const totalPaid = snapshot.reduce((sum, p) => sum + p.amount, 0);
+    if (totalPaid <= 0) { toast.error("Sin monto a distribuir"); return; }
+    const PERIOD_LABELS: Record<string, string> = { today: "Hoy", week: "Últimos 7 días", month: "Últimos 30 días", year: "Último año", all: "Todo el tiempo" };
+    const periodLabel = financeSummary.period === "custom"
+      ? `${financeFrom || "—"} al ${financeTo || "hoy"}`
+      : PERIOD_LABELS[financeSummary.period] ?? financeSummary.period;
+    setSavingPartnerPayment(true);
+    try {
+      const r = await fetch(`${BASE}/api/admin/partners/payments`, {
+        method: "POST", headers: authH(),
+        body: JSON.stringify({
+          periodLabel,
+          periodFrom: financeSummary.from ?? new Date(0).toISOString(),
+          periodTo:   financeSummary.to   ?? new Date().toISOString(),
+          grossRevenue: financeSummary.gross_revenue,
+          netProfit:    financeSummary.net_profit,
+          totalPaid,
+          partnersSnapshot: snapshot,
+          adminNotes: partnerPaymentNotes.trim() || null,
+        }),
+      });
+      if (r.ok) {
+        toast.success("✅ Pago registrado y archivado");
+        setPartnerPaymentNotes("");
+        loadPartners();
+      } else {
+        const d = await r.json().catch(() => ({}));
+        toast.error(d.error || "No se pudo registrar el pago");
+      }
+    } catch { toast.error("Error al registrar pago"); }
+    finally { setSavingPartnerPayment(false); }
+  }
+
+  function downloadFinancePDF(includeSnapshot?: any[]) {
     const s = financeSummary;
-    const periodLabel: Record<string, string> = { today: "Hoy", week: "Esta semana", month: "Este mes", all: "Todo el tiempo" };
+    const PERIOD_LABELS: Record<string, string> = { today: "Hoy", week: "Últimos 7 días", month: "Últimos 30 días", year: "Último año", all: "Todo el tiempo", custom: `${financeFrom || "—"} al ${financeTo || "hoy"}` };
     const fmt = (v: number) => `Bs ${v.toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const fmtDate = (d: string) => new Date(d).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
     const typeColor: Record<string, string> = { ingreso: "#16a34a", premio: "#b45309", retiro: "#dc2626" };
@@ -1050,6 +1153,16 @@ export default function AdminPage() {
         <td style="text-align:right;font-weight:bold;color:${typeColor[t.type]}">${t.type === "ingreso" ? "+" : "-"}${fmt(t.amount)}</td>
       </tr>`).join("");
 
+    const partnersSection = includeSnapshot && includeSnapshot.length > 0 ? `
+<h2>🤝 Distribución a Socios</h2>
+<table>
+  <thead><tr><th>Socio</th><th>CI / Identificador</th><th style="text-align:right">Porcentaje</th><th style="text-align:right">Monto</th></tr></thead>
+  <tbody>
+    ${includeSnapshot.map(p => `<tr><td><b>${p.name}</b></td><td>${p.identifier || "—"}</td><td style="text-align:right">${p.share_percentage}%</td><td style="text-align:right;font-weight:bold;color:#7c3aed">${fmt(p.amount)}</td></tr>`).join("")}
+    <tr style="background:#ede9fe"><td colspan="3" style="text-align:right;font-weight:900">Total distribuido</td><td style="text-align:right;font-weight:900;color:#5b21b6">${fmt(includeSnapshot.reduce((a, p) => a + p.amount, 0))}</td></tr>
+  </tbody>
+</table>` : "";
+
     const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <title>Reporte Financiero — Tu Bingazo</title>
 <style>
@@ -1067,16 +1180,11 @@ export default function AdminPage() {
   th { background: #5b21b6; color: white; padding: 7px 10px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
   td { padding: 6px 10px; border-bottom: 1px solid #f1f5f9; }
   tr:nth-child(even) td { background: #faf5ff; }
-  .net-positive { color: #16a34a; font-weight: bold; }
-  .net-negative { color: #dc2626; font-weight: bold; }
   .footer { margin-top: 32px; text-align: center; color: #94a3b8; font-size: 10px; }
-  @media print {
-    body { padding: 16px; }
-    .no-print { display: none; }
-  }
+  @media print { body { padding: 16px; } .no-print { display: none; } }
 </style></head><body>
 <h1>💰 Reporte Financiero — Tu Bingazo</h1>
-<p class="subtitle">Período: ${periodLabel[s?.period ?? "all"]} &nbsp;·&nbsp; Generado el ${new Date().toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+<p class="subtitle">Período: ${PERIOD_LABELS[s?.period ?? "all"] ?? s?.period} &nbsp;·&nbsp; Generado el ${new Date().toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
 
 <div class="kpi-grid">
   <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt(s?.gross_revenue ?? 0)}</div><div class="kpi-label">Ingresos brutos</div><div class="kpi-sub">${s?.cards_sold ?? 0} cartones vendidos</div></div>
@@ -1090,6 +1198,8 @@ export default function AdminPage() {
     <div class="kpi-sub">Ingresos − Premios − Retiros</div>
   </div>
 </div>
+
+${partnersSection}
 
 <h2>📊 Desglose por Juego</h2>
 <table>
@@ -1948,25 +2058,36 @@ export default function AdminPage() {
           const s = financeSummary;
           const fmt = (v: number) => `Bs ${v.toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
           const PERIODS = [
-            { id: "today" as const, label: "Hoy" },
-            { id: "week"  as const, label: "7 días" },
-            { id: "month" as const, label: "30 días" },
-            { id: "all"   as const, label: "Todo" },
+            { id: "today", label: "Hoy" },
+            { id: "week",  label: "7 días" },
+            { id: "month", label: "30 días" },
+            { id: "year",  label: "1 año" },
+            { id: "all",   label: "Todo" },
           ];
           const typeLabel: Record<string, string> = { ingreso: "Ingreso", premio: "Premio", retiro: "Retiro" };
           const typeStyle: Record<string, string> = { ingreso: "#16a34a", premio: "#b45309", retiro: "#dc2626" };
           const statusLabel: Record<string, string> = { upcoming: "Próximo", active: "Activo", finished: "Finalizado" };
           const typeGameLabel: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual" };
 
+          const activePartners = partners.filter(p => p.is_active);
+          const totalPct = activePartners.reduce((sum, p) => sum + parseFloat(p.share_percentage), 0);
+          const dividendSnapshot = s ? activePartners.map(p => ({
+            partner_id: p.id,
+            name: p.name,
+            identifier: p.identifier ?? null,
+            share_percentage: parseFloat(p.share_percentage),
+            amount: Math.round(s.net_profit * parseFloat(p.share_percentage) / 100 * 100) / 100,
+          })) : [];
+
           return (
             <div className="space-y-4">
               {/* Header */}
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <h2 className="font-black text-lg">Finanzas</h2>
-                <button onClick={downloadFinancePDF}
-                  className="px-4 py-2 rounded-xl text-sm font-bold text-white flex items-center gap-2"
+                <h2 className="font-black text-lg">💰 Finanzas</h2>
+                <button onClick={() => downloadFinancePDF()}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-white flex items-center gap-1.5"
                   style={{ background: "#5b21b6" }}>
-                  ⬇ Descargar PDF
+                  ⬇ PDF
                 </button>
               </div>
 
@@ -1984,40 +2105,57 @@ export default function AdminPage() {
                 ))}
               </div>
 
+              {/* Custom date range */}
+              <div className="rounded-2xl p-3 space-y-2" style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">📅 Rango personalizado</p>
+                <div className="flex gap-2 items-center flex-wrap">
+                  <div className="flex-1 min-w-[130px] space-y-1">
+                    <label className="text-[11px] text-muted-foreground">Desde</label>
+                    <input type="date" className="input-field text-xs py-1.5" value={financeFrom}
+                      onChange={e => setFinanceFrom(e.target.value)} />
+                  </div>
+                  <div className="flex-1 min-w-[130px] space-y-1">
+                    <label className="text-[11px] text-muted-foreground">Hasta</label>
+                    <input type="date" className="input-field text-xs py-1.5" value={financeTo}
+                      onChange={e => setFinanceTo(e.target.value)} />
+                  </div>
+                  <button
+                    onClick={() => { if (financeFrom) loadFinanceWithPeriod("custom", financeFrom, financeTo || undefined); else toast.error("Ingresa al menos la fecha de inicio"); }}
+                    className="px-3 py-2 rounded-xl text-xs font-bold text-white self-end"
+                    style={{ background: financePeriod === "custom" ? "hsl(var(--primary))" : "#64748b" }}>
+                    Buscar
+                  </button>
+                </div>
+              </div>
+
               {/* KPI cards */}
               {s && (
                 <div className="grid grid-cols-2 gap-2">
-                  {/* Ingresos */}
                   <div className="bg-card border rounded-2xl p-4">
                     <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">💰 Ingresos brutos</p>
                     <p className="text-xl font-black mt-1" style={{ color: "#16a34a" }}>{fmt(s.gross_revenue)}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{s.cards_sold} cartones vendidos</p>
                   </div>
-                  {/* Premios */}
                   <div className="bg-card border rounded-2xl p-4">
                     <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">🏆 Premios pagados</p>
                     <p className="text-xl font-black mt-1" style={{ color: "#b45309" }}>{fmt(s.prizes_paid)}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{s.prizes_count} ganador{s.prizes_count !== 1 ? "es" : ""}</p>
                   </div>
-                  {/* Retiros pagados */}
                   <div className="bg-card border rounded-2xl p-4">
                     <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">💸 Retiros pagados</p>
                     <p className="text-xl font-black mt-1" style={{ color: "#dc2626" }}>{fmt(s.withdrawals_paid)}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{s.withdrawals_count} retiro{s.withdrawals_count !== 1 ? "s" : ""}</p>
                   </div>
-                  {/* Retiros pendientes */}
                   <div className="bg-card border rounded-2xl p-4" style={{ borderColor: s.pending_withdrawals_count > 0 ? "hsl(42 98% 52%)" : undefined }}>
                     <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">⏳ Retiros pendientes</p>
                     <p className="text-xl font-black mt-1" style={{ color: "#f59e0b" }}>{fmt(s.pending_withdrawals)}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{s.pending_withdrawals_count} solicitud{s.pending_withdrawals_count !== 1 ? "es" : ""}</p>
                   </div>
-                  {/* Saldo en circulación */}
                   <div className="bg-card border rounded-2xl p-4">
                     <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">👛 Saldo en circulación</p>
                     <p className="text-xl font-black mt-1" style={{ color: "#7c3aed" }}>{fmt(s.balance_in_circulation)}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{s.users_with_balance} usuarios con saldo</p>
                   </div>
-                  {/* Ganancia neta */}
                   <div className="bg-card border-2 rounded-2xl p-4"
                     style={{ borderColor: s.net_profit >= 0 ? "#86efac" : "#fca5a5", background: s.net_profit >= 0 ? "hsl(142 70% 98%)" : "hsl(0 75% 98%)" }}>
                     <p className="text-xs font-bold uppercase tracking-wide" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>📈 Ganancia neta</p>
@@ -2089,6 +2227,231 @@ export default function AdminPage() {
                     ))}
                   </div>
                 </div>
+              )}
+
+              {/* ── SOCIOS / DIVIDEND CALCULATOR ─────────── */}
+              <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))" }}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-3"
+                  style={{ background: "hsl(var(--primary)/0.08)", borderBottom: "1px solid hsl(var(--border))" }}>
+                  <p className="font-black text-sm">🤝 Socios & Dividendos</p>
+                  <button onClick={() => { setShowPartnerForm(true); setEditingPartner(null); setPartnerForm({ name: "", identifier: "", phone: "", sharePercentage: "", notes: "" }); }}
+                    className="px-2.5 py-1 rounded-lg text-xs font-bold"
+                    style={{ background: "hsl(var(--primary))", color: "white" }}>
+                    + Agregar socio
+                  </button>
+                </div>
+
+                <div className="p-4 space-y-3">
+                  {/* Partner form */}
+                  {showPartnerForm && (
+                    <div className="rounded-xl p-3 space-y-2" style={{ background: "hsl(var(--primary)/0.04)", border: "1px solid hsl(var(--primary)/0.2)" }}>
+                      <p className="text-xs font-black">{editingPartner ? "Editar socio" : "Nuevo socio"}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="col-span-2 space-y-0.5">
+                          <label className="text-[11px] text-muted-foreground">Nombre completo *</label>
+                          <input className="input-field text-xs py-1.5" placeholder="Ej: Juan Mamani" value={partnerForm.name}
+                            onChange={e => setPartnerForm(f => ({ ...f, name: e.target.value }))} />
+                        </div>
+                        <div className="space-y-0.5">
+                          <label className="text-[11px] text-muted-foreground">CI / Email</label>
+                          <input className="input-field text-xs py-1.5" placeholder="12345678" value={partnerForm.identifier}
+                            onChange={e => setPartnerForm(f => ({ ...f, identifier: e.target.value }))} />
+                        </div>
+                        <div className="space-y-0.5">
+                          <label className="text-[11px] text-muted-foreground">Porcentaje (%) *</label>
+                          <input type="number" min="0.01" max="100" step="0.01" className="input-field text-xs py-1.5" placeholder="Ej: 33.33" value={partnerForm.sharePercentage}
+                            onChange={e => setPartnerForm(f => ({ ...f, sharePercentage: e.target.value }))} />
+                        </div>
+                        <div className="space-y-0.5">
+                          <label className="text-[11px] text-muted-foreground">Teléfono</label>
+                          <input className="input-field text-xs py-1.5" placeholder="70012345" value={partnerForm.phone}
+                            onChange={e => setPartnerForm(f => ({ ...f, phone: e.target.value }))} />
+                        </div>
+                        <div className="space-y-0.5">
+                          <label className="text-[11px] text-muted-foreground">Notas</label>
+                          <input className="input-field text-xs py-1.5" placeholder="Opcional" value={partnerForm.notes}
+                            onChange={e => setPartnerForm(f => ({ ...f, notes: e.target.value }))} />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={savePartner} disabled={savingPartner}
+                          className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-50"
+                          style={{ background: "hsl(var(--primary))" }}>
+                          {savingPartner ? "..." : editingPartner ? "Guardar cambios" : "Agregar socio"}
+                        </button>
+                        <button onClick={() => { setShowPartnerForm(false); setEditingPartner(null); }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold"
+                          style={{ background: "hsl(var(--muted))" }}>
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Partner list */}
+                  {activePartners.length === 0 && !showPartnerForm && (
+                    <p className="text-xs text-center text-muted-foreground py-4">Sin socios activos. Agrega uno para calcular dividendos.</p>
+                  )}
+
+                  {activePartners.map(p => (
+                    <div key={p.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                      style={{ background: "hsl(var(--muted)/0.5)", border: "1px solid hsl(var(--border))" }}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-sm">{p.name}</p>
+                          <span className="text-xs font-black px-2 py-0.5 rounded-full text-white" style={{ background: "#7c3aed" }}>
+                            {parseFloat(p.share_percentage)}%
+                          </span>
+                        </div>
+                        {p.identifier && <p className="text-xs text-muted-foreground">CI: {p.identifier}</p>}
+                        {p.phone && <p className="text-xs text-muted-foreground">📱 {p.phone}</p>}
+                      </div>
+                      <div className="text-right">
+                        {s && <p className="font-black text-sm" style={{ color: "#7c3aed" }}>{fmt(s.net_profit * parseFloat(p.share_percentage) / 100)}</p>}
+                        <div className="flex gap-1 mt-1">
+                          <button onClick={() => { setEditingPartner(p); setPartnerForm({ name: p.name, identifier: p.identifier ?? "", phone: p.phone ?? "", sharePercentage: String(parseFloat(p.share_percentage)), notes: p.notes ?? "" }); setShowPartnerForm(true); }}
+                            className="text-[11px] px-1.5 py-0.5 rounded font-bold"
+                            style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
+                            Editar
+                          </button>
+                          <button onClick={() => togglePartnerActive(p)}
+                            className="text-[11px] px-1.5 py-0.5 rounded font-bold"
+                            style={{ background: "hsl(0 75% 50% / 0.1)", color: "#dc2626" }}>
+                            Desactivar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Total pct warning */}
+                  {activePartners.length > 0 && (
+                    <div className="flex items-center justify-between px-3 py-2 rounded-xl text-xs"
+                      style={{ background: Math.abs(totalPct - 100) < 0.01 ? "hsl(142 70% 45% / 0.08)" : "hsl(42 98% 52% / 0.1)", border: `1px solid ${Math.abs(totalPct - 100) < 0.01 ? "hsl(142 70% 45% / 0.3)" : "hsl(42 98% 52% / 0.4)"}` }}>
+                      <span className="font-bold">Total porcentajes</span>
+                      <span className="font-black" style={{ color: Math.abs(totalPct - 100) < 0.01 ? "#16a34a" : "#b45309" }}>{totalPct.toFixed(2)}%</span>
+                    </div>
+                  )}
+
+                  {/* Dividend calculator / register payment */}
+                  {s && activePartners.length > 0 && (
+                    <div className="rounded-xl p-3 space-y-2" style={{ background: "hsl(var(--primary)/0.04)", border: "1px solid hsl(var(--primary)/0.2)" }}>
+                      <p className="text-xs font-black">📊 Calculadora de dividendos</p>
+                      <p className="text-xs text-muted-foreground">Basado en ganancia neta del período seleccionado: <span className="font-bold" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>{fmt(s.net_profit)}</span></p>
+
+                      <div className="space-y-1.5">
+                        {dividendSnapshot.map(ds => (
+                          <div key={ds.partner_id} className="flex justify-between text-xs items-center">
+                            <span className="font-bold">{ds.name} <span className="text-muted-foreground font-normal">({ds.share_percentage}%)</span></span>
+                            <span className="font-black" style={{ color: "#7c3aed" }}>{fmt(ds.amount)}</span>
+                          </div>
+                        ))}
+                        <div className="border-t pt-1 flex justify-between text-xs font-black">
+                          <span>Total a distribuir</span>
+                          <span style={{ color: "#5b21b6" }}>{fmt(dividendSnapshot.reduce((a, d) => a + d.amount, 0))}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[11px] text-muted-foreground">Notas del pago (opcional)</label>
+                        <input className="input-field text-xs py-1.5" placeholder="Ej: Pago correspondiente a junio 2026"
+                          value={partnerPaymentNotes} onChange={e => setPartnerPaymentNotes(e.target.value)} />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button onClick={() => registerPartnerPayment(dividendSnapshot)} disabled={savingPartnerPayment || s.net_profit <= 0}
+                          className="flex-1 py-2 rounded-lg text-xs font-bold text-white disabled:opacity-50"
+                          style={{ background: "#5b21b6" }}>
+                          {savingPartnerPayment ? "Registrando..." : "✅ Registrar y archivar pago"}
+                        </button>
+                        <button onClick={() => downloadFinancePDF(dividendSnapshot)}
+                          className="px-3 py-2 rounded-lg text-xs font-bold"
+                          style={{ background: "hsl(var(--muted))" }}>
+                          ⬇ PDF con socios
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── PARTNER PAYMENT HISTORY ──────────────── */}
+              {partnerPayments.length > 0 && (
+                <div>
+                  <button onClick={() => setShowPartnerHistory(h => !h)}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-2xl font-bold text-sm"
+                    style={{ background: "hsl(var(--muted)/0.5)", border: "1px solid hsl(var(--border))" }}>
+                    <span>📜 Historial de pagos a socios ({partnerPayments.length})</span>
+                    <span>{showPartnerHistory ? "▲" : "▼"}</span>
+                  </button>
+
+                  {showPartnerHistory && (
+                    <div className="space-y-2 mt-2">
+                      {partnerPayments.map(pp => (
+                        <div key={pp.id} className="bg-card border rounded-xl p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="font-bold text-sm">{pp.period_label}</p>
+                              <p className="text-xs text-muted-foreground">{new Date(pp.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric" })}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-black text-sm" style={{ color: "#5b21b6" }}>{fmt(pp.total_paid)}</p>
+                              <p className="text-xs text-muted-foreground">distribuido</p>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1 text-xs">
+                            <div className="rounded-lg px-2 py-1" style={{ background: "hsl(142 70% 45% / 0.08)" }}>
+                              <p className="text-muted-foreground">Ingresos brutos</p>
+                              <p className="font-bold" style={{ color: "#16a34a" }}>{fmt(pp.gross_revenue)}</p>
+                            </div>
+                            <div className="rounded-lg px-2 py-1" style={{ background: "hsl(var(--primary)/0.06)" }}>
+                              <p className="text-muted-foreground">Ganancia neta</p>
+                              <p className="font-bold" style={{ color: "#5b21b6" }}>{fmt(pp.net_profit)}</p>
+                            </div>
+                          </div>
+                          {Array.isArray(pp.partners_snapshot) && pp.partners_snapshot.length > 0 && (
+                            <div className="space-y-1">
+                              {(pp.partners_snapshot as any[]).map((ps: any, i: number) => (
+                                <div key={i} className="flex justify-between text-xs">
+                                  <span className="text-muted-foreground">{ps.name} ({ps.share_percentage}%)</span>
+                                  <span className="font-bold" style={{ color: "#7c3aed" }}>{fmt(ps.amount)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {pp.admin_notes && <p className="text-xs text-muted-foreground italic border-t pt-1">{pp.admin_notes}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Inactive partners (collapsible) */}
+              {partners.filter(p => !p.is_active).length > 0 && (
+                <details className="rounded-xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))" }}>
+                  <summary className="px-4 py-2.5 text-xs font-bold text-muted-foreground cursor-pointer"
+                    style={{ background: "hsl(var(--muted)/0.3)" }}>
+                    Socios inactivos ({partners.filter(p => !p.is_active).length})
+                  </summary>
+                  <div className="p-3 space-y-2">
+                    {partners.filter(p => !p.is_active).map(p => (
+                      <div key={p.id} className="flex items-center justify-between px-3 py-2 rounded-xl opacity-60"
+                        style={{ background: "hsl(var(--muted)/0.4)" }}>
+                        <div>
+                          <p className="font-bold text-xs">{p.name}</p>
+                          <p className="text-xs text-muted-foreground">{parseFloat(p.share_percentage)}%{p.identifier ? ` · ${p.identifier}` : ""}</p>
+                        </div>
+                        <button onClick={() => togglePartnerActive(p)}
+                          className="text-[11px] px-2 py-0.5 rounded font-bold"
+                          style={{ background: "hsl(142 70% 45% / 0.1)", color: "#16a34a" }}>
+                          Reactivar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </details>
               )}
 
               {!s && <p className="text-center text-muted-foreground py-8">Sin datos financieros</p>}
