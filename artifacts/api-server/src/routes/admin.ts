@@ -641,4 +641,115 @@ router.get("/stats/departments", async (req: AuthRequest, res) => {
   })));
 });
 
+// ── Finance ─────────────────────────────────────────────────────────────────
+
+router.get("/finance/summary", async (req: AuthRequest, res) => {
+  const period = String(req.query.period ?? "all");
+  const dateFilter = period === "today"
+    ? new Date(new Date().setHours(0, 0, 0, 0))
+    : period === "week"  ? new Date(Date.now() - 7  * 24 * 3600 * 1000)
+    : period === "month" ? new Date(Date.now() - 30 * 24 * 3600 * 1000)
+    : null;
+
+  const [rev, prizes, wdrs, balances] = await Promise.all([
+    db.execute(dateFilter
+      ? sql`SELECT coalesce(sum(g.card_price),0)::text as total, count(*)::int as count FROM cards c JOIN games g ON c.game_id=g.id WHERE c.payment_status='paid' AND c.created_at >= ${dateFilter}`
+      : sql`SELECT coalesce(sum(g.card_price),0)::text as total, count(*)::int as count FROM cards c JOIN games g ON c.game_id=g.id WHERE c.payment_status='paid'`
+    ),
+    db.execute(dateFilter
+      ? sql`SELECT coalesce(sum(prize_amount),0)::text as total, count(*)::int as count FROM winners WHERE validated=true AND created_at >= ${dateFilter}`
+      : sql`SELECT coalesce(sum(prize_amount),0)::text as total, count(*)::int as count FROM winners WHERE validated=true`
+    ),
+    db.execute(dateFilter
+      ? sql`SELECT coalesce(sum(CASE WHEN status='paid' THEN amount ELSE 0 END),0)::text as paid_total, count(*) FILTER (WHERE status='paid') as paid_count, coalesce(sum(CASE WHEN status='pending' THEN amount ELSE 0 END),0)::text as pending_total, count(*) FILTER (WHERE status='pending') as pending_count FROM withdrawals WHERE created_at >= ${dateFilter}`
+      : sql`SELECT coalesce(sum(CASE WHEN status='paid' THEN amount ELSE 0 END),0)::text as paid_total, count(*) FILTER (WHERE status='paid') as paid_count, coalesce(sum(CASE WHEN status='pending' THEN amount ELSE 0 END),0)::text as pending_total, count(*) FILTER (WHERE status='pending') as pending_count FROM withdrawals`
+    ),
+    db.execute(sql`SELECT coalesce(sum(balance),0)::text as total, count(*) FILTER (WHERE balance > 0) as user_count FROM users WHERE is_admin=false`),
+  ]);
+
+  const grossRevenue    = parseFloat((rev.rows[0] as any)?.total ?? "0");
+  const prizesPaid      = parseFloat((prizes.rows[0] as any)?.total ?? "0");
+  const withdrawalsPaid = parseFloat((wdrs.rows[0] as any)?.paid_total ?? "0");
+
+  res.json({
+    period,
+    gross_revenue:             grossRevenue,
+    cards_sold:                Number((rev.rows[0] as any)?.count ?? 0),
+    prizes_paid:               prizesPaid,
+    prizes_count:              Number((prizes.rows[0] as any)?.count ?? 0),
+    withdrawals_paid:          withdrawalsPaid,
+    withdrawals_count:         Number((wdrs.rows[0] as any)?.paid_count ?? 0),
+    pending_withdrawals:       parseFloat((wdrs.rows[0] as any)?.pending_total ?? "0"),
+    pending_withdrawals_count: Number((wdrs.rows[0] as any)?.pending_count ?? 0),
+    balance_in_circulation:    parseFloat((balances.rows[0] as any)?.total ?? "0"),
+    users_with_balance:        Number((balances.rows[0] as any)?.user_count ?? 0),
+    net_profit: grossRevenue - prizesPaid - withdrawalsPaid,
+  });
+});
+
+router.get("/finance/games", async (req: AuthRequest, res) => {
+  const rows = await db.execute(sql`
+    SELECT
+      g.id, g.title, g.type, g.status,
+      g.card_price::text   AS card_price,
+      g.prize_amount::text AS prize_amount,
+      g.draw_date,
+      count(c.id) FILTER (WHERE c.payment_status='paid') AS cards_sold,
+      coalesce(sum(g.card_price) FILTER (WHERE c.payment_status='paid'),0)::text AS revenue,
+      coalesce((SELECT sum(prize_amount) FROM winners w WHERE w.game_id=g.id AND w.validated=true),0)::text AS prizes_paid,
+      coalesce((SELECT count(*)         FROM winners w WHERE w.game_id=g.id AND w.validated=true),0)::int  AS winners_count
+    FROM games g
+    LEFT JOIN cards c ON c.game_id=g.id
+    GROUP BY g.id
+    ORDER BY g.draw_date DESC`);
+
+  res.json((rows.rows as any[]).map(r => ({
+    id:            Number(r.id),
+    title:         r.title as string,
+    type:          r.type as string,
+    status:        r.status as string,
+    card_price:    parseFloat(r.card_price),
+    prize_amount:  parseFloat(r.prize_amount),
+    draw_date:     r.draw_date,
+    cards_sold:    Number(r.cards_sold ?? 0),
+    revenue:       parseFloat(r.revenue ?? "0"),
+    prizes_paid:   parseFloat(r.prizes_paid ?? "0"),
+    winners_count: Number(r.winners_count ?? 0),
+    net:           parseFloat(r.revenue ?? "0") - parseFloat(r.prizes_paid ?? "0"),
+  })));
+});
+
+router.get("/finance/transactions", async (req: AuthRequest, res) => {
+  const limit = Math.min(Number(req.query.limit ?? 100), 500);
+  const rows = await db.execute(sql`
+    SELECT * FROM (
+      SELECT 'ingreso'::text AS type, c.created_at AS date, u.full_name AS user_name,
+             g.title AS game_title, g.card_price::text AS amount,
+             ('Compra cartón #' || c.id)::text AS description
+      FROM cards c JOIN users u ON c.user_id=u.id JOIN games g ON c.game_id=g.id
+      WHERE c.payment_status='paid'
+      UNION ALL
+      SELECT 'premio'::text, w.created_at, u.full_name, g.title,
+             w.prize_amount::text, ('Premio puesto #' || w.place)::text
+      FROM winners w JOIN users u ON w.user_id=u.id JOIN games g ON w.game_id=g.id
+      WHERE w.validated=true
+      UNION ALL
+      SELECT 'retiro'::text, wd.created_at, u.full_name, NULL,
+             wd.amount::text, ('Retiro via ' || wd.method)::text
+      FROM withdrawals wd JOIN users u ON wd.user_id=u.id
+      WHERE wd.status='paid'
+    ) t
+    ORDER BY t.date DESC
+    LIMIT ${limit}`);
+
+  res.json((rows.rows as any[]).map(r => ({
+    type:       r.type as string,
+    date:       r.date,
+    user_name:  r.user_name as string,
+    game_title: r.game_title as string | null,
+    amount:     parseFloat(r.amount),
+    description: r.description as string,
+  })));
+});
+
 export { router as adminRouter };

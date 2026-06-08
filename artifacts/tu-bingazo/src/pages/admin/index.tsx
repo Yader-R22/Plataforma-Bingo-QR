@@ -22,6 +22,7 @@ function hasPermission(perms: string[], perm: string): boolean {
 
 const ALL_TABS = [
   { id: "overview",     label: "📊 Resumen",     perm: null },
+  { id: "finance",      label: "💰 Finanzas",    perm: null },
   { id: "users",        label: "👥 Usuarios",    perm: "admin:users" },
   { id: "games",        label: "🎱 Juegos",       perm: "admin:games" },
   { id: "categories",   label: "🗂️ Categorías",  perm: "admin:games" },
@@ -698,6 +699,10 @@ export default function AdminPage() {
   const [creatingUser, setCreatingUser] = useState(false);
   const [pendingWinnersCount, setPendingWinnersCount] = useState(0);
   const [deleteGameConfirm, setDeleteGameConfirm] = useState<number | null>(null);
+  const [financeSummary, setFinanceSummary] = useState<any>(null);
+  const [financeGames, setFinanceGames] = useState<any[]>([]);
+  const [financeTransactions, setFinanceTransactions] = useState<any[]>([]);
+  const [financePeriod, setFinancePeriod] = useState<"today"|"week"|"month"|"all">("all");
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
@@ -775,6 +780,17 @@ export default function AdminPage() {
           setPendingResets(d.pending ?? []);
           setApprovedResets(d.approved ?? []);
         }
+      }
+      if (t === "finance") {
+        const period = financePeriod;
+        const [sR, gR, tR] = await Promise.all([
+          fetch(`${BASE}/api/admin/finance/summary?period=${period}`, { headers: authH() }),
+          fetch(`${BASE}/api/admin/finance/games`, { headers: authH() }),
+          fetch(`${BASE}/api/admin/finance/transactions?limit=100`, { headers: authH() }),
+        ]);
+        if (sR.ok) setFinanceSummary(await sR.json());
+        if (gR.ok) setFinanceGames(await gR.json());
+        if (tR.ok) setFinanceTransactions(await tR.json());
       }
     } catch {}
     setLoading(false);
@@ -985,6 +1001,117 @@ export default function AdminPage() {
       toast.error(d.error || "No se pudo eliminar el juego");
       setDeleteGameConfirm(null);
     }
+  }
+
+  async function loadFinanceWithPeriod(period: "today"|"week"|"month"|"all") {
+    setFinancePeriod(period);
+    setLoading(true);
+    try {
+      const [sR, gR, tR] = await Promise.all([
+        fetch(`${BASE}/api/admin/finance/summary?period=${period}`, { headers: authH() }),
+        fetch(`${BASE}/api/admin/finance/games`, { headers: authH() }),
+        fetch(`${BASE}/api/admin/finance/transactions?limit=100`, { headers: authH() }),
+      ]);
+      if (sR.ok) setFinanceSummary(await sR.json());
+      if (gR.ok) setFinanceGames(await gR.json());
+      if (tR.ok) setFinanceTransactions(await tR.json());
+    } catch {}
+    setLoading(false);
+  }
+
+  function downloadFinancePDF() {
+    const s = financeSummary;
+    const periodLabel: Record<string, string> = { today: "Hoy", week: "Esta semana", month: "Este mes", all: "Todo el tiempo" };
+    const fmt = (v: number) => `Bs ${v.toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const fmtDate = (d: string) => new Date(d).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const typeColor: Record<string, string> = { ingreso: "#16a34a", premio: "#b45309", retiro: "#dc2626" };
+    const typeLabel: Record<string, string> = { ingreso: "Ingreso", premio: "Premio", retiro: "Retiro" };
+    const statusLabel: Record<string, string> = { upcoming: "Próximo", active: "Activo", finished: "Finalizado" };
+    const typeGameLabel: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual" };
+
+    const gamesRows = financeGames.map(g => `
+      <tr>
+        <td>${g.title}</td>
+        <td>${typeGameLabel[g.type] ?? g.type}</td>
+        <td>${statusLabel[g.status] ?? g.status}</td>
+        <td style="text-align:right">${g.cards_sold}</td>
+        <td style="text-align:right;color:#16a34a;font-weight:bold">${fmt(g.revenue)}</td>
+        <td style="text-align:right;color:#b45309">${fmt(g.prizes_paid)}</td>
+        <td style="text-align:right;font-weight:bold;color:${g.net >= 0 ? "#16a34a" : "#dc2626"}">${fmt(g.net)}</td>
+      </tr>`).join("");
+
+    const txRows = financeTransactions.slice(0, 100).map(t => `
+      <tr>
+        <td>${fmtDate(t.date)}</td>
+        <td style="color:${typeColor[t.type]};font-weight:bold">${typeLabel[t.type] ?? t.type}</td>
+        <td>${t.user_name}</td>
+        <td>${t.game_title ?? "—"}</td>
+        <td>${t.description}</td>
+        <td style="text-align:right;font-weight:bold;color:${typeColor[t.type]}">${t.type === "ingreso" ? "+" : "-"}${fmt(t.amount)}</td>
+      </tr>`).join("");
+
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<title>Reporte Financiero — Tu Bingazo</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #1a1a2e; padding: 32px; font-size: 12px; }
+  h1 { font-size: 22px; color: #5b21b6; margin-bottom: 4px; }
+  .subtitle { color: #64748b; font-size: 13px; margin-bottom: 24px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 24px; }
+  .kpi { border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; text-align: center; }
+  .kpi-value { font-size: 18px; font-weight: 900; }
+  .kpi-label { font-size: 10px; color: #64748b; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .kpi-sub { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+  h2 { font-size: 14px; color: #5b21b6; margin: 20px 0 8px; border-bottom: 2px solid #ede9fe; padding-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { background: #5b21b6; color: white; padding: 7px 10px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  td { padding: 6px 10px; border-bottom: 1px solid #f1f5f9; }
+  tr:nth-child(even) td { background: #faf5ff; }
+  .net-positive { color: #16a34a; font-weight: bold; }
+  .net-negative { color: #dc2626; font-weight: bold; }
+  .footer { margin-top: 32px; text-align: center; color: #94a3b8; font-size: 10px; }
+  @media print {
+    body { padding: 16px; }
+    .no-print { display: none; }
+  }
+</style></head><body>
+<h1>💰 Reporte Financiero — Tu Bingazo</h1>
+<p class="subtitle">Período: ${periodLabel[s?.period ?? "all"]} &nbsp;·&nbsp; Generado el ${new Date().toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt(s?.gross_revenue ?? 0)}</div><div class="kpi-label">Ingresos brutos</div><div class="kpi-sub">${s?.cards_sold ?? 0} cartones vendidos</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(s?.prizes_paid ?? 0)}</div><div class="kpi-label">Premios pagados</div><div class="kpi-sub">${s?.prizes_count ?? 0} ganadores</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#dc2626">${fmt(s?.withdrawals_paid ?? 0)}</div><div class="kpi-label">Retiros pagados</div><div class="kpi-sub">${s?.withdrawals_count ?? 0} retiros</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#7c3aed">${fmt(s?.balance_in_circulation ?? 0)}</div><div class="kpi-label">Saldo en circulación</div><div class="kpi-sub">${s?.users_with_balance ?? 0} usuarios con saldo</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#f59e0b">${fmt(s?.pending_withdrawals ?? 0)}</div><div class="kpi-label">Retiros pendientes</div><div class="kpi-sub">${s?.pending_withdrawals_count ?? 0} solicitudes</div></div>
+  <div class="kpi" style="background:${(s?.net_profit ?? 0) >= 0 ? "#f0fdf4" : "#fef2f2"};border-color:${(s?.net_profit ?? 0) >= 0 ? "#86efac" : "#fca5a5"}">
+    <div class="kpi-value" style="color:${(s?.net_profit ?? 0) >= 0 ? "#16a34a" : "#dc2626"}">${fmt(s?.net_profit ?? 0)}</div>
+    <div class="kpi-label">Ganancia neta</div>
+    <div class="kpi-sub">Ingresos − Premios − Retiros</div>
+  </div>
+</div>
+
+<h2>📊 Desglose por Juego</h2>
+<table>
+  <thead><tr><th>Juego</th><th>Tipo</th><th>Estado</th><th style="text-align:right">Cartones</th><th style="text-align:right">Ingresos</th><th style="text-align:right">Premios</th><th style="text-align:right">Ganancia</th></tr></thead>
+  <tbody>${gamesRows || "<tr><td colspan='7' style='text-align:center;color:#94a3b8;padding:16px'>Sin juegos</td></tr>"}</tbody>
+</table>
+
+<h2>📋 Movimientos (últimos ${financeTransactions.length})</h2>
+<table>
+  <thead><tr><th>Fecha</th><th>Tipo</th><th>Usuario</th><th>Juego</th><th>Descripción</th><th style="text-align:right">Monto</th></tr></thead>
+  <tbody>${txRows || "<tr><td colspan='6' style='text-align:center;color:#94a3b8;padding:16px'>Sin movimientos</td></tr>"}</tbody>
+</table>
+
+<div class="footer">Tu Bingazo — Reporte generado automáticamente &nbsp;·&nbsp; Todos los montos en bolivianos (Bs)</div>
+</body></html>`;
+
+    const w = window.open("", "_blank");
+    if (!w) { toast.error("Permite las ventanas emergentes para descargar el PDF"); return; }
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 400);
   }
 
   function updCatDraft(id: number, field: string, value: any) {
@@ -1815,6 +1942,159 @@ export default function AdminPage() {
             )}
           </div>
         )}
+
+        {/* ── FINANCE ─────────────────────────────────── */}
+        {tab === "finance" && !loading && (() => {
+          const s = financeSummary;
+          const fmt = (v: number) => `Bs ${v.toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          const PERIODS = [
+            { id: "today" as const, label: "Hoy" },
+            { id: "week"  as const, label: "7 días" },
+            { id: "month" as const, label: "30 días" },
+            { id: "all"   as const, label: "Todo" },
+          ];
+          const typeLabel: Record<string, string> = { ingreso: "Ingreso", premio: "Premio", retiro: "Retiro" };
+          const typeStyle: Record<string, string> = { ingreso: "#16a34a", premio: "#b45309", retiro: "#dc2626" };
+          const statusLabel: Record<string, string> = { upcoming: "Próximo", active: "Activo", finished: "Finalizado" };
+          const typeGameLabel: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual" };
+
+          return (
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h2 className="font-black text-lg">Finanzas</h2>
+                <button onClick={downloadFinancePDF}
+                  className="px-4 py-2 rounded-xl text-sm font-bold text-white flex items-center gap-2"
+                  style={{ background: "#5b21b6" }}>
+                  ⬇ Descargar PDF
+                </button>
+              </div>
+
+              {/* Period selector */}
+              <div className="flex gap-1.5 flex-wrap">
+                {PERIODS.map(p => (
+                  <button key={p.id} onClick={() => loadFinanceWithPeriod(p.id)}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                    style={{
+                      background: financePeriod === p.id ? "hsl(var(--primary))" : "hsl(var(--muted))",
+                      color: financePeriod === p.id ? "white" : "hsl(var(--foreground))",
+                    }}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* KPI cards */}
+              {s && (
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Ingresos */}
+                  <div className="bg-card border rounded-2xl p-4">
+                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">💰 Ingresos brutos</p>
+                    <p className="text-xl font-black mt-1" style={{ color: "#16a34a" }}>{fmt(s.gross_revenue)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{s.cards_sold} cartones vendidos</p>
+                  </div>
+                  {/* Premios */}
+                  <div className="bg-card border rounded-2xl p-4">
+                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">🏆 Premios pagados</p>
+                    <p className="text-xl font-black mt-1" style={{ color: "#b45309" }}>{fmt(s.prizes_paid)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{s.prizes_count} ganador{s.prizes_count !== 1 ? "es" : ""}</p>
+                  </div>
+                  {/* Retiros pagados */}
+                  <div className="bg-card border rounded-2xl p-4">
+                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">💸 Retiros pagados</p>
+                    <p className="text-xl font-black mt-1" style={{ color: "#dc2626" }}>{fmt(s.withdrawals_paid)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{s.withdrawals_count} retiro{s.withdrawals_count !== 1 ? "s" : ""}</p>
+                  </div>
+                  {/* Retiros pendientes */}
+                  <div className="bg-card border rounded-2xl p-4" style={{ borderColor: s.pending_withdrawals_count > 0 ? "hsl(42 98% 52%)" : undefined }}>
+                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">⏳ Retiros pendientes</p>
+                    <p className="text-xl font-black mt-1" style={{ color: "#f59e0b" }}>{fmt(s.pending_withdrawals)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{s.pending_withdrawals_count} solicitud{s.pending_withdrawals_count !== 1 ? "es" : ""}</p>
+                  </div>
+                  {/* Saldo en circulación */}
+                  <div className="bg-card border rounded-2xl p-4">
+                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">👛 Saldo en circulación</p>
+                    <p className="text-xl font-black mt-1" style={{ color: "#7c3aed" }}>{fmt(s.balance_in_circulation)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{s.users_with_balance} usuarios con saldo</p>
+                  </div>
+                  {/* Ganancia neta */}
+                  <div className="bg-card border-2 rounded-2xl p-4"
+                    style={{ borderColor: s.net_profit >= 0 ? "#86efac" : "#fca5a5", background: s.net_profit >= 0 ? "hsl(142 70% 98%)" : "hsl(0 75% 98%)" }}>
+                    <p className="text-xs font-bold uppercase tracking-wide" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>📈 Ganancia neta</p>
+                    <p className="text-2xl font-black mt-1" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>{fmt(s.net_profit)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Ingresos − Premios − Retiros</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Per-game breakdown */}
+              {financeGames.length > 0 && (
+                <div>
+                  <h3 className="font-bold text-sm mb-2 text-muted-foreground uppercase tracking-wide">Desglose por juego</h3>
+                  <div className="space-y-2">
+                    {financeGames.map(g => (
+                      <div key={g.id} className="bg-card border rounded-xl p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-bold text-sm truncate">{g.title}</p>
+                            <p className="text-xs text-muted-foreground">{typeGameLabel[g.type] ?? g.type} · {statusLabel[g.status] ?? g.status} · {g.cards_sold} cartones</p>
+                          </div>
+                          <span className="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full"
+                            style={{ background: g.net >= 0 ? "hsl(142 70% 45% / 0.12)" : "hsl(0 75% 50% / 0.1)", color: g.net >= 0 ? "#16a34a" : "#dc2626" }}>
+                            {g.net >= 0 ? "+" : ""}{fmt(g.net)}
+                          </span>
+                        </div>
+                        <div className="mt-2 grid grid-cols-3 gap-1 text-xs">
+                          <div className="text-center">
+                            <p className="font-bold" style={{ color: "#16a34a" }}>{fmt(g.revenue)}</p>
+                            <p className="text-muted-foreground">Ingresos</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="font-bold" style={{ color: "#b45309" }}>{fmt(g.prizes_paid)}</p>
+                            <p className="text-muted-foreground">Premios</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="font-bold">{fmt(g.card_price)}</p>
+                            <p className="text-muted-foreground">Precio/cartón</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Transactions */}
+              {financeTransactions.length > 0 && (
+                <div>
+                  <h3 className="font-bold text-sm mb-2 text-muted-foreground uppercase tracking-wide">Movimientos recientes ({financeTransactions.length})</h3>
+                  <div className="space-y-1.5">
+                    {financeTransactions.map((t, i) => (
+                      <div key={i} className="bg-card border rounded-xl px-3 py-2.5 flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-black px-2 py-0.5 rounded-full text-white"
+                              style={{ background: typeStyle[t.type] ?? "#64748b" }}>
+                              {typeLabel[t.type] ?? t.type}
+                            </span>
+                            <p className="text-xs font-bold truncate">{t.user_name}</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.description}{t.game_title ? ` · ${t.game_title}` : ""}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(t.date).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+                        </div>
+                        <p className="shrink-0 font-black text-sm" style={{ color: typeStyle[t.type] ?? "#64748b" }}>
+                          {t.type === "ingreso" ? "+" : "−"}{fmt(t.amount)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!s && <p className="text-center text-muted-foreground py-8">Sin datos financieros</p>}
+            </div>
+          );
+        })()}
 
         {/* ── PASSWORD RESETS ────────────────────────── */}
         {tab === "resets" && !loading && (
