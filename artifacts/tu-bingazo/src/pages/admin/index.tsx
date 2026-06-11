@@ -716,6 +716,8 @@ export default function AdminPage() {
   const [partnerPaymentNotes, setPartnerPaymentNotes] = useState("");
   const [savingPartnerPayment, setSavingPartnerPayment] = useState(false);
   const [showPartnerHistory, setShowPartnerHistory] = useState(false);
+  const [ppFrom, setPpFrom] = useState("");
+  const [ppTo, setPpTo] = useState("");
   const [expenses, setExpenses] = useState<any[]>([]);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
@@ -1517,17 +1519,6 @@ ${signaturesSection}` : "";
         <td style="text-align:right;font-weight:bold;color:${g.net >= 0 ? "#16a34a" : "#dc2626"}">${fmt(g.net)}</td>
       </tr>`).join("");
 
-    // ── Transactions table ────────────────────────────────────────
-    const txRows = financeTransactions.slice(0, 100).map(t => `
-      <tr>
-        <td>${fmtDate(t.date)}</td>
-        <td style="color:${typeColor[t.type]};font-weight:bold">${typeLabel[t.type] ?? t.type}</td>
-        <td>${t.user_name}</td>
-        <td>${t.game_title ?? "—"}</td>
-        <td>${t.description}</td>
-        <td style="text-align:right;font-weight:bold;color:${typeColor[t.type]}">${t.type === "ingreso" ? "+" : "−"}${fmt(t.amount)}</td>
-      </tr>`).join("");
-
     // ── Financial health summary ──────────────────────────────────
     const totalObligations = (s?.balance_in_circulation ?? 0) + (s?.pending_withdrawals ?? 0) + committedPrizes;
     const grossRev = s?.gross_revenue ?? 0;
@@ -1667,12 +1658,6 @@ ${partnersSection}
   <tbody>${gamesRows || "<tr><td colspan='7' style='text-align:center;color:#94a3b8;padding:16px'>Sin juegos en este período</td></tr>"}</tbody>
 </table>
 
-<h2>📋 Movimientos (últimos ${financeTransactions.length})</h2>
-<table>
-  <thead><tr><th>Fecha</th><th>Tipo</th><th>Usuario</th><th>Juego</th><th>Descripción</th><th style="text-align:right">Monto</th></tr></thead>
-  <tbody>${txRows || "<tr><td colspan='6' style='text-align:center;color:#94a3b8;padding:16px'>Sin movimientos en este período</td></tr>"}</tbody>
-</table>
-
 ${summarySection}
 
 <div class="footer">
@@ -1687,6 +1672,85 @@ ${summarySection}
     w.document.close();
     w.focus();
     setTimeout(() => w.print(), 400);
+  }
+
+  function downloadPartnerPaymentPDF(pp: any) {
+    const fmt = (v: number) => `Bs ${Number(v).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const netProfit = Number(pp.net_profit ?? 0);
+    const snapshot: any[] = Array.isArray(pp.partners_snapshot) ? pp.partners_snapshot : [];
+    const snapshotRows = snapshot.map(ps => `
+      <tr>
+        <td>${ps.name}</td>
+        <td>${ps.identifier ?? "—"}</td>
+        <td style="text-align:right">${ps.share_percentage}%</td>
+        <td style="text-align:right;font-weight:bold;color:#5b21b6">${fmt(ps.amount)}</td>
+      </tr>`).join("");
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<title>Pago a Socios — ${pp.period_label}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #1a1a2e; padding: 32px; font-size: 12px; }
+  h1 { font-size: 20px; color: #5b21b6; margin-bottom: 4px; }
+  .subtitle { color: #64748b; font-size: 12px; margin-bottom: 24px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 24px; }
+  .kpi { border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; text-align: center; }
+  .kpi-value { font-size: 17px; font-weight: 900; }
+  .kpi-label { font-size: 10px; color: #64748b; margin-top: 4px; text-transform: uppercase; }
+  h2 { font-size: 13px; color: #5b21b6; margin: 20px 0 8px; border-bottom: 2px solid #ede9fe; padding-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { background: #5b21b6; color: white; padding: 7px 10px; text-align: left; font-size: 10px; text-transform: uppercase; }
+  td { padding: 6px 10px; border-bottom: 1px solid #f1f5f9; }
+  tr:nth-child(even) td { background: #faf5ff; }
+  .footer { margin-top: 28px; padding-top: 14px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 10px; }
+  @media print { body { padding: 16px; } }
+</style></head><body>
+<h1>💜 Pago a Socios — ${pp.period_label}</h1>
+<p class="subtitle">Archivado el ${new Date(pp.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric" })}</p>
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt(pp.gross_revenue)}</div><div class="kpi-label">Ingresos brutos</div></div>
+  <div class="kpi" style="background:${netProfit >= 0 ? "#f0fdf4" : "#fef2f2"};border-color:${netProfit >= 0 ? "#86efac" : "#fca5a5"}">
+    <div class="kpi-value" style="color:${netProfit >= 0 ? "#16a34a" : "#dc2626"}">${fmt(netProfit)}</div>
+    <div class="kpi-label">Ganancia neta</div>
+  </div>
+  <div class="kpi" style="border-color:#c4b5fd"><div class="kpi-value" style="color:#5b21b6">${fmt(pp.total_paid)}</div><div class="kpi-label">Total distribuido</div></div>
+</div>
+<h2>👥 Detalle por socio</h2>
+<table>
+  <thead><tr><th>Socio</th><th>Identificador</th><th style="text-align:right">Porcentaje</th><th style="text-align:right">Monto</th></tr></thead>
+  <tbody>${snapshotRows || "<tr><td colspan='4' style='text-align:center;color:#94a3b8;padding:16px'>Sin socios registrados</td></tr>"}</tbody>
+</table>
+${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;border-radius:8px;border-left:3px solid #7c3aed;font-size:11px;color:#374151"><b>Nota:</b> ${pp.admin_notes}</p>` : ""}
+<div class="footer">
+  Tu Bingazo &nbsp;·&nbsp; Documento de uso interno &nbsp;·&nbsp; Todos los montos en bolivianos (Bs)
+</div>
+</body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) { toast.error("Permite las ventanas emergentes para descargar el PDF"); return; }
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 400);
+  }
+
+  function sharePartnerPaymentWhatsApp(pp: any) {
+    const fmt = (v: number) => `Bs ${Number(v).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const snapshot: any[] = Array.isArray(pp.partners_snapshot) ? pp.partners_snapshot : [];
+    const lines = [
+      `💜 *Pago a Socios — ${pp.period_label}*`,
+      `📅 ${new Date(pp.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric" })}`,
+      ``,
+      `📊 *Resumen del período:*`,
+      `  • Ingresos brutos: ${fmt(pp.gross_revenue)}`,
+      `  • Ganancia neta: ${fmt(pp.net_profit)}`,
+      `  • Total distribuido: *${fmt(pp.total_paid)}*`,
+      ``,
+      `👥 *Detalle por socio:*`,
+      ...snapshot.map(ps => `  • ${ps.name} (${ps.share_percentage}%): *${fmt(ps.amount)}*`),
+      pp.admin_notes ? `\n📝 ${pp.admin_notes}` : "",
+      ``,
+      `_Tu Bingazo — Plataforma de Bingo Bolivia_ 🇧🇴`,
+    ].filter(l => l !== undefined).join("\n");
+    window.open(`https://wa.me/?text=${encodeURIComponent(lines)}`, "_blank");
   }
 
   function updCatDraft(id: number, field: string, value: any) {
@@ -3566,45 +3630,95 @@ ${summarySection}
                     <span>{showPartnerHistory ? "▲" : "▼"}</span>
                   </button>
 
-                  {showPartnerHistory && (
-                    <div className="space-y-2 mt-2">
-                      {partnerPayments.map(pp => (
-                        <div key={pp.id} className="bg-card border rounded-xl p-3 space-y-2">
-                          <div className="flex items-start justify-between gap-2">
+                  {showPartnerHistory && (() => {
+                    const filtered = partnerPayments.filter(pp => {
+                      const d = new Date(pp.created_at);
+                      if (ppFrom && d < new Date(ppFrom)) return false;
+                      if (ppTo) { const to = new Date(ppTo); to.setHours(23,59,59,999); if (d > to) return false; }
+                      return true;
+                    });
+                    return (
+                      <div className="space-y-2 mt-2">
+                        {/* Date range filter */}
+                        <div className="rounded-xl p-3 space-y-2" style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
+                          <p className="text-xs font-bold text-muted-foreground">🔍 Filtrar por rango de fechas</p>
+                          <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <p className="font-bold text-sm">{pp.period_label}</p>
-                              <p className="text-xs text-muted-foreground">{new Date(pp.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric" })}</p>
+                              <p className="text-[11px] text-muted-foreground mb-1">Desde</p>
+                              <input type="date" value={ppFrom} onChange={e => setPpFrom(e.target.value)}
+                                className="w-full border rounded-lg px-2 py-1.5 text-xs bg-background" />
                             </div>
-                            <div className="text-right">
-                              <p className="font-black text-sm" style={{ color: "#5b21b6" }}>{fmt(pp.total_paid)}</p>
-                              <p className="text-xs text-muted-foreground">distribuido</p>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-1 text-xs">
-                            <div className="rounded-lg px-2 py-1" style={{ background: "hsl(142 70% 45% / 0.08)" }}>
-                              <p className="text-muted-foreground">Ingresos brutos</p>
-                              <p className="font-bold" style={{ color: "#16a34a" }}>{fmt(pp.gross_revenue)}</p>
-                            </div>
-                            <div className="rounded-lg px-2 py-1" style={{ background: "hsl(var(--primary)/0.06)" }}>
-                              <p className="text-muted-foreground">Ganancia neta</p>
-                              <p className="font-bold" style={{ color: "#5b21b6" }}>{fmt(pp.net_profit)}</p>
+                            <div>
+                              <p className="text-[11px] text-muted-foreground mb-1">Hasta</p>
+                              <input type="date" value={ppTo} onChange={e => setPpTo(e.target.value)}
+                                className="w-full border rounded-lg px-2 py-1.5 text-xs bg-background" />
                             </div>
                           </div>
-                          {Array.isArray(pp.partners_snapshot) && pp.partners_snapshot.length > 0 && (
-                            <div className="space-y-1">
-                              {(pp.partners_snapshot as any[]).map((ps: any, i: number) => (
-                                <div key={i} className="flex justify-between text-xs">
-                                  <span className="text-muted-foreground">{ps.name} ({ps.share_percentage}%)</span>
-                                  <span className="font-bold" style={{ color: "#7c3aed" }}>{fmt(ps.amount)}</span>
-                                </div>
-                              ))}
+                          {(ppFrom || ppTo) && (
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs text-muted-foreground">{filtered.length} registro{filtered.length !== 1 ? "s" : ""} encontrado{filtered.length !== 1 ? "s" : ""}</p>
+                              <button onClick={() => { setPpFrom(""); setPpTo(""); }} className="text-xs font-bold" style={{ color: "hsl(var(--primary))" }}>
+                                Limpiar filtro
+                              </button>
                             </div>
                           )}
-                          {pp.admin_notes && <p className="text-xs text-muted-foreground italic border-t pt-1">{pp.admin_notes}</p>}
                         </div>
-                      ))}
-                    </div>
-                  )}
+
+                        {filtered.length === 0 && (
+                          <p className="text-center text-muted-foreground text-sm py-6">Sin registros en ese rango de fechas</p>
+                        )}
+
+                        {filtered.map(pp => (
+                          <div key={pp.id} className="bg-card border rounded-xl p-3 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="font-bold text-sm">{pp.period_label}</p>
+                                <p className="text-xs text-muted-foreground">{new Date(pp.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric" })}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-black text-sm" style={{ color: "#5b21b6" }}>{fmt(pp.total_paid)}</p>
+                                <p className="text-xs text-muted-foreground">distribuido</p>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-1 text-xs">
+                              <div className="rounded-lg px-2 py-1" style={{ background: "hsl(142 70% 45% / 0.08)" }}>
+                                <p className="text-muted-foreground">Ingresos brutos</p>
+                                <p className="font-bold" style={{ color: "#16a34a" }}>{fmt(pp.gross_revenue)}</p>
+                              </div>
+                              <div className="rounded-lg px-2 py-1" style={{ background: pp.net_profit < 0 ? "hsl(0 75% 52% / 0.08)" : "hsl(var(--primary)/0.06)" }}>
+                                <p className="text-muted-foreground">Ganancia neta</p>
+                                <p className="font-bold" style={{ color: pp.net_profit < 0 ? "#dc2626" : "#5b21b6" }}>{fmt(pp.net_profit)}</p>
+                              </div>
+                            </div>
+                            {Array.isArray(pp.partners_snapshot) && pp.partners_snapshot.length > 0 && (
+                              <div className="space-y-1">
+                                {(pp.partners_snapshot as any[]).map((ps: any, i: number) => (
+                                  <div key={i} className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">{ps.name} ({ps.share_percentage}%)</span>
+                                    <span className="font-bold" style={{ color: "#7c3aed" }}>{fmt(ps.amount)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {pp.admin_notes && <p className="text-xs text-muted-foreground italic border-t pt-1">{pp.admin_notes}</p>}
+                            {/* Action buttons */}
+                            <div className="flex gap-2 pt-1 border-t">
+                              <button onClick={() => downloadPartnerPaymentPDF(pp)}
+                                className="flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all"
+                                style={{ borderColor: "hsl(var(--primary)/0.3)", color: "hsl(var(--primary))", background: "hsl(var(--primary)/0.06)" }}>
+                                ⬇ Descargar PDF
+                              </button>
+                              <button onClick={() => sharePartnerPaymentWhatsApp(pp)}
+                                className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white transition-all"
+                                style={{ background: "#25d366" }}>
+                                📲 Compartir WhatsApp
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
