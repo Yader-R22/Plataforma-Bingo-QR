@@ -1676,54 +1676,136 @@ ${summarySection}
 
   function downloadPartnerPaymentPDF(pp: any) {
     const fmt = (v: number) => `Bs ${Number(v).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    const netProfit = Number(pp.net_profit ?? 0);
+    const netProfit  = Number(pp.net_profit   ?? 0);
+    const grossRev   = Number(pp.gross_revenue ?? 0);
+    const totalPaid  = Number(pp.total_paid    ?? 0);
     const snapshot: any[] = Array.isArray(pp.partners_snapshot) ? pp.partners_snapshot : [];
-    const snapshotRows = snapshot.map(ps => `
-      <tr>
-        <td>${ps.name}</td>
-        <td>${ps.identifier ?? "—"}</td>
-        <td style="text-align:right">${ps.share_percentage}%</td>
-        <td style="text-align:right;font-weight:bold;color:#5b21b6">${fmt(ps.amount)}</td>
-      </tr>`).join("");
+    const marginPct  = grossRev > 0 ? ((netProfit / grossRev) * 100).toFixed(1) : "N/A";
+    const isDeficit  = totalPaid <= 0;
+    const archiveDate = new Date(pp.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+    // ── Partners distribution table ───────────────────────────────
+    const partnerRows = snapshot.map((p: any) => `
+    <tr>
+      <td><b>${p.name}</b></td>
+      <td style="color:#64748b">${p.identifier || "—"}</td>
+      <td style="text-align:right;font-weight:bold;color:#7c3aed">${p.share_percentage}%</td>
+      <td style="text-align:right;color:#64748b">${fmt(totalPaid)}</td>
+      <td style="text-align:right;font-weight:900;color:#5b21b6">${fmt(p.amount)}</td>
+    </tr>`).join("");
+
+    const partnerTableSection = snapshot.length > 0 ? `
+<h2>🤝 Distribución a Socios</h2>
+<p style="font-size:10px;color:#64748b;margin-bottom:8px">
+  Calculado sobre el monto distribuible de <b style="color:#5b21b6">${fmt(totalPaid)}</b>.
+  Cada socio recibe el porcentaje pactado sobre dicha base.
+</p>
+<table>
+  <thead><tr><th>Socio</th><th>CI / Identificador</th><th style="text-align:right">Porcentaje</th><th style="text-align:right">Base de cálculo</th><th style="text-align:right">Monto cobrado</th></tr></thead>
+  <tbody>
+    ${partnerRows}
+    <tr style="background:#ede9fe">
+      <td colspan="4" style="text-align:right;font-weight:900">Total distribuido</td>
+      <td style="text-align:right;font-weight:900;color:#5b21b6">${fmt(totalPaid)}</td>
+    </tr>
+  </tbody>
+</table>` : "";
+
+    // ── Signatures section ────────────────────────────────────────
+    const signaturesSection = snapshot.length > 0 ? `
+<div style="margin-top:32px;page-break-inside:avoid">
+  <h2 style="font-size:14px;color:#5b21b6;margin-bottom:12px;border-bottom:2px solid #ede9fe;padding-bottom:4px">✍️ Constancia de Pago y Firmas</h2>
+  <p style="font-size:10px;color:#64748b;margin-bottom:20px;line-height:1.6">
+    El presente documento certifica que los montos detallados en la sección de distribución han sido calculados
+    conforme a los porcentajes acordados entre las partes y a la información financiera del período indicado.
+    La firma de cada socio en el espacio correspondiente constituye constancia de recepción conforme del monto
+    indicado. La firma del administrador en el espacio "Entregué conforme" certifica la veracidad de la información
+    y la entrega del pago.
+  </p>
+  <div style="display:grid;grid-template-columns:repeat(${snapshot.length + 1},1fr);gap:16px">
+    ${snapshot.map((p: any) => `
+    <div style="border:2px solid #ede9fe;border-radius:10px;padding:14px;background:#faf5ff">
+      <p style="font-size:9px;font-weight:900;color:#5b21b6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Recibí conforme — Socio</p>
+      <p style="font-size:12px;font-weight:700;color:#1a1a2e">${p.name}</p>
+      <p style="font-size:10px;color:#64748b">${p.identifier ? "CI: " + p.identifier : ""}</p>
+      <p style="font-size:14px;font-weight:900;color:#5b21b6;margin:6px 0">${fmt(p.amount)}</p>
+      <p style="font-size:9px;color:#94a3b8">${p.share_percentage}% del monto distribuible</p>
+      <p style="font-size:9px;color:#94a3b8;margin-top:4px;font-style:italic">Declaro haber recibido el monto indicado a mi entera conformidad.</p>
+      <div style="margin-top:28px;border-top:1px solid #1a1a2e;padding-top:6px">
+        <p style="font-size:9px;color:#64748b">Firma: ___________________________ Fecha: ___/___/______</p>
+      </div>
+      <div style="margin-top:12px;border-top:1px solid #ede9fe;padding-top:4px">
+        <p style="font-size:9px;color:#94a3b8">Aclaración: ___________________________</p>
+      </div>
+    </div>`).join("")}
+    <div style="border:2px solid #5b21b6;border-radius:10px;padding:14px;background:white">
+      <p style="font-size:9px;font-weight:900;color:#5b21b6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Entregué conforme — Administrador</p>
+      <p style="font-size:12px;font-weight:700;color:#1a1a2e">Tu Bingazo</p>
+      <p style="font-size:10px;color:#64748b">Total: <b>${fmt(totalPaid)}</b></p>
+      <p style="font-size:10px;color:#64748b">Período: ${pp.period_label}</p>
+      <p style="font-size:9px;color:#94a3b8;margin-top:4px;font-style:italic">Certifico haber entregado los montos indicados conforme a los acuerdos entre las partes.</p>
+      <div style="margin-top:28px;border-top:1px solid #1a1a2e;padding-top:6px">
+        <p style="font-size:9px;color:#64748b">Firma: ___________________________ Fecha: ___/___/______</p>
+      </div>
+      <div style="margin-top:12px;border-top:1px solid #ede9fe;padding-top:4px">
+        <p style="font-size:9px;color:#94a3b8">Aclaración: ___________________________</p>
+      </div>
+    </div>
+  </div>
+</div>` : "";
+
     const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-<title>Pago a Socios — ${pp.period_label}</title>
+<title>Reporte Financiero — Tu Bingazo</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: Arial, Helvetica, sans-serif; color: #1a1a2e; padding: 32px; font-size: 12px; }
-  h1 { font-size: 20px; color: #5b21b6; margin-bottom: 4px; }
-  .subtitle { color: #64748b; font-size: 12px; margin-bottom: 24px; }
+  h1 { font-size: 22px; color: #5b21b6; margin-bottom: 4px; }
+  .subtitle { color: #64748b; font-size: 13px; margin-bottom: 24px; }
   .kpi-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 24px; }
-  .kpi { border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; text-align: center; }
-  .kpi-value { font-size: 17px; font-weight: 900; }
-  .kpi-label { font-size: 10px; color: #64748b; margin-top: 4px; text-transform: uppercase; }
-  h2 { font-size: 13px; color: #5b21b6; margin: 20px 0 8px; border-bottom: 2px solid #ede9fe; padding-bottom: 4px; }
-  table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th { background: #5b21b6; color: white; padding: 7px 10px; text-align: left; font-size: 10px; text-transform: uppercase; }
+  .kpi { border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; text-align: center; }
+  .kpi-value { font-size: 18px; font-weight: 900; }
+  .kpi-label { font-size: 10px; color: #64748b; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .kpi-sub { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+  h2 { font-size: 14px; color: #5b21b6; margin: 24px 0 8px; border-bottom: 2px solid #ede9fe; padding-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 8px; }
+  th { background: #5b21b6; color: white; padding: 7px 10px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
   td { padding: 6px 10px; border-bottom: 1px solid #f1f5f9; }
   tr:nth-child(even) td { background: #faf5ff; }
-  .footer { margin-top: 28px; padding-top: 14px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 10px; }
-  @media print { body { padding: 16px; } }
+  .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 10px; }
+  @media print { body { padding: 16px; } .no-print { display: none; } }
 </style></head><body>
-<h1>💜 Pago a Socios — ${pp.period_label}</h1>
-<p class="subtitle">Archivado el ${new Date(pp.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric" })}</p>
+
+<h1>💰 Reporte Financiero — Tu Bingazo</h1>
+<p class="subtitle">Período: <b>${pp.period_label}</b> &nbsp;·&nbsp; Archivado el ${archiveDate} &nbsp;·&nbsp; Generado el ${new Date().toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+
 <div class="kpi-grid">
-  <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt(pp.gross_revenue)}</div><div class="kpi-label">Ingresos brutos</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt(grossRev)}</div><div class="kpi-label">Ingresos brutos</div><div class="kpi-sub">Del período archivado</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#dc2626">${fmt(Number(pp.prizes_paid ?? 0))}</div><div class="kpi-label">Premios pagados</div><div class="kpi-sub">&nbsp;</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#dc2626">${fmt(Number(pp.withdrawals_paid ?? 0))}</div><div class="kpi-label">Retiros pagados</div><div class="kpi-sub">&nbsp;</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#dc2626">${fmt(Number(pp.total_expenses ?? 0))}</div><div class="kpi-label">Gastos operativos</div><div class="kpi-sub">&nbsp;</div></div>
   <div class="kpi" style="background:${netProfit >= 0 ? "#f0fdf4" : "#fef2f2"};border-color:${netProfit >= 0 ? "#86efac" : "#fca5a5"}">
     <div class="kpi-value" style="color:${netProfit >= 0 ? "#16a34a" : "#dc2626"}">${fmt(netProfit)}</div>
     <div class="kpi-label">Ganancia neta</div>
+    <div class="kpi-sub">Margen: ${marginPct}${grossRev > 0 ? "%" : ""}</div>
   </div>
-  <div class="kpi" style="border-color:#c4b5fd"><div class="kpi-value" style="color:#5b21b6">${fmt(pp.total_paid)}</div><div class="kpi-label">Total distribuido</div></div>
+  <div class="kpi" style="border-color:#c4b5fd">
+    <div class="kpi-value" style="color:#5b21b6">${fmt(totalPaid)}</div>
+    <div class="kpi-label">Total distribuido</div>
+    <div class="kpi-sub">Pagado a socios</div>
+  </div>
 </div>
-<h2>👥 Detalle por socio</h2>
-<table>
-  <thead><tr><th>Socio</th><th>Identificador</th><th style="text-align:right">Porcentaje</th><th style="text-align:right">Monto</th></tr></thead>
-  <tbody>${snapshotRows || "<tr><td colspan='4' style='text-align:center;color:#94a3b8;padding:16px'>Sin socios registrados</td></tr>"}</tbody>
-</table>
-${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;border-radius:8px;border-left:3px solid #7c3aed;font-size:11px;color:#374151"><b>Nota:</b> ${pp.admin_notes}</p>` : ""}
+
+${partnerTableSection}
+${signaturesSection}
+
+${pp.admin_notes ? `<div style="margin-top:20px;padding:12px;background:#f8f7ff;border-radius:8px;border-left:4px solid #7c3aed;font-size:11px;color:#374151"><b>Nota del administrador:</b> ${pp.admin_notes}</div>` : ""}
+
 <div class="footer">
-  Tu Bingazo &nbsp;·&nbsp; Documento de uso interno &nbsp;·&nbsp; Todos los montos en bolivianos (Bs)
+  Tu Bingazo &nbsp;·&nbsp; Reporte generado automáticamente &nbsp;·&nbsp; Todos los montos en bolivianos (Bs)<br>
+  Este documento es de uso interno. La información contenida es confidencial.
 </div>
 </body></html>`;
+
     const w = window.open("", "_blank");
     if (!w) { toast.error("Permite las ventanas emergentes para descargar el PDF"); return; }
     w.document.write(html);
