@@ -28,28 +28,9 @@ export const partnerPaymentsTable = pgTable("partner_payments", {
   netProfit: numeric("net_profit", { precision: 10, scale: 2 }).notNull(),
   totalPaid: numeric("total_paid", { precision: 10, scale: 2 }).notNull(),
   partnersSnapshot: jsonb("partners_snapshot")
-    .$type<Array<{ partner_id: number; name: string; identifier?: string; share_percentage: number; amount: number }>>()
+    .$type<Array<{ partner_id: number; name: string; share_percentage: number; amount: number }>>()
     .notNull()
     .default([]),
-  financeSnapshot: jsonb("finance_snapshot")
-    .$type<{
-      period: string;
-      prizes_paid: number;
-      prizes_count: number;
-      withdrawals_paid: number;
-      withdrawals_count: number;
-      balance_in_circulation: number;
-      users_with_balance: number;
-      pending_withdrawals: number;
-      pending_withdrawals_count: number;
-      cards_sold: number;
-      total_expenses: number;
-      committed_prizes: number;
-      distributable_profit: number;
-      expenses_detail: any[];
-      committed_prizes_detail: any[];
-      games: any[];
-    } | null>(),
   adminNotes: text("admin_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

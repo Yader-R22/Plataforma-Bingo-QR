@@ -988,14 +988,13 @@ router.get("/partners/payments", async (_req: AuthRequest, res) => {
     net_profit:          parseFloat(String(r.netProfit)),
     total_paid:          parseFloat(String(r.totalPaid)),
     partners_snapshot:   r.partnersSnapshot,
-    finance_snapshot:    r.financeSnapshot,
     admin_notes:         r.adminNotes,
     created_at:          r.createdAt,
   })));
 });
 
 router.post("/partners/payments", async (req: AuthRequest, res) => {
-  const { periodLabel, periodFrom, periodTo, grossRevenue, netProfit, totalPaid, partnersSnapshot, adminNotes, financeSnapshot } = req.body;
+  const { periodLabel, periodFrom, periodTo, grossRevenue, netProfit, totalPaid, partnersSnapshot, adminNotes } = req.body;
   if (!periodLabel || !periodFrom || !periodTo || grossRevenue == null || netProfit == null || totalPaid == null) {
     res.status(400).json({ error: "Campos requeridos: periodLabel, periodFrom, periodTo, grossRevenue, netProfit, totalPaid" }); return;
   }
@@ -1007,7 +1006,6 @@ router.post("/partners/payments", async (req: AuthRequest, res) => {
     netProfit:        String(parseFloat(String(netProfit))),
     totalPaid:        String(parseFloat(String(totalPaid))),
     partnersSnapshot: Array.isArray(partnersSnapshot) ? partnersSnapshot : [],
-    financeSnapshot:  financeSnapshot && typeof financeSnapshot === "object" ? financeSnapshot : null,
     adminNotes:       adminNotes ? String(adminNotes).trim() : null,
   }).returning();
   res.status(201).json(row);
