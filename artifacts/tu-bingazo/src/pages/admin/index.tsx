@@ -1667,6 +1667,12 @@ ${partnersSection}
   <tbody>${gamesRows || "<tr><td colspan='7' style='text-align:center;color:#94a3b8;padding:16px'>Sin juegos en este período</td></tr>"}</tbody>
 </table>
 
+<h2>📋 Movimientos (últimos ${financeTransactions.length})</h2>
+<table>
+  <thead><tr><th>Fecha</th><th>Tipo</th><th>Usuario</th><th>Juego</th><th>Descripción</th><th style="text-align:right">Monto</th></tr></thead>
+  <tbody>${txRows || "<tr><td colspan='6' style='text-align:center;color:#94a3b8;padding:16px'>Sin movimientos en este período</td></tr>"}</tbody>
+</table>
+
 ${summarySection}
 
 <div class="footer">
@@ -1681,62 +1687,6 @@ ${summarySection}
     w.document.close();
     w.focus();
     setTimeout(() => w.print(), 400);
-  }
-
-  function printPartnerPayment(pp: any) {
-    const partnersRows = (pp.partners_snapshot as any[] ?? []).map((ps: any) =>
-      `<tr><td>${ps.name}</td><td style="text-align:center">${ps.share_percentage}%</td><td style="text-align:right;font-weight:900;color:#5b21b6">Bs ${parseFloat(ps.amount).toFixed(2)}</td></tr>`
-    ).join("");
-    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Pago de Dividendos — Tu Bingazo</title>
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:Arial,Helvetica,sans-serif;color:#1a1a2e;padding:32px;font-size:12px}
-  h1{font-size:20px;color:#5b21b6;margin-bottom:4px}
-  .sub{color:#64748b;font-size:12px;margin-bottom:24px}
-  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
-  .kpi{border:1px solid #e2e8f0;border-radius:10px;padding:14px;text-align:center}
-  .kv{font-size:18px;font-weight:900}
-  .kl{font-size:10px;color:#64748b;margin-top:4px;text-transform:uppercase;letter-spacing:.05em}
-  h2{font-size:13px;color:#5b21b6;margin:20px 0 8px;border-bottom:2px solid #ede9fe;padding-bottom:4px}
-  table{width:100%;border-collapse:collapse;font-size:11px}
-  th{background:#5b21b6;color:#fff;padding:7px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em}
-  td{padding:7px 10px;border-bottom:1px solid #f1f5f9}
-  tr:nth-child(even) td{background:#faf5ff}
-  .footer{margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:10px}
-  @media print{body{padding:16px}}
-</style></head><body>
-<h1>💰 Pago de Dividendos — Tu Bingazo</h1>
-<p class="sub">Período: <b>${pp.period_label}</b> &nbsp;·&nbsp; Fecha: ${new Date(pp.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric" })} &nbsp;·&nbsp; Generado el ${new Date().toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
-<div class="grid">
-  <div class="kpi"><div class="kv" style="color:#16a34a">Bs ${parseFloat(pp.gross_revenue).toFixed(2)}</div><div class="kl">Ingresos brutos</div></div>
-  <div class="kpi"><div class="kv" style="color:#7c3aed">Bs ${parseFloat(pp.net_profit).toFixed(2)}</div><div class="kl">Ganancia neta</div></div>
-  <div class="kpi" style="background:#faf5ff;border-color:#c4b5fd"><div class="kv" style="color:#5b21b6">Bs ${parseFloat(pp.total_paid).toFixed(2)}</div><div class="kl">Total distribuido</div></div>
-</div>
-<h2>🤝 Distribución por Socio</h2>
-<table>
-  <thead><tr><th>Socio</th><th style="text-align:center">Porcentaje</th><th style="text-align:right">Monto</th></tr></thead>
-  <tbody>${partnersRows || "<tr><td colspan='3' style='text-align:center;color:#94a3b8;padding:16px'>Sin socios registrados</td></tr>"}</tbody>
-</table>
-${pp.admin_notes ? `<h2>📝 Notas</h2><p style="font-size:12px;color:#475569;line-height:1.6">${pp.admin_notes}</p>` : ""}
-<div class="footer">
-  Tu Bingazo &nbsp;·&nbsp; Comprobante de pago de dividendos &nbsp;·&nbsp; Todos los montos en bolivianos (Bs)<br>
-  Este documento es de uso interno. La información contenida es confidencial.
-</div>
-</body></html>`;
-    const w = window.open("", "_blank");
-    if (!w) { toast.error("Permite las ventanas emergentes para descargar el PDF"); return; }
-    w.document.write(html);
-    w.document.close();
-    w.focus();
-    setTimeout(() => w.print(), 400);
-  }
-
-  function sharePartnerPaymentWhatsApp(pp: any) {
-    const partners = (pp.partners_snapshot as any[] ?? [])
-      .map((ps: any) => `  • ${ps.name} (${ps.share_percentage}%): Bs ${parseFloat(ps.amount).toFixed(2)}`)
-      .join("\n");
-    const text = `💰 *Pago de Dividendos — Tu Bingazo*\n\n📅 Período: ${pp.period_label}\n📆 Fecha: ${new Date(pp.created_at).toLocaleDateString("es-BO")}\n\n📊 Resumen:\n  • Ingresos brutos: Bs ${parseFloat(pp.gross_revenue).toFixed(2)}\n  • Ganancia neta: Bs ${parseFloat(pp.net_profit).toFixed(2)}\n  • *Total distribuido: Bs ${parseFloat(pp.total_paid).toFixed(2)}*\n\n🤝 Distribución:\n${partners}${pp.admin_notes ? `\n\n📝 ${pp.admin_notes}` : ""}`;
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
   }
 
   function updCatDraft(id: number, field: string, value: any) {
@@ -3651,19 +3601,6 @@ ${pp.admin_notes ? `<h2>📝 Notas</h2><p style="font-size:12px;color:#475569;li
                             </div>
                           )}
                           {pp.admin_notes && <p className="text-xs text-muted-foreground italic border-t pt-1">{pp.admin_notes}</p>}
-                          <div className="flex gap-2 pt-1 border-t" style={{ borderColor: "hsl(var(--border))" }}>
-                            <button onClick={() => printPartnerPayment(pp)}
-                              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs font-bold border transition-all"
-                              style={{ borderColor: "hsl(var(--primary)/0.3)", color: "hsl(var(--primary))", background: "hsl(var(--primary)/0.05)" }}>
-                              📄 Descargar PDF
-                            </button>
-                            <button onClick={() => sharePartnerPaymentWhatsApp(pp)}
-                              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs font-bold border transition-all"
-                              style={{ borderColor: "#16a34a44", color: "#16a34a", background: "#16a34a0d" }}>
-                              <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 13, height: 13 }}><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
-                              Compartir WhatsApp
-                            </button>
-                          </div>
                         </div>
                       ))}
                     </div>
