@@ -320,7 +320,14 @@ export default function GameDetailPage() {
       <AppLayout showBack title={game.title}>
         <div className="max-w-xl mx-auto">
           {/* Hero banner */}
-          <div className="relative overflow-hidden stars-bg" style={{ background: cfg.gradient }}>
+          {(() => {
+            const coverImg = (game as any).cover_image_url as string | null | undefined;
+            const heroStyle = coverImg
+              ? { backgroundImage: `url(${coverImg})`, backgroundSize: "cover", backgroundPosition: "center" }
+              : { background: cfg.gradient };
+            return (
+          <div className="relative overflow-hidden stars-bg" style={heroStyle}>
+            {coverImg && <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.45)" }} />}
             <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full opacity-15" style={{ background: "rgba(255,255,255,0.5)" }} />
             <div className="relative z-10 px-5 py-6">
               <div className="flex items-start justify-between">
@@ -354,6 +361,8 @@ export default function GameDetailPage() {
               </div>
             </div>
           </div>
+          );
+          })()}
 
           <div className="px-4 py-4 space-y-4">
             {/* Details grid */}
