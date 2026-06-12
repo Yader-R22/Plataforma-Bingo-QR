@@ -28,6 +28,64 @@ const MODE_LABEL: Record<string, string> = {
   quina: "Quina",
 };
 
+const MODE_HINT: Record<string, string> = {
+  full_card: "Marca todos los 24 números para ganar",
+  horizontal: "Completa una fila completa para ganar",
+  vertical: "Completa una columna completa para ganar",
+  diagonal: "Completa una diagonal completa para ganar",
+  quina: "Completa una fila completa para ganar",
+};
+
+function checkBingoPattern(
+  matrix: number[][],
+  markedSet: Set<number>,
+  gameMode: string,
+): { valid: boolean; winningCells: Set<string> } {
+  const isHit = (r: number, c: number) => {
+    const n = matrix[r][c];
+    return n === 0 || markedSet.has(n);
+  };
+  const cellKey = (r: number, c: number) => `${r},${c}`;
+
+  if (gameMode === "full_card") {
+    const cells: Set<string> = new Set();
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 5; c++) {
+        if (!isHit(r, c)) return { valid: false, winningCells: new Set() };
+        cells.add(cellKey(r, c));
+      }
+    }
+    return { valid: true, winningCells: cells };
+  }
+
+  if (gameMode === "horizontal" || gameMode === "quina") {
+    for (let r = 0; r < 5; r++) {
+      if ([0, 1, 2, 3, 4].every(c => isHit(r, c))) {
+        return { valid: true, winningCells: new Set([0, 1, 2, 3, 4].map(c => cellKey(r, c))) };
+      }
+    }
+  }
+
+  if (gameMode === "vertical") {
+    for (let c = 0; c < 5; c++) {
+      if ([0, 1, 2, 3, 4].every(r => isHit(r, c))) {
+        return { valid: true, winningCells: new Set([0, 1, 2, 3, 4].map(r => cellKey(r, c))) };
+      }
+    }
+  }
+
+  if (gameMode === "diagonal") {
+    if ([0, 1, 2, 3, 4].every(i => isHit(i, i))) {
+      return { valid: true, winningCells: new Set([0, 1, 2, 3, 4].map(i => cellKey(i, i))) };
+    }
+    if ([0, 1, 2, 3, 4].every(i => isHit(i, 4 - i))) {
+      return { valid: true, winningCells: new Set([0, 1, 2, 3, 4].map(i => cellKey(i, 4 - i))) };
+    }
+  }
+
+  return { valid: false, winningCells: new Set() };
+}
+
 interface GameSession {
   game_id: number;
   game_status: string;
@@ -155,6 +213,11 @@ export default function PlayPage() {
   const card = cards[selectedCardIdx];
   const calledSet = new Set(session?.called_numbers ?? []);
   const markedSet = new Set([...(card?.marked_numbers ?? []), 0]);
+
+  const bingoResult = (card && session?.game_mode && session.game_status === "active")
+    ? checkBingoPattern(card.numbers, markedSet, session.game_mode)
+    : { valid: false, winningCells: new Set<string>() };
+  const canClaimBingo = bingoResult.valid;
 
   async function toggleNumber(num: number) {
     if (!card || num === 0) return;
@@ -392,6 +455,7 @@ export default function PlayPage() {
                     const isFree = num === 0;
                     const isMarked = markedSet.has(num);
                     const isCalled = !isFree && calledSet.has(num);
+                    const isWinning = bingoResult.winningCells.has(`${ri},${ci}`);
                     return (
                       <button key={`${ri}-${ci}`}
                         onClick={() => !isFree && toggleNumber(num)}
@@ -399,9 +463,22 @@ export default function PlayPage() {
                         style={{
                           minHeight: 52,
                           borderRight: ci < 4 ? "1px solid rgba(255,255,255,0.08)" : undefined,
-                          background: isMarked && !isFree ? undefined : isFree ? undefined : isCalled ? "rgba(255,220,0,0.12)" : "rgba(255,255,255,0.04)",
-                          color: isMarked && !isFree ? undefined : isCalled ? "hsl(42 98% 65%)" : "rgba(255,255,255,0.7)",
+                          background: isWinning
+                            ? "linear-gradient(135deg, hsl(42 98% 50%), hsl(38 98% 40%))"
+                            : isMarked && !isFree ? undefined
+                            : isFree ? undefined
+                            : isCalled ? "rgba(255,220,0,0.12)"
+                            : "rgba(255,255,255,0.04)",
+                          color: isWinning ? "#1a0050"
+                            : isMarked && !isFree ? undefined
+                            : isCalled ? "hsl(42 98% 65%)"
+                            : "rgba(255,255,255,0.7)",
                           fontSize: "1rem",
+                          fontWeight: isWinning ? 900 : undefined,
+                          boxShadow: isWinning ? "inset 0 0 12px rgba(255,200,0,0.4)" : undefined,
+                          transform: isWinning ? "scale(1.04)" : undefined,
+                          zIndex: isWinning ? 1 : undefined,
+                          transition: "all 0.2s ease",
                         }}>
                         {isFree ? "⭐" : num}
                       </button>
@@ -418,18 +495,35 @@ export default function PlayPage() {
       </div>
 
       {/* BINGO button */}
-      {card && (
+      {card && session?.game_status === "active" && (
         <div className="shrink-0 px-4 pb-6 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-          <button className="bingo-btn w-full h-16 rounded-2xl text-2xl disabled:opacity-40 disabled:cursor-not-allowed"
-            onClick={claimBingo} disabled={claiming}>
-            {claiming ? (
-              <span className="flex items-center justify-center gap-2 text-base">
-                <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                Verificando...
-              </span>
-            ) : "¡BINGO! 🎉"}
-          </button>
-          <p className="text-center text-white/30 text-xs mt-2">Presiona <strong className="text-white/50">inmediatamente</strong> al completar el patrón — si se canta otro bolillo, pierdes la ventana</p>
+          {canClaimBingo ? (
+            <>
+              <button className="bingo-btn w-full h-16 rounded-2xl text-2xl"
+                onClick={claimBingo} disabled={claiming}
+                style={{ animation: claiming ? undefined : "bingo-pulse 0.8s ease-in-out infinite" }}>
+                {claiming ? (
+                  <span className="flex items-center justify-center gap-2 text-base">
+                    <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    Verificando...
+                  </span>
+                ) : "¡BINGO! 🎉"}
+              </button>
+              <p className="text-center text-green-400 text-xs font-bold mt-2">
+                ✅ Tienes un {MODE_LABEL[session?.game_mode ?? ""] ?? "patrón"} válido — ¡presiona ya!
+              </p>
+            </>
+          ) : (
+            <>
+              <button className="bingo-btn w-full h-16 rounded-2xl text-2xl opacity-30 cursor-not-allowed"
+                disabled>
+                BINGO
+              </button>
+              <p className="text-center text-white/40 text-xs mt-2">
+                🎯 {session?.game_mode ? (MODE_HINT[session.game_mode] ?? "Completa el patrón requerido") : "Esperando modo de juego..."}
+              </p>
+            </>
+          )}
         </div>
       )}
     </div>

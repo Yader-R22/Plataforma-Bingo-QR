@@ -358,7 +358,15 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
   const isValid = validateBingo(card, roundCfg.game_mode, calledNumbers);
 
   if (!isValid) {
-    res.json({ valid: false, message: "Los números marcados no coinciden con el patrón ganador. ¡Sigue jugando!" });
+    const modeNames: Record<string, string> = {
+      horizontal: "línea horizontal (fila completa)",
+      vertical: "línea vertical (columna completa)",
+      diagonal: "diagonal completa",
+      quina: "quina (fila completa)",
+      full_card: "cartón lleno",
+    };
+    const modeName = modeNames[roundCfg.game_mode] ?? roundCfg.game_mode;
+    res.json({ valid: false, message: `Tu cartón no tiene un ${modeName} válido con los números cantados. ¡Sigue jugando!` });
     return;
   }
 
