@@ -429,6 +429,28 @@ export default function ProfilePage() {
             </div>
           )}
 
+          {activatorStatus?.status === "suspended" && (
+            <div className="rounded-xl px-4 py-3 space-y-1.5"
+              style={{ background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.3)" }}>
+              <p className="font-bold text-sm" style={{ color: "#92400e" }}>⏸ Suspendido del programa de activadores</p>
+              <p className="text-xs text-muted-foreground">Tu cuenta de activador fue suspendida temporalmente por el administrador.</p>
+              {activatorStatus.notes && (
+                <p className="text-xs italic mt-1" style={{ color: "#92400e" }}>💬 Motivo: {activatorStatus.notes}</p>
+              )}
+            </div>
+          )}
+
+          {activatorStatus?.status === "banned" && (
+            <div className="rounded-xl px-4 py-3 space-y-1.5"
+              style={{ background: "hsl(0 75% 52% / 0.08)", border: "1px solid hsl(0 75% 52% / 0.3)" }}>
+              <p className="font-black text-sm" style={{ color: "hsl(0 75% 35%)" }}>🔴 Baneado del programa de activadores</p>
+              <p className="text-xs text-muted-foreground">Tu acceso al Programa de Activadores fue revocado permanentemente.</p>
+              {activatorStatus.notes && (
+                <p className="text-xs italic mt-1" style={{ color: "hsl(0 75% 40%)" }}>💬 Motivo: {activatorStatus.notes}</p>
+              )}
+            </div>
+          )}
+
           {activatorStatus?.status === "rejected" && (
             <div className="space-y-3">
               <div className="rounded-xl px-4 py-3" style={{ background: "hsl(0 75% 52% / 0.08)", border: "1px solid hsl(0 75% 52% / 0.25)" }}>

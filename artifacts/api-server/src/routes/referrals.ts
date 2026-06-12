@@ -61,6 +61,14 @@ router.post("/request", requireAuth, async (req: AuthRequest, res) => {
       res.status(400).json({ error: "Ya tienes una solicitud en proceso" });
       return;
     }
+    if (req_.status === "banned") {
+      res.status(403).json({ error: "Tu acceso al Programa de Activadores fue revocado" });
+      return;
+    }
+    if (req_.status === "suspended") {
+      res.status(403).json({ error: "Tu cuenta de activador está suspendida temporalmente" });
+      return;
+    }
     // rejected → allow re-request: update existing row
     const [updated] = await db.update(activatorRequestsTable)
       .set({ status: "pending", notes: null, reviewedAt: null, reviewedById: null, updatedAt: new Date() })
