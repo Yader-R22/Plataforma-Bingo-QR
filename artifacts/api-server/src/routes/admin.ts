@@ -1151,6 +1151,23 @@ router.post("/activator-requests/:id/review", async (req: AuthRequest, res) => {
   res.json({ ok: true, status: newStatus });
 });
 
+// ── Delete activator (full removal) ───────────────────────────────────────────
+
+router.delete("/activator-requests/:id", async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const requests = await db.select().from(activatorRequestsTable).where(eq(activatorRequestsTable.id, id)).limit(1);
+  if (!requests.length) { res.status(404).json({ error: "Solicitud no encontrada" }); return; }
+  const request = requests[0];
+
+  // Delete referral code and then the request record
+  await db.delete(referralCodesTable).where(eq(referralCodesTable.userId, request.userId));
+  await db.delete(activatorRequestsTable).where(eq(activatorRequestsTable.id, id));
+
+  res.json({ ok: true });
+});
+
 // ── Activator settings ────────────────────────────────────────────────────────
 
 router.get("/activator-settings", async (_req, res) => {

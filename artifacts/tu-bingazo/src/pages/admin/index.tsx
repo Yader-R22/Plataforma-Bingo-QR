@@ -4506,13 +4506,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           )}
                           {req.status === "accepted" && (
                             <button onClick={async () => {
-                              if (!confirm(`¿Eliminar a ${req.user_full_name} como activador? Se revocará su código de referidos.`)) return;
-                              const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}/review`, {
-                                method: "POST",
+                              if (!confirm(`¿Eliminar completamente a ${req.user_full_name} como activador? Se borrará su código de referidos y no podrá reactivarse.`)) return;
+                              const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}`, {
+                                method: "DELETE",
                                 headers: authH(),
-                                body: JSON.stringify({ action: "reject", notes: "Activador eliminado por administrador" }),
                               });
-                              if (r.ok) { loadTab("referidos"); toast.success("Activador eliminado"); }
+                              if (r.ok) { loadTab("referidos"); toast.success("Activador eliminado completamente"); }
                               else toast.error("Error al eliminar activador");
                             }} className="w-full py-2 rounded-xl text-sm font-bold border-2"
                               style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>
