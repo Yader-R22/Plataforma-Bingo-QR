@@ -776,6 +776,29 @@ export default function AdminPage() {
     return () => clearInterval(iv);
   }, [token, tab, winnersFrom, winnersTo]);
 
+  // Poll winners for every active game every 3s — real-time bingo claims in live cards.
+  const activeGameIdsKey = games.filter(g => g.status === "active").map(g => g.id).join(",");
+  useEffect(() => {
+    if (!token || !activeGameIdsKey) return;
+    const activeIds = activeGameIdsKey.split(",").map(Number);
+    const iv = setInterval(async () => {
+      for (const gameId of activeIds) {
+        try {
+          const r = await fetch(`${BASE}/api/games/${gameId}/winners`, {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
+          });
+          if (!r.ok) continue;
+          const list: any[] = await r.json();
+          const byRound: Record<number, any[]> = {};
+          for (const w of list) { const rn = w.round ?? 1; if (!byRound[rn]) byRound[rn] = []; byRound[rn].push(w); }
+          setGameWinners(prev => ({ ...prev, [gameId]: byRound }));
+        } catch {}
+      }
+    }, 3000);
+    return () => clearInterval(iv);
+  }, [token, activeGameIdsKey]);
+
   async function loadStats() {
     try {
       const [sR, dR] = await Promise.all([
