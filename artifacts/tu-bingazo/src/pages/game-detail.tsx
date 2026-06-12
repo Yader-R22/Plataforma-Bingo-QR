@@ -82,6 +82,21 @@ function QRPaymentModal({
   const token = useAuthStore(s => s.token);
   const [payStatus, setPayStatus] = useState<"pending" | "completed" | "failed">("pending");
   const svgRef = useRef<SVGSVGElement>(null);
+  const [siteName, setSiteName] = useState("Tu Bingazo");
+  const [siteTagline, setSiteTagline] = useState("Bingo en Vivo Bolivia");
+  const [siteEmoji, setSiteEmoji] = useState("🎱");
+
+  useEffect(() => {
+    fetch(`${BASE}/api/site-settings`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        if (d.site_name) setSiteName(d.site_name);
+        if (d.site_tagline) setSiteTagline(d.site_tagline);
+        if (d.site_emoji) setSiteEmoji(d.site_emoji);
+      })
+      .catch(() => {});
+  }, []);
 
   const poll = useCallback(async () => {
     try {
@@ -156,12 +171,17 @@ function QRPaymentModal({
       ctx.fillStyle = "rgba(255,255,255,0.55)";
       ctx.font = "bold 15px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("TU BINGAZO", W / 2, 44);
+      ctx.fillText(`${siteEmoji}  ${siteName.toUpperCase()}`, W / 2, 44);
+
+      // ── Tagline ──
+      ctx.fillStyle = "rgba(255,255,255,0.32)";
+      ctx.font = "12px sans-serif";
+      ctx.fillText(siteTagline, W / 2, 62);
 
       // ── Game title ──
       ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 26px sans-serif";
-      wrapText(ctx, gameTitle, W / 2, 82, W - 60, 32);
+      ctx.font = "bold 24px sans-serif";
+      wrapText(ctx, gameTitle, W / 2, 96, W - 60, 30);
 
       // ── Amount ──
       const amountY = 160;
@@ -211,7 +231,7 @@ function QRPaymentModal({
       ctx.fill();
       ctx.fillStyle = "rgba(255,255,255,0.4)";
       ctx.font = "11px sans-serif";
-      ctx.fillText("pagosya.bo  ·  Tu Bingazo", W / 2, pillY + 20);
+      ctx.fillText(`${siteEmoji}  ${siteName}`, W / 2, pillY + 20);
 
       URL.revokeObjectURL(svgUrl);
       const a = document.createElement("a");
