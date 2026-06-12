@@ -11,9 +11,9 @@ const DEPARTMENTS = [
 ];
 
 function statusConfig(status: string) {
-  if (status === "active") return { label: "Verificado ✓", bg: "hsl(142 70% 45% / 0.12)", border: "hsl(142 70% 45% / 0.3)", color: "hsl(142 70% 30%)" };
-  if (status === "pending") return { label: "Pendiente de verificación", bg: "hsl(42 98% 52% / 0.12)", border: "hsl(42 98% 52% / 0.3)", color: "hsl(42 98% 35%)" };
-  return { label: "Rechazado", bg: "hsl(0 75% 52% / 0.12)", border: "hsl(0 75% 52% / 0.3)", color: "hsl(0 75% 40%)" };
+  if (status === "active") return { label: "✓ Verificado", bg: "hsl(142 70% 38%)", border: "hsl(142 70% 28%)", color: "#fff" };
+  if (status === "pending") return { label: "⏳ Pendiente", bg: "hsl(42 98% 48%)", border: "hsl(42 98% 35%)", color: "#fff" };
+  return { label: "✖ Rechazado", bg: "hsl(0 75% 48%)", border: "hsl(0 75% 35%)", color: "#fff" };
 }
 
 export default function ProfilePage() {
@@ -253,7 +253,7 @@ export default function ProfilePage() {
               </div>
               {activatorStatus?.status === "accepted" && (
                 <div className="inline-block text-xs font-bold px-3 py-1 rounded-full"
-                  style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.4)", color: "#4f46e5" }}>
+                  style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "1px solid #4f46e5", color: "#fff", boxShadow: "0 2px 8px rgba(99,102,241,0.45)" }}>
                   🔗 Activador
                 </div>
               )}
