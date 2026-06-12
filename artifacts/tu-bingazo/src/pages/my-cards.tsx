@@ -29,10 +29,15 @@ export default function MyCardsPage() {
   const { data: rawCards, isLoading, refetch: refetchCards } = useListMyCards();
   const { data: games = [], refetch: refetchGames } = useListGames();
 
+  // Adaptive polling: 3s when any of the user's games is upcoming (waiting to go live),
+  // 10s when everything is active or finished (numbers already polled separately in /jugar).
+  const hasUpcoming = (games as any[]).some((g: any) => g.status === "upcoming");
+  const pollInterval = hasUpcoming ? 3_000 : 10_000;
+
   useEffect(() => {
-    const iv = setInterval(() => { void refetchCards(); void refetchGames(); }, 10_000);
+    const iv = setInterval(() => { void refetchCards(); void refetchGames(); }, pollInterval);
     return () => clearInterval(iv);
-  }, []);
+  }, [pollInterval]);
 
   // Only show cards that are paid
   const cards = (rawCards as any[] ?? []).filter((c: any) => c.payment_status === "paid");
