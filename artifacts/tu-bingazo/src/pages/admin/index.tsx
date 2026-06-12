@@ -719,6 +719,8 @@ export default function AdminPage() {
   const [ppFrom, setPpFrom] = useState("");
   const [ppTo, setPpTo] = useState("");
   const [financeTab, setFinanceTab] = useState<"resumen"|"juegos"|"movimientos"|"gastos"|"socios"|"historial">("resumen");
+  const [txSearch, setTxSearch] = useState("");
+  const [historialLimit, setHistorialLimit] = useState(6);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
@@ -3683,34 +3685,78 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               {/* ════════════════════════════════════════════
                   TAB: MOVIMIENTOS
               ════════════════════════════════════════════ */}
-              {financeTab === "movimientos" && (
-                <div className="space-y-1.5">
-                  {financeTransactions.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8 text-sm">Sin movimientos en el período seleccionado</p>
-                  )}
-                  {financeTransactions.length > 0 && (
-                    <p className="text-xs text-muted-foreground font-medium">{financeTransactions.length} movimiento{financeTransactions.length !== 1 ? "s" : ""}</p>
-                  )}
-                  {financeTransactions.map((t, i) => (
-                    <div key={i} className="bg-card border rounded-xl px-3 py-2.5 flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-black px-2 py-0.5 rounded-full text-white"
-                            style={{ background: typeStyle[t.type] ?? "#64748b" }}>
-                            {typeLabel[t.type] ?? t.type}
-                          </span>
-                          <p className="text-xs font-bold truncate">{t.user_name}</p>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.description}{t.game_title ? ` · ${t.game_title}` : ""}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(t.date).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
-                      </div>
-                      <p className="shrink-0 font-black text-sm" style={{ color: typeStyle[t.type] ?? "#64748b" }}>
-                        {t.type === "ingreso" ? "+" : "−"}{fmt(t.amount)}
-                      </p>
+              {financeTab === "movimientos" && (() => {
+                const q = txSearch.trim().toLowerCase();
+                const txFiltered = financeTransactions.filter(t =>
+                  !q ||
+                  t.user_name?.toLowerCase().includes(q) ||
+                  t.description?.toLowerCase().includes(q) ||
+                  t.game_title?.toLowerCase().includes(q) ||
+                  (typeLabel[t.type] ?? t.type).toLowerCase().includes(q)
+                );
+                const txVisible = txFiltered.slice(0, 10);
+                return (
+                  <div className="space-y-2">
+                    {/* Search */}
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">🔍</span>
+                      <input
+                        className="w-full border rounded-xl pl-7 pr-3 py-2 text-xs bg-background"
+                        placeholder="Buscar por usuario, descripción, juego o tipo…"
+                        value={txSearch}
+                        onChange={e => setTxSearch(e.target.value)}
+                      />
+                      {txSearch && (
+                        <button onClick={() => setTxSearch("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-bold px-1">
+                          ✕
+                        </button>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
+
+                    {/* Count */}
+                    {financeTransactions.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {q ? `${txFiltered.length} resultado${txFiltered.length !== 1 ? "s" : ""}` : `Últimos ${Math.min(10, financeTransactions.length)} de ${financeTransactions.length} movimiento${financeTransactions.length !== 1 ? "s" : ""}`}
+                      </p>
+                    )}
+
+                    {financeTransactions.length === 0 && (
+                      <p className="text-center text-muted-foreground py-8 text-sm">Sin movimientos en el período seleccionado</p>
+                    )}
+                    {txFiltered.length === 0 && financeTransactions.length > 0 && (
+                      <p className="text-center text-muted-foreground py-6 text-sm">Sin resultados para "{txSearch}"</p>
+                    )}
+
+                    {/* List (max 10) */}
+                    {txVisible.map((t, i) => (
+                      <div key={i} className="bg-card border rounded-xl px-3 py-2.5 flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-black px-2 py-0.5 rounded-full text-white"
+                              style={{ background: typeStyle[t.type] ?? "#64748b" }}>
+                              {typeLabel[t.type] ?? t.type}
+                            </span>
+                            <p className="text-xs font-bold truncate">{t.user_name}</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.description}{t.game_title ? ` · ${t.game_title}` : ""}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(t.date).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+                        </div>
+                        <p className="shrink-0 font-black text-sm" style={{ color: typeStyle[t.type] ?? "#64748b" }}>
+                          {t.type === "ingreso" ? "+" : "−"}{fmt(t.amount)}
+                        </p>
+                      </div>
+                    ))}
+
+                    {/* Note when truncated without search */}
+                    {!q && financeTransactions.length > 10 && (
+                      <p className="text-center text-xs text-muted-foreground pt-1">
+                        Usa el buscador para encontrar movimientos específicos
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* ════════════════════════════════════════════
                   TAB: GASTOS
@@ -4057,20 +4103,22 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               {/* ════════════════════════════════════════════
                   TAB: HISTORIAL
               ════════════════════════════════════════════ */}
-              {financeTab === "historial" && (
-                <div className="space-y-3">
-                  {partnerPayments.length === 0 && (
-                    <p className="text-center text-muted-foreground py-10 text-sm">Sin pagos a socios registrados aún</p>
-                  )}
+              {financeTab === "historial" && (() => {
+                const filtered = partnerPayments.filter(pp => {
+                  const d = new Date(pp.created_at);
+                  if (ppFrom && d < new Date(ppFrom)) return false;
+                  if (ppTo) { const to = new Date(ppTo); to.setHours(23,59,59,999); if (d > to) return false; }
+                  return true;
+                });
+                const visible = filtered.slice(0, historialLimit);
+                const hasMore = filtered.length > historialLimit;
+                return (
+                  <div className="space-y-3">
+                    {partnerPayments.length === 0 && (
+                      <p className="text-center text-muted-foreground py-10 text-sm">Sin pagos a socios registrados aún</p>
+                    )}
 
-                  {partnerPayments.length > 0 && (() => {
-                    const filtered = partnerPayments.filter(pp => {
-                      const d = new Date(pp.created_at);
-                      if (ppFrom && d < new Date(ppFrom)) return false;
-                      if (ppTo) { const to = new Date(ppTo); to.setHours(23,59,59,999); if (d > to) return false; }
-                      return true;
-                    });
-                    return (
+                    {partnerPayments.length > 0 && (
                       <>
                         {/* Date filter */}
                         <div className="rounded-xl p-3 space-y-2" style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
@@ -4078,19 +4126,19 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           <div className="grid grid-cols-2 gap-2">
                             <div>
                               <p className="text-[11px] text-muted-foreground mb-1">Desde</p>
-                              <input type="date" value={ppFrom} onChange={e => setPpFrom(e.target.value)}
+                              <input type="date" value={ppFrom} onChange={e => { setPpFrom(e.target.value); setHistorialLimit(6); }}
                                 className="w-full border rounded-lg px-2 py-1.5 text-xs bg-background" />
                             </div>
                             <div>
                               <p className="text-[11px] text-muted-foreground mb-1">Hasta</p>
-                              <input type="date" value={ppTo} onChange={e => setPpTo(e.target.value)}
+                              <input type="date" value={ppTo} onChange={e => { setPpTo(e.target.value); setHistorialLimit(6); }}
                                 className="w-full border rounded-lg px-2 py-1.5 text-xs bg-background" />
                             </div>
                           </div>
                           {(ppFrom || ppTo) && (
                             <div className="flex items-center justify-between">
                               <p className="text-xs text-muted-foreground">{filtered.length} registro{filtered.length !== 1 ? "s" : ""}</p>
-                              <button onClick={() => { setPpFrom(""); setPpTo(""); }} className="text-xs font-bold" style={{ color: "hsl(var(--primary))" }}>
+                              <button onClick={() => { setPpFrom(""); setPpTo(""); setHistorialLimit(6); }} className="text-xs font-bold" style={{ color: "hsl(var(--primary))" }}>
                                 Limpiar
                               </button>
                             </div>
@@ -4101,7 +4149,14 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           <p className="text-center text-muted-foreground text-sm py-6">Sin registros en ese rango de fechas</p>
                         )}
 
-                        {filtered.map(pp => (
+                        {/* Summary count */}
+                        {filtered.length > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Mostrando {visible.length} de {filtered.length} registro{filtered.length !== 1 ? "s" : ""}
+                          </p>
+                        )}
+
+                        {visible.map(pp => (
                           <div key={pp.id} className="bg-card border rounded-xl p-3 space-y-2">
                             <div className="flex items-start justify-between gap-2">
                               <div>
@@ -4143,11 +4198,20 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                             </div>
                           </div>
                         ))}
+
+                        {/* Ver más */}
+                        {hasMore && (
+                          <button onClick={() => setHistorialLimit(l => l + 6)}
+                            className="w-full py-2 rounded-xl text-xs font-bold border transition-all"
+                            style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))", background: "hsl(var(--muted)/0.3)" }}>
+                            Ver más ({filtered.length - historialLimit} restante{filtered.length - historialLimit !== 1 ? "s" : ""})
+                          </button>
+                        )}
                       </>
-                    );
-                  })()}
-                </div>
-              )}
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           );
         })()}
