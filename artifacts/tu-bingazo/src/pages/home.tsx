@@ -6,6 +6,12 @@ import AppLayout from "@/components/AppLayout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+function fmtCompact(n: number): string {
+  if (n >= 1_000_000) { const v = n / 1_000_000; return `${v % 1 === 0 ? v.toFixed(0) : v.toFixed(1)}M`; }
+  if (n >= 1_000) { const v = n / 1_000; return `${v % 1 === 0 ? v.toFixed(0) : v.toFixed(1)}K`; }
+  return n.toString();
+}
+
 interface FeedItem {
   id: number;
   type: string;
@@ -356,12 +362,12 @@ export default function HomePage() {
       {stats && (
         <div className="grid grid-cols-3 gap-0 border-b" style={{ background: "#1a0050" }}>
           {[
-            { value: stats.active_players, label: "Jugadores" },
+            { value: fmtCompact(stats.active_players), label: "Jugadores" },
             {
               value: `Bs ${(user && userStats ? userStats.total_won : stats.total_prizes_paid).toLocaleString("es-BO", { maximumFractionDigits: 0 })}`,
               label: user && userStats ? "Mis premios" : "En premios",
             },
-            { value: stats.total_winners, label: "Ganadores" },
+            { value: fmtCompact(stats.total_winners), label: "Ganadores" },
           ].map((s, i) => (
             <div key={i} className="text-center py-3 px-2" style={{ borderRight: i < 2 ? "1px solid rgba(255,255,255,0.1)" : undefined }}>
               <p className="font-black text-lg leading-none" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 60%)" }}>
