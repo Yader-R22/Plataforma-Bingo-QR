@@ -343,6 +343,7 @@ function PendingReviewScreen() {
 interface AppLayoutProps {
   children: ReactNode;
   hideNav?: boolean;
+  hideLogo?: boolean;
   title?: string;
   showBack?: boolean;
   onBack?: () => void;
@@ -451,7 +452,7 @@ function IconRegister({ active }: { active: boolean }) {
   );
 }
 
-export default function AppLayout({ children, hideNav, title, showBack, onBack }: AppLayoutProps) {
+export default function AppLayout({ children, hideNav, hideLogo, title, showBack, onBack }: AppLayoutProps) {
   const [location] = useLocation();
   const user = useAuthStore(s => s.user);
   const token = useAuthStore(s => s.token);
@@ -524,6 +525,8 @@ export default function AppLayout({ children, hideNav, title, showBack, onBack }
           <button onClick={onBack ?? (() => window.history.back())} className="text-white/80 hover:text-white p-1 -ml-1">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           </button>
+        ) : hideLogo ? (
+          <div />
         ) : (
           <Link href="/">
             <div className="flex items-center gap-2 cursor-pointer">

@@ -231,7 +231,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <AppLayout>
+    <AppLayout hideLogo>
       {/* Hero banner */}
       <div className="hero-bg px-4 py-6 text-white">
         <div className="flex items-center gap-4">
