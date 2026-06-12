@@ -59,10 +59,16 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!token) return;
-    fetch(`${BASE}/api/referrals/status`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d) setActivatorStatus(d); })
-      .catch(() => {});
+    let cancelled = false;
+    function fetchStatus() {
+      fetch(`${BASE}/api/referrals/status`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d && !cancelled) setActivatorStatus(d); })
+        .catch(() => {});
+    }
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 5000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [token]);
 
   if (!user) return null;
