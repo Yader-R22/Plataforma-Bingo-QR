@@ -11,6 +11,7 @@ import { adminRouter } from "./admin";
 import { categoriesRouter } from "./categories";
 import { referralsRouter } from "./referrals";
 import { siteSettingsRouter } from "./site-settings";
+import { bannersRouter } from "./banners";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use("/admin", adminRouter);
 router.use("/categories", categoriesRouter);
 router.use("/referrals", referralsRouter);
 router.use("/site-settings", siteSettingsRouter);
+router.use("/banners", bannersRouter);
 
 export default router;

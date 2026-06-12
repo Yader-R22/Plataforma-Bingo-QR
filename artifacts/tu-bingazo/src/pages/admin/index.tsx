@@ -761,8 +761,11 @@ export default function AdminPage() {
     seo_keywords: "bingo, bolivia, bingo en vivo, premios, dinero",
     primary_color: "#1a0050",
     qr_background_url: "",
+    banner_interval: 5,
   });
   const [savingSite, setSavingSite] = useState(false);
+  const [banners, setBanners] = useState<{ id: number; image_url: string; display_order: number; is_active: boolean }[]>([]);
+  const [savingBanner, setSavingBanner] = useState(false);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
@@ -908,7 +911,10 @@ export default function AdminPage() {
         if (perfR.ok) setActivatorPerformance(await perfR.json());
       }
       if (t === "sitio") {
-        const r = await fetch(`${BASE}/api/site-settings`);
+        const [r, br] = await Promise.all([
+          fetch(`${BASE}/api/site-settings`),
+          fetch(`${BASE}/api/banners`, { headers: authH() }),
+        ]);
         if (r.ok) {
           const s = await r.json();
           setSiteSettingsData(s);
@@ -919,12 +925,14 @@ export default function AdminPage() {
             favicon_url: s.favicon_url ?? "",
             logo_url: s.logo_url ?? "",
             qr_background_url: s.qr_background_url ?? "",
+            banner_interval: s.banner_interval ?? 5,
             seo_title: s.seo_title,
             seo_description: s.seo_description,
             seo_keywords: s.seo_keywords,
             primary_color: s.primary_color,
           });
         }
+        if (br.ok) { setBanners(await br.json()); }
       }
       if (t === "finance") {
         const period = financePeriod;
@@ -5183,7 +5191,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           async function saveSiteSettings() {
             setSavingSite(true);
             try {
-              const body: Record<string, string | null> = {
+              const body: Record<string, string | number | null> = {
                 site_name: siteForm.site_name,
                 site_tagline: siteForm.site_tagline,
                 site_emoji: siteForm.site_emoji,
@@ -5194,6 +5202,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 seo_keywords: siteForm.seo_keywords,
                 primary_color: siteForm.primary_color,
                 qr_background_url: siteForm.qr_background_url || null,
+                banner_interval: siteForm.banner_interval,
               };
               const r = await fetch(`${BASE}/api/site-settings`, {
                 method: "PUT",
@@ -5386,6 +5395,94 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
                       value={sf.seo_keywords} onChange={e => setSiteForm(f => ({ ...f, seo_keywords: e.target.value }))} />
                   </div>
+                </div>
+              </div>
+
+              {/* Banners del hero */}
+              <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>🖼️ Banners de Inicio</h2>
+                <p className="text-xs text-muted-foreground">Estas imágenes se muestran como fondo rotante en la sección de bienvenida de la app. Siempre se ven detrás del texto.</p>
+
+                {/* Interval */}
+                <div className="flex items-center gap-3">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide shrink-0">Intervalo de rotación</label>
+                  <input type="number" min={1} max={60}
+                    className="w-20 rounded-xl border px-3 py-2 text-sm font-bold bg-background text-center"
+                    value={siteForm.banner_interval}
+                    onChange={e => setSiteForm(f => ({ ...f, banner_interval: Math.max(1, Number(e.target.value)) }))} />
+                  <span className="text-xs text-muted-foreground">segundos</span>
+                </div>
+
+                {/* Upload new banner */}
+                <div
+                  className="border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all"
+                  style={{ borderColor: "hsl(var(--border))" }}
+                  onClick={() => { (document.getElementById("admin-banner-upload") as HTMLInputElement)?.click(); }}>
+                  <p className="text-xs text-muted-foreground">{savingBanner ? "⏳ Subiendo..." : "📁 Agregar banner (JPG/PNG, proporción 16:9 o 4:3 recomendada)"}</p>
+                  <input id="admin-banner-upload" type="file" accept="image/*" className="hidden" onChange={async e => {
+                    const file = e.target.files?.[0]; if (!file) return;
+                    setSavingBanner(true);
+                    const reader = new FileReader();
+                    reader.onload = async ev => {
+                      const image_url = ev.target?.result as string;
+                      const display_order = banners.length;
+                      const r = await fetch(`${BASE}/api/banners`, {
+                        method: "POST", headers: authH(),
+                        body: JSON.stringify({ image_url, display_order }),
+                      });
+                      if (r.ok) { const b = await r.json(); setBanners(prev => [...prev, b]); toast.success("Banner agregado"); }
+                      else toast.error("Error al subir el banner");
+                      setSavingBanner(false);
+                    };
+                    reader.readAsDataURL(file);
+                    e.target.value = "";
+                  }} />
+                </div>
+
+                {/* Banner list */}
+                {banners.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">Sin banners. Agrega uno arriba.</p>
+                )}
+                <div className="space-y-2">
+                  {banners.map((b, idx) => (
+                    <div key={b.id} className="flex items-center gap-3 rounded-xl p-2" style={{ border: "1px solid hsl(var(--border))", background: "hsl(var(--muted)/0.3)" }}>
+                      <span className="text-xs text-muted-foreground font-bold w-5 text-center shrink-0">{idx + 1}</span>
+                      <img src={b.image_url} alt={`banner ${idx + 1}`} className="w-20 h-12 rounded-lg object-cover shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground truncate">Banner {idx + 1}</p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {idx > 0 && (
+                          <button className="text-xs px-2 py-1 rounded-lg border" style={{ borderColor: "hsl(var(--border))" }}
+                            onClick={async () => {
+                              const prev = banners[idx - 1];
+                              await Promise.all([
+                                fetch(`${BASE}/api/banners/${b.id}`, { method: "PUT", headers: authH(), body: JSON.stringify({ display_order: idx - 1 }) }),
+                                fetch(`${BASE}/api/banners/${prev.id}`, { method: "PUT", headers: authH(), body: JSON.stringify({ display_order: idx }) }),
+                              ]);
+                              setBanners(arr => { const a = [...arr]; [a[idx - 1], a[idx]] = [a[idx], a[idx - 1]]; return a; });
+                            }}>▲</button>
+                        )}
+                        {idx < banners.length - 1 && (
+                          <button className="text-xs px-2 py-1 rounded-lg border" style={{ borderColor: "hsl(var(--border))" }}
+                            onClick={async () => {
+                              const next = banners[idx + 1];
+                              await Promise.all([
+                                fetch(`${BASE}/api/banners/${b.id}`, { method: "PUT", headers: authH(), body: JSON.stringify({ display_order: idx + 1 }) }),
+                                fetch(`${BASE}/api/banners/${next.id}`, { method: "PUT", headers: authH(), body: JSON.stringify({ display_order: idx }) }),
+                              ]);
+                              setBanners(arr => { const a = [...arr]; [a[idx], a[idx + 1]] = [a[idx + 1], a[idx]]; return a; });
+                            }}>▼</button>
+                        )}
+                        <button className="text-xs px-2 py-1 rounded-lg text-red-500 border border-red-200"
+                          onClick={async () => {
+                            await fetch(`${BASE}/api/banners/${b.id}`, { method: "DELETE", headers: authH() });
+                            setBanners(prev => prev.filter(x => x.id !== b.id));
+                            toast.success("Banner eliminado");
+                          }}>✕</button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 

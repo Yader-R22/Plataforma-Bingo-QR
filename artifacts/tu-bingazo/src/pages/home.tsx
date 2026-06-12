@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useListGames, useGetWallet, getGetWalletQueryKey, useListCategories } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
@@ -258,6 +258,27 @@ export default function HomePage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
+  const [heroBanners, setHeroBanners] = useState<{ id: number; image_url: string }[]>([]);
+  const [bannerInterval, setBannerInterval] = useState(5);
+  const [activeBanner, setActiveBanner] = useState(0);
+
+  // Fetch banners once on mount
+  useEffect(() => {
+    Promise.all([
+      fetch(`${BASE}/api/banners`),
+      fetch(`${BASE}/api/site-settings`),
+    ]).then(async ([br, sr]) => {
+      if (br.ok) setHeroBanners(await br.json());
+      if (sr.ok) { const s = await sr.json(); if (s.banner_interval) setBannerInterval(s.banner_interval); }
+    }).catch(() => {});
+  }, []);
+
+  // Auto-rotate banners
+  useEffect(() => {
+    if (heroBanners.length < 2) return;
+    const iv = setInterval(() => setActiveBanner(i => (i + 1) % heroBanners.length), bannerInterval * 1000);
+    return () => clearInterval(iv);
+  }, [heroBanners.length, bannerInterval]);
 
   const { data: games = [], refetch: refetchGames } = useListGames();
 
@@ -321,9 +342,27 @@ export default function HomePage() {
   return (
     <AppLayout>
       {/* Hero */}
-      <div className="hero-bg px-4 pt-5 pb-8 text-white relative">
-        <div className="absolute top-3 right-4 text-5xl opacity-10 pointer-events-none select-none">🎱</div>
-        <div className="absolute bottom-4 left-4 text-3xl opacity-10 pointer-events-none select-none rotate-12">⭐</div>
+      <div className="hero-bg px-4 pt-5 pb-8 text-white relative overflow-hidden">
+        {/* Banner images — rotate behind all content */}
+        {heroBanners.map((b, i) => (
+          <div key={b.id}
+            className="absolute inset-0 transition-opacity duration-700"
+            style={{ opacity: i === activeBanner ? 1 : 0, zIndex: 0 }}>
+            <img src={b.image_url} alt="" className="w-full h-full object-cover" style={{ display: "block" }} />
+            <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.45)" }} />
+          </div>
+        ))}
+        {/* Dot indicators — only when multiple banners */}
+        {heroBanners.length > 1 && (
+          <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
+            {heroBanners.map((_, i) => (
+              <span key={i} className="block rounded-full transition-all"
+                style={{ width: i === activeBanner ? 16 : 6, height: 6, background: i === activeBanner ? "#fff" : "rgba(255,255,255,0.4)" }} />
+            ))}
+          </div>
+        )}
+        <div className="absolute top-3 right-4 text-5xl opacity-10 pointer-events-none select-none" style={{ zIndex: 1 }}>🎱</div>
+        <div className="absolute bottom-4 left-4 text-3xl opacity-10 pointer-events-none select-none rotate-12" style={{ zIndex: 1 }}>⭐</div>
 
         {user ? (
           <div className="relative z-10">

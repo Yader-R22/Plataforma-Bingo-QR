@@ -28,6 +28,7 @@ router.get("/", async (_req, res) => {
     seo_keywords: s.seoKeywords,
     primary_color: s.primaryColor,
     qr_background_url: s.qrBackgroundUrl,
+    banner_interval: s.bannerInterval,
   });
 });
 
@@ -43,6 +44,7 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
     seo_keywords,
     primary_color,
     qr_background_url,
+    banner_interval,
   } = req.body as Record<string, string | null | undefined>;
 
   await ensureSettings();
@@ -60,6 +62,7 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
       ...(seo_keywords !== undefined && { seoKeywords: seo_keywords ?? undefined }),
       ...(primary_color !== undefined && { primaryColor: primary_color ?? undefined }),
       ...(qr_background_url !== undefined && { qrBackgroundUrl: qr_background_url }),
+      ...(banner_interval !== undefined && banner_interval !== null && { bannerInterval: Number(banner_interval) }),
       updatedAt: new Date(),
       updatedById: req.userId!,
     })
