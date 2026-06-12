@@ -447,9 +447,17 @@ export default function ProfilePage() {
                 style={{ background: "hsl(142 70% 45% / 0.1)", border: "1px solid hsl(142 70% 45% / 0.3)" }}>
                 <p className="font-bold text-sm" style={{ color: "hsl(142 70% 30%)" }}>✅ ¡Eres Activador!</p>
                 <p className="text-xs text-muted-foreground">Tu código:</p>
-                <p className="font-black text-lg tracking-widest" style={{ color: "hsl(var(--primary))", fontFamily: "'Poppins', sans-serif" }}>
-                  {activatorStatus.code}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="font-black text-lg tracking-widest" style={{ color: "hsl(var(--primary))", fontFamily: "'Poppins', sans-serif" }}>
+                    {activatorStatus.code}
+                  </p>
+                  <button
+                    className="px-2 py-1 rounded-lg text-[11px] font-bold text-white shrink-0"
+                    style={{ background: "hsl(var(--primary))" }}
+                    onClick={() => { navigator.clipboard.writeText(activatorStatus.code ?? ""); toast.success("✅ Código copiado"); }}>
+                    Copiar
+                  </button>
+                </div>
               </div>
               <div className="space-y-2">
                 <p className="text-xs font-bold text-muted-foreground">Enlace para compartir:</p>
