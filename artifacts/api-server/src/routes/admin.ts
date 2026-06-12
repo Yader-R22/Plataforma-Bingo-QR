@@ -1309,6 +1309,7 @@ router.get("/activator-settings", async (_req, res) => {
       whatsapp_group_link: null,
       bonus_amount: 5,
       bonus_title: "Bono de bienvenida por activador {activator}",
+      bonus_validity_hours: null,
       commission_percentage: 5,
       commission_duration: "indefinite",
       commission_duration_months: null,
@@ -1321,6 +1322,7 @@ router.get("/activator-settings", async (_req, res) => {
     whatsapp_group_link: s.whatsappGroupLink ?? null,
     bonus_amount: parseFloat(s.bonusAmount),
     bonus_title: s.bonusTitle,
+    bonus_validity_hours: s.bonusValidityHours ?? null,
     commission_percentage: parseFloat(s.commissionPercentage),
     commission_duration: s.commissionDuration,
     commission_duration_months: s.commissionDurationMonths ?? null,
@@ -1328,11 +1330,12 @@ router.get("/activator-settings", async (_req, res) => {
 });
 
 router.put("/activator-settings", async (req: AuthRequest, res) => {
-  const { is_enabled, whatsapp_group_link, bonus_amount, bonus_title, commission_percentage, commission_duration, commission_duration_months } = req.body as {
+  const { is_enabled, whatsapp_group_link, bonus_amount, bonus_title, bonus_validity_hours, commission_percentage, commission_duration, commission_duration_months } = req.body as {
     is_enabled?: boolean;
     whatsapp_group_link?: string | null;
     bonus_amount?: number;
     bonus_title?: string;
+    bonus_validity_hours?: number | null;
     commission_percentage?: number;
     commission_duration?: string;
     commission_duration_months?: number | null;
@@ -1344,6 +1347,7 @@ router.put("/activator-settings", async (req: AuthRequest, res) => {
   if (whatsapp_group_link !== undefined) patch.whatsappGroupLink = whatsapp_group_link?.trim() || null;
   if (bonus_amount != null) patch.bonusAmount = String(bonus_amount);
   if (bonus_title != null) patch.bonusTitle = bonus_title.trim();
+  if (bonus_validity_hours !== undefined) patch.bonusValidityHours = bonus_validity_hours != null && bonus_validity_hours > 0 ? bonus_validity_hours : null;
   if (commission_percentage != null) patch.commissionPercentage = String(commission_percentage);
   if (commission_duration != null && ["once", "monthly", "indefinite"].includes(commission_duration)) patch.commissionDuration = commission_duration;
   if (commission_duration_months !== undefined) patch.commissionDurationMonths = commission_duration_months ?? null;
@@ -1360,6 +1364,7 @@ router.put("/activator-settings", async (req: AuthRequest, res) => {
     whatsapp_group_link: updated.whatsappGroupLink ?? null,
     bonus_amount: parseFloat(updated.bonusAmount),
     bonus_title: updated.bonusTitle,
+    bonus_validity_hours: updated.bonusValidityHours ?? null,
     commission_percentage: parseFloat(updated.commissionPercentage),
     commission_duration: updated.commissionDuration,
     commission_duration_months: updated.commissionDurationMonths ?? null,

@@ -181,20 +181,49 @@ export default function WalletPage() {
         </div>
 
         {/* Bonus balance card — only shown when > 0 */}
-        {(wallet as any)?.bonus_balance > 0 && (
-          <div className="rounded-2xl p-4 flex items-center gap-4"
-            style={{ background: "hsl(42 98% 52% / 0.1)", border: "1.5px solid hsl(42 98% 52% / 0.35)" }}>
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
-              style={{ background: "hsl(42 98% 52% / 0.15)" }}>🎁</div>
-            <div className="flex-1">
-              <p className="font-black text-sm" style={{ color: "hsl(42 98% 30%)" }}>Bono disponible</p>
-              <p className="font-black text-2xl" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 30%)" }}>
-                Bs {((wallet as any).bonus_balance ?? 0).toLocaleString("es-BO", { maximumFractionDigits: 0 })}
-              </p>
-              <p className="text-xs mt-0.5" style={{ color: "hsl(42 98% 40%)" }}>Solo para compra de cartones · No retirable</p>
+        {(wallet as any)?.bonus_balance > 0 && (() => {
+          const expiresAt: string | null = (wallet as any)?.bonus_expires_at ?? user?.bonus_expires_at ?? null;
+          const expired = expiresAt != null && new Date(expiresAt) < new Date();
+          if (expired) return null;
+          const expiresDate = expiresAt ? new Date(expiresAt) : null;
+          const now = new Date();
+          const diffMs = expiresDate ? expiresDate.getTime() - now.getTime() : null;
+          const diffHours = diffMs != null ? Math.floor(diffMs / (1000 * 60 * 60)) : null;
+          const diffMins = diffMs != null ? Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60)) : null;
+          const isExpiringSoon = diffHours != null && diffHours < 24;
+          let expiryLabel = "";
+          if (diffHours != null && diffHours < 1) {
+            expiryLabel = `Vence en ${diffMins} min`;
+          } else if (diffHours != null) {
+            expiryLabel = `Vence en ${diffHours}h ${diffMins}m`;
+          } else if (expiresDate) {
+            expiryLabel = `Vence ${expiresDate.toLocaleDateString("es-BO", { day: "2-digit", month: "short" })}`;
+          }
+          return (
+            <div className="rounded-2xl p-4 flex items-center gap-4"
+              style={{
+                background: isExpiringSoon ? "hsl(0 75% 52% / 0.08)" : "hsl(42 98% 52% / 0.1)",
+                border: `1.5px solid ${isExpiringSoon ? "hsl(0 75% 52% / 0.35)" : "hsl(42 98% 52% / 0.35)"}`,
+              }}>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
+                style={{ background: isExpiringSoon ? "hsl(0 75% 52% / 0.12)" : "hsl(42 98% 52% / 0.15)" }}>
+                {isExpiringSoon ? "⚠️" : "🎁"}
+              </div>
+              <div className="flex-1">
+                <p className="font-black text-sm" style={{ color: isExpiringSoon ? "hsl(0 75% 40%)" : "hsl(42 98% 30%)" }}>
+                  Bono disponible
+                </p>
+                <p className="font-black text-2xl" style={{ fontFamily: "'Poppins', sans-serif", color: isExpiringSoon ? "hsl(0 75% 40%)" : "hsl(42 98% 30%)" }}>
+                  Bs {((wallet as any).bonus_balance ?? 0).toLocaleString("es-BO", { maximumFractionDigits: 0 })}
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: isExpiringSoon ? "hsl(0 75% 45%)" : "hsl(42 98% 40%)" }}>
+                  Solo para compra de cartones · No retirable
+                  {expiryLabel ? ` · ${expiryLabel}` : ""}
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* --- Withdrawal flow --- */}
         {step === "idle" && (

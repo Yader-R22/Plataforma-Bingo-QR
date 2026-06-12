@@ -513,7 +513,9 @@ export default function GameDetailPage() {
   const isFinished = game.status === "finished";
   const cfg = typeConfig(game.type);
   const totalPrice = (game.card_price as number) * qty;
-  const spendableBalance = user ? user.balance + (user.bonus_balance ?? 0) : 0;
+  const bonusExpired = user?.bonus_expires_at != null && new Date(user.bonus_expires_at) < new Date();
+  const effectiveBonus = bonusExpired ? 0 : (user?.bonus_balance ?? 0);
+  const spendableBalance = user ? user.balance + effectiveBonus : 0;
   const canPayWithWallet = user && spendableBalance >= (game.card_price as number);
 
   const placeLabels: Record<number, string> = { 1: "🥇 1er Lugar", 2: "🥈 2do Lugar", 3: "🥉 3er Lugar" };

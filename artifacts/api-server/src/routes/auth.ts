@@ -62,6 +62,7 @@ function formatUser(user: typeof usersTable.$inferSelect) {
     department: user.department,
     balance: parseFloat(user.balance),
     bonus_balance: parseFloat(user.bonusBalance),
+    bonus_expires_at: user.bonusExpiresAt ?? null,
     status: user.status,
     is_admin: user.isAdmin,
     avatar_url: user.avatarUrl ?? null,
@@ -145,6 +146,12 @@ router.post("/register", async (req, res) => {
       const settings = await db.select().from(activatorSettingsTable).where(eq(activatorSettingsTable.id, 1)).limit(1);
       bonusAmount = parseFloat(settings[0]?.bonusAmount ?? "5");
       bonusTitle = settings[0]?.bonusTitle ?? "Bono de bienvenida";
+      const bonusValidityHours = settings[0]?.bonusValidityHours ?? null;
+      if (bonusValidityHours != null) {
+        const exp = new Date();
+        exp.setTime(exp.getTime() + bonusValidityHours * 60 * 60 * 1000);
+        (req as any)._bonusExpiresAt = exp;
+      }
       const activatorRow = await db.select({ fullName: usersTable.fullName })
         .from(usersTable).where(eq(usersTable.id, activatorId)).limit(1);
       const activatorName = activatorRow[0]?.fullName?.trim().split(/\s+/).slice(0, 2).join(" ") ?? "";
@@ -164,6 +171,7 @@ router.post("/register", async (req, res) => {
     idPhotoBackUrl: id_photo_back ?? null,
     status: hasPhotos ? "active" : "pending",
     bonusBalance: bonusAmount > 0 ? String(bonusAmount) : "0",
+    bonusExpiresAt: bonusAmount > 0 ? ((req as any)._bonusExpiresAt ?? null) : null,
     referredByCode: referralCode ?? null,
   }).returning();
 

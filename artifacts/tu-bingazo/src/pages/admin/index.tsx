@@ -805,7 +805,7 @@ export default function AdminPage() {
   const [activatorPerformance, setActivatorPerformance] = useState<any[]>([]);
   const [deptFilter, setDeptFilter] = useState<string>("__all__");
   const [savingActSettings, setSavingActSettings] = useState(false);
-  const [actSettingsForm, setActSettingsForm] = useState({ is_enabled: true, whatsapp_group_link: "", bonus_amount: "5", bonus_title: "Bono de bienvenida por activador {activator}", commission_percentage: "5", commission_duration: "indefinite", commission_duration_months: "" });
+  const [actSettingsForm, setActSettingsForm] = useState({ is_enabled: true, whatsapp_group_link: "", bonus_amount: "5", bonus_title: "Bono de bienvenida por activador {activator}", bonus_validity_hours: "", commission_percentage: "5", commission_duration: "indefinite", commission_duration_months: "" });
   const [pendingActivatorCount, setPendingActivatorCount] = useState(0);
   const [reqNoteInput, setReqNoteInput] = useState<Record<number, string>>({});
   const [reqNoteOpen, setReqNoteOpen] = useState<Record<number, "reject" | "hold" | null>>({});
@@ -966,6 +966,7 @@ export default function AdminPage() {
             whatsapp_group_link: s.whatsapp_group_link ?? "",
             bonus_amount: String(s.bonus_amount),
             bonus_title: s.bonus_title,
+            bonus_validity_hours: s.bonus_validity_hours != null ? String(s.bonus_validity_hours) : "",
             commission_percentage: String(s.commission_percentage),
             commission_duration: s.commission_duration,
             commission_duration_months: s.commission_duration_months ? String(s.commission_duration_months) : "",
@@ -4799,6 +4800,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   whatsapp_group_link: actSettingsForm.whatsapp_group_link.trim() || null,
                   bonus_amount: parseFloat(actSettingsForm.bonus_amount) || 5,
                   bonus_title: actSettingsForm.bonus_title,
+                  bonus_validity_hours: actSettingsForm.bonus_validity_hours ? parseInt(actSettingsForm.bonus_validity_hours) : null,
                   commission_percentage: parseFloat(actSettingsForm.commission_percentage) || 5,
                   commission_duration: actSettingsForm.commission_duration,
                   commission_duration_months: actSettingsForm.commission_duration === "monthly" && actSettingsForm.commission_duration_months ? parseInt(actSettingsForm.commission_duration_months) : null,
@@ -5191,6 +5193,26 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       <label className="text-[11px] font-bold block mb-1">Comisión activador (%)</label>
                       <input className="input-field text-sm py-2" type="number" min="0" max="100" step="0.5" value={actSettingsForm.commission_percentage}
                         onChange={e => setActSettingsForm(f => ({ ...f, commission_percentage: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold block mb-1">Vigencia del bono (horas) <span className="font-normal text-muted-foreground">— dejar vacío = sin vencimiento</span></label>
+                    <div className="flex gap-2 flex-wrap">
+                      {["", "24", "48", "72", "168"].map(h => (
+                        <button key={h} type="button"
+                          onClick={() => setActSettingsForm(f => ({ ...f, bonus_validity_hours: h }))}
+                          className="px-3 py-1 rounded-lg text-xs font-bold transition-all"
+                          style={{
+                            background: actSettingsForm.bonus_validity_hours === h ? "hsl(var(--primary))" : "hsl(var(--muted))",
+                            color: actSettingsForm.bonus_validity_hours === h ? "white" : "hsl(var(--muted-foreground))",
+                            border: actSettingsForm.bonus_validity_hours === h ? "none" : "1px solid hsl(var(--border))",
+                          }}>
+                          {h === "" ? "Sin límite" : h === "168" ? "7 días" : `${h}h`}
+                        </button>
+                      ))}
+                      <input className="input-field text-sm py-1 w-24" type="number" min="1" placeholder="Custom"
+                        value={actSettingsForm.bonus_validity_hours}
+                        onChange={e => setActSettingsForm(f => ({ ...f, bonus_validity_hours: e.target.value }))} />
                     </div>
                   </div>
                   <div>

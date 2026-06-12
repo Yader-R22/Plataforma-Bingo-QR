@@ -10,6 +10,7 @@ export interface AuthUser {
   department: string;
   balance: number;
   bonus_balance: number;
+  bonus_expires_at: string | null;
   status: "pending" | "active" | "rejected";
   is_admin: boolean;
   avatar_url: string | null;

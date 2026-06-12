@@ -193,7 +193,8 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
   // --- Pay with wallet balance (bonus_balance used first, then regular balance) ---
   if (payWithBalance) {
     const currentBalance = parseFloat(user.balance as unknown as string);
-    const currentBonus = parseFloat(user.bonusBalance as unknown as string);
+    const bonusExpired = user.bonusExpiresAt != null && new Date(user.bonusExpiresAt) < new Date();
+    const currentBonus = bonusExpired ? 0 : parseFloat(user.bonusBalance as unknown as string);
     const pendingRows = await db.execute(
       sql`SELECT COALESCE(SUM(amount), 0) AS total FROM withdrawals WHERE user_id = ${req.userId!} AND status = 'pending'`
     );
@@ -210,10 +211,12 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
     let insufficient = false;
     await db.transaction(async (tx) => {
       const locked = await tx.execute(
-        sql`SELECT balance, bonus_balance FROM users WHERE id = ${req.userId!} FOR UPDATE`
+        sql`SELECT balance, bonus_balance, bonus_expires_at FROM users WHERE id = ${req.userId!} FOR UPDATE`
       );
       const lockedBalance = parseFloat((locked.rows[0]?.balance as string | undefined) ?? "0");
-      const lockedBonus = parseFloat((locked.rows[0]?.bonus_balance as string | undefined) ?? "0");
+      const lockedBonusExpiresAt = locked.rows[0]?.bonus_expires_at as Date | string | null | undefined;
+      const lockedBonusExpired = lockedBonusExpiresAt != null && new Date(lockedBonusExpiresAt) < new Date();
+      const lockedBonus = lockedBonusExpired ? 0 : parseFloat((locked.rows[0]?.bonus_balance as string | undefined) ?? "0");
       const pend = await tx.execute(
         sql`SELECT COALESCE(SUM(amount), 0) AS total FROM withdrawals WHERE user_id = ${req.userId!} AND status = 'pending'`
       );
