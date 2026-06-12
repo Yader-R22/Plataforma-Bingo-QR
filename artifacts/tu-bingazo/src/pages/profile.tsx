@@ -257,7 +257,7 @@ export default function ProfilePage() {
                 ? <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                 : <span className="text-xs">📷</span>}
             </div>
-            <input ref={avatarInputRef} type="file" accept="image/*" capture="user" className="hidden" onChange={handleAvatarChange} />
+            <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
           </div>
           <div>
             <h1 className="font-black text-xl leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
