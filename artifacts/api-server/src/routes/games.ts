@@ -297,6 +297,40 @@ router.post("/:id/finish", requireAdmin, async (req: AuthRequest, res) => {
   res.json(formatGame(game));
 });
 
+router.post("/:id/reset", requireAdmin, async (req: AuthRequest, res) => {
+  const gameId = parseInt(String(req.params.id));
+  if (!gameId || isNaN(gameId)) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const games = await db.select().from(gamesTable).where(eq(gamesTable.id, gameId)).limit(1);
+  if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
+  const game = games[0];
+
+  if (game.status !== "finished") {
+    res.status(400).json({ error: "Solo se pueden resetear juegos finalizados" }); return;
+  }
+
+  await db.transaction(async (tx) => {
+    // Eliminar ganadores y cartones del juego — en ese orden por FK
+    await tx.delete(winnersTable).where(eq(winnersTable.gameId, gameId));
+    await tx.delete(cardsTable).where(eq(cardsTable.gameId, gameId));
+    // Resetear estado del juego para que pueda volver a jugarse
+    await tx.update(gamesTable)
+      .set({ status: "upcoming", calledNumbers: [], currentRound: 1, roundHistory: [], participantCount: 0 })
+      .where(eq(gamesTable.id, gameId));
+    await tx.insert(auditLogsTable).values({
+      action: "game_reset",
+      userId: req.userId!,
+      gameId,
+      details: { title: game.title },
+      ipAddress: req.ip,
+    });
+  });
+
+  const [updated] = await db.select().from(gamesTable).where(eq(gamesTable.id, gameId)).limit(1);
+  req.log.info({ gameId }, "Juego reseteado por admin");
+  res.json(formatGame(updated));
+});
+
 router.delete("/:id", requireAdmin, async (req: AuthRequest, res) => {
   const p = DeleteGameParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }

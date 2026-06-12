@@ -1206,6 +1206,25 @@ window.onload=function(){
     } else { toast.error("No se pudo reactivar el juego"); }
   }
 
+  async function resetGame(gameId: number) {
+    if (!confirm(
+      "¿Resetear este juego?\n\n" +
+      "Esto ELIMINARÁ todos los cartones vendidos y ganadores de este juego para poder jugarlo de nuevo desde cero.\n\n" +
+      "El juego en sí no se elimina — solo se limpian los datos de la partida anterior.\n\n" +
+      "Esta acción no se puede deshacer."
+    )) return;
+    const r = await fetch(`${BASE}/api/games/${gameId}/reset`, { method: "POST", headers: authH() });
+    if (r.ok) {
+      const updated = await r.json();
+      setGames(gs => gs.map(g => g.id === gameId ? { ...g, ...updated } : g));
+      toast.success("🔄 Juego reseteado — listo para una nueva partida");
+      loadStats();
+    } else {
+      const d = await r.json().catch(() => ({}));
+      toast.error(d.error || "No se pudo resetear el juego");
+    }
+  }
+
   async function deleteGame(gameId: number) {
     const r = await fetch(`${BASE}/api/games/${gameId}`, { method: "DELETE", headers: authH() });
     if (r.ok) {
@@ -3022,6 +3041,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     {g.status === "finished" && (
                       <>
                         <span className="text-xs px-2 py-0.5 rounded-full border" style={{ color: "hsl(var(--muted-foreground))" }}>Finalizado</span>
+                        <button onClick={() => resetGame(g.id)} className="text-xs font-bold" style={{ color: "#0ea5e9" }}>🔄 Resetear</button>
                         <button onClick={() => reactivateGame(g.id)} className="text-xs font-bold" style={{ color: "#16a34a" }}>♻ Reactivar</button>
                         {deleteGameConfirm === g.id ? (
                           <div className="flex gap-1 items-center">
