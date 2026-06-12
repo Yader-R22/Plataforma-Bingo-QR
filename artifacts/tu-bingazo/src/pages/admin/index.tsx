@@ -2757,12 +2757,22 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       return (
                         <div className="px-4 pb-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
                           <p className="text-white/40 text-[10px] pt-3 mb-2 font-bold uppercase tracking-widest">🏆 Ganadores ronda {g.current_round ?? 1}</p>
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="space-y-1.5">
                             {curWinners.map((w: any) => (
-                              <span key={w.id} className="text-[11px] px-2.5 py-1 rounded-full font-bold"
-                                style={{ background: "hsl(42 98% 52% / 0.2)", color: "hsl(42 98% 60%)", border: "1px solid hsl(42 98% 52% / 0.3)" }}>
-                                🏆 {w.user_name ?? `#${w.user_id}`}
-                              </span>
+                              <div key={w.id} className="flex items-center justify-between gap-3 rounded-xl px-3 py-2"
+                                style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.25)" }}>
+                                <div className="min-w-0">
+                                  <p className="text-[12px] font-black leading-tight truncate" style={{ color: "hsl(42 98% 70%)" }}>
+                                    🏆 {w.user_name ?? `#${w.user_id}`}
+                                  </p>
+                                  <p className="text-[10px] text-white/50 mt-0.5">
+                                    {w.user_department ?? "Bolivia"} · Puesto #{w.place}
+                                  </p>
+                                </div>
+                                <p className="shrink-0 text-[13px] font-black" style={{ color: "hsl(42 98% 60%)" }}>
+                                  Bs {parseFloat(w.prize_amount).toFixed(0)}
+                                </p>
+                              </div>
                             ))}
                           </div>
                         </div>
@@ -3166,12 +3176,22 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   return (
                     <div className="px-4 pb-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
                       <p className="text-white/40 text-[10px] pt-3 mb-2 font-bold uppercase tracking-widest">🏆 Ganadores ronda {g.current_round ?? 1}</p>
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="space-y-1.5">
                         {curWinners.map((w: any) => (
-                          <span key={w.id} className="text-[11px] px-2.5 py-1 rounded-full font-bold"
-                            style={{ background: "hsl(42 98% 52% / 0.2)", color: "hsl(42 98% 60%)", border: "1px solid hsl(42 98% 52% / 0.3)" }}>
-                            🏆 {w.user_name ?? `#${w.user_id}`}
-                          </span>
+                          <div key={w.id} className="flex items-center justify-between gap-3 rounded-xl px-3 py-2"
+                            style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.25)" }}>
+                            <div className="min-w-0">
+                              <p className="text-[12px] font-black leading-tight truncate" style={{ color: "hsl(42 98% 70%)" }}>
+                                🏆 {w.user_name ?? `#${w.user_id}`}
+                              </p>
+                              <p className="text-[10px] text-white/50 mt-0.5">
+                                {w.user_department ?? "Bolivia"} · Puesto #{w.place}
+                              </p>
+                            </div>
+                            <p className="shrink-0 text-[13px] font-black" style={{ color: "hsl(42 98% 60%)" }}>
+                              Bs {parseFloat(w.prize_amount).toFixed(0)}
+                            </p>
+                          </div>
                         ))}
                       </div>
                     </div>
