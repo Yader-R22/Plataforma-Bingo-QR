@@ -730,7 +730,9 @@ export default function AdminPage() {
   const [pendingActivatorCount, setPendingActivatorCount] = useState(0);
   const [reqNoteInput, setReqNoteInput] = useState<Record<number, string>>({});
   const [reqNoteOpen, setReqNoteOpen] = useState<Record<number, "reject" | "hold" | null>>({});
-  const [reqFilter, setReqFilter] = useState<"all" | "pending" | "accepted" | "hold" | "rejected">("all");
+  const [reqFilter, setReqFilter] = useState<"all" | "pending" | "accepted" | "hold">("all");
+  const [banModal, setBanModal] = useState<{ id: number; name: string } | null>(null);
+  const [banReason, setBanReason] = useState("");
   const [togglingProgram, setTogglingProgram] = useState(false);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
@@ -4572,14 +4574,13 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
 
                 {/* Filter tabs */}
                 <div className="flex gap-1.5 mb-3 flex-wrap">
-                  {(["all", "pending", "accepted", "hold", "rejected"] as const).map(f => {
-                    const labels: Record<string, string> = { all: "Todos", pending: "Pendientes", accepted: "Activos", hold: "En espera", rejected: "Rechazados" };
+                  {(["all", "pending", "accepted", "hold"] as const).map(f => {
+                    const labels: Record<string, string> = { all: "Todos", pending: "Pendientes", accepted: "Activos", hold: "En espera" };
                     const counts: Record<string, number> = {
                       all: activatorRequests.length,
                       pending: activatorRequests.filter(r => r.status === "pending").length,
                       accepted: activatorRequests.filter(r => r.status === "accepted").length,
                       hold: activatorRequests.filter(r => r.status === "hold").length,
-                      rejected: activatorRequests.filter(r => r.status === "rejected").length,
                     };
                     const active = reqFilter === f;
                     return (
@@ -4695,28 +4696,21 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                             </div>
                           )}
                           {req.status === "accepted" && (
-                            <button onClick={async () => {
-                              if (!confirm(`¿Eliminar completamente a ${req.user_full_name} como activador?`)) return;
-                              const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}`, { method: "DELETE", headers: authH() });
-                              if (r.ok) { loadTab("referidos"); toast.success("Activador eliminado"); }
-                              else toast.error("Error al eliminar");
-                            }} className="w-full py-1.5 rounded-lg text-xs font-bold border-2"
-                              style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>
-                              🗑️ Eliminar activador
-                            </button>
-                          )}
-                          {req.status === "rejected" && (
                             <div className="flex gap-1.5">
-                              <button onClick={() => reviewRequest(req.id, "accept")}
-                                className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
-                                style={{ background: "hsl(142 70% 40%)" }}>✅ Reactivar</button>
                               <button onClick={async () => {
-                                if (!confirm(`¿Eliminar la solicitud de ${req.user_full_name}?`)) return;
+                                if (!confirm(`¿Eliminar a ${req.user_full_name} como activador?`)) return;
                                 const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}`, { method: "DELETE", headers: authH() });
-                                if (r.ok) { loadTab("referidos"); toast.success("Solicitud eliminada"); }
+                                if (r.ok) { loadTab("referidos"); toast.success("Activador eliminado"); }
                                 else toast.error("Error al eliminar");
                               }} className="px-3 py-1.5 rounded-lg text-xs font-bold border-2"
-                                style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>🗑️</button>
+                                style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}
+                                title="Eliminar activador">🗑️</button>
+                              <button onClick={() => setReqNoteOpen(o => ({ ...o, [req.id]: "hold" }))}
+                                className="flex-1 py-1.5 rounded-lg text-xs font-bold border-2"
+                                style={{ borderColor: "#7c3aed", color: "#7c3aed" }}>⏸ Suspender</button>
+                              <button onClick={() => { setBanModal({ id: req.id, name: req.user_full_name }); setBanReason(""); }}
+                                className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
+                                style={{ background: "hsl(0 75% 45%)" }}>🔴 Banear</button>
                             </div>
                           )}
                         </div>
@@ -4825,6 +4819,57 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   </button>
                 </div>
               </div>
+
+              {/* Ban modal */}
+              {banModal && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
+                  onClick={() => setBanModal(null)}>
+                  <div className="bg-card w-full max-w-sm rounded-t-3xl p-5 space-y-3 shadow-2xl"
+                    onClick={e => e.stopPropagation()}>
+                    <p className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                      🔴 Banear a {banModal.name.split(" ").slice(0,2).join(" ")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      El usuario será baneado de la plataforma y removido como activador. Esta acción desactiva su cuenta inmediatamente.
+                    </p>
+                    <textarea
+                      className="w-full rounded-xl border px-3 py-2 text-xs resize-none"
+                      rows={3}
+                      placeholder="Motivo del baneo (visible en el sistema)..."
+                      value={banReason}
+                      onChange={e => setBanReason(e.target.value)}
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          const r = await fetch(`${BASE}/api/admin/activator-requests/${banModal.id}/ban`, {
+                            method: "POST",
+                            headers: authH(),
+                            body: JSON.stringify({ reason: banReason || undefined }),
+                          });
+                          if (r.ok) {
+                            setBanModal(null);
+                            loadTab("referidos");
+                            toast.success(`🔴 ${banModal.name.split(" ")[0]} baneado`);
+                          } else {
+                            toast.error("Error al banear");
+                          }
+                        }}
+                        className="flex-1 py-2.5 rounded-xl text-sm font-black text-white"
+                        style={{ background: "hsl(0 75% 45%)" }}>
+                        Confirmar baneo
+                      </button>
+                      <button
+                        onClick={() => setBanModal(null)}
+                        className="px-4 py-2.5 rounded-xl text-sm font-bold border"
+                        style={{ borderColor: "hsl(var(--border))" }}>
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}
