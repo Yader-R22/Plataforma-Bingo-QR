@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useListMyCards, useListGames } from "@workspace/api-client-react";
 import AppLayout from "@/components/AppLayout";
@@ -25,8 +26,13 @@ function gameStatusConfig(status: string) {
 
 export default function MyCardsPage() {
   const [, navigate] = useLocation();
-  const { data: rawCards, isLoading } = useListMyCards();
-  const { data: games = [] } = useListGames();
+  const { data: rawCards, isLoading, refetch: refetchCards } = useListMyCards();
+  const { data: games = [], refetch: refetchGames } = useListGames();
+
+  useEffect(() => {
+    const iv = setInterval(() => { void refetchCards(); void refetchGames(); }, 10_000);
+    return () => clearInterval(iv);
+  }, []);
 
   // Only show cards that are paid
   const cards = (rawCards as any[] ?? []).filter((c: any) => c.payment_status === "paid");
