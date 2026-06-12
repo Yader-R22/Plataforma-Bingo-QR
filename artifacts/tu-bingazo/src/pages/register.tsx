@@ -83,7 +83,7 @@ export default function RegisterPage() {
 
   // Referral code: from URL (?ref=CODE) or typed manually in form
   const referralCode = new URLSearchParams(window.location.search).get("ref") ?? "";
-  const [manualRefCode, setManualRefCode] = useState("");
+  const [manualRefCode, setManualRefCode] = useState(referralCode.toUpperCase());
   const [refInfo, setRefInfo] = useState<{ activator_name: string; bonus_amount: number; bonus_title: string } | null>(null);
   useEffect(() => {
     if (!referralCode) return;
