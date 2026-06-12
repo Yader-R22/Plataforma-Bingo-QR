@@ -411,7 +411,7 @@ export default function HomePage() {
           <div className="relative z-10 grid grid-cols-3 gap-0 mt-4 -mx-4"
             style={{
               background: heroBanners.length > 0 ? "rgba(26, 0, 80, 0.10)" : "#1a0050",
-              backdropFilter: heroBanners.length > 0 ? "blur(6px)" : undefined,
+              backdropFilter: heroBanners.length > 0 ? "blur(2px)" : undefined,
               borderTop: "1px solid rgba(255,255,255,0.1)",
             }}>
             {[
