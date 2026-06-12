@@ -1175,6 +1175,7 @@ router.get("/activator-settings", async (_req, res) => {
   if (!rows.length) {
     res.json({
       is_enabled: true,
+      whatsapp_group_link: null,
       bonus_amount: 5,
       bonus_title: "Bono de bienvenida por activador {activator}",
       commission_percentage: 5,

@@ -3,17 +3,9 @@ import { useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
+import { ADMIN_PERMS } from "./perms";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-// ── Permission definitions ────────────────────────────────────────────────────
-export const ADMIN_PERMS = [
-  { id: "admin:users",       label: "👥 Usuarios",     desc: "Ver, verificar, banear y crear usuarios" },
-  { id: "admin:games",       label: "🎱 Juegos",        desc: "Crear juegos, cantar números, validar ganadores" },
-  { id: "admin:withdrawals", label: "💸 Retiros",       desc: "Ver y procesar solicitudes de retiro" },
-  { id: "admin:resets",      label: "🔑 Reseteos",      desc: "Aprobar/rechazar reseteos de contraseña" },
-  { id: "admin:logs",        label: "📋 Auditoría",     desc: "Ver logs de auditoría del sistema" },
-] as const;
 
 /** Returns true if the user has a permission. Empty array = super admin = all. */
 function hasPermission(perms: string[], perm: string): boolean {
