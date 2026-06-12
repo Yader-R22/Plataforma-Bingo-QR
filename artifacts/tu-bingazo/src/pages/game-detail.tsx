@@ -397,39 +397,6 @@ export default function GameDetailPage() {
               ))}
             </div>
 
-            {/* Prize breakdown per round */}
-            {(() => {
-              const rounds = (game as any).rounds as Array<{ game_mode: string; max_winners: number; prize_amount: number }> | null | undefined;
-              if (!rounds?.length) return null;
-              const placeLabel = (i: number) => i === 0 ? "🥇 1° lugar" : i === 1 ? "🥈 2° lugar" : i === 2 ? "🥉 3° lugar" : `🏅 ${i + 1}° lugar`;
-              const multiRound = rounds.length > 1;
-              return (
-                <div className="bg-card border rounded-2xl p-4 space-y-3">
-                  <p className="font-bold text-sm">🎁 Distribución de premios</p>
-                  {rounds.map((r, ri) => (
-                    <div key={ri}>
-                      {multiRound && (
-                        <p className="text-xs font-black text-muted-foreground uppercase tracking-wider mb-2">
-                          Ronda {ri + 1} — {gameModeLabel(r.game_mode)}
-                        </p>
-                      )}
-                      <div className="space-y-1.5">
-                        {Array.from({ length: r.max_winners }).map((_, pi) => (
-                          <div key={pi} className="flex items-center justify-between px-3 py-2 rounded-xl"
-                            style={{ background: pi === 0 ? "hsl(42 98% 52% / 0.12)" : "hsl(var(--muted) / 0.5)", border: `1px solid ${pi === 0 ? "hsl(42 98% 52% / 0.3)" : "hsl(var(--border))"}` }}>
-                            <span className="text-sm font-bold">{placeLabel(pi)}</span>
-                            <span className="font-black text-base" style={{ color: pi === 0 ? "hsl(42 98% 35%)" : "hsl(var(--foreground))" }}>
-                              Bs {r.prize_amount.toLocaleString("es-BO")}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-
             {/* Stream links */}
             {(game.stream_url_youtube || game.stream_url_tiktok || game.stream_url_facebook) && (
               <div className="bg-card border rounded-2xl p-4">
