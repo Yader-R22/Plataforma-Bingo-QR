@@ -451,8 +451,8 @@ export default function GameDetailPage() {
       toast.error("Tu cuenta debe estar verificada para comprar cartones");
       return;
     }
-    if (payWith === "wallet" && user.balance < (game!.card_price as number) * qty) {
-      toast.error(`Saldo insuficiente. Tu saldo: Bs ${user.balance.toFixed(0)}`);
+    if (payWith === "wallet" && spendableBalance < (game!.card_price as number) * qty) {
+      toast.error(`Saldo insuficiente. Disponible: Bs ${spendableBalance.toFixed(0)}`);
       return;
     }
     setBuying(true);
@@ -513,7 +513,8 @@ export default function GameDetailPage() {
   const isFinished = game.status === "finished";
   const cfg = typeConfig(game.type);
   const totalPrice = (game.card_price as number) * qty;
-  const canPayWithWallet = user && user.balance >= (game.card_price as number);
+  const spendableBalance = user ? user.balance + (user.bonus_balance ?? 0) : 0;
+  const canPayWithWallet = user && spendableBalance >= (game.card_price as number);
 
   const placeLabels: Record<number, string> = { 1: "🥇 1er Lugar", 2: "🥈 2do Lugar", 3: "🥉 3er Lugar" };
 
@@ -655,7 +656,7 @@ export default function GameDetailPage() {
                       }}
                     >
                       <span>💰 Mi Saldo</span>
-                      {user && <span className="text-xs opacity-70">Bs {user.balance.toFixed(0)}</span>}
+                      {user && <span className="text-xs opacity-70">Bs {spendableBalance.toFixed(0)}</span>}
                     </button>
                   </div>
                 </div>

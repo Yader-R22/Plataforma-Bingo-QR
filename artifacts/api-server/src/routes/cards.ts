@@ -190,43 +190,48 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
 
   const totalAmount = parseFloat(game.cardPrice) * quantity;
 
-  // --- Pay with wallet balance ---
+  // --- Pay with wallet balance (bonus_balance used first, then regular balance) ---
   if (payWithBalance) {
-    // Spendable funds = balance MINUS funds already reserved by pending
-    // withdrawals. Pending withdrawals are debited later at admin mark-paid, so
-    // they must not be re-spent here or the balance could go negative.
     const currentBalance = parseFloat(user.balance as unknown as string);
+    const currentBonus = parseFloat(user.bonusBalance as unknown as string);
     const pendingRows = await db.execute(
       sql`SELECT COALESCE(SUM(amount), 0) AS total FROM withdrawals WHERE user_id = ${req.userId!} AND status = 'pending'`
     );
     const pendingAmount = parseFloat((pendingRows.rows[0]?.total as string | undefined) ?? "0");
-    const available = currentBalance - pendingAmount;
-    if (available < totalAmount) {
-      res.status(400).json({ error: `Saldo insuficiente. Disponible: Bs ${available.toFixed(2)} (saldo Bs ${currentBalance.toFixed(2)} menos retiros pendientes Bs ${pendingAmount.toFixed(2)})` });
+    // bonus_balance is not withdrawable so pending withdrawals only reduce regular balance
+    const availableBalance = currentBalance - pendingAmount;
+    const totalAvailable = availableBalance + currentBonus;
+    if (totalAvailable < totalAmount) {
+      res.status(400).json({ error: `Saldo insuficiente. Disponible: Bs ${totalAvailable.toFixed(2)} (saldo Bs ${currentBalance.toFixed(2)} + bono Bs ${currentBonus.toFixed(2)} menos retiros pendientes Bs ${pendingAmount.toFixed(2)})` });
       return;
     }
-    // Debit + card creation run in ONE transaction so the user is never
-    // charged without receiving all cards. We lock the user row FOR UPDATE
-    // FIRST, then re-read balance and pending withdrawals under the lock. This
-    // avoids a READ COMMITTED TOCTOU: a concurrent withdrawal could commit a
-    // new pending row after this tx's snapshot but before its write, so a bare
-    // conditional UPDATE with a SUM subquery could still pass against stale
-    // pending. Locking first forces a fresh read of committed pending.
+    // Lock row, re-read both balances under lock, deduct bonus first then regular balance.
     const newCards: (typeof cardsTable.$inferSelect)[] = [];
     let insufficient = false;
     await db.transaction(async (tx) => {
       const locked = await tx.execute(
-        sql`SELECT balance FROM users WHERE id = ${req.userId!} FOR UPDATE`
+        sql`SELECT balance, bonus_balance FROM users WHERE id = ${req.userId!} FOR UPDATE`
       );
       const lockedBalance = parseFloat((locked.rows[0]?.balance as string | undefined) ?? "0");
+      const lockedBonus = parseFloat((locked.rows[0]?.bonus_balance as string | undefined) ?? "0");
       const pend = await tx.execute(
         sql`SELECT COALESCE(SUM(amount), 0) AS total FROM withdrawals WHERE user_id = ${req.userId!} AND status = 'pending'`
       );
       const lockedPending = parseFloat((pend.rows[0]?.total as string | undefined) ?? "0");
-      if (lockedBalance - lockedPending < totalAmount) { insufficient = true; return; }
-      await tx.execute(
-        sql`UPDATE users SET balance = balance - ${totalAmount} WHERE id = ${req.userId!}`
-      );
+      if (lockedBalance - lockedPending + lockedBonus < totalAmount) { insufficient = true; return; }
+      // Use bonus first, then regular balance
+      const fromBonus = Math.min(lockedBonus, totalAmount);
+      const fromBalance = totalAmount - fromBonus;
+      if (fromBonus > 0) {
+        await tx.execute(
+          sql`UPDATE users SET bonus_balance = bonus_balance - ${fromBonus} WHERE id = ${req.userId!}`
+        );
+      }
+      if (fromBalance > 0) {
+        await tx.execute(
+          sql`UPDATE users SET balance = balance - ${fromBalance} WHERE id = ${req.userId!}`
+        );
+      }
       for (let i = 0; i < quantity; i++) {
         const numbers = generateBingoCard();
         const [card] = await tx.insert(cardsTable).values({
@@ -242,7 +247,7 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
         action: "card_purchase_wallet",
         userId: req.userId,
         gameId: game_id,
-        details: { card_ids: newCards.map(c => c.id), amount: totalAmount, method: "wallet" },
+        details: { card_ids: newCards.map(c => c.id), amount: totalAmount, from_bonus: fromBonus, from_balance: fromBalance, method: fromBonus > 0 ? "wallet+bonus" : "wallet" },
         ipAddress: req.ip,
       });
     });

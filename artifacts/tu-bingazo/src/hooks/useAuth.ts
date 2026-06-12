@@ -9,6 +9,7 @@ export interface AuthUser {
   phone: string;
   department: string;
   balance: number;
+  bonus_balance: number;
   status: "pending" | "active" | "rejected";
   is_admin: boolean;
   avatar_url: string | null;
