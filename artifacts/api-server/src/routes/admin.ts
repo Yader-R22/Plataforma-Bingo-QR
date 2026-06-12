@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, usersTable, nameChangeRequestsTable, withdrawalsTable, winnersTable, auditLogsTable, gamesTable, feedItemsTable, cardsTable, partnersTable, partnerPaymentsTable, operatingExpensesTable, activatorRequestsTable, referralCodesTable, activatorSettingsTable, referralTransactionsTable } from "@workspace/db";
-import { eq, and, like, sql, desc, gte, lte } from "drizzle-orm";
+import { eq, and, like, sql, desc, gte, lte, or } from "drizzle-orm";
 import { requireAdmin, type AuthRequest } from "../middlewares/auth";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
@@ -760,7 +760,36 @@ router.delete("/users/:id", async (req: AuthRequest, res) => {
     res.status(400).json({ error: "El usuario tiene retiros pendientes. Procésalos antes de eliminar." });
     return;
   }
-  await db.delete(usersTable).where(eq(usersTable.id, id));
+  try {
+    await db.transaction(async (tx) => {
+      // 1. Referral transactions where this user is referrer (activator) or referred
+      await tx.delete(referralTransactionsTable)
+        .where(or(
+          eq(referralTransactionsTable.activatorId, id),
+          eq(referralTransactionsTable.referredUserId, id),
+        ));
+      // 2. Activator request this user submitted
+      await tx.delete(activatorRequestsTable).where(eq(activatorRequestsTable.userId, id));
+      // 3. Referral code for this user
+      await tx.delete(referralCodesTable).where(eq(referralCodesTable.userId, id));
+      // 4. Name-change requests
+      await tx.delete(nameChangeRequestsTable).where(eq(nameChangeRequestsTable.userId, id));
+      // 5. Audit logs
+      await tx.delete(auditLogsTable).where(eq(auditLogsTable.userId, id));
+      // 6. Winners (historical and active)
+      await tx.delete(winnersTable).where(eq(winnersTable.userId, id));
+      // 7. Withdrawals (all non-pending — pending are blocked above)
+      await tx.delete(withdrawalsTable).where(eq(withdrawalsTable.userId, id));
+      // 8. Cards
+      await tx.delete(cardsTable).where(eq(cardsTable.userId, id));
+      // 9. Finally delete the user
+      await tx.delete(usersTable).where(eq(usersTable.id, id));
+    });
+  } catch (err) {
+    req.log.error({ err, targetUserId: id }, "Error al eliminar usuario");
+    res.status(500).json({ error: "No se pudo eliminar el usuario. Intenta de nuevo." });
+    return;
+  }
   res.json({ message: "Usuario eliminado permanentemente" });
 });
 

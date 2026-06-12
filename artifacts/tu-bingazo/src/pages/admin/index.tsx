@@ -124,12 +124,22 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
   }
 
   async function deleteUser() {
-    const r = await fetch(`${BASE}/api/admin/users/${userId}`, { method: "DELETE", headers: auth() });
-    if (r.ok) {
-      toast.success("🗑 Usuario eliminado");
-      onUserUpdated(null);
-      onClose();
-    } else { const d = await r.json(); toast.error(d.error || "Error"); }
+    try {
+      const r = await fetch(`${BASE}/api/admin/users/${userId}`, { method: "DELETE", headers: auth() });
+      if (r.ok) {
+        toast.success("🗑 Usuario eliminado");
+        setConfirmDelete(false);
+        onUserUpdated(null);
+        onClose();
+      } else {
+        const d = await r.json().catch(() => ({}));
+        toast.error(d.error || "No se pudo eliminar el usuario");
+        setConfirmDelete(false);
+      }
+    } catch {
+      toast.error("Error de conexión al eliminar usuario");
+      setConfirmDelete(false);
+    }
   }
 
   async function verifyAccount(approved: boolean) {
