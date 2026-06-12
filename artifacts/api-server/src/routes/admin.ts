@@ -1143,8 +1143,8 @@ router.post("/activator-requests/:id/review", async (req: AuthRequest, res) => {
       // Reactivate if deactivated
       await db.update(referralCodesTable).set({ isActive: true }).where(eq(referralCodesTable.userId, request.userId));
     }
-  } else if (action === "reject") {
-    // Deactivate any existing code
+  } else {
+    // reject or hold → deactivate referral code so no further commissions are paid
     await db.update(referralCodesTable).set({ isActive: false }).where(eq(referralCodesTable.userId, request.userId));
   }
 
