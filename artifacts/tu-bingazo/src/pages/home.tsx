@@ -273,12 +273,14 @@ export default function HomePage() {
     }).catch(() => {});
   }, []);
 
-  // Auto-rotate banners
+  // Auto-rotate banners: images/GIFs use bannerInterval; videos advance on onEnded
   useEffect(() => {
     if (heroBanners.length < 2) return;
-    const iv = setInterval(() => setActiveBanner(i => (i + 1) % heroBanners.length), bannerInterval * 1000);
-    return () => clearInterval(iv);
-  }, [heroBanners.length, bannerInterval]);
+    const current = heroBanners[activeBanner];
+    if (!current || current.media_type === "video") return; // videos self-advance via onEnded
+    const t = setTimeout(() => setActiveBanner(i => (i + 1) % heroBanners.length), bannerInterval * 1000);
+    return () => clearTimeout(t);
+  }, [activeBanner, heroBanners, bannerInterval]);
 
   const { data: games = [], refetch: refetchGames } = useListGames();
 
@@ -349,7 +351,8 @@ export default function HomePage() {
             className="absolute inset-0 transition-opacity duration-700"
             style={{ opacity: i === activeBanner ? 1 : 0, zIndex: 0 }}>
             {b.media_type === "video"
-              ? <video src={b.image_url} className="w-full h-full object-cover" autoPlay muted loop playsInline style={{ display: "block" }} />
+              ? <video src={b.image_url} className="w-full h-full object-cover" autoPlay muted playsInline style={{ display: "block" }}
+                  onEnded={() => heroBanners.length > 1 && setActiveBanner(idx => (idx + 1) % heroBanners.length)} />
               : <img src={b.image_url} alt="" className="w-full h-full object-cover" style={{ display: "block" }} />}
             <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.45)" }} />
           </div>
