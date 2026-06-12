@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
 import { ADMIN_PERMS } from "./perms";
@@ -662,6 +663,7 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
 // ── Main Admin Page ───────────────────────────────────────────────────────────
 export default function AdminPage() {
   const [, navigate] = useLocation();
+  const site = useSiteSettings();
   const token = useAuthStore(s => s.token);
   const user = useAuthStore(s => s.user);
   const [tab, setTab] = useState<Tab>("overview");
@@ -940,7 +942,7 @@ export default function AdminPage() {
 
   function sendWhatsApp(phone: string, tempPwd: string) {
     const cleanPhone = phone.replace(/\D/g, "");
-    const msg = `Hola! Tu contraseña temporal de Tu Bingazo es: *${tempPwd}*\nCámbiala inmediatamente después de iniciar sesión. 🔑`;
+    const msg = `Hola! Tu contraseña temporal de ${site.site_name} es: *${tempPwd}*\nCámbiala inmediatamente después de iniciar sesión. 🔑`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
   }
 
@@ -1418,7 +1420,7 @@ export default function AdminPage() {
 
   <p style="font-size:11px;color:#374151;line-height:1.7;margin-bottom:12px">
     Mediante el presente documento se le informa que, tras el análisis financiero correspondiente al período
-    <b>${PERIOD_LABELS[s?.period ?? "all"] ?? s?.period}</b>, la plataforma <b>Tu Bingazo</b> presenta un déficit
+    <b>${PERIOD_LABELS[s?.period ?? "all"] ?? s?.period}</b>, la plataforma <b>${site.site_name}</b> presenta un déficit
     en el monto distribuible de <b style="color:#dc2626">${fmt(deficitAmount)}</b>, por lo que
     <b>no se efectuará ningún pago de dividendos en este período</b>.
   </p>
@@ -1489,7 +1491,7 @@ export default function AdminPage() {
       </div>`).join("")}
       <div style="border:2px solid #b45309;border-radius:10px;padding:14px;background:white">
         <p style="font-size:9px;font-weight:900;color:#b45309;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Notifiqué conforme — Administrador</p>
-        <p style="font-size:12px;font-weight:700;color:#1a1a2e">Tu Bingazo</p>
+        <p style="font-size:12px;font-weight:700;color:#1a1a2e">${site.site_name}</p>
         <p style="font-size:10px;color:#64748b">Período: ${PERIOD_LABELS[s?.period ?? "all"] ?? s?.period}</p>
         <p style="font-size:10px;color:#64748b">Déficit: <b style="color:#dc2626">${fmt(deficitAmount)}</b></p>
         <p style="font-size:9px;color:#94a3b8;margin-top:4px;font-style:italic">Certifico que la información financiera es veraz y fue entregada al socio.</p>
@@ -1533,7 +1535,7 @@ export default function AdminPage() {
     </div>`).join("")}
     <div style="border:2px solid #5b21b6;border-radius:10px;padding:14px;background:white">
       <p style="font-size:9px;font-weight:900;color:#5b21b6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Entregué conforme — Administrador</p>
-      <p style="font-size:12px;font-weight:700;color:#1a1a2e">Tu Bingazo</p>
+      <p style="font-size:12px;font-weight:700;color:#1a1a2e">${site.site_name}</p>
       <p style="font-size:10px;color:#64748b">Total: <b>${fmt(includeSnapshot.reduce((a: number, p: any) => a + p.amount, 0))}</b></p>
       <p style="font-size:10px;color:#64748b">Período: ${PERIOD_LABELS[s?.period ?? "all"] ?? s?.period}</p>
       <p style="font-size:9px;color:#94a3b8;margin-top:4px;font-style:italic">Certifico haber entregado los montos indicados conforme a los acuerdos entre las partes.</p>
@@ -1683,7 +1685,7 @@ ${signaturesSection}` : "";
 </div>`;
 
     const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-<title>Reporte Financiero — Tu Bingazo</title>
+<title>Reporte Financiero — ${site.site_name}</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: Arial, Helvetica, sans-serif; color: #1a1a2e; padding: 32px; font-size: 12px; }
@@ -1703,7 +1705,7 @@ ${signaturesSection}` : "";
   @media print { body { padding: 16px; } .no-print { display: none; } }
 </style></head><body>
 
-<h1>💰 Reporte Financiero — Tu Bingazo</h1>
+<h1>💰 Reporte Financiero — ${site.site_name}</h1>
 <p class="subtitle">Período: <b>${PERIOD_LABELS[s?.period ?? "all"] ?? s?.period}</b> &nbsp;·&nbsp; Generado el ${new Date().toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
 
 <div class="kpi-grid">
@@ -1731,7 +1733,7 @@ ${partnersSection}
 ${summarySection}
 
 <div class="footer">
-  Tu Bingazo &nbsp;·&nbsp; Reporte generado automáticamente &nbsp;·&nbsp; Todos los montos en bolivianos (Bs)<br>
+  ${site.site_name} &nbsp;·&nbsp; Reporte generado automáticamente &nbsp;·&nbsp; Todos los montos en bolivianos (Bs)<br>
   Este documento es de uso interno. La información contenida es confidencial.
 </div>
 </body></html>`;
@@ -1827,7 +1829,7 @@ ${summarySection}
   </div>
   <p style="font-size:11px;color:#374151;line-height:1.7;margin-bottom:12px">
     Mediante el presente documento se le informa que, tras el análisis financiero correspondiente al período
-    <b>${pp.period_label}</b>, la plataforma <b>Tu Bingazo</b> presenta un déficit
+    <b>${pp.period_label}</b>, la plataforma <b>${site.site_name}</b> presenta un déficit
     en el monto distribuible de <b style="color:#dc2626">${fmt(deficitAmount)}</b>, por lo que
     <b>no se efectuará ningún pago de dividendos en este período</b>.
   </p>
@@ -1864,7 +1866,7 @@ ${summarySection}
       </div>`).join("")}
       <div style="border:2px solid #b45309;border-radius:10px;padding:14px;background:white">
         <p style="font-size:9px;font-weight:900;color:#b45309;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Notifiqué conforme — Administrador</p>
-        <p style="font-size:12px;font-weight:700;color:#1a1a2e">Tu Bingazo</p>
+        <p style="font-size:12px;font-weight:700;color:#1a1a2e">${site.site_name}</p>
         <p style="font-size:10px;color:#64748b">Período: ${pp.period_label}</p>
         <p style="font-size:10px;color:#64748b">Déficit: <b style="color:#dc2626">${fmt(deficitAmount)}</b></p>
         <div style="margin-top:28px;border-top:1px solid #1a1a2e;padding-top:6px">
@@ -1902,7 +1904,7 @@ ${summarySection}
     </div>`).join("")}
     <div style="border:2px solid #5b21b6;border-radius:10px;padding:14px;background:white">
       <p style="font-size:9px;font-weight:900;color:#5b21b6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Entregué conforme — Administrador</p>
-      <p style="font-size:12px;font-weight:700;color:#1a1a2e">Tu Bingazo</p>
+      <p style="font-size:12px;font-weight:700;color:#1a1a2e">${site.site_name}</p>
       <p style="font-size:10px;color:#64748b">Total: <b>${fmt(totalPaid)}</b></p>
       <p style="font-size:10px;color:#64748b">Período: ${pp.period_label}</p>
       <p style="font-size:9px;color:#94a3b8;margin-top:4px;font-style:italic">Certifico haber entregado los montos indicados conforme a los acuerdos entre las partes.</p>
@@ -2032,7 +2034,7 @@ ${signaturesSection}` : "";
 </div>`;
 
     const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-<title>Reporte Financiero — Tu Bingazo</title>
+<title>Reporte Financiero — ${site.site_name}</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: Arial, Helvetica, sans-serif; color: #1a1a2e; padding: 32px; font-size: 12px; }
@@ -2052,7 +2054,7 @@ ${signaturesSection}` : "";
   @media print { body { padding: 16px; } .no-print { display: none; } }
 </style></head><body>
 
-<h1>💰 Reporte Financiero — Tu Bingazo</h1>
+<h1>💰 Reporte Financiero — ${site.site_name}</h1>
 <p class="subtitle">Período: <b>${pp.period_label}</b> &nbsp;·&nbsp; Archivado el ${archiveDate} &nbsp;·&nbsp; Generado el ${new Date().toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
 
 <div class="kpi-grid">
@@ -2082,7 +2084,7 @@ ${summarySection}
 ${pp.admin_notes ? `<div style="margin-top:20px;padding:12px;background:#f8f7ff;border-radius:8px;border-left:4px solid #7c3aed;font-size:11px;color:#374151"><b>Nota del administrador:</b> ${pp.admin_notes}</div>` : ""}
 
 <div class="footer">
-  Tu Bingazo &nbsp;·&nbsp; Reporte generado automáticamente &nbsp;·&nbsp; Todos los montos en bolivianos (Bs)<br>
+  ${site.site_name} &nbsp;·&nbsp; Reporte generado automáticamente &nbsp;·&nbsp; Todos los montos en bolivianos (Bs)<br>
   Este documento es de uso interno. La información contenida es confidencial.
 </div>
 </body></html>`;
@@ -2112,7 +2114,7 @@ ${pp.admin_notes ? `<div style="margin-top:20px;padding:12px;background:#f8f7ff;
       ...snapshot.map((ps: any) => `  • ${ps.name} (${ps.share_percentage}%): *${fmt(ps.amount)}*`),
       pp.admin_notes ? `\n📝 ${pp.admin_notes}` : "",
       ``,
-      `_Tu Bingazo — Plataforma de Bingo Bolivia_ 🇧🇴`,
+      `_${site.site_name} — Plataforma de Bingo Bolivia_ 🇧🇴`,
     ].filter(Boolean).join("\n");
 
     // Build the same HTML used for the PDF so we can share an actual file
@@ -2127,7 +2129,7 @@ ${pp.admin_notes ? `<div style="margin-top:20px;padding:12px;background:#f8f7ff;
       const partnerRows = snap.map((p: any) => `<tr><td><b>${p.name}</b></td><td style="color:#64748b">${p.identifier || "—"}</td><td style="text-align:right;font-weight:bold;color:#7c3aed">${p.share_percentage}%</td><td style="text-align:right;font-weight:900;color:#5b21b6">${fmt2(p.amount)}</td></tr>`).join("");
       return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Reporte — ${pp.period_label}</title>
 <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#1a1a2e;padding:32px;font-size:12px}h1{font-size:22px;color:#5b21b6;margin-bottom:4px}.subtitle{color:#64748b;font-size:13px;margin-bottom:24px}table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px}th{background:#5b21b6;color:white;padding:7px 10px;text-align:left;font-size:10px;text-transform:uppercase}td{padding:6px 10px;border-bottom:1px solid #f1f5f9}tr:nth-child(even) td{background:#faf5ff}.footer{margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:10px}.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}.kpi{border:1px solid #e2e8f0;border-radius:10px;padding:16px;text-align:center}.kpi-value{font-size:18px;font-weight:900}.kpi-label{font-size:10px;color:#64748b;margin-top:4px;text-transform:uppercase}</style></head><body>
-<h1>💰 Reporte Financiero — Tu Bingazo</h1>
+<h1>💰 Reporte Financiero — ${site.site_name}</h1>
 <p class="subtitle">Período: <b>${pp.period_label}</b> · Archivado el ${archiveDate}</p>
 <div class="kpi-grid">
   <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt2(grossRev)}</div><div class="kpi-label">Ingresos brutos</div></div>
@@ -2136,7 +2138,7 @@ ${pp.admin_notes ? `<div style="margin-top:20px;padding:12px;background:#f8f7ff;
 </div>
 ${snap.length > 0 ? `<table><thead><tr><th>Socio</th><th>CI / Identificador</th><th style="text-align:right">Porcentaje</th><th style="text-align:right">Monto</th></tr></thead><tbody>${partnerRows}<tr style="background:#ede9fe"><td colspan="3" style="text-align:right;font-weight:900">Total distribuido</td><td style="text-align:right;font-weight:900;color:#5b21b6">${fmt2(totalPaid)}</td></tr></tbody></table>` : ""}
 ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;border-radius:8px;border-left:4px solid #7c3aed;font-size:11px"><b>Nota:</b> ${pp.admin_notes}</p>` : ""}
-<div class="footer">Tu Bingazo · Todos los montos en bolivianos (Bs) · Documento de uso interno</div>
+<div class="footer">${site.site_name} · Todos los montos en bolivianos (Bs) · Documento de uso interno</div>
 </body></html>`;
     })();
 
@@ -2439,7 +2441,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             <h1 className="text-2xl font-black leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
               Hola, {user?.full_name?.split(" ")[0] ?? "Admin"} 👋
             </h1>
-            <p className="text-white/50 text-xs mt-0.5">Tu Bingazo · {new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" })}</p>
+            <p className="text-white/50 text-xs mt-0.5">{site.site_name} · {new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" })}</p>
           </div>
           <button onClick={() => navigate("/admin/crear-juego")}
             className="shrink-0 flex items-center gap-1.5 text-sm font-black px-4 py-2.5 rounded-2xl transition-transform active:scale-95"

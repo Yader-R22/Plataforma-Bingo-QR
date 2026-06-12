@@ -42,6 +42,7 @@ function PhotoCapture({ label, value, onChange }: { label: string; value: string
 
 function BannedScreen({ reason }: { reason: string | null }) {
   const logout = useAuthStore(s => s.logout);
+  const site = useSiteSettings();
   const token = useAuthStore(s => s.token);
   const setUser = useAuthStore(s => s.setUser);
 
@@ -90,7 +91,7 @@ function BannedScreen({ reason }: { reason: string | null }) {
         <div className="rounded-2xl p-4 space-y-1.5"
           style={{ background: "hsl(var(--muted) / 0.5)", border: "1px solid hsl(var(--border))" }}>
           <p className="text-xs text-muted-foreground">
-            Si crees que esto es un error, comunícate con el administrador de Tu Bingazo para resolver tu situación.
+            Si crees que esto es un error, comunícate con el administrador de {site.site_name} para resolver tu situación.
           </p>
         </div>
 
@@ -106,6 +107,7 @@ function BannedScreen({ reason }: { reason: string | null }) {
 
 function RejectedScreen({ reason }: { reason: string | null }) {
   const logout = useAuthStore(s => s.logout);
+  const site = useSiteSettings();
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4"
       style={{ background: "hsl(var(--background))" }}>
@@ -128,7 +130,7 @@ function RejectedScreen({ reason }: { reason: string | null }) {
           style={{ background: "hsl(var(--muted) / 0.5)", border: "1px solid hsl(var(--border))" }}>
           <p className="text-xs font-bold text-muted-foreground">¿Qué puedes hacer?</p>
           <p className="text-xs text-muted-foreground">
-            Comunícate con el administrador de Tu Bingazo para resolver el problema o solicitar una revisión de tu caso.
+            Comunícate con el administrador de {site.site_name} para resolver el problema o solicitar una revisión de tu caso.
           </p>
         </div>
 

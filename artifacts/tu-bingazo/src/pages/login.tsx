@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function LoginPage() {
+  const site = useSiteSettings();
   const [ci, setCi] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -250,10 +252,10 @@ export default function LoginPage() {
           className="w-24 h-24 rounded-3xl flex items-center justify-center text-5xl mb-5 shadow-2xl"
           style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(10px)" }}
         >
-          🎱
+          {site.site_emoji || "🎱"}
         </div>
         <h1 className="text-4xl font-black text-white text-center" style={{ fontFamily: "'Poppins', sans-serif" }}>
-          Tu Bingazo
+          {site.site_name}
         </h1>
         <p className="text-white/60 text-sm mt-1 text-center">Bingo en vivo desde Bolivia 🇧🇴</p>
       </div>

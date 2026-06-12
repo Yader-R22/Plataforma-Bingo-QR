@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -68,6 +69,7 @@ function PhotoCapture({
 }
 
 export default function RegisterPage() {
+  const site = useSiteSettings();
   const [step, setStep] = useState(1); // 1=personal, 2=docs, 3=location
   const [form, setForm] = useState({
     full_name: "", ci: "", phone: "", department: "",
@@ -174,11 +176,11 @@ export default function RegisterPage() {
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           </button>
         </Link>
-        <span className="text-3xl">🎱</span>
+        <span className="text-3xl">{site.site_emoji || "🎱"}</span>
         <h1 className="text-white font-black text-xl mt-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
           Crear Cuenta
         </h1>
-        <p className="text-white/60 text-sm">Tu Bingazo · Bolivia</p>
+        <p className="text-white/60 text-sm">{site.site_name} · Bolivia</p>
       </div>
 
       {/* Referral banner */}

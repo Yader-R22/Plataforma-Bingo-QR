@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { useListGames, useGetWallet, getGetWalletQueryKey, useListCategories } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 import AppLayout from "@/components/AppLayout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -250,6 +251,7 @@ function FeaturedGameSection({ game, onNavigate }: { game: any; onNavigate: (p: 
 
 export default function HomePage() {
   const [, navigate] = useLocation();
+  const site = useSiteSettings();
   const user = useAuthStore(s => s.user);
   const token = useAuthStore(s => s.token);
   const [feed, setFeed] = useState<FeedItem[]>([]);
@@ -321,7 +323,7 @@ export default function HomePage() {
           <div className="relative z-10">
             <p className="text-white/70 text-sm">¡Hola, {user.full_name.split(" ")[0]}! 👋</p>
             <h1 className="text-2xl font-black mt-0.5" style={{ fontFamily: "'Poppins', sans-serif" }}>
-              {user.status === "active" ? "¡A ganar hoy! 🎉" : "Bienvenido a Tu Bingazo"}
+              {user.status === "active" ? "¡A ganar hoy! 🎉" : `Bienvenido a ${site.site_name}`}
             </h1>
             {user.status === "active" && (
               <div className="mt-3 inline-flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2">
