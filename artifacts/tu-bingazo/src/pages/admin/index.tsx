@@ -4586,6 +4586,13 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                               <button onClick={() => setReqNoteOpen(o => ({ ...o, [req.id]: "reject" }))}
                                 className="px-3 py-1.5 rounded-lg text-xs font-bold border-2"
                                 style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>✖</button>
+                              <button onClick={async () => {
+                                if (!confirm(`¿Eliminar la solicitud de ${req.user_full_name}?`)) return;
+                                const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}`, { method: "DELETE", headers: authH() });
+                                if (r.ok) { loadTab("referidos"); toast.success("Solicitud eliminada"); }
+                                else toast.error("Error al eliminar");
+                              }} className="px-3 py-1.5 rounded-lg text-xs font-bold border-2"
+                                style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>🗑️</button>
                             </div>
                           )}
                           {req.status === "accepted" && (
@@ -4600,9 +4607,18 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                             </button>
                           )}
                           {req.status === "rejected" && (
-                            <button onClick={() => reviewRequest(req.id, "accept")}
-                              className="w-full py-1.5 rounded-lg text-xs font-bold text-white"
-                              style={{ background: "hsl(142 70% 40%)" }}>✅ Reactivar</button>
+                            <div className="flex gap-1.5">
+                              <button onClick={() => reviewRequest(req.id, "accept")}
+                                className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
+                                style={{ background: "hsl(142 70% 40%)" }}>✅ Reactivar</button>
+                              <button onClick={async () => {
+                                if (!confirm(`¿Eliminar la solicitud de ${req.user_full_name}?`)) return;
+                                const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}`, { method: "DELETE", headers: authH() });
+                                if (r.ok) { loadTab("referidos"); toast.success("Solicitud eliminada"); }
+                                else toast.error("Error al eliminar");
+                              }} className="px-3 py-1.5 rounded-lg text-xs font-bold border-2"
+                                style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>🗑️</button>
+                            </div>
                           )}
                         </div>
                       );
