@@ -764,7 +764,7 @@ export default function AdminPage() {
     banner_interval: 5,
   });
   const [savingSite, setSavingSite] = useState(false);
-  const [banners, setBanners] = useState<{ id: number; image_url: string; display_order: number; is_active: boolean }[]>([]);
+  const [banners, setBanners] = useState<{ id: number; image_url: string; media_type: string; display_order: number; is_active: boolean }[]>([]);
   const [savingBanner, setSavingBanner] = useState(false);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
@@ -5418,17 +5418,18 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   className="border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all"
                   style={{ borderColor: "hsl(var(--border))" }}
                   onClick={() => { (document.getElementById("admin-banner-upload") as HTMLInputElement)?.click(); }}>
-                  <p className="text-xs text-muted-foreground">{savingBanner ? "⏳ Subiendo..." : "📁 Agregar banner (JPG/PNG, proporción 16:9 o 4:3 recomendada)"}</p>
-                  <input id="admin-banner-upload" type="file" accept="image/*" className="hidden" onChange={async e => {
+                  <p className="text-xs text-muted-foreground">{savingBanner ? "⏳ Subiendo..." : "📁 Agregar banner — imagen (JPG/PNG/GIF) o video (MP4)"}</p>
+                  <input id="admin-banner-upload" type="file" accept="image/*,video/mp4" className="hidden" onChange={async e => {
                     const file = e.target.files?.[0]; if (!file) return;
                     setSavingBanner(true);
+                    const mediaType = file.type === "video/mp4" ? "video" : file.type === "image/gif" ? "gif" : "image";
                     const reader = new FileReader();
                     reader.onload = async ev => {
                       const image_url = ev.target?.result as string;
                       const display_order = banners.length;
                       const r = await fetch(`${BASE}/api/banners`, {
                         method: "POST", headers: authH(),
-                        body: JSON.stringify({ image_url, display_order }),
+                        body: JSON.stringify({ image_url, media_type: mediaType, display_order }),
                       });
                       if (r.ok) { const b = await r.json(); setBanners(prev => [...prev, b]); toast.success("Banner agregado"); }
                       else toast.error("Error al subir el banner");
@@ -5447,9 +5448,13 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   {banners.map((b, idx) => (
                     <div key={b.id} className="flex items-center gap-3 rounded-xl p-2" style={{ border: "1px solid hsl(var(--border))", background: "hsl(var(--muted)/0.3)" }}>
                       <span className="text-xs text-muted-foreground font-bold w-5 text-center shrink-0">{idx + 1}</span>
-                      <img src={b.image_url} alt={`banner ${idx + 1}`} className="w-20 h-12 rounded-lg object-cover shrink-0" />
+                      {b.media_type === "video"
+                        ? <video src={b.image_url} className="w-20 h-12 rounded-lg object-cover shrink-0" muted playsInline />
+                        : <img src={b.image_url} alt={`banner ${idx + 1}`} className="w-20 h-12 rounded-lg object-cover shrink-0" />}
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground truncate">Banner {idx + 1}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {b.media_type === "video" ? "🎬" : b.media_type === "gif" ? "🎞️" : "🖼️"} Banner {idx + 1}
+                        </p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         {idx > 0 && (

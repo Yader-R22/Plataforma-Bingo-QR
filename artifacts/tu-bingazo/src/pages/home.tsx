@@ -258,7 +258,7 @@ export default function HomePage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
-  const [heroBanners, setHeroBanners] = useState<{ id: number; image_url: string }[]>([]);
+  const [heroBanners, setHeroBanners] = useState<{ id: number; image_url: string; media_type: string }[]>([]);
   const [bannerInterval, setBannerInterval] = useState(5);
   const [activeBanner, setActiveBanner] = useState(0);
 
@@ -348,7 +348,9 @@ export default function HomePage() {
           <div key={b.id}
             className="absolute inset-0 transition-opacity duration-700"
             style={{ opacity: i === activeBanner ? 1 : 0, zIndex: 0 }}>
-            <img src={b.image_url} alt="" className="w-full h-full object-cover" style={{ display: "block" }} />
+            {b.media_type === "video"
+              ? <video src={b.image_url} className="w-full h-full object-cover" autoPlay muted loop playsInline style={{ display: "block" }} />
+              : <img src={b.image_url} alt="" className="w-full h-full object-cover" style={{ display: "block" }} />}
             <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.45)" }} />
           </div>
         ))}

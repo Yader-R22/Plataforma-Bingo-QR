@@ -6,10 +6,11 @@ import { requireAdmin, type AuthRequest } from "../middlewares/auth";
 
 const router = Router();
 
-function toSnake(b: { id: number; imageUrl: string; displayOrder: number; isActive: boolean; createdAt: Date }) {
+function toSnake(b: { id: number; imageUrl: string; mediaType: string; displayOrder: number; isActive: boolean; createdAt: Date }) {
   return {
     id: b.id,
     image_url: b.imageUrl,
+    media_type: b.mediaType,
     display_order: b.displayOrder,
     is_active: b.isActive,
   };
@@ -25,14 +26,15 @@ router.get("/", async (_req, res) => {
 });
 
 router.post("/", requireAdmin, async (req: AuthRequest, res) => {
-  const { image_url, display_order } = req.body as {
+  const { image_url, media_type, display_order } = req.body as {
     image_url: string;
+    media_type?: string;
     display_order?: number;
   };
   if (!image_url) { res.status(400).json({ error: "image_url requerido" }); return; }
   const [banner] = await db
     .insert(bannersTable)
-    .values({ imageUrl: image_url, displayOrder: display_order ?? 0 })
+    .values({ imageUrl: image_url, mediaType: media_type ?? "image", displayOrder: display_order ?? 0 })
     .returning();
   res.status(201).json(toSnake(banner));
 });
