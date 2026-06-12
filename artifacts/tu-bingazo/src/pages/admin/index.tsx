@@ -760,6 +760,7 @@ export default function AdminPage() {
     seo_description: "La plataforma de bingo en vivo más grande de Bolivia. Gana premios en efectivo desde tu celular.",
     seo_keywords: "bingo, bolivia, bingo en vivo, premios, dinero",
     primary_color: "#1a0050",
+    qr_background_url: "",
   });
   const [savingSite, setSavingSite] = useState(false);
 
@@ -917,6 +918,7 @@ export default function AdminPage() {
             site_emoji: s.site_emoji,
             favicon_url: s.favicon_url ?? "",
             logo_url: s.logo_url ?? "",
+            qr_background_url: s.qr_background_url ?? "",
             seo_title: s.seo_title,
             seo_description: s.seo_description,
             seo_keywords: s.seo_keywords,
@@ -5170,7 +5172,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
         {tab === "sitio" && !loading && (() => {
           const imgRef = { favicon: null as HTMLInputElement | null, logo: null as HTMLInputElement | null };
 
-          function handleImgUpload(field: "favicon_url" | "logo_url", e: React.ChangeEvent<HTMLInputElement>) {
+          function handleImgUpload(field: "favicon_url" | "logo_url" | "qr_background_url", e: React.ChangeEvent<HTMLInputElement>) {
             const file = e.target.files?.[0];
             if (!file) return;
             const reader = new FileReader();
@@ -5191,6 +5193,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 seo_description: siteForm.seo_description,
                 seo_keywords: siteForm.seo_keywords,
                 primary_color: siteForm.primary_color,
+                qr_background_url: siteForm.qr_background_url || null,
               };
               const r = await fetch(`${BASE}/api/site-settings`, {
                 method: "PUT",
@@ -5320,6 +5323,40 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       <button onClick={() => setSiteForm(f => ({ ...f, favicon_url: "" }))}
                         className="text-red-500 text-xs font-bold">
                         ✕ Quitar favicon personalizado (usar emoji)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* QR Background */}
+              <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>🖼️ Imagen de Fondo del QR</h2>
+                <p className="text-xs text-muted-foreground">Esta imagen se usa como fondo cuando el usuario descarga el código QR de pago. Si no hay imagen, se usa el degradado morado por defecto.</p>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-24 h-16 rounded-xl border-2 flex items-center justify-center overflow-hidden shrink-0"
+                    style={{ borderColor: sf.qr_background_url ? "hsl(var(--primary))" : "hsl(var(--border))", background: "hsl(var(--muted))" }}>
+                    {sf.qr_background_url
+                      ? <img src={sf.qr_background_url} alt="qr bg" className="w-full h-full object-cover" />
+                      : <span className="text-2xl">🟣</span>}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div
+                      className="border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition-all"
+                      style={{ borderColor: "hsl(var(--border))" }}
+                      onClick={() => {
+                        const el = document.getElementById("admin-qrbg-upload") as HTMLInputElement;
+                        el?.click();
+                      }}>
+                      <p className="text-xs text-muted-foreground">📁 Subir imagen de fondo (JPG/PNG, proporción 2:3 recomendada)</p>
+                      <input id="admin-qrbg-upload" type="file" accept="image/*" className="hidden"
+                        onChange={e => handleImgUpload("qr_background_url", e)} />
+                    </div>
+                    {sf.qr_background_url && (
+                      <button onClick={() => setSiteForm(f => ({ ...f, qr_background_url: "" }))}
+                        className="text-red-500 text-xs font-bold">
+                        ✕ Quitar imagen (usar degradado por defecto)
                       </button>
                     )}
                   </div>

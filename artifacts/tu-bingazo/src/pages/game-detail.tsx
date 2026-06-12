@@ -85,6 +85,7 @@ function QRPaymentModal({
   const [siteName, setSiteName] = useState("Tu Bingazo");
   const [siteTagline, setSiteTagline] = useState("Bingo en Vivo Bolivia");
   const [siteEmoji, setSiteEmoji] = useState("🎱");
+  const [qrBgUrl, setQrBgUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${BASE}/api/site-settings`)
@@ -94,6 +95,7 @@ function QRPaymentModal({
         if (d.site_name) setSiteName(d.site_name);
         if (d.site_tagline) setSiteTagline(d.site_tagline);
         if (d.site_emoji) setSiteEmoji(d.site_emoji);
+        if (d.qr_background_url) setQrBgUrl(d.qr_background_url);
       })
       .catch(() => {});
   }, []);
@@ -153,92 +155,131 @@ function QRPaymentModal({
       const ctx = canvas.getContext("2d")!;
       ctx.scale(SCALE, SCALE);
 
-      // ── Background gradient — straight corners ──
-      const bg = ctx.createLinearGradient(0, 0, 0, H);
-      bg.addColorStop(0, "#2d0072");
-      bg.addColorStop(1, "#0d001a");
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, W, H);
+      function drawContent() {
+        // ── Decorative circles (only shown over gradient, not over custom bg) ──
+        if (!qrBgUrl) {
+          ctx.save();
+          ctx.globalAlpha = 0.08;
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath(); ctx.arc(W - 40, 60, 110, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(50, H - 60, 90, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
 
-      // ── Decorative circles ──
-      ctx.save();
-      ctx.globalAlpha = 0.08;
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath(); ctx.arc(W - 40, 60, 110, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(50, H - 60, 90, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
+        // ── Platform name ──
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        ctx.font = "bold 15px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`${siteEmoji}  ${siteName.toUpperCase()}`, W / 2, 44);
 
-      // ── Platform name ──
-      ctx.fillStyle = "rgba(255,255,255,0.55)";
-      ctx.font = "bold 15px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(`${siteEmoji}  ${siteName.toUpperCase()}`, W / 2, 44);
+        // ── Tagline ──
+        ctx.fillStyle = "rgba(255,255,255,0.32)";
+        ctx.font = "12px sans-serif";
+        ctx.fillText(siteTagline, W / 2, 62);
 
-      // ── Tagline ──
-      ctx.fillStyle = "rgba(255,255,255,0.32)";
-      ctx.font = "12px sans-serif";
-      ctx.fillText(siteTagline, W / 2, 62);
+        // ── Game title ──
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 24px sans-serif";
+        wrapText(ctx, gameTitle, W / 2, 96, W - 60, 30);
 
-      // ── Game title ──
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 24px sans-serif";
-      wrapText(ctx, gameTitle, W / 2, 96, W - 60, 30);
+        // ── Amount ──
+        const amountY = 160;
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.font = "14px sans-serif";
+        ctx.fillText(`${qty} cartón${qty > 1 ? "es" : ""}`, W / 2, amountY);
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "bold 52px sans-serif";
+        ctx.fillText(`Bs ${totalPrice.toFixed(0)}`, W / 2, amountY + 52);
 
-      // ── Amount ──
-      const amountY = 160;
-      ctx.fillStyle = "rgba(255,255,255,0.5)";
-      ctx.font = "14px sans-serif";
-      ctx.fillText(`${qty} cartón${qty > 1 ? "es" : ""}`, W / 2, amountY);
-      ctx.fillStyle = "#fbbf24";
-      ctx.font = "bold 52px sans-serif";
-      ctx.fillText(`Bs ${totalPrice.toFixed(0)}`, W / 2, amountY + 52);
+        // ── Divider ──
+        ctx.strokeStyle = "rgba(255,255,255,0.12)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(40, amountY + 70);
+        ctx.lineTo(W - 40, amountY + 70);
+        ctx.stroke();
 
-      // ── Divider ──
-      ctx.strokeStyle = "rgba(255,255,255,0.12)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(40, amountY + 70);
-      ctx.lineTo(W - 40, amountY + 70);
-      ctx.stroke();
+        // ── QR white card ──
+        const qrCardX = (W - QR - 40) / 2;
+        const qrCardY = amountY + 85;
+        ctx.fillStyle = "#ffffff";
+        roundRect(ctx, qrCardX, qrCardY, QR + 40, QR + 40, 20);
+        ctx.fill();
 
-      // ── QR white card ──
-      const qrCardX = (W - QR - 40) / 2;
-      const qrCardY = amountY + 85;
-      ctx.fillStyle = "#ffffff";
-      roundRect(ctx, qrCardX, qrCardY, QR + 40, QR + 40, 20);
-      ctx.fill();
+        // QR image centered inside white card
+        ctx.drawImage(qrImg, qrCardX + 20, qrCardY + 20, QR, QR);
 
-      // QR image centered inside white card
-      ctx.drawImage(qrImg, qrCardX + 20, qrCardY + 20, QR, QR);
+        // ── Scan instruction ──
+        const scanY = qrCardY + QR + 56;
+        ctx.fillStyle = "rgba(255,255,255,0.65)";
+        ctx.font = "13px sans-serif";
+        ctx.fillText("Escanea con tu app bancaria o billetera digital", W / 2, scanY);
 
-      // ── Scan instruction ──
-      const scanY = qrCardY + QR + 56;
-      ctx.fillStyle = "rgba(255,255,255,0.65)";
-      ctx.font = "13px sans-serif";
-      ctx.fillText("Escanea con tu app bancaria o billetera digital", W / 2, scanY);
+        // ── Date ──
+        const dateStr = new Date(drawDate).toLocaleDateString("es-BO", {
+          weekday: "long", day: "numeric", month: "long", year: "numeric",
+        });
+        ctx.fillStyle = "rgba(255,255,255,0.45)";
+        ctx.font = "12px sans-serif";
+        ctx.fillText(`Sorteo: ${dateStr}`, W / 2, scanY + 24);
 
-      // ── Date ──
-      const dateStr = new Date(drawDate).toLocaleDateString("es-BO", {
-        weekday: "long", day: "numeric", month: "long", year: "numeric",
-      });
-      ctx.fillStyle = "rgba(255,255,255,0.45)";
-      ctx.font = "12px sans-serif";
-      ctx.fillText(`Sorteo: ${dateStr}`, W / 2, scanY + 24);
+        // ── Footer pill ──
+        const pillW = 180, pillH = 32, pillX = (W - pillW) / 2, pillY = H - 52;
+        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        roundRect(ctx, pillX, pillY, pillW, pillH, 16);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.4)";
+        ctx.font = "11px sans-serif";
+        ctx.fillText(`${siteEmoji}  ${siteName}`, W / 2, pillY + 20);
 
-      // ── Footer pill ──
-      const pillW = 180, pillH = 32, pillX = (W - pillW) / 2, pillY = H - 52;
-      ctx.fillStyle = "rgba(255,255,255,0.08)";
-      roundRect(ctx, pillX, pillY, pillW, pillH, 16);
-      ctx.fill();
-      ctx.fillStyle = "rgba(255,255,255,0.4)";
-      ctx.font = "11px sans-serif";
-      ctx.fillText(`${siteEmoji}  ${siteName}`, W / 2, pillY + 20);
+        URL.revokeObjectURL(svgUrl);
+        const a = document.createElement("a");
+        a.href = canvas.toDataURL("image/png");
+        a.download = `qr-bingazo-${checkoutId}.png`;
+        a.click();
+      }
 
-      URL.revokeObjectURL(svgUrl);
-      const a = document.createElement("a");
-      a.href = canvas.toDataURL("image/png");
-      a.download = `qr-bingazo-${checkoutId}.png`;
-      a.click();
+      if (qrBgUrl) {
+        // ── Custom background image ──
+        const bgImg = new Image();
+        bgImg.crossOrigin = "anonymous";
+        bgImg.onload = () => {
+          // Cover-fit: draw image filling the full canvas
+          const imgAspect = bgImg.width / bgImg.height;
+          const canvasAspect = W / H;
+          let sx = 0, sy = 0, sw = bgImg.width, sh = bgImg.height;
+          if (imgAspect > canvasAspect) {
+            sw = bgImg.height * canvasAspect;
+            sx = (bgImg.width - sw) / 2;
+          } else {
+            sh = bgImg.width / canvasAspect;
+            sy = (bgImg.height - sh) / 2;
+          }
+          ctx.drawImage(bgImg, sx, sy, sw, sh, 0, 0, W, H);
+          // Dark overlay for readability
+          ctx.fillStyle = "rgba(0,0,0,0.45)";
+          ctx.fillRect(0, 0, W, H);
+          drawContent();
+        };
+        bgImg.onerror = () => {
+          // Fall back to gradient on load error
+          const bg = ctx.createLinearGradient(0, 0, 0, H);
+          bg.addColorStop(0, "#2d0072");
+          bg.addColorStop(1, "#0d001a");
+          ctx.fillStyle = bg;
+          ctx.fillRect(0, 0, W, H);
+          drawContent();
+        };
+        bgImg.src = qrBgUrl;
+      } else {
+        // ── Default gradient background ──
+        const bg = ctx.createLinearGradient(0, 0, 0, H);
+        bg.addColorStop(0, "#2d0072");
+        bg.addColorStop(1, "#0d001a");
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+        drawContent();
+      }
     };
 
     qrImg.src = svgUrl;
