@@ -52,9 +52,10 @@ function typeConfig(type: string) {
 interface Winner {
   id: number;
   user_id: number;
+  round: number;
   place: number;
   prize_amount: string;
-  full_name: string;
+  user_name: string | null;
   user_department: string | null;
 }
 
@@ -500,46 +501,65 @@ export default function GameDetailPage() {
                   <p className="font-bold">Este sorteo finalizó</p>
                 </div>
 
-                {winners.length > 0 && (
-                  <div className="bg-card border rounded-2xl p-5">
-                    <h3 className="font-black text-lg mb-4" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                      🏆 Ganadores del Sorteo
-                    </h3>
-                    <div className="space-y-3">
-                      {winners.map(w => (
-                        <div
-                          key={w.id}
-                          className="flex items-center justify-between p-4 rounded-2xl"
-                          style={{
-                            background: w.place === 1
-                              ? "linear-gradient(135deg, hsl(42 98% 52% / 0.15), hsl(38 98% 48% / 0.08))"
-                              : w.place === 2
-                              ? "hsl(var(--muted))"
-                              : "hsl(var(--muted))",
-                            border: w.place === 1 ? "1px solid hsl(42 98% 52% / 0.4)" : "1px solid hsl(var(--border))",
-                          }}
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-2xl">{w.place === 1 ? "🥇" : w.place === 2 ? "🥈" : "🥉"}</span>
-                            <div>
-                              <p className="text-xs text-muted-foreground">{placeLabels[w.place] ?? `Lugar ${w.place}`}</p>
-                              <p className="font-bold">{w.full_name}</p>
-                              {w.user_department && (
-                                <p className="text-xs text-muted-foreground mt-0.5">📍 {w.user_department}</p>
-                              )}
+                {winners.length > 0 && (() => {
+                  // Group by round
+                  const rounds = Array.from(new Set(winners.map(w => w.round))).sort((a, b) => a - b);
+                  const totalRounds = rounds.length;
+                  return (
+                    <div className="bg-card border rounded-2xl p-5 space-y-5">
+                      <h3 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                        🏆 Ganadores del Sorteo
+                      </h3>
+                      {rounds.map(round => {
+                        const roundWinners = winners.filter(w => w.round === round);
+                        return (
+                          <div key={round}>
+                            {totalRounds > 1 && (
+                              <p className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-2">
+                                ── Ronda {round} ──
+                              </p>
+                            )}
+                            <div className="space-y-3">
+                              {roundWinners.map(w => (
+                                <div
+                                  key={w.id}
+                                  className="flex items-center justify-between p-4 rounded-2xl"
+                                  style={{
+                                    background: w.place === 1
+                                      ? "linear-gradient(135deg, hsl(42 98% 52% / 0.15), hsl(38 98% 48% / 0.08))"
+                                      : "hsl(var(--muted))",
+                                    border: w.place === 1 ? "1px solid hsl(42 98% 52% / 0.4)" : "1px solid hsl(var(--border))",
+                                  }}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-2xl">{w.place === 1 ? "🥇" : w.place === 2 ? "🥈" : "🥉"}</span>
+                                    <div>
+                                      <p className="text-xs text-muted-foreground">
+                                        {totalRounds > 1
+                                          ? `${placeLabels[w.place] ?? `Lugar ${w.place}`} · Ronda ${round}`
+                                          : (placeLabels[w.place] ?? `Lugar ${w.place}`)}
+                                      </p>
+                                      <p className="font-bold">{w.user_name ?? `Jugador #${w.user_id}`}</p>
+                                      {w.user_department && (
+                                        <p className="text-xs text-muted-foreground mt-0.5">📍 {w.user_department}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 35%)" }}>
+                                      Bs {parseFloat(w.prize_amount).toLocaleString("es-BO")}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">Premio</p>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 35%)" }}>
-                              Bs {parseFloat(w.prize_amount).toLocaleString("es-BO")}
-                            </p>
-                            <p className="text-xs text-muted-foreground">Premio</p>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {winners.length === 0 && (
                   <div className="text-center py-4 text-muted-foreground text-sm">
