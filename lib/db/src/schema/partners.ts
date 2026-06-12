@@ -31,6 +31,7 @@ export const partnerPaymentsTable = pgTable("partner_payments", {
     .$type<Array<{ partner_id: number; name: string; share_percentage: number; amount: number }>>()
     .notNull()
     .default([]),
+  financeSnapshot: jsonb("finance_snapshot").$type<Record<string, unknown>>(),
   adminNotes: text("admin_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

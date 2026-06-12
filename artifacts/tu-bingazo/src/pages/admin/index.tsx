@@ -1256,6 +1256,7 @@ export default function AdminPage() {
           netProfit:    financeSummary.net_profit,
           totalPaid,
           partnersSnapshot: snapshot,
+          financeSnapshot: { ...financeSummary, games: financeGames },
           adminNotes: partnerPaymentNotes.trim() || null,
         }),
       });
@@ -1676,54 +1677,142 @@ ${summarySection}
 
   function downloadPartnerPaymentPDF(pp: any) {
     const fmt = (v: number) => `Bs ${Number(v).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    const netProfit  = Number(pp.net_profit   ?? 0);
-    const grossRev   = Number(pp.gross_revenue ?? 0);
-    const totalPaid  = Number(pp.total_paid    ?? 0);
-    const snapshot: any[] = Array.isArray(pp.partners_snapshot) ? pp.partners_snapshot : [];
-    const marginPct  = grossRev > 0 ? ((netProfit / grossRev) * 100).toFixed(1) : "N/A";
-    const isDeficit  = totalPaid <= 0;
     const archiveDate = new Date(pp.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const snap: any[] = Array.isArray(pp.partners_snapshot) ? pp.partners_snapshot : [];
 
-    // ── Partners distribution table ───────────────────────────────
-    const partnerRows = snapshot.map((p: any) => `
-    <tr>
-      <td><b>${p.name}</b></td>
-      <td style="color:#64748b">${p.identifier || "—"}</td>
-      <td style="text-align:right;font-weight:bold;color:#7c3aed">${p.share_percentage}%</td>
-      <td style="text-align:right;color:#64748b">${fmt(totalPaid)}</td>
-      <td style="text-align:right;font-weight:900;color:#5b21b6">${fmt(p.amount)}</td>
-    </tr>`).join("");
+    // ── Use stored finance_snapshot (complete data) when available ─
+    const fs: any = pp.finance_snapshot ?? {};
+    const s = { ...fs };
 
-    const partnerTableSection = snapshot.length > 0 ? `
-<h2>🤝 Distribución a Socios</h2>
+    const freqLabel: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual", yearly: "Anual", one_time: "Pago único" };
+    const typeGameLabel: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual" };
+    const statusLabel: Record<string, string> = { upcoming: "Próximo", active: "Activo", finished: "Finalizado" };
+
+    const netProfit       = Number(s.net_profit       ?? pp.net_profit       ?? 0);
+    const grossRev        = Number(s.gross_revenue     ?? pp.gross_revenue     ?? 0);
+    const totalPaid       = Number(pp.total_paid ?? 0);
+    const totalExpenses   = Number(s.total_expenses    ?? 0);
+    const committedPrizes = Number(s.committed_prizes  ?? 0);
+    const distributable   = Number(s.distributable_profit ?? totalPaid);
+    const expensesDetail: any[] = s.expenses_detail         ?? [];
+    const committedDetail: any[] = s.committed_prizes_detail ?? [];
+    const finGames: any[] = s.games ?? [];
+
+    const marginPct = grossRev > 0 ? ((netProfit / grossRev) * 100).toFixed(1) : "N/A";
+    const isDeficit = distributable <= 0;
+    const deficitAmount = Math.abs(distributable);
+
+    // ── Deductions section ─────────────────────────────────────────
+    const hasDeductions = totalExpenses > 0 || committedPrizes > 0;
+    const expenseRows = expensesDetail.map((e: any) => `
+      <tr>
+        <td style="padding-left:20px">↳ ${e.name}</td>
+        <td>${freqLabel[e.frequency] ?? e.frequency}</td>
+        <td style="color:#64748b;font-size:10px">${fmt(e.amount_full)} / ${freqLabel[e.frequency] ?? e.frequency}</td>
+        <td style="text-align:right;color:#dc2626;font-weight:bold">−${fmt(e.amount_prorated)}</td>
+      </tr>`).join("");
+    const committedRows2 = committedDetail.map((g: any) => `
+      <tr>
+        <td style="padding-left:20px">↳ ${g.title}</td>
+        <td>${typeGameLabel[g.type] ?? g.type}</td>
+        <td style="color:#64748b;font-size:10px">Sorteo activo / próximo</td>
+        <td style="text-align:right;color:#b45309;font-weight:bold">−${fmt(g.prize_amount)}</td>
+      </tr>`).join("");
+    const deductionsSection = hasDeductions ? `
+<h2>📉 Deducciones sobre la Ganancia Neta</h2>
 <p style="font-size:10px;color:#64748b;margin-bottom:8px">
-  Calculado sobre el monto distribuible de <b style="color:#5b21b6">${fmt(totalPaid)}</b>.
-  Cada socio recibe el porcentaje pactado sobre dicha base.
+  Estos montos se descuentan de la ganancia neta antes de calcular los dividendos a socios.
+  Los gastos operativos se prorratean según la duración del período seleccionado.
+  Los premios comprometidos corresponden a sorteos activos o próximos sin ganador validado aún — ese dinero debe permanecer reservado.
 </p>
 <table>
-  <thead><tr><th>Socio</th><th>CI / Identificador</th><th style="text-align:right">Porcentaje</th><th style="text-align:right">Base de cálculo</th><th style="text-align:right">Monto cobrado</th></tr></thead>
+  <thead><tr><th>Concepto</th><th>Frecuencia / Estado</th><th>Referencia</th><th style="text-align:right">Descuento del período</th></tr></thead>
   <tbody>
-    ${partnerRows}
-    <tr style="background:#ede9fe">
-      <td colspan="4" style="text-align:right;font-weight:900">Total distribuido</td>
-      <td style="text-align:right;font-weight:900;color:#5b21b6">${fmt(totalPaid)}</td>
+    ${totalExpenses > 0 ? `<tr style="background:#fff1f2"><td colspan="3" style="font-weight:900;color:#dc2626">🏭 Gastos Operativos</td><td style="text-align:right;font-weight:900;color:#dc2626">−${fmt(totalExpenses)}</td></tr>${expenseRows}` : ""}
+    ${committedPrizes > 0 ? `<tr style="background:#fffbeb"><td colspan="3" style="font-weight:900;color:#b45309">🔒 Premios Comprometidos (reservados)</td><td style="text-align:right;font-weight:900;color:#b45309">−${fmt(committedPrizes)}</td></tr>${committedRows2}` : ""}
+    <tr style="background:${distributable >= 0 ? "#f0fdf4" : "#fef2f2"}">
+      <td colspan="3" style="font-weight:900;font-size:13px">💜 Monto Distribuible a Socios</td>
+      <td style="text-align:right;font-weight:900;font-size:14px;color:${distributable >= 0 ? "#5b21b6" : "#dc2626"}">${fmt(distributable)}</td>
     </tr>
   </tbody>
 </table>` : "";
 
-    // ── Signatures section ────────────────────────────────────────
-    const signaturesSection = snapshot.length > 0 ? `
+    // ── Partners section ───────────────────────────────────────────
+    const deficitCauses: string[] = [];
+    if (netProfit < 0) deficitCauses.push(`la ganancia neta del período es negativa (${fmt(netProfit)}), lo que indica que los egresos superaron los ingresos`);
+    if (totalExpenses > 0) deficitCauses.push(`los gastos operativos del período ascienden a ${fmt(totalExpenses)}`);
+    if (committedPrizes > 0) deficitCauses.push(`existen premios reservados por ${fmt(committedPrizes)} correspondientes a sorteos activos o próximos que aún no tienen ganador validado y cuyo monto debe mantenerse en custodia`);
+
+    const deficitNotice = isDeficit ? `
+<div style="border:3px solid #dc2626;border-radius:12px;padding:20px;background:#fef2f2;margin:20px 0">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+    <span style="font-size:28px">🚫</span>
+    <div>
+      <p style="font-size:17px;font-weight:900;color:#dc2626;text-transform:uppercase;letter-spacing:0.03em">Pago de dividendos NO CORRESPONDE este período</p>
+      <p style="font-size:11px;color:#7f1d1d;margin-top:2px">Estimado/a socio/a — por favor lea atentamente la siguiente comunicación</p>
+    </div>
+  </div>
+  <p style="font-size:11px;color:#374151;line-height:1.7;margin-bottom:12px">
+    Mediante el presente documento se le informa que, tras el análisis financiero correspondiente al período
+    <b>${pp.period_label}</b>, la plataforma <b>Tu Bingazo</b> presenta un déficit
+    en el monto distribuible de <b style="color:#dc2626">${fmt(deficitAmount)}</b>, por lo que
+    <b>no se efectuará ningún pago de dividendos en este período</b>.
+  </p>
+  <p style="font-size:11px;color:#374151;line-height:1.7;margin-bottom:12px"><b>Causas del déficit:</b></p>
+  <ul style="font-size:11px;color:#374151;line-height:1.9;padding-left:20px;margin-bottom:12px">
+    ${deficitCauses.map(c => `<li>${c.charAt(0).toUpperCase() + c.slice(1)}.</li>`).join("")}
+  </ul>
+  <div style="background:#fff;border-radius:8px;padding:14px;border:1px solid #fca5a5;margin-bottom:12px">
+    <p style="font-size:11px;font-weight:900;color:#7f1d1d;margin-bottom:8px">Resumen de la situación:</p>
+    <table style="width:100%;font-size:11px;border-collapse:collapse">
+      <tr><td style="padding:3px 0;color:#64748b">Ganancia neta del período</td><td style="text-align:right;font-weight:bold;color:${netProfit >= 0 ? "#16a34a" : "#dc2626"}">${fmt(netProfit)}</td></tr>
+      ${totalExpenses > 0 ? `<tr><td style="padding:3px 0;color:#64748b">Menos gastos operativos</td><td style="text-align:right;font-weight:bold;color:#dc2626">−${fmt(totalExpenses)}</td></tr>` : ""}
+      ${committedPrizes > 0 ? `<tr><td style="padding:3px 0;color:#64748b">Menos premios comprometidos (reserva obligatoria)</td><td style="text-align:right;font-weight:bold;color:#b45309">−${fmt(committedPrizes)}</td></tr>` : ""}
+      <tr style="border-top:2px solid #fca5a5"><td style="padding:6px 0 0;font-weight:900;color:#dc2626">Déficit resultante (monto no distribuible)</td><td style="text-align:right;font-weight:900;color:#dc2626;padding:6px 0 0">${fmt(deficitAmount)}</td></tr>
+    </table>
+  </div>
+  <div style="margin-top:24px;padding-top:20px;border-top:2px dashed #fca5a5">
+    <p style="font-size:11px;font-weight:900;color:#7f1d1d;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.04em">✍️ Constancia de Notificación</p>
+    <p style="font-size:10px;color:#374151;line-height:1.6;margin-bottom:18px">
+      La firma en los espacios indicados a continuación certifica que el socio fue debidamente notificado
+      de la situación financiera del período, del déficit registrado y de la razón por la que
+      no corresponde efectuar pago de dividendos en este período.
+    </p>
+    <div style="display:grid;grid-template-columns:repeat(${snap.length + 1},1fr);gap:16px">
+      ${snap.map((p: any) => `
+      <div style="border:2px solid #fca5a5;border-radius:10px;padding:14px;background:white">
+        <p style="font-size:9px;font-weight:900;color:#dc2626;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Notificado conforme — Socio</p>
+        <p style="font-size:12px;font-weight:700;color:#1a1a2e">${p.name}</p>
+        <p style="font-size:10px;color:#64748b">${p.identifier ? "CI: " + p.identifier : ""}</p>
+        <p style="font-size:10px;color:#64748b;margin-top:2px">${p.share_percentage}% de participación</p>
+        <div style="margin-top:28px;border-top:1px solid #1a1a2e;padding-top:6px">
+          <p style="font-size:9px;color:#64748b">Firma: ___________________________ Fecha: ___/___/______</p>
+        </div>
+      </div>`).join("")}
+      <div style="border:2px solid #b45309;border-radius:10px;padding:14px;background:white">
+        <p style="font-size:9px;font-weight:900;color:#b45309;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Notifiqué conforme — Administrador</p>
+        <p style="font-size:12px;font-weight:700;color:#1a1a2e">Tu Bingazo</p>
+        <p style="font-size:10px;color:#64748b">Período: ${pp.period_label}</p>
+        <p style="font-size:10px;color:#64748b">Déficit: <b style="color:#dc2626">${fmt(deficitAmount)}</b></p>
+        <div style="margin-top:28px;border-top:1px solid #1a1a2e;padding-top:6px">
+          <p style="font-size:9px;color:#64748b">Firma: ___________________________ Fecha: ___/___/______</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>` : "";
+
+    const signaturesSection = !isDeficit && snap.length > 0 ? `
 <div style="margin-top:32px;page-break-inside:avoid">
   <h2 style="font-size:14px;color:#5b21b6;margin-bottom:12px;border-bottom:2px solid #ede9fe;padding-bottom:4px">✍️ Constancia de Pago y Firmas</h2>
   <p style="font-size:10px;color:#64748b;margin-bottom:20px;line-height:1.6">
     El presente documento certifica que los montos detallados en la sección de distribución han sido calculados
     conforme a los porcentajes acordados entre las partes y a la información financiera del período indicado.
-    La firma de cada socio en el espacio correspondiente constituye constancia de recepción conforme del monto
-    indicado. La firma del administrador en el espacio "Entregué conforme" certifica la veracidad de la información
-    y la entrega del pago.
+    La firma de cada socio en el espacio correspondiente constituye constancia de recepción conforme del monto indicado.
+    La firma del administrador en el espacio "Entregué conforme" certifica la veracidad de la información y la entrega del pago.
   </p>
-  <div style="display:grid;grid-template-columns:repeat(${snapshot.length + 1},1fr);gap:16px">
-    ${snapshot.map((p: any) => `
+  <div style="display:grid;grid-template-columns:repeat(${snap.length + 1},1fr);gap:16px">
+    ${snap.map((p: any) => `
     <div style="border:2px solid #ede9fe;border-radius:10px;padding:14px;background:#faf5ff">
       <p style="font-size:9px;font-weight:900;color:#5b21b6;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Recibí conforme — Socio</p>
       <p style="font-size:12px;font-weight:700;color:#1a1a2e">${p.name}</p>
@@ -1754,6 +1843,121 @@ ${summarySection}
   </div>
 </div>` : "";
 
+    const partnerTableSection = !isDeficit && snap.length > 0 ? `
+<h2>🤝 Distribución a Socios</h2>
+<p style="font-size:10px;color:#64748b;margin-bottom:8px">
+  Calculado sobre el monto distribuible de <b style="color:#5b21b6">${fmt(distributable)}</b>,
+  resultado de descontar de la ganancia neta los gastos operativos del período
+  ${totalExpenses > 0 ? `(${fmt(totalExpenses)})` : ""}
+  ${committedPrizes > 0 ? `y los premios comprometidos en sorteos activos/próximos (${fmt(committedPrizes)})` : ""}.
+  Cada socio recibe el porcentaje pactado sobre dicha base.
+</p>
+<table>
+  <thead><tr><th>Socio</th><th>CI / Identificador</th><th style="text-align:right">Porcentaje</th><th style="text-align:right">Base de cálculo</th><th style="text-align:right">Monto a cobrar</th></tr></thead>
+  <tbody>
+    ${snap.map((p: any) => `
+    <tr>
+      <td><b>${p.name}</b></td>
+      <td style="color:#64748b">${p.identifier || "—"}</td>
+      <td style="text-align:right;font-weight:bold;color:#7c3aed">${p.share_percentage}%</td>
+      <td style="text-align:right;color:#64748b">${fmt(distributable)}</td>
+      <td style="text-align:right;font-weight:900;color:#5b21b6">${fmt(p.amount)}</td>
+    </tr>`).join("")}
+    <tr style="background:#ede9fe">
+      <td colspan="4" style="text-align:right;font-weight:900">Total distribuido</td>
+      <td style="text-align:right;font-weight:900;color:#5b21b6">${fmt(totalPaid)}</td>
+    </tr>
+  </tbody>
+</table>
+${signaturesSection}` : "";
+
+    const partnersSection = deficitNotice + partnerTableSection;
+
+    // ── Games table ────────────────────────────────────────────────
+    const gamesRows = finGames.map((g: any) => `
+      <tr>
+        <td>${g.title}</td>
+        <td>${typeGameLabel[g.type] ?? g.type}</td>
+        <td>${statusLabel[g.status] ?? g.status}</td>
+        <td style="text-align:right">${g.cards_sold}</td>
+        <td style="text-align:right;color:#16a34a;font-weight:bold">${fmt(g.revenue)}</td>
+        <td style="text-align:right;color:#b45309">${fmt(g.prizes_paid)}</td>
+        <td style="text-align:right;font-weight:bold;color:${g.net >= 0 ? "#16a34a" : "#dc2626"}">${fmt(g.net)}</td>
+      </tr>`).join("");
+
+    // ── Financial health summary ───────────────────────────────────
+    const totalObligations = (Number(s.balance_in_circulation ?? 0)) + (Number(s.pending_withdrawals ?? 0)) + committedPrizes;
+    const marginNum = grossRev > 0 ? (netProfit / grossRev) * 100 : null;
+    const healthStatus = (() => {
+      if (distributable > 0 && netProfit > 0 && (marginNum === null || marginNum >= 10))
+        return { label: "✅ Estado: Saludable", color: "#16a34a", bg: "#f0fdf4", border: "#86efac",
+          desc: `La plataforma opera con ganancias positivas en el período ${pp.period_label}. El monto distribuible a socios es favorable (${fmt(distributable)}), lo que indica que la operación genera excedentes reales después de cubrir todos los compromisos.`,
+          advice: "Los dividendos pueden ser distribuidos con normalidad. Se recomienda mantener el volumen de ventas actual y continuar monitoreando los gastos operativos para sostener este rendimiento." };
+      if (distributable > 0 && netProfit > 0)
+        return { label: "🟡 Estado: Aceptable", color: "#b45309", bg: "#fffbeb", border: "#fcd34d",
+          desc: `La plataforma genera ganancia neta positiva (${fmt(netProfit)}), aunque el margen sobre ingresos es bajo (${marginPct}%). El monto distribuible (${fmt(distributable)}) es positivo, pero ajustado.`,
+          advice: "Los dividendos pueden distribuirse, aunque se recomienda evaluar si reducir gastos operativos o incrementar el volumen de sorteos mejoraría el rendimiento en próximos períodos." };
+      if (netProfit >= 0 && distributable <= 0)
+        return { label: "⚠️ Estado: Precaución — Sin distribución este período", color: "#b45309", bg: "#fffbeb", border: "#fcd34d",
+          desc: `La ganancia neta del período es positiva (${fmt(netProfit)}), pero los compromisos pendientes superan el excedente disponible, generando un déficit distribuible de ${fmt(deficitAmount)}.`,
+          advice: "No corresponde pagar dividendos en este período. El déficit es de naturaleza temporal." };
+      return { label: "🔴 Estado: Déficit — Sin distribución este período", color: "#dc2626", bg: "#fef2f2", border: "#fca5a5",
+        desc: `La ganancia neta del período es negativa (${fmt(netProfit)}), lo que indica que los egresos totales superaron los ingresos. El déficit distribuible asciende a ${fmt(deficitAmount)}.`,
+        advice: `No corresponde pagar dividendos en este período. Se recomienda revisar la estructura de precios de los cartones y el volumen de sorteos programados.` };
+    })();
+
+    const summarySection = `
+<h2>📋 Estado Financiero de la Plataforma</h2>
+<div style="border:2px solid ${healthStatus.border};border-radius:12px;padding:20px;background:${healthStatus.bg};margin-bottom:16px">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;gap:16px">
+    <span style="font-size:15px;font-weight:900;color:${healthStatus.color};flex:1">${healthStatus.label}</span>
+    <span style="font-size:10px;color:#64748b;white-space:nowrap">Período: ${pp.period_label}</span>
+  </div>
+  <p style="font-size:11px;color:#374151;line-height:1.7;margin-bottom:10px"><b>Diagnóstico:</b> ${healthStatus.desc}</p>
+  <p style="font-size:11px;color:#374151;line-height:1.7;margin-bottom:16px"><b>Recomendación:</b> ${healthStatus.advice}</p>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+    <div style="background:white;border-radius:8px;padding:12px;text-align:center">
+      <div style="font-size:14px;font-weight:900;color:#16a34a">${fmt(grossRev)}</div>
+      <div style="font-size:9px;color:#64748b;margin-top:2px;text-transform:uppercase">Ingresos brutos</div>
+      <div style="font-size:9px;color:#94a3b8">${s.cards_sold ?? 0} cartones</div>
+    </div>
+    <div style="background:white;border-radius:8px;padding:12px;text-align:center">
+      <div style="font-size:14px;font-weight:900;color:#b45309">${fmt(Number(s.prizes_paid ?? 0))}</div>
+      <div style="font-size:9px;color:#64748b;margin-top:2px;text-transform:uppercase">Premios pagados</div>
+      <div style="font-size:9px;color:#94a3b8">${s.prizes_count ?? 0} ganadores validados</div>
+    </div>
+    <div style="background:white;border-radius:8px;padding:12px;text-align:center">
+      <div style="font-size:14px;font-weight:900;color:${netProfit >= 0 ? "#16a34a" : "#dc2626"}">${fmt(netProfit)}</div>
+      <div style="font-size:9px;color:#64748b;margin-top:2px;text-transform:uppercase">Ganancia neta</div>
+      <div style="font-size:9px;color:#94a3b8">Margen: ${marginPct}${grossRev > 0 ? "%" : ""}</div>
+    </div>
+    <div style="background:white;border-radius:8px;padding:12px;text-align:center">
+      <div style="font-size:14px;font-weight:900;color:#dc2626">${fmt(totalExpenses)}</div>
+      <div style="font-size:9px;color:#64748b;margin-top:2px;text-transform:uppercase">Gastos operativos</div>
+      <div style="font-size:9px;color:#94a3b8">${expensesDetail.length} concepto${expensesDetail.length !== 1 ? "s" : ""} activo${expensesDetail.length !== 1 ? "s" : ""}</div>
+    </div>
+    <div style="background:white;border-radius:8px;padding:12px;text-align:center">
+      <div style="font-size:14px;font-weight:900;color:#b45309">${fmt(committedPrizes)}</div>
+      <div style="font-size:9px;color:#64748b;margin-top:2px;text-transform:uppercase">Premios reservados</div>
+      <div style="font-size:9px;color:#94a3b8">${committedDetail.length} sorteo${committedDetail.length !== 1 ? "s" : ""} pendiente${committedDetail.length !== 1 ? "s" : ""}</div>
+    </div>
+    <div style="background:white;border-radius:8px;padding:12px;text-align:center;border:${isDeficit ? "2px solid #dc2626" : "2px solid #5b21b6"}">
+      <div style="font-size:14px;font-weight:900;color:${isDeficit ? "#dc2626" : "#5b21b6"}">${isDeficit ? "−" : ""}${fmt(isDeficit ? deficitAmount : distributable)}</div>
+      <div style="font-size:9px;color:#64748b;margin-top:2px;text-transform:uppercase">${isDeficit ? "Déficit" : "Monto distribuible"}</div>
+      <div style="font-size:9px;color:${isDeficit ? "#dc2626" : "#5b21b6"};font-weight:bold">${isDeficit ? "Sin pago este período" : "Disponible para socios"}</div>
+    </div>
+  </div>
+  <div style="padding:12px;background:white;border-radius:8px;border-left:4px solid ${healthStatus.color}">
+    <p style="font-size:10px;font-weight:900;color:#374151;margin-bottom:6px">Obligaciones de la plataforma al cierre del período:</p>
+    <table style="width:100%;font-size:10px;border-collapse:collapse">
+      <tr><td style="padding:2px 0;color:#64748b">Saldo acumulado de usuarios (billeteras)</td><td style="text-align:right;font-weight:bold">${fmt(Number(s.balance_in_circulation ?? 0))}</td></tr>
+      <tr><td style="padding:2px 0;color:#64748b">Solicitudes de retiro pendientes de pago</td><td style="text-align:right;font-weight:bold;color:#f59e0b">${fmt(Number(s.pending_withdrawals ?? 0))} <span style="font-weight:normal">(${s.pending_withdrawals_count ?? 0} solicitudes)</span></td></tr>
+      <tr><td style="padding:2px 0;color:#64748b">Premios en custodia (sorteos sin ganador validado)</td><td style="text-align:right;font-weight:bold;color:#b45309">${fmt(committedPrizes)}</td></tr>
+      <tr style="border-top:1px solid #e2e8f0"><td style="padding:4px 0 0;font-weight:900">Total obligaciones</td><td style="text-align:right;font-weight:900;padding:4px 0 0">${fmt(totalObligations)}</td></tr>
+    </table>
+  </div>
+</div>`;
+
     const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <title>Reporte Financiero — Tu Bingazo</title>
 <style>
@@ -1779,24 +1983,28 @@ ${summarySection}
 <p class="subtitle">Período: <b>${pp.period_label}</b> &nbsp;·&nbsp; Archivado el ${archiveDate} &nbsp;·&nbsp; Generado el ${new Date().toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
 
 <div class="kpi-grid">
-  <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt(grossRev)}</div><div class="kpi-label">Ingresos brutos</div><div class="kpi-sub">Del período archivado</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#dc2626">${fmt(Number(pp.prizes_paid ?? 0))}</div><div class="kpi-label">Premios pagados</div><div class="kpi-sub">&nbsp;</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#dc2626">${fmt(Number(pp.withdrawals_paid ?? 0))}</div><div class="kpi-label">Retiros pagados</div><div class="kpi-sub">&nbsp;</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#dc2626">${fmt(Number(pp.total_expenses ?? 0))}</div><div class="kpi-label">Gastos operativos</div><div class="kpi-sub">&nbsp;</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt(grossRev)}</div><div class="kpi-label">Ingresos brutos</div><div class="kpi-sub">${s.cards_sold ?? 0} cartones vendidos</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(Number(s.prizes_paid ?? 0))}</div><div class="kpi-label">Premios pagados</div><div class="kpi-sub">${s.prizes_count ?? 0} ganadores</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#dc2626">${fmt(Number(s.withdrawals_paid ?? 0))}</div><div class="kpi-label">Retiros pagados</div><div class="kpi-sub">${s.withdrawals_count ?? 0} retiros</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#7c3aed">${fmt(Number(s.balance_in_circulation ?? 0))}</div><div class="kpi-label">Saldo en circulación</div><div class="kpi-sub">${s.users_with_balance ?? 0} usuarios con saldo</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#f59e0b">${fmt(Number(s.pending_withdrawals ?? 0))}</div><div class="kpi-label">Retiros pendientes</div><div class="kpi-sub">${s.pending_withdrawals_count ?? 0} solicitudes</div></div>
   <div class="kpi" style="background:${netProfit >= 0 ? "#f0fdf4" : "#fef2f2"};border-color:${netProfit >= 0 ? "#86efac" : "#fca5a5"}">
     <div class="kpi-value" style="color:${netProfit >= 0 ? "#16a34a" : "#dc2626"}">${fmt(netProfit)}</div>
     <div class="kpi-label">Ganancia neta</div>
-    <div class="kpi-sub">Margen: ${marginPct}${grossRev > 0 ? "%" : ""}</div>
-  </div>
-  <div class="kpi" style="border-color:#c4b5fd">
-    <div class="kpi-value" style="color:#5b21b6">${fmt(totalPaid)}</div>
-    <div class="kpi-label">Total distribuido</div>
-    <div class="kpi-sub">Pagado a socios</div>
+    <div class="kpi-sub">Ingresos − Premios − Retiros</div>
   </div>
 </div>
 
-${partnerTableSection}
-${signaturesSection}
+${deductionsSection}
+${partnersSection}
+
+<h2>📊 Desglose por Juego</h2>
+<table>
+  <thead><tr><th>Juego</th><th>Tipo</th><th>Estado</th><th style="text-align:right">Cartones</th><th style="text-align:right">Ingresos</th><th style="text-align:right">Premios</th><th style="text-align:right">Ganancia</th></tr></thead>
+  <tbody>${gamesRows || "<tr><td colspan='7' style='text-align:center;color:#94a3b8;padding:16px'>Sin juegos en este período</td></tr>"}</tbody>
+</table>
+
+${summarySection}
 
 ${pp.admin_notes ? `<div style="margin-top:20px;padding:12px;background:#f8f7ff;border-radius:8px;border-left:4px solid #7c3aed;font-size:11px;color:#374151"><b>Nota del administrador:</b> ${pp.admin_notes}</div>` : ""}
 
