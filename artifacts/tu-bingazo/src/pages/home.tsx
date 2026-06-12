@@ -342,7 +342,7 @@ export default function HomePage() {
   return (
     <AppLayout>
       {/* Hero */}
-      <div className="hero-bg px-4 pt-5 pb-8 text-white relative overflow-hidden">
+      <div className="hero-bg px-4 pt-5 pb-0 text-white relative overflow-hidden">
         {/* Banner images — rotate behind all content */}
         {heroBanners.map((b, i) => (
           <div key={b.id}
@@ -405,28 +405,33 @@ export default function HomePage() {
             </div>
           </div>
         )}
-      </div>
 
-      {/* Stats bar */}
-      {stats && (
-        <div className="grid grid-cols-3 gap-0 border-b" style={{ background: "#1a0050" }}>
-          {[
-            { value: fmtCompact(stats.active_players), label: "Jugadores" },
-            {
-              value: `Bs ${(user && userStats ? userStats.total_won : stats.total_prizes_paid).toLocaleString("es-BO", { maximumFractionDigits: 0 })}`,
-              label: user && userStats ? "Mis premios" : "En premios",
-            },
-            { value: fmtCompact(stats.total_winners), label: "Ganadores" },
-          ].map((s, i) => (
-            <div key={i} className="text-center py-3 px-2" style={{ borderRight: i < 2 ? "1px solid rgba(255,255,255,0.1)" : undefined }}>
-              <p className="font-black text-lg leading-none" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 60%)" }}>
-                {s.value}
-              </p>
-              <p className="text-xs text-white/50 mt-0.5">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      )}
+        {/* Stats bar — inside hero so banner shows through */}
+        {stats && (
+          <div className="relative z-10 grid grid-cols-3 gap-0 mt-4 -mx-4"
+            style={{
+              background: heroBanners.length > 0 ? "rgba(26, 0, 80, 0.55)" : "#1a0050",
+              backdropFilter: heroBanners.length > 0 ? "blur(6px)" : undefined,
+              borderTop: "1px solid rgba(255,255,255,0.1)",
+            }}>
+            {[
+              { value: fmtCompact(stats.active_players), label: "Jugadores" },
+              {
+                value: `Bs ${(user && userStats ? userStats.total_won : stats.total_prizes_paid).toLocaleString("es-BO", { maximumFractionDigits: 0 })}`,
+                label: user && userStats ? "Mis premios" : "En premios",
+              },
+              { value: fmtCompact(stats.total_winners), label: "Ganadores" },
+            ].map((s, i) => (
+              <div key={i} className="text-center py-3 px-2" style={{ borderRight: i < 2 ? "1px solid rgba(255,255,255,0.1)" : undefined }}>
+                <p className="font-black text-lg leading-none" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 60%)" }}>
+                  {s.value}
+                </p>
+                <p className="text-xs text-white/50 mt-0.5">{s.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Live feed ticker */}
       {feed.length > 0 && (
