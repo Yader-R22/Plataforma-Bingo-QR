@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { db, usersTable, nameChangeRequestsTable, withdrawalsTable, winnersTable, auditLogsTable, gamesTable, feedItemsTable, cardsTable, partnersTable, partnerPaymentsTable, operatingExpensesTable } from "@workspace/db";
+import { db, usersTable, nameChangeRequestsTable, withdrawalsTable, winnersTable, auditLogsTable, gamesTable, feedItemsTable, cardsTable, partnersTable, partnerPaymentsTable, operatingExpensesTable, activatorRequestsTable, referralCodesTable, activatorSettingsTable, referralTransactionsTable } from "@workspace/db";
 import { eq, and, like, sql, desc } from "drizzle-orm";
 import { requireAdmin, type AuthRequest } from "../middlewares/auth";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import {
   AdminListUsersQueryParams,
   AdminVerifyUserParams,
@@ -269,6 +270,75 @@ router.post("/winners/:id/validate", async (req: AuthRequest, res) => {
       );
     });
     if (alreadyValidated) { res.status(400).json({ error: "Este ganador ya fue validado" }); return; }
+
+    // ── Activator commission: credit activator if referred user wins ──────────
+    try {
+      const winnerUser = await db.select({ referredByCode: usersTable.referredByCode })
+        .from(usersTable).where(eq(usersTable.id, winner.userId)).limit(1);
+      const refCode = winnerUser[0]?.referredByCode;
+      if (refCode) {
+        const codeRow = await db.select({ userId: referralCodesTable.userId })
+          .from(referralCodesTable)
+          .where(and(eq(referralCodesTable.code, refCode), eq(referralCodesTable.isActive, true)))
+          .limit(1);
+        if (codeRow.length) {
+          const settings = await db.select().from(activatorSettingsTable)
+            .where(eq(activatorSettingsTable.id, 1)).limit(1);
+          const commPct = parseFloat(settings[0]?.commissionPercentage ?? "5");
+          const duration = settings[0]?.commissionDuration ?? "indefinite";
+          const durationMonths = settings[0]?.commissionDurationMonths ?? null;
+          const activatorId = codeRow[0].userId;
+
+          // Check if commission duration still applies
+          let applyCommission = true;
+          if (duration === "once") {
+            const prevCommissions = await db.select({ id: referralTransactionsTable.id })
+              .from(referralTransactionsTable)
+              .where(and(
+                eq(referralTransactionsTable.type, "commission"),
+                eq(referralTransactionsTable.activatorId, activatorId),
+                eq(referralTransactionsTable.referredUserId, winner.userId),
+              )).limit(1);
+            if (prevCommissions.length) applyCommission = false;
+          } else if (duration === "monthly" && durationMonths) {
+            const refTxRow = await db.select({ createdAt: referralTransactionsTable.createdAt })
+              .from(referralTransactionsTable)
+              .where(and(
+                eq(referralTransactionsTable.type, "welcome_bonus"),
+                eq(referralTransactionsTable.referredUserId, winner.userId),
+              )).limit(1);
+            if (refTxRow.length) {
+              const monthsElapsed = (Date.now() - refTxRow[0].createdAt.getTime()) / (1000 * 60 * 60 * 24 * 30);
+              if (monthsElapsed > durationMonths) applyCommission = false;
+            }
+          }
+
+          if (applyCommission && commPct > 0) {
+            const commAmount = parseFloat((parseFloat(winner.prizeAmount) * commPct / 100).toFixed(2));
+            if (commAmount > 0) {
+              await db.execute(
+                sql`UPDATE users SET balance = balance + ${commAmount} WHERE id = ${activatorId}`
+              );
+              const activatorRow = await db.select({ fullName: usersTable.fullName })
+                .from(usersTable).where(eq(usersTable.id, activatorId)).limit(1);
+              const activatorName = activatorRow[0]?.fullName?.trim().split(/\s+/).slice(0, 2).join(" ") ?? "Activador";
+              const winnerUserName = (await db.select({ fullName: usersTable.fullName })
+                .from(usersTable).where(eq(usersTable.id, winner.userId)).limit(1))[0]?.fullName?.trim().split(/\s+/).slice(0, 2).join(" ") ?? "Usuario";
+              await db.insert(referralTransactionsTable).values({
+                type: "commission",
+                activatorId,
+                referredUserId: winner.userId,
+                gameId: winner.gameId,
+                winnerId: winner.id,
+                amount: String(commAmount),
+                commissionPercentage: String(commPct),
+                description: `Comisión ${commPct}% por ganancia de ${winnerUserName} — Bs ${parseFloat(winner.prizeAmount).toFixed(2)}`,
+              });
+            }
+          }
+        }
+      }
+    } catch { /* commission errors must not block winner validation */ }
 
     // Get user name for feed
     const users = await db.select().from(usersTable).where(eq(usersTable.id, winner.userId)).limit(1);
@@ -1011,6 +1081,168 @@ router.post("/partners/payments", async (req: AuthRequest, res) => {
     adminNotes:       adminNotes ? String(adminNotes).trim() : null,
   }).returning();
   res.status(201).json(row);
+});
+
+// ── Activator request management ─────────────────────────────────────────────
+
+router.get("/activator-requests", async (req: AuthRequest, res) => {
+  const rows = await db.select({
+    id: activatorRequestsTable.id,
+    user_id: activatorRequestsTable.userId,
+    status: activatorRequestsTable.status,
+    notes: activatorRequestsTable.notes,
+    reviewed_at: activatorRequestsTable.reviewedAt,
+    reviewed_by_id: activatorRequestsTable.reviewedById,
+    created_at: activatorRequestsTable.createdAt,
+    user_full_name: usersTable.fullName,
+    user_ci: usersTable.ci,
+    user_phone: usersTable.phone,
+    user_department: usersTable.department,
+    user_status: usersTable.status,
+    user_created_at: usersTable.createdAt,
+    user_avatar_url: usersTable.avatarUrl,
+  })
+    .from(activatorRequestsTable)
+    .innerJoin(usersTable, eq(activatorRequestsTable.userId, usersTable.id))
+    .orderBy(desc(activatorRequestsTable.createdAt));
+
+  res.json(rows);
+});
+
+router.post("/activator-requests/:id/review", async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const { action, notes } = req.body as { action: "accept" | "reject" | "hold"; notes?: string };
+  if (!["accept", "reject", "hold"].includes(action)) {
+    res.status(400).json({ error: "Acción inválida. Use: accept, reject, hold" }); return;
+  }
+
+  const requests = await db.select().from(activatorRequestsTable).where(eq(activatorRequestsTable.id, id)).limit(1);
+  if (!requests.length) { res.status(404).json({ error: "Solicitud no encontrada" }); return; }
+  const request = requests[0];
+
+  const newStatus = action === "accept" ? "accepted" : action === "reject" ? "rejected" : "hold";
+
+  await db.update(activatorRequestsTable)
+    .set({ status: newStatus, notes: notes?.trim() ?? null, reviewedById: req.userId!, reviewedAt: new Date(), updatedAt: new Date() })
+    .where(eq(activatorRequestsTable.id, id));
+
+  // If accepted, generate referral code for the user
+  if (action === "accept") {
+    const existingCode = await db.select().from(referralCodesTable)
+      .where(eq(referralCodesTable.userId, request.userId)).limit(1);
+    if (!existingCode.length) {
+      const code = crypto.randomBytes(4).toString("hex").toUpperCase(); // e.g. "A3F2C9B1"
+      await db.insert(referralCodesTable).values({
+        userId: request.userId,
+        code,
+        isActive: true,
+      });
+    } else {
+      // Reactivate if deactivated
+      await db.update(referralCodesTable).set({ isActive: true }).where(eq(referralCodesTable.userId, request.userId));
+    }
+  } else if (action === "reject") {
+    // Deactivate any existing code
+    await db.update(referralCodesTable).set({ isActive: false }).where(eq(referralCodesTable.userId, request.userId));
+  }
+
+  res.json({ ok: true, status: newStatus });
+});
+
+// ── Activator settings ────────────────────────────────────────────────────────
+
+router.get("/activator-settings", async (_req, res) => {
+  const rows = await db.select().from(activatorSettingsTable).where(eq(activatorSettingsTable.id, 1)).limit(1);
+  if (!rows.length) {
+    // Return defaults
+    res.json({
+      bonus_amount: 5,
+      bonus_title: "Bono de bienvenida por activador {activator}",
+      commission_percentage: 5,
+      commission_duration: "indefinite",
+      commission_duration_months: null,
+    });
+    return;
+  }
+  const s = rows[0];
+  res.json({
+    bonus_amount: parseFloat(s.bonusAmount),
+    bonus_title: s.bonusTitle,
+    commission_percentage: parseFloat(s.commissionPercentage),
+    commission_duration: s.commissionDuration,
+    commission_duration_months: s.commissionDurationMonths ?? null,
+  });
+});
+
+router.put("/activator-settings", async (req: AuthRequest, res) => {
+  const { bonus_amount, bonus_title, commission_percentage, commission_duration, commission_duration_months } = req.body as {
+    bonus_amount?: number;
+    bonus_title?: string;
+    commission_percentage?: number;
+    commission_duration?: string;
+    commission_duration_months?: number | null;
+  };
+
+  const existing = await db.select().from(activatorSettingsTable).where(eq(activatorSettingsTable.id, 1)).limit(1);
+  const patch: Record<string, any> = { updatedAt: new Date(), updatedById: req.userId! };
+  if (bonus_amount != null) patch.bonusAmount = String(bonus_amount);
+  if (bonus_title != null) patch.bonusTitle = bonus_title.trim();
+  if (commission_percentage != null) patch.commissionPercentage = String(commission_percentage);
+  if (commission_duration != null && ["once", "monthly", "indefinite"].includes(commission_duration)) patch.commissionDuration = commission_duration;
+  if (commission_duration_months !== undefined) patch.commissionDurationMonths = commission_duration_months ?? null;
+
+  if (existing.length) {
+    await db.update(activatorSettingsTable).set(patch).where(eq(activatorSettingsTable.id, 1));
+  } else {
+    await db.insert(activatorSettingsTable).values({ id: 1, ...patch });
+  }
+
+  const [updated] = await db.select().from(activatorSettingsTable).where(eq(activatorSettingsTable.id, 1));
+  res.json({
+    bonus_amount: parseFloat(updated.bonusAmount),
+    bonus_title: updated.bonusTitle,
+    commission_percentage: parseFloat(updated.commissionPercentage),
+    commission_duration: updated.commissionDuration,
+    commission_duration_months: updated.commissionDurationMonths ?? null,
+  });
+});
+
+// ── Referral stats for admin ──────────────────────────────────────────────────
+router.get("/referral-stats", async (_req, res) => {
+  const [activators, totalReferrals, totalCommissions, totalBonuses] = await Promise.all([
+    db.select({ count: sql<number>`count(*)` }).from(referralCodesTable).where(eq(referralCodesTable.isActive, true)),
+    db.select({ count: sql<number>`count(*)` }).from(referralTransactionsTable).where(eq(referralTransactionsTable.type, "welcome_bonus")),
+    db.select({ total: sql<string>`coalesce(sum(amount), 0)` }).from(referralTransactionsTable).where(eq(referralTransactionsTable.type, "commission")),
+    db.select({ total: sql<string>`coalesce(sum(amount), 0)` }).from(referralTransactionsTable).where(eq(referralTransactionsTable.type, "welcome_bonus")),
+  ]);
+
+  const recentTxRows = await db.select({
+    id: referralTransactionsTable.id,
+    type: referralTransactionsTable.type,
+    amount: referralTransactionsTable.amount,
+    description: referralTransactionsTable.description,
+    activator_id: referralTransactionsTable.activatorId,
+    referred_user_id: referralTransactionsTable.referredUserId,
+    created_at: referralTransactionsTable.createdAt,
+    activator_name: sql<string>`(SELECT full_name FROM users WHERE id = ${referralTransactionsTable.activatorId})`,
+    referred_name: sql<string>`(SELECT full_name FROM users WHERE id = ${referralTransactionsTable.referredUserId})`,
+  })
+    .from(referralTransactionsTable)
+    .orderBy(desc(referralTransactionsTable.createdAt))
+    .limit(50);
+
+  res.json({
+    active_activators: Number(activators[0]?.count ?? 0),
+    total_referred_users: Number(totalReferrals[0]?.count ?? 0),
+    total_commissions_paid: parseFloat(totalCommissions[0]?.total ?? "0"),
+    total_bonuses_granted: parseFloat(totalBonuses[0]?.total ?? "0"),
+    recent_transactions: recentTxRows.map(r => ({
+      ...r,
+      amount: parseFloat(r.amount),
+    })),
+  });
 });
 
 export { router as adminRouter };

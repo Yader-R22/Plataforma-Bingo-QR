@@ -33,6 +33,8 @@ export const usersTable = pgTable("users", {
   mustChangePassword: boolean("must_change_password").notNull().default(false),
   tempPasswordDisplay: text("temp_password_display"),
   tempPasswordExpiresAt: timestamp("temp_password_expires_at", { withTimezone: true }),
+  bonusBalance: numeric("bonus_balance", { precision: 10, scale: 2 }).notNull().default("0"),
+  referredByCode: text("referred_by_code"),
   isBanned: boolean("is_banned").notNull().default(false),
   banReason: text("ban_reason"),
   adminPermissions: text("admin_permissions").array().notNull().default(sql`ARRAY[]::text[]`),

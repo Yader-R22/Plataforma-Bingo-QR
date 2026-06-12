@@ -179,6 +179,22 @@ export default function WalletPage() {
           </div>
         </div>
 
+        {/* Bonus balance card — only shown when > 0 */}
+        {(wallet as any)?.bonus_balance > 0 && (
+          <div className="rounded-2xl p-4 flex items-center gap-4"
+            style={{ background: "hsl(42 98% 52% / 0.1)", border: "1.5px solid hsl(42 98% 52% / 0.35)" }}>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
+              style={{ background: "hsl(42 98% 52% / 0.15)" }}>🎁</div>
+            <div className="flex-1">
+              <p className="font-black text-sm" style={{ color: "hsl(42 98% 30%)" }}>Bono disponible</p>
+              <p className="font-black text-2xl" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 30%)" }}>
+                Bs {((wallet as any).bonus_balance ?? 0).toLocaleString("es-BO", { minimumFractionDigits: 2 })}
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: "hsl(42 98% 40%)" }}>Solo para compra de cartones · No retirable</p>
+            </div>
+          </div>
+        )}
+
         {/* --- Withdrawal flow --- */}
         {step === "idle" && (
           <button className="btn-gold" onClick={() => setStep("amount")}

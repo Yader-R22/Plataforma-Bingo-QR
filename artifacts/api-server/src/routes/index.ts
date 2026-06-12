@@ -9,6 +9,7 @@ import { profileRouter } from "./profile";
 import { feedRouter } from "./feed";
 import { adminRouter } from "./admin";
 import { categoriesRouter } from "./categories";
+import { referralsRouter } from "./referrals";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use("/profile", profileRouter);
 router.use("/feed", feedRouter);
 router.use("/admin", adminRouter);
 router.use("/categories", categoriesRouter);
+router.use("/referrals", referralsRouter);
 
 export default router;

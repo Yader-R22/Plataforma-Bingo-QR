@@ -28,6 +28,7 @@ const ALL_TABS = [
   { id: "categories",   label: "🗂️ Categorías",  perm: "admin:games" },
   { id: "withdrawals",  label: "💸 Retiros",      perm: "admin:withdrawals" },
   { id: "winners",      label: "🏆 Ganadores",   perm: "admin:games" },
+  { id: "referidos",    label: "🔗 Referidos",   perm: null },
   { id: "resets",       label: "🔑 Resets",       perm: "admin:resets" },
   { id: "logs",         label: "📋 Auditoría",   perm: "admin:logs" },
 ] as const;
@@ -727,6 +728,12 @@ export default function AdminPage() {
   const [savingExpense, setSavingExpense] = useState(false);
   // gameId → round → winner[]
   const [gameWinners, setGameWinners] = useState<Record<number, Record<number, any[]>>>({});
+  const [activatorRequests, setActivatorRequests] = useState<any[]>([]);
+  const [activatorSettings, setActivatorSettings] = useState<any>(null);
+  const [referralStats, setReferralStats] = useState<any>(null);
+  const [savingActSettings, setSavingActSettings] = useState(false);
+  const [actSettingsForm, setActSettingsForm] = useState({ bonus_amount: "5", bonus_title: "Bono de bienvenida por activador {activator}", commission_percentage: "5", commission_duration: "indefinite", commission_duration_months: "" });
+  const [pendingActivatorCount, setPendingActivatorCount] = useState(0);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
@@ -825,6 +832,26 @@ export default function AdminPage() {
           setPendingResets(d.pending ?? []);
           setApprovedResets(d.approved ?? []);
         }
+      }
+      if (t === "referidos") {
+        const [rR, sR, stR] = await Promise.all([
+          fetch(`${BASE}/api/admin/activator-requests`, { headers: authH() }),
+          fetch(`${BASE}/api/admin/activator-settings`, { headers: authH() }),
+          fetch(`${BASE}/api/admin/referral-stats`, { headers: authH() }),
+        ]);
+        if (rR.ok) setActivatorRequests(await rR.json());
+        if (sR.ok) {
+          const s = await sR.json();
+          setActivatorSettings(s);
+          setActSettingsForm({
+            bonus_amount: String(s.bonus_amount),
+            bonus_title: s.bonus_title,
+            commission_percentage: String(s.commission_percentage),
+            commission_duration: s.commission_duration,
+            commission_duration_months: s.commission_duration_months ? String(s.commission_duration_months) : "",
+          });
+        }
+        if (stR.ok) setReferralStats(await stR.json());
       }
       if (t === "finance") {
         const period = financePeriod;
@@ -4358,6 +4385,208 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             </button>
           </div>
         )}
+
+        {/* ── REFERIDOS ───────────────────────────────── */}
+        {tab === "referidos" && !loading && (() => {
+          const pendingReqs = activatorRequests.filter(r => r.status === "pending");
+          const acceptedReqs = activatorRequests.filter(r => r.status === "accepted");
+          const rejectedReqs = activatorRequests.filter(r => r.status === "rejected" || r.status === "hold");
+
+          async function reviewRequest(id: number, action: "accept" | "reject" | "hold", notes?: string) {
+            const r = await fetch(`${BASE}/api/admin/activator-requests/${id}/review`, {
+              method: "POST",
+              headers: authH(),
+              body: JSON.stringify({ action, notes }),
+            });
+            if (r.ok) {
+              loadTab("referidos");
+              toast.success(action === "accept" ? "✅ Activador aceptado" : action === "reject" ? "Solicitud rechazada" : "Solicitud en espera");
+            } else {
+              toast.error("Error al procesar la solicitud");
+            }
+          }
+
+          async function saveActSettings() {
+            setSavingActSettings(true);
+            try {
+              const r = await fetch(`${BASE}/api/admin/activator-settings`, {
+                method: "PUT",
+                headers: authH(),
+                body: JSON.stringify({
+                  bonus_amount: parseFloat(actSettingsForm.bonus_amount) || 5,
+                  bonus_title: actSettingsForm.bonus_title,
+                  commission_percentage: parseFloat(actSettingsForm.commission_percentage) || 5,
+                  commission_duration: actSettingsForm.commission_duration,
+                  commission_duration_months: actSettingsForm.commission_duration === "monthly" && actSettingsForm.commission_duration_months ? parseInt(actSettingsForm.commission_duration_months) : null,
+                }),
+              });
+              if (r.ok) { setActivatorSettings(await r.json()); toast.success("Configuración guardada"); }
+              else toast.error("Error al guardar");
+            } finally { setSavingActSettings(false); }
+          }
+
+          const reqStatusConfig: Record<string, { label: string; color: string; bg: string }> = {
+            pending: { label: "Pendiente", color: "hsl(42 98% 35%)", bg: "hsl(42 98% 52% / 0.12)" },
+            accepted: { label: "Aceptado", color: "hsl(142 70% 30%)", bg: "hsl(142 70% 45% / 0.12)" },
+            rejected: { label: "Rechazado", color: "hsl(0 75% 40%)", bg: "hsl(0 75% 52% / 0.12)" },
+            hold: { label: "En espera", color: "#7c3aed", bg: "rgba(124,58,237,0.1)" },
+          };
+
+          return (
+            <div className="space-y-5">
+              {/* Stats strip */}
+              {referralStats && (
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: "Activadores activos", value: referralStats.active_activators, icon: "🔗" },
+                    { label: "Usuarios referidos", value: referralStats.total_referred_users, icon: "👥" },
+                    { label: "Comisiones pagadas", value: `Bs ${(referralStats.total_commissions_paid ?? 0).toFixed(2)}`, icon: "💰" },
+                    { label: "Bonos otorgados", value: `Bs ${(referralStats.total_bonuses_granted ?? 0).toFixed(2)}`, icon: "🎁" },
+                  ].map(item => (
+                    <div key={item.label} className="bg-card border rounded-2xl p-4">
+                      <p className="text-xl">{item.icon}</p>
+                      <p className="font-black text-xl mt-1" style={{ fontFamily: "'Poppins', sans-serif" }}>{item.value}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Pending requests */}
+              <div>
+                <h3 className="font-black text-base mb-3" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                  📋 Solicitudes de Activador
+                  {pendingReqs.length > 0 && (
+                    <span className="ml-2 bg-yellow-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{pendingReqs.length}</span>
+                  )}
+                </h3>
+                {activatorRequests.length === 0 ? (
+                  <p className="text-muted-foreground text-sm py-4 text-center">No hay solicitudes aún</p>
+                ) : (
+                  <div className="space-y-3">
+                    {activatorRequests.map((req: any) => {
+                      const sc = reqStatusConfig[req.status] ?? reqStatusConfig.pending;
+                      return (
+                        <div key={req.id} className="bg-card border rounded-2xl p-4">
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black shrink-0"
+                                style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
+                                {req.user_avatar_url
+                                  ? <img src={req.user_avatar_url} className="w-10 h-10 rounded-full object-cover" />
+                                  : (req.user_full_name?.charAt(0) ?? "?")}
+                              </div>
+                              <div>
+                                <p className="font-bold text-sm">{req.user_full_name}</p>
+                                <p className="text-xs text-muted-foreground">CI: {req.user_ci} · {req.user_department}</p>
+                                <p className="text-xs text-muted-foreground">📱 {req.user_phone}</p>
+                                <p className="text-xs text-muted-foreground">Verificado: {req.user_status === "active" ? "✅" : "⏳"} · Desde {new Date(req.user_created_at).toLocaleDateString("es-BO")}</p>
+                              </div>
+                            </div>
+                            <span className="text-xs font-bold px-2 py-1 rounded-lg shrink-0" style={{ color: sc.color, background: sc.bg }}>{sc.label}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-3">Solicitado: {new Date(req.created_at).toLocaleDateString("es-BO")}</p>
+                          {req.notes && <p className="text-xs text-muted-foreground italic mb-3">Nota: {req.notes}</p>}
+                          {(req.status === "pending" || req.status === "hold") && (
+                            <div className="flex gap-2">
+                              <button onClick={() => reviewRequest(req.id, "accept")}
+                                className="flex-1 py-2 rounded-xl text-sm font-bold text-white"
+                                style={{ background: "hsl(142 70% 40%)" }}>✅ Aceptar</button>
+                              <button onClick={() => {
+                                const notes = prompt("Motivo (opcional):");
+                                reviewRequest(req.id, "hold", notes ?? undefined);
+                              }} className="px-3 py-2 rounded-xl text-sm font-bold border-2"
+                                style={{ borderColor: "#7c3aed", color: "#7c3aed" }}>⏸ Espera</button>
+                              <button onClick={() => {
+                                const notes = prompt("Motivo del rechazo (opcional):");
+                                reviewRequest(req.id, "reject", notes ?? undefined);
+                              }} className="px-3 py-2 rounded-xl text-sm font-bold border-2"
+                                style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>✖ Rechazar</button>
+                            </div>
+                          )}
+                          {req.status === "rejected" && (
+                            <button onClick={() => reviewRequest(req.id, "accept")}
+                              className="w-full py-2 rounded-xl text-sm font-bold text-white"
+                              style={{ background: "hsl(142 70% 40%)" }}>✅ Reactivar como activador</button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Recent referral transactions */}
+              {referralStats?.recent_transactions?.length > 0 && (
+                <div>
+                  <h3 className="font-black text-base mb-3" style={{ fontFamily: "'Poppins', sans-serif" }}>📑 Movimientos recientes</h3>
+                  <div className="space-y-2">
+                    {referralStats.recent_transactions.slice(0, 20).map((tx: any) => (
+                      <div key={tx.id} className="bg-card border rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold truncate">{tx.description}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {tx.type === "commission" ? "🔗 Comisión" : "🎁 Bono"} · {new Date(tx.created_at).toLocaleDateString("es-BO")}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">Activador: {tx.activator_name?.split(" ").slice(0,2).join(" ")} · Referido: {tx.referred_name?.split(" ").slice(0,2).join(" ")}</p>
+                        </div>
+                        <p className="font-black text-sm shrink-0" style={{ color: "hsl(142 70% 35%)" }}>+Bs {Number(tx.amount).toFixed(2)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Settings */}
+              <div className="bg-card border rounded-2xl p-5 space-y-4">
+                <h3 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>⚙️ Configuración de Referidos</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-bold block mb-1">Monto del bono de bienvenida (Bs)</label>
+                    <input className="input-field" type="number" min="0" step="0.50" value={actSettingsForm.bonus_amount}
+                      onChange={e => setActSettingsForm(f => ({ ...f, bonus_amount: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold block mb-1">Título del bono</label>
+                    <input className="input-field" placeholder="Bono de bienvenida por activador {activator}"
+                      value={actSettingsForm.bonus_title}
+                      onChange={e => setActSettingsForm(f => ({ ...f, bonus_title: e.target.value }))} />
+                    <p className="text-[11px] text-muted-foreground mt-1">Usa <code className="bg-muted px-1 rounded">{"{activator}"}</code> para insertar el nombre del activador</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold block mb-1">Comisión al activador (%)</label>
+                    <input className="input-field" type="number" min="0" max="100" step="0.5" value={actSettingsForm.commission_percentage}
+                      onChange={e => setActSettingsForm(f => ({ ...f, commission_percentage: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold block mb-1">Duración del beneficio de comisión</label>
+                    <select className="input-field" value={actSettingsForm.commission_duration}
+                      onChange={e => setActSettingsForm(f => ({ ...f, commission_duration: e.target.value }))}>
+                      <option value="once">Una sola vez</option>
+                      <option value="monthly">Por meses</option>
+                      <option value="indefinite">Indefinido</option>
+                    </select>
+                  </div>
+                  {actSettingsForm.commission_duration === "monthly" && (
+                    <div>
+                      <label className="text-xs font-bold block mb-1">Número de meses</label>
+                      <input className="input-field" type="number" min="1" max="120" value={actSettingsForm.commission_duration_months}
+                        onChange={e => setActSettingsForm(f => ({ ...f, commission_duration_months: e.target.value }))} />
+                    </div>
+                  )}
+                  <button className="btn-primary" onClick={saveActSettings} disabled={savingActSettings}>
+                    {savingActSettings ? "Guardando..." : "💾 Guardar configuración"}
+                  </button>
+                </div>
+              </div>
+
+              <button onClick={() => loadTab("referidos")} className="w-full py-3 rounded-xl border-2 font-bold text-sm"
+                style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
+                🔄 Actualizar
+              </button>
+            </div>
+          );
+        })()}
 
         {/* ── AUDIT LOGS ─────────────────────────────── */}
         {tab === "logs" && !loading && (

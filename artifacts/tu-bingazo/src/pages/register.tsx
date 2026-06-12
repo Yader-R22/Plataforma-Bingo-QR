@@ -79,6 +79,17 @@ export default function RegisterPage() {
   const { setAuth } = useAuthStore();
   const [, navigate] = useLocation();
 
+  // Detect referral code from URL query param ?ref=CODE
+  const referralCode = new URLSearchParams(window.location.search).get("ref") ?? "";
+  const [refInfo, setRefInfo] = useState<{ activator_name: string; bonus_amount: number; bonus_title: string } | null>(null);
+  useEffect(() => {
+    if (!referralCode) return;
+    fetch(`${BASE}/api/referrals/validate/${encodeURIComponent(referralCode)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.valid) setRefInfo(d); })
+      .catch(() => {});
+  }, [referralCode]);
+
   function update(field: string, value: string) {
     setForm(f => ({ ...f, [field]: value }));
   }
@@ -135,6 +146,7 @@ export default function RegisterPage() {
           department: form.department, password: form.password,
           id_photo_front: form.id_photo_front || undefined,
           id_photo_back: form.id_photo_back || undefined,
+          referral_code: referralCode || undefined,
         }),
       });
       const data = await res.json();
@@ -167,6 +179,18 @@ export default function RegisterPage() {
         </h1>
         <p className="text-white/60 text-sm">Tu Bingazo · Bolivia</p>
       </div>
+
+      {/* Referral banner */}
+      {refInfo && (
+        <div className="mx-4 mb-2 rounded-2xl px-4 py-3 flex items-center gap-3"
+          style={{ background: "hsl(42 98% 52% / 0.18)", border: "1px solid hsl(42 98% 52% / 0.4)" }}>
+          <span className="text-2xl">🎁</span>
+          <div>
+            <p className="text-white font-black text-sm">¡Tienes un bono!</p>
+            <p className="text-white/80 text-xs">Referido por {refInfo.activator_name} · Recibirás Bs {refInfo.bonus_amount} en bono al registrarte</p>
+          </div>
+        </div>
+      )}
 
       {/* Step indicator */}
       <div className="flex justify-center gap-2 pb-4">

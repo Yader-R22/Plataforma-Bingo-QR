@@ -1,7 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { db, usersTable, feedItemsTable, winnersTable } from "@workspace/db";
+import { db, usersTable, feedItemsTable, winnersTable, referralCodesTable, activatorSettingsTable, referralTransactionsTable } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 import { generateToken, requireAuth, type AuthRequest } from "../middlewares/auth";
 import { LoginBody, RegisterBody, ForgotPasswordBody, ResetPasswordBody } from "@workspace/api-zod";
@@ -61,6 +61,7 @@ function formatUser(user: typeof usersTable.$inferSelect) {
     phone: user.phone,
     department: user.department,
     balance: parseFloat(user.balance),
+    bonus_balance: parseFloat(user.bonusBalance),
     status: user.status,
     is_admin: user.isAdmin,
     avatar_url: user.avatarUrl ?? null,
@@ -122,11 +123,33 @@ router.post("/register", async (req, res) => {
     return;
   }
   const { full_name, ci, phone, password, department, id_photo_front, id_photo_back } = parsed.data;
+  const referralCode = (req.body as any).referral_code as string | undefined;
 
   const existing = await db.select().from(usersTable).where(eq(usersTable.ci, ci)).limit(1);
   if (existing.length) {
     res.status(409).json({ error: "Ya existe un usuario con ese CI" });
     return;
+  }
+
+  // Validate referral code if provided
+  let activatorId: number | null = null;
+  let bonusAmount = 0;
+  let bonusTitle = "Bono de bienvenida";
+  if (referralCode) {
+    const codeRow = await db.select({ id: referralCodesTable.id, userId: referralCodesTable.userId })
+      .from(referralCodesTable)
+      .where(and(eq(referralCodesTable.code, referralCode), eq(referralCodesTable.isActive, true)))
+      .limit(1);
+    if (codeRow.length) {
+      activatorId = codeRow[0].userId;
+      const settings = await db.select().from(activatorSettingsTable).where(eq(activatorSettingsTable.id, 1)).limit(1);
+      bonusAmount = parseFloat(settings[0]?.bonusAmount ?? "5");
+      bonusTitle = settings[0]?.bonusTitle ?? "Bono de bienvenida";
+      const activatorRow = await db.select({ fullName: usersTable.fullName })
+        .from(usersTable).where(eq(usersTable.id, activatorId)).limit(1);
+      const activatorName = activatorRow[0]?.fullName?.trim().split(/\s+/).slice(0, 2).join(" ") ?? "";
+      bonusTitle = bonusTitle.replace("{activator}", activatorName);
+    }
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
@@ -140,7 +163,20 @@ router.post("/register", async (req, res) => {
     idPhotoFrontUrl: id_photo_front ?? null,
     idPhotoBackUrl: id_photo_back ?? null,
     status: hasPhotos ? "active" : "pending",
+    bonusBalance: bonusAmount > 0 ? String(bonusAmount) : "0",
+    referredByCode: referralCode ?? null,
   }).returning();
+
+  // Record welcome bonus referral transaction
+  if (activatorId && bonusAmount > 0) {
+    db.insert(referralTransactionsTable).values({
+      type: "welcome_bonus",
+      activatorId,
+      referredUserId: user.id,
+      amount: String(bonusAmount),
+      description: bonusTitle,
+    }).catch(() => {});
+  }
 
   const token = generateToken(user.id);
 

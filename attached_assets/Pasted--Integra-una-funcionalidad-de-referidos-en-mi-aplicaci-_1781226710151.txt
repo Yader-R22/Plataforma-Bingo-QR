@@ -1,0 +1,11 @@
+"Integra una funcionalidad de referidos en mi aplicación de bingo, siguiendo este flujo:
+
+Cada usuario podrá solicitar un enlace activador único. Este enlace no será visible automáticamente; se habilitará mediante un botón llamado 'Volverme Activador'. Al presionar ese botón, se enviará una solicitud al panel del admin.
+En el panel de control del admin, se mostrará una lista de todas las solicitudes de activador. El admin podrá revisar toda la información del usuario (registro, departamento, etc.) y decidir si acepta, rechaza o pone en espera la solicitud.
+Solo cuando la solicitud es aceptada, el usuario podrá ver su enlace activador. Desde ese momento, podrá copiarlo y compartirlo en redes sociales para referir nuevos usuarios.
+Cuando un usuario referido se registre con ese enlace activador, recibirá un bono de bienvenida, cuyo monto será configurable por el admin (ej. 5 o 10 bolivianos). El bono se mostrará con un título personalizable, configurable desde el panel (ej. 'Bono de bienvenida por activador Juan').
+Es fundamental que la plataforma distinga el bono del saldo general. Si el usuario tiene un saldo (ej. 10 bolivianos) y recibe un bono (ej. 5 bolivianos), el sistema debe identificar que el bono es aparte, no es retirable, y solo se podrá usar para compras de boletos dentro del juego.
+Si el usuario referido gana un bingo, se le otorgará un porcentaje de sus ganancias al activador. Este porcentaje será configurable desde el panel del admin, y el admin podrá controlar las finanzas.
+El admin podrá definir la duración del beneficio (una vez, un mes, indefinido, etc.).
+En el historial de pagos, se debe mostrar el porcentaje abonado o descontado por referidos, tanto en las transacciones del activador como del usuario referido. El activador verá cuánto recibió, y el usuario referido verá cuánto se le abonó y cuánto se descontó al activador, especificando de qué usuario provino la ganancia.
+El admin podrá configurar el tipo de bono de bienvenida (ej. 'Bono de bienvenida por activador Juan') y personalizar el texto que acompaña al bono. El sistema debe asegurarse de que cada transacción quede registrada, asegurando la trazabilidad del usuario activador y el usuario referido."
