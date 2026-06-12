@@ -388,12 +388,108 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* ── Activador section ──────────────────────────────────── */}
+        <div className="bg-card border rounded-2xl p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🔗</span>
+            <h3 className="font-black">Programa de Activadores</h3>
+          </div>
+
+          {(!activatorStatus || !activatorStatus.has_request) && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">Comparte Tu Bingazo y gana comisiones cuando tus referidos ganen premios.</p>
+              <button className="btn-primary" onClick={requestActivator} disabled={requestingActivator}>
+                {requestingActivator ? "Enviando..." : "✨ Volverme Activador"}
+              </button>
+            </div>
+          )}
+
+          {(activatorStatus?.status === "pending" || activatorStatus?.status === "hold") && (
+            <div className="rounded-xl px-4 py-3 space-y-1"
+              style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.3)" }}>
+              <p className="font-bold text-sm" style={{ color: "hsl(42 98% 35%)" }}>
+                {activatorStatus.status === "pending" ? "⏳ Solicitud en revisión" : "⏸ Solicitud en espera"}
+              </p>
+              <p className="text-xs text-muted-foreground">El administrador revisará tu solicitud. Te notificamos cuando sea aprobada.</p>
+              {activatorStatus.notes && <p className="text-xs italic text-muted-foreground">💬 {activatorStatus.notes}</p>}
+            </div>
+          )}
+
+          {activatorStatus?.status === "rejected" && (
+            <div className="space-y-3">
+              <div className="rounded-xl px-4 py-3" style={{ background: "hsl(0 75% 52% / 0.08)", border: "1px solid hsl(0 75% 52% / 0.25)" }}>
+                <p className="font-bold text-sm" style={{ color: "hsl(0 75% 40%)" }}>✖ Solicitud rechazada</p>
+                {activatorStatus.notes && <p className="text-xs text-muted-foreground mt-1">💬 {activatorStatus.notes}</p>}
+              </div>
+              <button className="btn-primary" onClick={requestActivator} disabled={requestingActivator}>
+                {requestingActivator ? "Enviando..." : "🔄 Volver a solicitar"}
+              </button>
+            </div>
+          )}
+
+          {activatorStatus?.status === "accepted" && activatorStatus?.code && (
+            <div className="space-y-3">
+              <div className="rounded-xl px-4 py-3 space-y-1"
+                style={{ background: "hsl(142 70% 45% / 0.1)", border: "1px solid hsl(142 70% 45% / 0.3)" }}>
+                <p className="font-bold text-sm" style={{ color: "hsl(142 70% 30%)" }}>✅ ¡Eres Activador!</p>
+                <p className="text-xs text-muted-foreground">Tu código:</p>
+                <p className="font-black text-lg tracking-widest" style={{ color: "hsl(var(--primary))", fontFamily: "'Poppins', sans-serif" }}>
+                  {activatorStatus.code}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-muted-foreground">Enlace para compartir:</p>
+                <div className="flex gap-2">
+                  <div className="flex-1 rounded-xl border px-3 py-2 text-xs font-mono truncate bg-muted"
+                    style={{ borderColor: "hsl(var(--border))" }}>
+                    {window.location.origin}/registro?ref={activatorStatus.code}
+                  </div>
+                  <button className="px-3 py-2 rounded-xl text-xs font-bold text-white shrink-0"
+                    style={{ background: "hsl(var(--primary))" }}
+                    onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/registro?ref=${activatorStatus.code}`); toast.success("✅ Enlace copiado"); }}>
+                    Copiar
+                  </button>
+                </div>
+                <button className="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2"
+                  style={{ background: "#25D366", color: "white" }}
+                  onClick={() => {
+                    const msg = `¡Únete a Tu Bingazo y gana premios jugando bingo en vivo! 🎱\n\nRegístrate con mi enlace y recibirás un bono de bienvenida:\n${window.location.origin}/registro?ref=${activatorStatus.code}`;
+                    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+                  }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                  Compartir por WhatsApp
+                </button>
+              </div>
+              {referralHistory && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-muted-foreground">Total referidos: {referralHistory.total_referred}</p>
+                  {referralHistory.transactions.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-3">Sin movimientos aún</p>
+                  ) : referralHistory.transactions.slice(0, 10).map((tx: any) => (
+                    <div key={tx.id} className="rounded-xl border px-3 py-2 flex items-center justify-between gap-3"
+                      style={{ borderColor: "hsl(var(--border))" }}>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold truncate">{tx.description}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {tx.type === "commission" ? "🔗 Comisión" : "🎁 Bono"} · {new Date(tx.created_at).toLocaleDateString("es-BO")}
+                        </p>
+                      </div>
+                      <p className="font-black text-sm shrink-0" style={{ color: tx.activator_id === user.id ? "hsl(142 70% 35%)" : "hsl(42 98% 35%)" }}>
+                        +Bs {Number(tx.amount).toFixed(2)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Solicitudes de cambio */}
         <div className="bg-card border rounded-2xl p-5 space-y-4">
           <h3 className="font-black">Solicitudes de Cambio</h3>
           <p className="text-xs text-muted-foreground -mt-2">El nombre y CI requieren aprobación del administrador con verificación de identidad.</p>
 
-          {/* Name change */}
           {!showNameForm && !showCiForm && (
             <div className="space-y-2">
               <button className="w-full py-3 rounded-xl border-2 font-bold text-sm flex items-center justify-center gap-2"
@@ -415,12 +511,8 @@ export default function ProfilePage() {
               <input className="input-field" placeholder="Nombre completo correcto" value={newName} onChange={e => setNewName(e.target.value)} required autoFocus />
               <p className="text-xs text-muted-foreground">El admin revisará tu solicitud en 24-48h con tu CI.</p>
               <div className="flex gap-2">
-                <button type="submit" className="btn-primary flex-1" disabled={changingName}>
-                  {changingName ? "Enviando..." : "Solicitar cambio"}
-                </button>
-                <button type="button" onClick={() => setShowNameForm(false)} className="px-4 py-3 rounded-[14px] border-2 font-bold text-sm" style={{ borderColor: "hsl(var(--border))" }}>
-                  Cancelar
-                </button>
+                <button type="submit" className="btn-primary flex-1" disabled={changingName}>{changingName ? "Enviando..." : "Solicitar cambio"}</button>
+                <button type="button" onClick={() => setShowNameForm(false)} className="px-4 py-3 rounded-[14px] border-2 font-bold text-sm" style={{ borderColor: "hsl(var(--border))" }}>Cancelar</button>
               </div>
             </form>
           )}
@@ -431,121 +523,10 @@ export default function ProfilePage() {
               <input className="input-field" placeholder="Nuevo número de carnet" value={newCi} onChange={e => setNewCi(e.target.value)} required autoFocus />
               <p className="text-xs text-muted-foreground">El admin verificará tu identidad antes de aplicar el cambio.</p>
               <div className="flex gap-2">
-                <button type="submit" className="btn-primary flex-1" disabled={changingCi}>
-                  {changingCi ? "Enviando..." : "Solicitar cambio"}
-                </button>
-                <button type="button" onClick={() => setShowCiForm(false)} className="px-4 py-3 rounded-[14px] border-2 font-bold text-sm" style={{ borderColor: "hsl(var(--border))" }}>
-                  Cancelar
-                </button>
+                <button type="submit" className="btn-primary flex-1" disabled={changingCi}>{changingCi ? "Enviando..." : "Solicitar cambio"}</button>
+                <button type="button" onClick={() => setShowCiForm(false)} className="px-4 py-3 rounded-[14px] border-2 font-bold text-sm" style={{ borderColor: "hsl(var(--border))" }}>Cancelar</button>
               </div>
             </form>
-          )}
-        </div>
-
-        {/* ── Activador section ──────────────────────────────────── */}
-        <div className="bg-card border rounded-2xl p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🔗</span>
-            <h3 className="font-black">Programa de Activadores</h3>
-          </div>
-
-          {/* No request yet → show button */}
-          {(!activatorStatus || !activatorStatus.has_request) && (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">Comparte Tu Bingazo y gana comisiones cuando tus referidos ganen premios.</p>
-              <button className="btn-primary" onClick={requestActivator} disabled={requestingActivator}>
-                {requestingActivator ? "Enviando..." : "✨ Volverme Activador"}
-              </button>
-            </div>
-          )}
-
-          {/* Pending / hold */}
-          {activatorStatus?.status === "pending" || activatorStatus?.status === "hold" ? (
-            <div className="rounded-xl px-4 py-3 space-y-1"
-              style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.3)" }}>
-              <p className="font-bold text-sm" style={{ color: "hsl(42 98% 35%)" }}>
-                {activatorStatus.status === "pending" ? "⏳ Solicitud en revisión" : "⏸ Solicitud en espera"}
-              </p>
-              <p className="text-xs text-muted-foreground">El administrador revisará tu solicitud. Te notificamos cuando sea aprobada.</p>
-              {activatorStatus.notes && <p className="text-xs text-muted-foreground italic">Nota: {activatorStatus.notes}</p>}
-            </div>
-          ) : null}
-
-          {/* Rejected → allow re-request */}
-          {activatorStatus?.status === "rejected" && (
-            <div className="space-y-3">
-              <div className="rounded-xl px-4 py-3" style={{ background: "hsl(0 75% 52% / 0.08)", border: "1px solid hsl(0 75% 52% / 0.25)" }}>
-                <p className="font-bold text-sm" style={{ color: "hsl(0 75% 40%)" }}>✖ Solicitud rechazada</p>
-                {activatorStatus.notes && <p className="text-xs text-muted-foreground mt-1">{activatorStatus.notes}</p>}
-              </div>
-              <button className="btn-primary" onClick={requestActivator} disabled={requestingActivator}>
-                {requestingActivator ? "Enviando..." : "🔄 Volver a solicitar"}
-              </button>
-            </div>
-          )}
-
-          {/* Accepted → show link */}
-          {activatorStatus?.status === "accepted" && activatorStatus?.code && (
-            <div className="space-y-3">
-              <div className="rounded-xl px-4 py-3 space-y-1"
-                style={{ background: "hsl(142 70% 45% / 0.1)", border: "1px solid hsl(142 70% 45% / 0.3)" }}>
-                <p className="font-bold text-sm" style={{ color: "hsl(142 70% 30%)" }}>✅ ¡Eres Activador!</p>
-                <p className="text-xs text-muted-foreground">Tu código de activador:</p>
-                <p className="font-black text-lg tracking-widest" style={{ color: "hsl(var(--primary))", fontFamily: "'Poppins', sans-serif" }}>
-                  {activatorStatus.code}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs font-bold text-muted-foreground">Enlace para compartir:</p>
-                <div className="flex gap-2">
-                  <div className="flex-1 rounded-xl border px-3 py-2 text-xs font-mono truncate bg-muted"
-                    style={{ borderColor: "hsl(var(--border))" }}>
-                    {window.location.origin}/registro?ref={activatorStatus.code}
-                  </div>
-                  <button className="px-3 py-2 rounded-xl text-xs font-bold text-white shrink-0"
-                    style={{ background: "hsl(var(--primary))" }}
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/registro?ref=${activatorStatus.code}`);
-                      toast.success("✅ Enlace copiado");
-                    }}>
-                    Copiar
-                  </button>
-                </div>
-                <button className="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2"
-                  style={{ background: "#25D366", color: "white" }}
-                  onClick={() => {
-                    const msg = `¡Únete a Tu Bingazo y gana premios jugando bingo en vivo! 🎱\n\nRegístrate con mi enlace y recibirás un bono de bienvenida:\n${window.location.origin}/registro?ref=${activatorStatus.code}`;
-                    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
-                  }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
-                  Compartir por WhatsApp
-                </button>
-              </div>
-              {/* Referral history — auto-load when activator panel opens */}
-              {referralHistory && (
-                <div className="space-y-2">
-                  <p className="text-xs font-bold text-muted-foreground">
-                    Total referidos: {referralHistory.total_referred}
-                  </p>
-                  {referralHistory.transactions.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-3">Sin movimientos aún</p>
-                  ) : referralHistory.transactions.slice(0, 10).map((tx: any) => (
-                    <div key={tx.id} className="rounded-xl border px-3 py-2 flex items-center justify-between gap-3"
-                      style={{ borderColor: "hsl(var(--border))" }}>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold truncate">{tx.description}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {tx.type === "commission" ? "🔗 Comisión" : "🎁 Bono"} · {new Date(tx.created_at).toLocaleDateString("es-BO")}
-                        </p>
-                      </div>
-                      <p className="font-black text-sm shrink-0" style={{ color: tx.activator_id === user.id ? "hsl(142 70% 35%)" : "hsl(42 98% 35%)" }}>
-                        {tx.activator_id === user.id ? "+" : ""}Bs {Number(tx.amount).toFixed(2)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           )}
         </div>
 

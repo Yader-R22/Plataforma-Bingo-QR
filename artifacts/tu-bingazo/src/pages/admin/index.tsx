@@ -732,10 +732,12 @@ export default function AdminPage() {
   const [activatorSettings, setActivatorSettings] = useState<any>(null);
   const [referralStats, setReferralStats] = useState<any>(null);
   const [savingActSettings, setSavingActSettings] = useState(false);
-  const [actSettingsForm, setActSettingsForm] = useState({ bonus_amount: "5", bonus_title: "Bono de bienvenida por activador {activator}", commission_percentage: "5", commission_duration: "indefinite", commission_duration_months: "" });
+  const [actSettingsForm, setActSettingsForm] = useState({ is_enabled: true, bonus_amount: "5", bonus_title: "Bono de bienvenida por activador {activator}", commission_percentage: "5", commission_duration: "indefinite", commission_duration_months: "" });
   const [pendingActivatorCount, setPendingActivatorCount] = useState(0);
   const [reqNoteInput, setReqNoteInput] = useState<Record<number, string>>({});
   const [reqNoteOpen, setReqNoteOpen] = useState<Record<number, "reject" | "hold" | null>>({});
+  const [reqFilter, setReqFilter] = useState<"all" | "pending" | "accepted" | "hold" | "rejected">("all");
+  const [togglingProgram, setTogglingProgram] = useState(false);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
@@ -846,6 +848,7 @@ export default function AdminPage() {
           const s = await sR.json();
           setActivatorSettings(s);
           setActSettingsForm({
+            is_enabled: s.is_enabled ?? true,
             bonus_amount: String(s.bonus_amount),
             bonus_title: s.bonus_title,
             commission_percentage: String(s.commission_percentage),
@@ -4415,6 +4418,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 method: "PUT",
                 headers: authH(),
                 body: JSON.stringify({
+                  is_enabled: actSettingsForm.is_enabled,
                   bonus_amount: parseFloat(actSettingsForm.bonus_amount) || 5,
                   bonus_title: actSettingsForm.bonus_title,
                   commission_percentage: parseFloat(actSettingsForm.commission_percentage) || 5,
@@ -4466,11 +4470,39 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   <button onClick={() => loadTab("referidos")} className="text-xs font-bold px-2.5 py-1 rounded-lg border"
                     style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>🔄</button>
                 </div>
-                {activatorRequests.length === 0 ? (
-                  <p className="text-muted-foreground text-sm py-4 text-center">No hay solicitudes aún</p>
+
+                {/* Filter tabs */}
+                <div className="flex gap-1.5 mb-3 flex-wrap">
+                  {(["all", "pending", "accepted", "hold", "rejected"] as const).map(f => {
+                    const labels: Record<string, string> = { all: "Todos", pending: "Pendientes", accepted: "Activos", hold: "En espera", rejected: "Rechazados" };
+                    const counts: Record<string, number> = {
+                      all: activatorRequests.length,
+                      pending: activatorRequests.filter(r => r.status === "pending").length,
+                      accepted: activatorRequests.filter(r => r.status === "accepted").length,
+                      hold: activatorRequests.filter(r => r.status === "hold").length,
+                      rejected: activatorRequests.filter(r => r.status === "rejected").length,
+                    };
+                    const active = reqFilter === f;
+                    return (
+                      <button key={f} onClick={() => setReqFilter(f)}
+                        className="text-xs font-bold px-2.5 py-1 rounded-lg transition-all"
+                        style={{
+                          background: active ? "hsl(var(--primary))" : "hsl(var(--muted)/0.5)",
+                          color: active ? "white" : "hsl(var(--muted-foreground))",
+                          border: active ? "none" : "1px solid hsl(var(--border))",
+                        }}>
+                        {labels[f]}{counts[f] > 0 ? ` (${counts[f]})` : ""}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {activatorRequests.filter(r => reqFilter === "all" || r.status === reqFilter).length === 0 ? (
+                  <p className="text-muted-foreground text-sm py-4 text-center">No hay solicitudes en esta categoría</p>
                 ) : (
                   <div className="space-y-2.5">
                     {[...activatorRequests]
+                      .filter(r => reqFilter === "all" || r.status === reqFilter)
                       .sort((a, b) => {
                         const order: Record<string, number> = { pending: 0, accepted: 1, hold: 2, rejected: 3 };
                         return (order[a.status] ?? 9) - (order[b.status] ?? 9);
@@ -4603,6 +4635,27 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               {/* Settings */}
               <div className="bg-card border rounded-2xl p-4">
                 <h3 className="font-black text-sm mb-3" style={{ fontFamily: "'Poppins', sans-serif" }}>⚙️ Configuración de Referidos</h3>
+
+                {/* Enable / disable toggle */}
+                <div className="flex items-center justify-between rounded-xl px-3 py-2.5 mb-3"
+                  style={{ background: actSettingsForm.is_enabled ? "hsl(142 70% 45% / 0.1)" : "hsl(0 75% 52% / 0.08)", border: `1px solid ${actSettingsForm.is_enabled ? "hsl(142 70% 45% / 0.35)" : "hsl(0 75% 52% / 0.25)"}` }}>
+                  <div>
+                    <p className="text-sm font-black" style={{ color: actSettingsForm.is_enabled ? "hsl(142 70% 30%)" : "hsl(0 75% 40%)" }}>
+                      {actSettingsForm.is_enabled ? "✅ Programa activo" : "⛔ Programa desactivado"}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {actSettingsForm.is_enabled ? "Los usuarios pueden solicitar ser activadores" : "No se aceptan nuevas solicitudes"}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setActSettingsForm(f => ({ ...f, is_enabled: !f.is_enabled }))}
+                    className="relative w-12 h-6 rounded-full transition-all shrink-0"
+                    style={{ background: actSettingsForm.is_enabled ? "hsl(142 70% 40%)" : "hsl(0 75% 52%)" }}>
+                    <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"
+                      style={{ left: actSettingsForm.is_enabled ? "calc(100% - 1.375rem)" : "0.125rem" }} />
+                  </button>
+                </div>
+
                 <div className="space-y-2.5">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
