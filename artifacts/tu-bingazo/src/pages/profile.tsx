@@ -156,24 +156,40 @@ export default function ProfilePage() {
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const base64 = ev.target?.result as string;
-      setSavingAvatar(true);
-      try {
-        const res = await fetch(`${BASE}/api/profile/avatar`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-          body: JSON.stringify({ avatar_data: base64 }),
-        });
-        const data = await res.json();
-        if (!res.ok) { toast.error(data.error || "Error al guardar avatar"); return; }
-        setUser({ ...user, avatar_url: data.avatar_url } as AuthUser);
-        toast.success("Foto de perfil actualizada");
-      } catch { toast.error("Error de conexión"); }
-      finally { setSavingAvatar(false); }
-    };
-    reader.readAsDataURL(file);
+    setSavingAvatar(true);
+    try {
+      const base64 = await resizeImage(file, 300, 0.82);
+      const res = await fetch(`${BASE}/api/profile/avatar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ avatar_data: base64 }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error || "Error al guardar avatar"); return; }
+      setUser({ ...user!, avatar_url: data.avatar_url } as AuthUser);
+      toast.success("Foto de perfil actualizada");
+    } catch { toast.error("Error de conexión"); }
+    finally { setSavingAvatar(false); }
+  }
+
+  function resizeImage(file: File, maxPx: number, quality: number): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
   }
 
   async function requestNameChange(e: React.FormEvent) {
