@@ -730,7 +730,7 @@ export default function AdminPage() {
   const [pendingActivatorCount, setPendingActivatorCount] = useState(0);
   const [reqNoteInput, setReqNoteInput] = useState<Record<number, string>>({});
   const [reqNoteOpen, setReqNoteOpen] = useState<Record<number, "reject" | "hold" | null>>({});
-  const [reqFilter, setReqFilter] = useState<"all" | "pending" | "accepted" | "hold">("all");
+  const [reqFilter, setReqFilter] = useState<"all" | "pending" | "accepted" | "hold" | "suspended" | "banned">("all");
   const [banModal, setBanModal] = useState<{ id: number; name: string } | null>(null);
   const [banReason, setBanReason] = useState("");
   const [togglingProgram, setTogglingProgram] = useState(false);
@@ -4396,7 +4396,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           const acceptedReqs = activatorRequests.filter(r => r.status === "accepted");
           const rejectedReqs = activatorRequests.filter(r => r.status === "rejected" || r.status === "hold");
 
-          async function reviewRequest(id: number, action: "accept" | "reject" | "hold", notes?: string) {
+          async function reviewRequest(id: number, action: "accept" | "reject" | "hold" | "suspend", notes?: string) {
             const r = await fetch(`${BASE}/api/admin/activator-requests/${id}/review`, {
               method: "POST",
               headers: authH(),
@@ -4432,6 +4432,8 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           }
 
           const reqStatusConfig: Record<string, { label: string; color: string; bg: string }> = {
+            suspended: { label: "Suspendido", color: "#d97706", bg: "rgba(217,119,6,0.1)" },
+            banned: { label: "Baneado", color: "hsl(0 75% 45%)", bg: "rgba(220,38,38,0.1)" },
             pending: { label: "Pendiente", color: "hsl(42 98% 35%)", bg: "hsl(42 98% 52% / 0.12)" },
             accepted: { label: "Aceptado", color: "hsl(142 70% 30%)", bg: "hsl(142 70% 45% / 0.12)" },
             rejected: { label: "Rechazado", color: "hsl(0 75% 40%)", bg: "hsl(0 75% 52% / 0.12)" },
@@ -4574,13 +4576,15 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
 
                 {/* Filter tabs */}
                 <div className="flex gap-1.5 mb-3 flex-wrap">
-                  {(["all", "pending", "accepted", "hold"] as const).map(f => {
-                    const labels: Record<string, string> = { all: "Todos", pending: "Pendientes", accepted: "Activos", hold: "En espera" };
+                  {(["all", "pending", "accepted", "hold", "suspended", "banned"] as const).map(f => {
+                    const labels: Record<string, string> = { all: "Todos", pending: "Pendientes", accepted: "Activos", hold: "En espera", suspended: "Suspendidos", banned: "Baneados" };
                     const counts: Record<string, number> = {
                       all: activatorRequests.length,
                       pending: activatorRequests.filter(r => r.status === "pending").length,
                       accepted: activatorRequests.filter(r => r.status === "accepted").length,
                       hold: activatorRequests.filter(r => r.status === "hold").length,
+                      suspended: activatorRequests.filter(r => r.status === "suspended").length,
+                      banned: activatorRequests.filter(r => r.status === "banned").length,
                     };
                     const active = reqFilter === f;
                     return (
@@ -4604,7 +4608,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     {[...activatorRequests]
                       .filter(r => reqFilter === "all" || r.status === reqFilter)
                       .sort((a, b) => {
-                        const order: Record<string, number> = { pending: 0, accepted: 1, hold: 2, rejected: 3 };
+                        const order: Record<string, number> = { pending: 0, accepted: 1, hold: 2, suspended: 3, banned: 4, rejected: 5 };
                         return (order[a.status] ?? 9) - (order[b.status] ?? 9);
                       })
                       .map((req: any) => {
@@ -4705,13 +4709,34 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                               }} className="px-3 py-1.5 rounded-lg text-xs font-bold border-2"
                                 style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}
                                 title="Eliminar activador">🗑️</button>
-                              <button onClick={() => setReqNoteOpen(o => ({ ...o, [req.id]: "hold" }))}
+                              <button onClick={() => reviewRequest(req.id, "suspend")}
                                 className="flex-1 py-1.5 rounded-lg text-xs font-bold border-2"
-                                style={{ borderColor: "#7c3aed", color: "#7c3aed" }}>⏸ Suspender</button>
+                                style={{ borderColor: "#d97706", color: "#d97706" }}>⏸ Suspender</button>
                               <button onClick={() => { setBanModal({ id: req.id, name: req.user_full_name }); setBanReason(""); }}
                                 className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
                                 style={{ background: "hsl(0 75% 45%)" }}>🔴 Banear</button>
                             </div>
+                          )}
+                          {req.status === "suspended" && (
+                            <div className="flex gap-1.5">
+                              <button onClick={() => reviewRequest(req.id, "accept")}
+                                className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
+                                style={{ background: "hsl(142 70% 40%)" }}>✅ Reactivar</button>
+                              <button onClick={() => { setBanModal({ id: req.id, name: req.user_full_name }); setBanReason(""); }}
+                                className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
+                                style={{ background: "hsl(0 75% 45%)" }}>🔴 Banear</button>
+                            </div>
+                          )}
+                          {req.status === "banned" && (
+                            <button onClick={async () => {
+                              if (!confirm(`¿Desbanear a ${req.user_full_name} del programa de activadores?`)) return;
+                              const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}/unban`, { method: "POST", headers: authH() });
+                              if (r.ok) { loadTab("referidos"); toast.success("✅ Activador desbaneado y reactivado"); }
+                              else toast.error("Error al desbanear");
+                            }} className="w-full py-1.5 rounded-lg text-xs font-bold border-2"
+                              style={{ borderColor: "hsl(142 70% 45%)", color: "hsl(142 70% 30%)" }}>
+                              ✅ Desbanear activador
+                            </button>
                           )}
                         </div>
                       );

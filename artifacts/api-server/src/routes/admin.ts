@@ -1113,9 +1113,9 @@ router.post("/activator-requests/:id/review", async (req: AuthRequest, res) => {
   const id = parseInt(String(req.params.id));
   if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
 
-  const { action, notes } = req.body as { action: "accept" | "reject" | "hold"; notes?: string };
-  if (!["accept", "reject", "hold"].includes(action)) {
-    res.status(400).json({ error: "Acción inválida. Use: accept, reject, hold" }); return;
+  const { action, notes } = req.body as { action: "accept" | "reject" | "hold" | "suspend"; notes?: string };
+  if (!["accept", "reject", "hold", "suspend"].includes(action)) {
+    res.status(400).json({ error: "Acción inválida. Use: accept, reject, hold, suspend" }); return;
   }
 
   const requests = await db.select().from(activatorRequestsTable).where(eq(activatorRequestsTable.id, id)).limit(1);
@@ -1131,7 +1131,7 @@ router.post("/activator-requests/:id/review", async (req: AuthRequest, res) => {
     return;
   }
 
-  const newStatus = action === "accept" ? "accepted" : "hold";
+  const newStatus = action === "accept" ? "accepted" : action === "hold" ? "hold" : "suspended";
 
   await db.update(activatorRequestsTable)
     .set({ status: newStatus, notes: notes?.trim() ?? null, reviewedById: req.userId!, reviewedAt: new Date(), updatedAt: new Date() })
@@ -1147,7 +1147,7 @@ router.post("/activator-requests/:id/review", async (req: AuthRequest, res) => {
       await db.update(referralCodesTable).set({ isActive: true }).where(eq(referralCodesTable.userId, request.userId));
     }
   } else {
-    // hold → deactivate referral code
+    // hold / suspend → deactivate referral code
     await db.update(referralCodesTable).set({ isActive: false }).where(eq(referralCodesTable.userId, request.userId));
   }
 
@@ -1181,16 +1181,40 @@ router.post("/activator-requests/:id/ban", async (req: AuthRequest, res) => {
   if (!requests.length) { res.status(404).json({ error: "Solicitud no encontrada" }); return; }
   const request = requests[0];
 
-  // Ban the user account
-  await db.update(usersTable)
-    .set({ isBanned: true, banReason: reason?.trim() || "Baneado como activador por admin" })
-    .where(eq(usersTable.id, request.userId));
+  // Mark as banned in activator_requests (activator-program ban only, not global account ban)
+  await db.update(activatorRequestsTable)
+    .set({ status: "banned", notes: reason?.trim() || null, reviewedById: req.userId!, reviewedAt: new Date(), updatedAt: new Date() })
+    .where(eq(activatorRequestsTable.id, id));
 
-  // Deactivate & delete referral code
-  await db.delete(referralCodesTable).where(eq(referralCodesTable.userId, request.userId));
+  // Deactivate referral code so no commissions are paid
+  await db.update(referralCodesTable).set({ isActive: false }).where(eq(referralCodesTable.userId, request.userId));
 
-  // Remove activator request
-  await db.delete(activatorRequestsTable).where(eq(activatorRequestsTable.id, id));
+  res.json({ ok: true });
+});
+
+// ── Unban activator ────────────────────────────────────────────────────────────
+
+router.post("/activator-requests/:id/unban", async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const requests = await db.select().from(activatorRequestsTable).where(eq(activatorRequestsTable.id, id)).limit(1);
+  if (!requests.length) { res.status(404).json({ error: "Solicitud no encontrada" }); return; }
+  const request = requests[0];
+
+  // Restore to accepted and reactivate referral code
+  await db.update(activatorRequestsTable)
+    .set({ status: "accepted", notes: null, reviewedById: req.userId!, reviewedAt: new Date(), updatedAt: new Date() })
+    .where(eq(activatorRequestsTable.id, id));
+
+  const existingCode = await db.select().from(referralCodesTable)
+    .where(eq(referralCodesTable.userId, request.userId)).limit(1);
+  if (!existingCode.length) {
+    const code = crypto.randomBytes(4).toString("hex").toUpperCase();
+    await db.insert(referralCodesTable).values({ userId: request.userId, code, isActive: true });
+  } else {
+    await db.update(referralCodesTable).set({ isActive: true }).where(eq(referralCodesTable.userId, request.userId));
+  }
 
   res.json({ ok: true });
 });
