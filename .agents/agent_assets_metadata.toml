@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "cgUkoigvTvsLOjAbw07Zl"
+uri = "file://tu-bingazo-source.zip"
+type = "unspecified"
+title = "Tu Bingazo — Código fuente completo"
