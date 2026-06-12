@@ -446,14 +446,23 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
       );
       if ((lockedRows.rows[0]?.status as string | undefined) !== "active") { notActive = true; return; }
 
-      // Check duplicate claim for THIS round (same card can win different rounds)
+      // Check duplicate claim for THIS round (same card can win different rounds).
+      // Only non-historical winners count — historical ones belong to a previous session.
       const cardWinner = await tx.select().from(winnersTable)
-        .where(and(eq(winnersTable.cardId, card.id), eq(winnersTable.round, currentRound))).limit(1);
+        .where(and(
+          eq(winnersTable.cardId, card.id),
+          eq(winnersTable.round, currentRound),
+          eq(winnersTable.isHistorical, false),
+        )).limit(1);
       if (cardWinner.length) { dupCard = true; return; }
 
-      // Count winners for THIS round only
+      // Count active (non-historical) winners for THIS round only
       const existingWinners = await tx.select().from(winnersTable)
-        .where(and(eq(winnersTable.gameId, game.id), eq(winnersTable.round, currentRound)));
+        .where(and(
+          eq(winnersTable.gameId, game.id),
+          eq(winnersTable.round, currentRound),
+          eq(winnersTable.isHistorical, false),
+        ));
       if (existingWinners.length >= roundCfg.max_winners) { capReached = true; return; }
 
       const nextPlace = existingWinners.length + 1;

@@ -310,8 +310,11 @@ router.post("/:id/reset", requireAdmin, async (req: AuthRequest, res) => {
   }
 
   await db.transaction(async (tx) => {
-    // Eliminar ganadores y cartones del juego — en ese orden por FK
-    await tx.delete(winnersTable).where(eq(winnersTable.gameId, gameId));
+    // Marcar ganadores como históricos (preserva estadísticas del usuario) y anular FK a cartones
+    await tx.update(winnersTable)
+      .set({ isHistorical: true, cardId: null })
+      .where(eq(winnersTable.gameId, gameId));
+    // Ahora sí podemos borrar los cartones (FK ya anulada)
     await tx.delete(cardsTable).where(eq(cardsTable.gameId, gameId));
     // Resetear estado del juego para que pueda volver a jugarse
     await tx.update(gamesTable)
