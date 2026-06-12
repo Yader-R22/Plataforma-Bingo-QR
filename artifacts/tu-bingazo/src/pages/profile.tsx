@@ -232,50 +232,78 @@ export default function ProfilePage() {
 
   return (
     <AppLayout>
-      {/* Hero banner */}
-      <div className="hero-bg px-4 py-6 text-white">
-        <div className="flex items-center gap-4">
-          <div className="relative shrink-0">
-            <div
-              className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl font-black overflow-hidden cursor-pointer"
-              style={{
-                background: user.avatar_url ? "transparent" : "hsl(42 98% 52%)",
-                color: "#1a0050",
-                fontFamily: "'Poppins', sans-serif",
-                boxShadow: "0 4px 20px rgba(255,180,0,0.4)",
-              }}
-              onClick={() => avatarInputRef.current?.click()}
-            >
-              {user.avatar_url
-                ? <img src={user.avatar_url} alt="avatar" className="w-full h-full object-cover" />
-                : user.full_name.charAt(0).toUpperCase()}
-            </div>
-            <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-xl flex items-center justify-center cursor-pointer"
-              style={{ background: "hsl(var(--primary))", boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }}
-              onClick={() => avatarInputRef.current?.click()}>
-              {savingAvatar
-                ? <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                : <span className="text-xs">📷</span>}
-            </div>
-            <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-          </div>
-          <div>
-            <h1 className="font-black text-xl leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
-              {user.full_name}
-            </h1>
-            <p className="text-white/60 text-sm mt-0.5">CI: {user.ci}</p>
-            <div className="flex flex-wrap gap-2 mt-2">
-              <div className="inline-block text-xs font-bold px-3 py-1 rounded-full"
-                style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.color }}>
-                {sc.label}
-              </div>
-              {activatorStatus?.status === "accepted" && (
-                <div className="inline-block text-xs font-bold px-3 py-1 rounded-full"
-                  style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "1px solid #4f46e5", color: "#fff", boxShadow: "0 2px 8px rgba(99,102,241,0.45)" }}>
-                  🔗 Activador
+      {/* Hero — Opción B: cover band + avatar flotante */}
+      <div className="text-white overflow-hidden" style={{ position: "relative" }}>
+        {/* Cover band superior */}
+        <div style={{
+          height: 100,
+          background: "linear-gradient(135deg, #3b0764 0%, #1e1b4b 50%, #1a0050 100%)",
+          position: "relative", overflow: "hidden",
+        }}>
+          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 80% 50%, rgba(168,85,247,0.4) 0%, transparent 70%)" }} />
+          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 15% 80%, rgba(245,196,0,0.1) 0%, transparent 55%)" }} />
+        </div>
+
+        {/* Sección inferior con avatar flotando */}
+        <div style={{ background: "linear-gradient(180deg, #1a0050 0%, #160040 100%)", padding: "0 16px 20px" }}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 14, marginTop: -42, marginBottom: 14 }}>
+            {/* Avatar */}
+            <div style={{ position: "relative", flexShrink: 0, cursor: "pointer" }} onClick={() => avatarInputRef.current?.click()}>
+              <div style={{
+                width: 84, height: 84, borderRadius: "50%",
+                background: "linear-gradient(135deg, #f5c400, #ff7f00, #7c3aed)",
+                padding: 3,
+                boxShadow: "0 8px 28px rgba(245,196,0,0.45), 0 0 0 3px #1a0050",
+              }}>
+                <div style={{
+                  width: "100%", height: "100%", borderRadius: "50%",
+                  background: user.avatar_url ? "transparent" : "linear-gradient(135deg, #fbbf24, #d97706)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 30, fontWeight: 900, color: "#1a0050",
+                  fontFamily: "'Poppins', sans-serif",
+                  overflow: "hidden",
+                }}>
+                  {user.avatar_url
+                    ? <img src={user.avatar_url} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    : user.full_name.charAt(0).toUpperCase()}
                 </div>
-              )}
+              </div>
+              {/* Botón cámara */}
+              <div style={{
+                position: "absolute", bottom: 0, right: 0,
+                width: 28, height: 28, borderRadius: 9,
+                background: "#7c3aed", border: "2.5px solid #1a0050",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 13, boxShadow: "0 2px 8px rgba(99,102,241,0.5)",
+              }}>
+                {savingAvatar
+                  ? <div style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.4)", borderTopColor: "#fff", animation: "spin 0.8s linear infinite" }} />
+                  : "📷"}
+              </div>
+              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
             </div>
+
+            {/* Nombre + CI */}
+            <div style={{ paddingTop: 46, flex: 1, minWidth: 0 }}>
+              <h1 style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 900, fontSize: 18, color: "#fff", margin: "0 0 2px", lineHeight: 1.2, letterSpacing: "-0.2px" }}>
+                {user.full_name}
+              </h1>
+              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, margin: 0 }}>CI: {user.ci}{user.department ? ` · ${user.department}` : ""}</p>
+            </div>
+          </div>
+
+          {/* Badges */}
+          <div className="flex flex-wrap gap-2">
+            <div className="inline-block text-xs font-bold px-3 py-1 rounded-full"
+              style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.color }}>
+              {sc.label}
+            </div>
+            {activatorStatus?.status === "accepted" && (
+              <div className="inline-block text-xs font-bold px-3 py-1 rounded-full"
+                style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "1px solid #4f46e5", color: "#fff", boxShadow: "0 2px 8px rgba(99,102,241,0.45)" }}>
+                🔗 Activador
+              </div>
+            )}
           </div>
         </div>
       </div>
