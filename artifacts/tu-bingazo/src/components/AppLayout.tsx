@@ -535,7 +535,7 @@ export default function AppLayout({ children, hideNav, title, showBack, onBack }
         {title && showBack && <h1 className="flex-1 text-center text-white font-bold text-base">{title}</h1>}
         {!title && <div className="flex-1" />}
 
-        {user ? (
+        {user && location !== "/perfil" ? (
           <Link href="/perfil">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-black cursor-pointer shrink-0 overflow-hidden"
               style={{ background: user.avatar_url ? "transparent" : "hsl(42 98% 52%)", color: "#1a0050" }}>
