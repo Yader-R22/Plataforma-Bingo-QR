@@ -145,9 +145,12 @@ export default function GamesPage() {
                 <Link key={game.id} href={`/juegos/${game.id}`}>
                   <div
                     className="rounded-3xl cursor-pointer relative overflow-hidden stars-bg"
-                    style={coverImg
-                      ? { backgroundImage: `url(${coverImg})`, backgroundSize: "cover", backgroundPosition: "center", opacity: isFinished ? 0.8 : 1 }
-                      : { background: cfg.gradient, opacity: isFinished ? 0.8 : 1 }}
+                    style={{
+                      ...(coverImg
+                        ? { backgroundImage: `url(${coverImg})`, backgroundSize: "cover", backgroundPosition: "center" }
+                        : { background: cfg.gradient }),
+                      ...(isFinished ? { filter: "grayscale(100%)", opacity: 0.75 } : {}),
+                    }}
                   >
                     {/* Dark overlay when cover image */}
                     {coverImg && <div className="absolute inset-0 rounded-3xl" style={{ background: "rgba(0,0,0,0.45)" }} />}
