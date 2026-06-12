@@ -113,14 +113,14 @@ export const ListGamesResponseItem = zod.object({
   "stream_url_youtube": zod.string().nullish(),
   "stream_url_tiktok": zod.string().nullish(),
   "stream_url_facebook": zod.string().nullish(),
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']).optional().describe('Modalidad de la ronda activa (o única ronda)'),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']).optional().describe('Modalidad de la ronda activa (o única ronda)'),
   "max_winners": zod.number().optional().describe('Máx. ganadores de la ronda activa (o única ronda)'),
   "prizes": zod.array(zod.object({
   "place": zod.number().describe('Puesto (1, 2, 3)'),
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
   "rounds": zod.array(zod.object({
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
@@ -145,14 +145,14 @@ export const CreateGameBody = zod.object({
   "stream_url_youtube": zod.string().nullish(),
   "stream_url_tiktok": zod.string().nullish(),
   "stream_url_facebook": zod.string().nullish(),
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number().optional(),
   "prizes": zod.array(zod.object({
   "place": zod.number().describe('Puesto (1, 2, 3)'),
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
   "rounds": zod.array(zod.object({
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
 })).nullish().describe('Configuración de múltiples rondas (null = juego de una sola ronda)'),
@@ -179,14 +179,14 @@ export const GetGameResponse = zod.object({
   "stream_url_youtube": zod.string().nullish(),
   "stream_url_tiktok": zod.string().nullish(),
   "stream_url_facebook": zod.string().nullish(),
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']).optional().describe('Modalidad de la ronda activa (o única ronda)'),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']).optional().describe('Modalidad de la ronda activa (o única ronda)'),
   "max_winners": zod.number().optional().describe('Máx. ganadores de la ronda activa (o única ronda)'),
   "prizes": zod.array(zod.object({
   "place": zod.number().describe('Puesto (1, 2, 3)'),
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
   "rounds": zod.array(zod.object({
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
@@ -213,11 +213,11 @@ export const UpdateGameBody = zod.object({
   "stream_url_youtube": zod.string().nullish(),
   "stream_url_tiktok": zod.string().nullish(),
   "stream_url_facebook": zod.string().nullish(),
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']).optional(),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']).optional(),
   "max_winners": zod.number().optional(),
   "status": zod.enum(['upcoming', 'active', 'finished']).optional(),
   "rounds": zod.array(zod.object({
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
 })).nullish().describe('Actualizar configuración de rondas (null = quitar multi-ronda)'),
@@ -236,14 +236,14 @@ export const UpdateGameResponse = zod.object({
   "stream_url_youtube": zod.string().nullish(),
   "stream_url_tiktok": zod.string().nullish(),
   "stream_url_facebook": zod.string().nullish(),
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']).optional().describe('Modalidad de la ronda activa (o única ronda)'),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']).optional().describe('Modalidad de la ronda activa (o única ronda)'),
   "max_winners": zod.number().optional().describe('Máx. ganadores de la ronda activa (o única ronda)'),
   "prizes": zod.array(zod.object({
   "place": zod.number().describe('Puesto (1, 2, 3)'),
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
   "rounds": zod.array(zod.object({
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
@@ -279,7 +279,7 @@ export const GetGameSessionResponse = zod.object({
   "game_id": zod.number(),
   "called_numbers": zod.array(zod.number()).describe('Números cantados en la ronda actual'),
   "last_called_number": zod.number().nullable().describe('Último número cantado'),
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']).describe('Modalidad de la ronda actual'),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']).describe('Modalidad de la ronda actual'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
   "total_rounds": zod.number().optional().describe('Total de rondas programadas'),
   "updated_at": zod.coerce.date()
@@ -328,7 +328,7 @@ export const CallNumberResponse = zod.object({
   "game_id": zod.number(),
   "called_numbers": zod.array(zod.number()).describe('Números cantados en la ronda actual'),
   "last_called_number": zod.number().nullable().describe('Último número cantado'),
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']).describe('Modalidad de la ronda actual'),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']).describe('Modalidad de la ronda actual'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
   "total_rounds": zod.number().optional().describe('Total de rondas programadas'),
   "updated_at": zod.coerce.date()
@@ -354,14 +354,14 @@ export const StartGameResponse = zod.object({
   "stream_url_youtube": zod.string().nullish(),
   "stream_url_tiktok": zod.string().nullish(),
   "stream_url_facebook": zod.string().nullish(),
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']).optional().describe('Modalidad de la ronda activa (o única ronda)'),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']).optional().describe('Modalidad de la ronda activa (o única ronda)'),
   "max_winners": zod.number().optional().describe('Máx. ganadores de la ronda activa (o única ronda)'),
   "prizes": zod.array(zod.object({
   "place": zod.number().describe('Puesto (1, 2, 3)'),
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
   "rounds": zod.array(zod.object({
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
@@ -392,14 +392,14 @@ export const FinishGameResponse = zod.object({
   "stream_url_youtube": zod.string().nullish(),
   "stream_url_tiktok": zod.string().nullish(),
   "stream_url_facebook": zod.string().nullish(),
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']).optional().describe('Modalidad de la ronda activa (o única ronda)'),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']).optional().describe('Modalidad de la ronda activa (o única ronda)'),
   "max_winners": zod.number().optional().describe('Máx. ganadores de la ronda activa (o única ronda)'),
   "prizes": zod.array(zod.object({
   "place": zod.number().describe('Puesto (1, 2, 3)'),
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
   "rounds": zod.array(zod.object({
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
@@ -430,14 +430,14 @@ export const NextRoundResponse = zod.object({
   "stream_url_youtube": zod.string().nullish(),
   "stream_url_tiktok": zod.string().nullish(),
   "stream_url_facebook": zod.string().nullish(),
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']).optional().describe('Modalidad de la ronda activa (o única ronda)'),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']).optional().describe('Modalidad de la ronda activa (o única ronda)'),
   "max_winners": zod.number().optional().describe('Máx. ganadores de la ronda activa (o única ronda)'),
   "prizes": zod.array(zod.object({
   "place": zod.number().describe('Puesto (1, 2, 3)'),
   "amount": zod.number().describe('Premio en Bs')
 })).optional(),
   "rounds": zod.array(zod.object({
-  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card']),
+  "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
   "prize_amount": zod.number()
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),

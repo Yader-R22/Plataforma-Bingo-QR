@@ -9,7 +9,7 @@ function getCurrentRoundConfig(game: typeof gamesTable.$inferSelect) {
     const r = rounds[(game.currentRound ?? 1) - 1];
     if (r) {
       return {
-        game_mode: r.game_mode as "horizontal" | "vertical" | "diagonal" | "quina" | "full_card",
+        game_mode: r.game_mode as "horizontal" | "vertical" | "diagonal" | "quina" | "full_card" | "esquinas" | "cruz" | "x_doble",
         max_winners: r.max_winners,
         prize_amount: r.prize_amount,
       };
@@ -93,6 +93,7 @@ function validateBingo(card: typeof cardsTable.$inferSelect, gameMode: string, c
     return n === 0 || calledSet.has(n);
   };
 
+  // Cartón completo: todos los 24 números marcados
   if (gameMode === "full_card") {
     for (let r = 0; r < 5; r++) {
       for (let c = 0; c < 5; c++) {
@@ -101,20 +102,62 @@ function validateBingo(card: typeof cardsTable.$inferSelect, gameMode: string, c
     }
     return true;
   }
-  if (gameMode === "horizontal" || gameMode === "quina") {
+
+  // Línea horizontal: cualquier fila completa
+  if (gameMode === "horizontal") {
     for (let r = 0; r < 5; r++) {
       if ([0, 1, 2, 3, 4].every(c => isHit(r, c))) return true;
     }
+    return false;
   }
+
+  // Línea vertical: cualquier columna completa
   if (gameMode === "vertical") {
     for (let c = 0; c < 5; c++) {
       if ([0, 1, 2, 3, 4].every(r => isHit(r, c))) return true;
     }
+    return false;
   }
+
+  // Diagonal: una de las dos diagonales
   if (gameMode === "diagonal") {
     if ([0, 1, 2, 3, 4].every(i => isHit(i, i))) return true;
     if ([0, 1, 2, 3, 4].every(i => isHit(i, 4 - i))) return true;
+    return false;
   }
+
+  // Quina: cualquier línea completa (fila, columna O diagonal)
+  if (gameMode === "quina") {
+    for (let r = 0; r < 5; r++) {
+      if ([0, 1, 2, 3, 4].every(c => isHit(r, c))) return true;
+    }
+    for (let c = 0; c < 5; c++) {
+      if ([0, 1, 2, 3, 4].every(r => isHit(r, c))) return true;
+    }
+    if ([0, 1, 2, 3, 4].every(i => isHit(i, i))) return true;
+    if ([0, 1, 2, 3, 4].every(i => isHit(i, 4 - i))) return true;
+    return false;
+  }
+
+  // Esquinas: las 4 esquinas del cartón
+  if (gameMode === "esquinas") {
+    return isHit(0, 0) && isHit(0, 4) && isHit(4, 0) && isHit(4, 4);
+  }
+
+  // Cruz: fila central (fila 2) + columna central (col 2)
+  if (gameMode === "cruz") {
+    const rowOk = [0, 1, 2, 3, 4].every(c => isHit(2, c));
+    const colOk = [0, 1, 2, 3, 4].every(r => isHit(r, 2));
+    return rowOk && colOk;
+  }
+
+  // X doble: ambas diagonales simultáneamente
+  if (gameMode === "x_doble") {
+    const diag1 = [0, 1, 2, 3, 4].every(i => isHit(i, i));
+    const diag2 = [0, 1, 2, 3, 4].every(i => isHit(i, 4 - i));
+    return diag1 && diag2;
+  }
+
   return false;
 }
 
@@ -362,8 +405,11 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
       horizontal: "línea horizontal (fila completa)",
       vertical: "línea vertical (columna completa)",
       diagonal: "diagonal completa",
-      quina: "quina (fila completa)",
+      quina: "quina (cualquier línea: fila, columna o diagonal)",
       full_card: "cartón lleno",
+      esquinas: "cuatro esquinas",
+      cruz: "cruz (fila + columna central)",
+      x_doble: "X doble (ambas diagonales)",
     };
     const modeName = modeNames[roundCfg.game_mode] ?? roundCfg.game_mode;
     res.json({ valid: false, message: `Tu cartón no tiene un ${modeName} válido con los números cantados. ¡Sigue jugando!` });

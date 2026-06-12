@@ -105,6 +105,9 @@ export const RoundConfigGameMode = {
   diagonal: 'diagonal',
   quina: 'quina',
   full_card: 'full_card',
+  esquinas: 'esquinas',
+  cruz: 'cruz',
+  x_doble: 'x_doble',
 } as const;
 
 export interface RoundConfig {
@@ -143,6 +146,9 @@ export const GameGameMode = {
   diagonal: 'diagonal',
   quina: 'quina',
   full_card: 'full_card',
+  esquinas: 'esquinas',
+  cruz: 'cruz',
+  x_doble: 'x_doble',
 } as const;
 
 export interface PrizeTier {
@@ -209,6 +215,9 @@ export const GameInputGameMode = {
   diagonal: 'diagonal',
   quina: 'quina',
   full_card: 'full_card',
+  esquinas: 'esquinas',
+  cruz: 'cruz',
+  x_doble: 'x_doble',
 } as const;
 
 export interface GameInput {
@@ -247,6 +256,9 @@ export const GameUpdateGameMode = {
   diagonal: 'diagonal',
   quina: 'quina',
   full_card: 'full_card',
+  esquinas: 'esquinas',
+  cruz: 'cruz',
+  x_doble: 'x_doble',
 } as const;
 
 export type GameUpdateStatus = typeof GameUpdateStatus[keyof typeof GameUpdateStatus];
@@ -360,6 +372,9 @@ export const GameSessionGameMode = {
   diagonal: 'diagonal',
   quina: 'quina',
   full_card: 'full_card',
+  esquinas: 'esquinas',
+  cruz: 'cruz',
+  x_doble: 'x_doble',
 } as const;
 
 export interface GameSession {

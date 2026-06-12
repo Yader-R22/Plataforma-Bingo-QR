@@ -1025,7 +1025,7 @@ components:
       properties:
         game_mode:
           type: string
-          enum: [horizontal, vertical, diagonal, quina, full_card]
+          enum: [horizontal, vertical, diagonal, quina, full_card, esquinas, cruz, x_doble]
         max_winners:
           type: integer
         prize_amount:
@@ -1065,7 +1065,7 @@ components:
           type: ["string", "null"]
         game_mode:
           type: string
-          enum: [horizontal, vertical, diagonal, quina, full_card]
+          enum: [horizontal, vertical, diagonal, quina, full_card, esquinas, cruz, x_doble]
           description: Modalidad de la ronda activa (o única ronda)
         max_winners:
           type: integer
@@ -1132,7 +1132,7 @@ components:
           type: ["string", "null"]
         game_mode:
           type: string
-          enum: [horizontal, vertical, diagonal, quina, full_card]
+          enum: [horizontal, vertical, diagonal, quina, full_card, esquinas, cruz, x_doble]
         max_winners:
           type: integer
         prizes:
@@ -1168,7 +1168,7 @@ components:
           type: ["string", "null"]
         game_mode:
           type: string
-          enum: [horizontal, vertical, diagonal, quina, full_card]
+          enum: [horizontal, vertical, diagonal, quina, full_card, esquinas, cruz, x_doble]
         max_winners:
           type: integer
         status:
@@ -1267,7 +1267,7 @@ components:
           description: Último número cantado
         game_mode:
           type: string
-          enum: [horizontal, vertical, diagonal, quina, full_card]
+          enum: [horizontal, vertical, diagonal, quina, full_card, esquinas, cruz, x_doble]
           description: Modalidad de la ronda actual
         current_round:
           type: integer

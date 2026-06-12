@@ -26,14 +26,20 @@ const MODE_LABEL: Record<string, string> = {
   vertical: "Línea vertical",
   diagonal: "Diagonal",
   quina: "Quina",
+  esquinas: "Esquinas",
+  cruz: "Cruz",
+  x_doble: "X doble",
 };
 
 const MODE_HINT: Record<string, string> = {
   full_card: "Marca todos los 24 números para ganar",
-  horizontal: "Completa una fila completa para ganar",
-  vertical: "Completa una columna completa para ganar",
-  diagonal: "Completa una diagonal completa para ganar",
-  quina: "Completa una fila completa para ganar",
+  horizontal: "Completa cualquier fila completa para ganar",
+  vertical: "Completa cualquier columna completa para ganar",
+  diagonal: "Completa una diagonal (principal o secundaria) para ganar",
+  quina: "Completa cualquier línea: fila, columna o diagonal",
+  esquinas: "Marca las 4 esquinas del cartón para ganar",
+  cruz: "Completa la fila central y la columna central (forma de cruz)",
+  x_doble: "Completa las dos diagonales al mismo tiempo (forma de X)",
 };
 
 function checkBingoPattern(
@@ -46,44 +52,99 @@ function checkBingoPattern(
     return n === 0 || markedSet.has(n);
   };
   const cellKey = (r: number, c: number) => `${r},${c}`;
+  const NONE = { valid: false, winningCells: new Set<string>() };
 
+  // Cartón completo
   if (gameMode === "full_card") {
     const cells: Set<string> = new Set();
     for (let r = 0; r < 5; r++) {
       for (let c = 0; c < 5; c++) {
-        if (!isHit(r, c)) return { valid: false, winningCells: new Set() };
+        if (!isHit(r, c)) return NONE;
         cells.add(cellKey(r, c));
       }
     }
     return { valid: true, winningCells: cells };
   }
 
-  if (gameMode === "horizontal" || gameMode === "quina") {
+  // Línea horizontal
+  if (gameMode === "horizontal") {
     for (let r = 0; r < 5; r++) {
       if ([0, 1, 2, 3, 4].every(c => isHit(r, c))) {
         return { valid: true, winningCells: new Set([0, 1, 2, 3, 4].map(c => cellKey(r, c))) };
       }
     }
+    return NONE;
   }
 
+  // Línea vertical
   if (gameMode === "vertical") {
     for (let c = 0; c < 5; c++) {
       if ([0, 1, 2, 3, 4].every(r => isHit(r, c))) {
         return { valid: true, winningCells: new Set([0, 1, 2, 3, 4].map(r => cellKey(r, c))) };
       }
     }
+    return NONE;
   }
 
+  // Diagonal (una de las dos)
   if (gameMode === "diagonal") {
-    if ([0, 1, 2, 3, 4].every(i => isHit(i, i))) {
+    if ([0, 1, 2, 3, 4].every(i => isHit(i, i)))
       return { valid: true, winningCells: new Set([0, 1, 2, 3, 4].map(i => cellKey(i, i))) };
-    }
-    if ([0, 1, 2, 3, 4].every(i => isHit(i, 4 - i))) {
+    if ([0, 1, 2, 3, 4].every(i => isHit(i, 4 - i)))
       return { valid: true, winningCells: new Set([0, 1, 2, 3, 4].map(i => cellKey(i, 4 - i))) };
-    }
+    return NONE;
   }
 
-  return { valid: false, winningCells: new Set() };
+  // Quina: cualquier línea (fila, columna O diagonal)
+  if (gameMode === "quina") {
+    for (let r = 0; r < 5; r++) {
+      if ([0, 1, 2, 3, 4].every(c => isHit(r, c)))
+        return { valid: true, winningCells: new Set([0, 1, 2, 3, 4].map(c => cellKey(r, c))) };
+    }
+    for (let c = 0; c < 5; c++) {
+      if ([0, 1, 2, 3, 4].every(r => isHit(r, c)))
+        return { valid: true, winningCells: new Set([0, 1, 2, 3, 4].map(r => cellKey(r, c))) };
+    }
+    if ([0, 1, 2, 3, 4].every(i => isHit(i, i)))
+      return { valid: true, winningCells: new Set([0, 1, 2, 3, 4].map(i => cellKey(i, i))) };
+    if ([0, 1, 2, 3, 4].every(i => isHit(i, 4 - i)))
+      return { valid: true, winningCells: new Set([0, 1, 2, 3, 4].map(i => cellKey(i, 4 - i))) };
+    return NONE;
+  }
+
+  // Esquinas: las 4 esquinas
+  if (gameMode === "esquinas") {
+    if (isHit(0, 0) && isHit(0, 4) && isHit(4, 0) && isHit(4, 4))
+      return { valid: true, winningCells: new Set([cellKey(0,0), cellKey(0,4), cellKey(4,0), cellKey(4,4)]) };
+    return NONE;
+  }
+
+  // Cruz: fila 2 + columna 2
+  if (gameMode === "cruz") {
+    const rowOk = [0, 1, 2, 3, 4].every(c => isHit(2, c));
+    const colOk = [0, 1, 2, 3, 4].every(r => isHit(r, 2));
+    if (rowOk && colOk) {
+      const cells = new Set<string>();
+      [0,1,2,3,4].forEach(c => cells.add(cellKey(2, c)));
+      [0,1,2,3,4].forEach(r => cells.add(cellKey(r, 2)));
+      return { valid: true, winningCells: cells };
+    }
+    return NONE;
+  }
+
+  // X doble: ambas diagonales
+  if (gameMode === "x_doble") {
+    const diag1 = [0, 1, 2, 3, 4].every(i => isHit(i, i));
+    const diag2 = [0, 1, 2, 3, 4].every(i => isHit(i, 4 - i));
+    if (diag1 && diag2) {
+      const cells = new Set<string>();
+      [0,1,2,3,4].forEach(i => { cells.add(cellKey(i, i)); cells.add(cellKey(i, 4 - i)); });
+      return { valid: true, winningCells: cells };
+    }
+    return NONE;
+  }
+
+  return NONE;
 }
 
 interface GameSession {
@@ -377,7 +438,7 @@ export default function PlayPage() {
         {liveWinners.length > 0 && (
           <div className="rounded-2xl p-4" style={{ background: "rgba(255,215,0,0.07)", border: "1px solid rgba(255,215,0,0.2)" }}>
             <p className="text-xs font-black uppercase tracking-wider mb-3" style={{ color: "hsl(42 98% 60%)" }}>
-              🏆 Ganadores del sorteo
+              🏆 Ganadores del bingo
             </p>
             <div className="space-y-2.5">
               {liveWinners.map(w => (

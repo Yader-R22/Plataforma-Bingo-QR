@@ -2609,7 +2609,10 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                               horizontal: "➡ Línea horizontal",
                               vertical: "⬇ Línea vertical",
                               diagonal: "↗ Diagonal",
-                              quina: "5️⃣ Quina",
+                              quina: "📏 Quina",
+                              esquinas: "🔲 Esquinas",
+                              cruz: "✝ Cruz",
+                              x_doble: "✖ X doble",
                             }[g.game_mode as string] ?? g.game_mode}
                           </span>
                           {(g.total_rounds ?? 1) > 1 && (
@@ -2700,6 +2703,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       const modeLabel: Record<string, string> = {
                         full_card: "Cartón completo", horizontal: "Línea horizontal",
                         vertical: "Línea vertical", diagonal: "Diagonal", quina: "Quina",
+                        esquinas: "Esquinas", cruz: "Cruz", x_doble: "X doble",
                       };
                       return (
                         <div className="px-4 pb-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
@@ -2971,7 +2975,10 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           horizontal: "➡ Línea horizontal",
                           vertical: "⬇ Línea vertical",
                           diagonal: "↗ Diagonal",
-                          quina: "5️⃣ Quina",
+                          quina: "📏 Quina",
+                          esquinas: "🔲 Esquinas",
+                          cruz: "✝ Cruz",
+                          x_doble: "✖ X doble",
                         }[g.game_mode as string] ?? g.game_mode}
                       </span>
                       {g.status === "active" && (g.total_rounds ?? 1) > 1 && (
@@ -3105,6 +3112,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   const modeLabel: Record<string, string> = {
                     full_card: "Cartón completo", horizontal: "Línea horizontal",
                     vertical: "Línea vertical", diagonal: "Diagonal", quina: "Quina",
+                    esquinas: "Esquinas", cruz: "Cruz", x_doble: "X doble",
                   };
                   return (
                     <div className="px-4 pb-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>

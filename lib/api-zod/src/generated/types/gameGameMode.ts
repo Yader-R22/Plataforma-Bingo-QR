@@ -18,4 +18,7 @@ export const GameGameMode = {
   diagonal: 'diagonal',
   quina: 'quina',
   full_card: 'full_card',
+  esquinas: 'esquinas',
+  cruz: 'cruz',
+  x_doble: 'x_doble',
 } as const;

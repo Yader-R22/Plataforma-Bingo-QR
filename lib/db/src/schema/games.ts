@@ -12,7 +12,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export type RoundConfig = {
-  game_mode: "horizontal" | "vertical" | "diagonal" | "quina" | "full_card";
+  game_mode: "horizontal" | "vertical" | "diagonal" | "quina" | "full_card" | "esquinas" | "cruz" | "x_doble";
   max_winners: number;
   prize_amount: number;
 };
@@ -34,7 +34,7 @@ export const gamesTable = pgTable("games", {
   streamUrlTiktok: text("stream_url_tiktok"),
   streamUrlFacebook: text("stream_url_facebook"),
   gameMode: text("game_mode", {
-    enum: ["horizontal", "vertical", "diagonal", "quina", "full_card"],
+    enum: ["horizontal", "vertical", "diagonal", "quina", "full_card", "esquinas", "cruz", "x_doble"],
   }).notNull().default("full_card"),
   maxWinners: integer("max_winners").notNull().default(1),
   prizes: jsonb("prizes").$type<Array<{ place: number; amount: number }>>().default([]),
