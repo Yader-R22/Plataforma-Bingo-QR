@@ -36,7 +36,7 @@ function drawDateDiffDays(drawDate: string): number {
 
 function drawDateLabel(drawDate: string): string {
   const d = drawDateDiffDays(drawDate);
-  if (d < 0) return "PASADO";
+  if (d < 0) return "EN ESPERA";
   if (d === 0) return "HOY";
   if (d === 1) return "MAÑANA";
   if (d <= 6) return "ESTA SEMANA";
