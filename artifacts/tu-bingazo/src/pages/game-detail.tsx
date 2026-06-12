@@ -139,6 +139,7 @@ function QRPaymentModal({
 
     const W = 480, H = 720;
     const QR = 240;
+    const SCALE = 3; // 3× for crisp high-res output
 
     const serialized = new XMLSerializer().serializeToString(svg);
     const svgBlob = new Blob([serialized], { type: "image/svg+xml;charset=utf-8" });
@@ -147,17 +148,17 @@ function QRPaymentModal({
 
     qrImg.onload = () => {
       const canvas = document.createElement("canvas");
-      canvas.width = W;
-      canvas.height = H;
+      canvas.width = W * SCALE;
+      canvas.height = H * SCALE;
       const ctx = canvas.getContext("2d")!;
+      ctx.scale(SCALE, SCALE);
 
-      // ── Background gradient (purple → dark blue) ──
+      // ── Background gradient — straight corners ──
       const bg = ctx.createLinearGradient(0, 0, 0, H);
       bg.addColorStop(0, "#2d0072");
       bg.addColorStop(1, "#0d001a");
       ctx.fillStyle = bg;
-      roundRect(ctx, 0, 0, W, H, 28);
-      ctx.fill();
+      ctx.fillRect(0, 0, W, H);
 
       // ── Decorative circles ──
       ctx.save();
