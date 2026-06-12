@@ -4047,14 +4047,9 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                             {/* Action buttons */}
                             <div className="flex gap-2 pt-1 border-t">
                               <button onClick={() => downloadPartnerPaymentPDF(pp)}
-                                className="flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all"
+                                className="w-full py-1.5 rounded-lg text-xs font-bold border transition-all"
                                 style={{ borderColor: "hsl(var(--primary)/0.3)", color: "hsl(var(--primary))", background: "hsl(var(--primary)/0.06)" }}>
                                 ⬇ Descargar PDF
-                              </button>
-                              <button onClick={() => sharePartnerPaymentWhatsApp(pp)}
-                                className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white transition-all"
-                                style={{ background: "#25d366" }}>
-                                📲 Compartir WhatsApp
                               </button>
                             </div>
                           </div>
