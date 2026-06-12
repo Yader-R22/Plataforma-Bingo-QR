@@ -41,6 +41,7 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<"verify" | "info" | "role" | "password" | "balance" | "danger">("info");
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const [tempPwd, setTempPwd] = useState("");
   const [tempPwdHours, setTempPwdHours] = useState(24);
@@ -208,7 +209,19 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: "rgba(0,0,0,0.6)" }}
-      onClick={e => e.target === e.currentTarget && onClose()}>
+      onClick={e => e.target === e.currentTarget && !lightboxUrl && onClose()}>
+      {lightboxUrl && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.92)" }}
+          onClick={() => setLightboxUrl(null)}>
+          <button onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 text-white text-3xl font-bold leading-none opacity-80 hover:opacity-100">✕</button>
+          <img src={lightboxUrl} alt="Documento CI"
+            className="max-w-full max-h-full rounded-2xl object-contain"
+            style={{ maxHeight: "90vh", maxWidth: "90vw" }}
+            onClick={e => e.stopPropagation()} />
+        </div>
+      )}
       <div className="w-full sm:max-w-md max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl"
         style={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }}>
 
@@ -295,7 +308,7 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
                         <img src={url} alt={label}
                           className="w-full rounded-xl object-cover cursor-zoom-in border hover:opacity-90 transition-opacity"
                           style={{ height: 140 }}
-                          onClick={() => window.open(url, "_blank")} />
+                          onClick={() => setLightboxUrl(url)} />
                       ) : (
                         <div className="w-full rounded-xl border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground"
                           style={{ height: 140 }}>
@@ -362,7 +375,7 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
                           <img src={url} alt={label}
                             className="w-full rounded-xl object-cover cursor-zoom-in border hover:opacity-90 transition-opacity"
                             style={{ maxHeight: 130 }}
-                            onClick={() => window.open(url, "_blank")} />
+                            onClick={() => setLightboxUrl(url)} />
                           <button onClick={() => downloadUrl(url, filename)}
                             className="w-full text-xs font-bold py-1.5 rounded-lg"
                             style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
