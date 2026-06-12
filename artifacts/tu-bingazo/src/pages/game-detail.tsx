@@ -55,6 +55,7 @@ interface Winner {
   place: number;
   prize_amount: string;
   full_name: string;
+  user_department: string | null;
 }
 
 // QR Payment modal that shows inline
@@ -523,6 +524,9 @@ export default function GameDetailPage() {
                             <div>
                               <p className="text-xs text-muted-foreground">{placeLabels[w.place] ?? `Lugar ${w.place}`}</p>
                               <p className="font-bold">{w.full_name}</p>
+                              {w.user_department && (
+                                <p className="text-xs text-muted-foreground mt-0.5">📍 {w.user_department}</p>
+                              )}
                             </div>
                           </div>
                           <div className="text-right">
