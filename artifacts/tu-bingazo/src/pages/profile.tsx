@@ -543,7 +543,7 @@ export default function ProfilePage() {
                         </p>
                       </div>
                       <p className="font-black text-sm shrink-0" style={{ color: tx.activator_id === user.id ? "hsl(142 70% 35%)" : "hsl(42 98% 35%)" }}>
-                        +Bs {Number(tx.amount).toFixed(2)}
+                        +Bs {Number(tx.amount).toFixed(0)}
                       </p>
                     </div>
                   ))}

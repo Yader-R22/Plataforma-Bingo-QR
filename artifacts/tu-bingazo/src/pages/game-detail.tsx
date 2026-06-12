@@ -167,7 +167,7 @@ function QRPaymentModal({
             >
               <span className="text-muted-foreground">{qty} cartón{qty > 1 ? "es" : ""}</span>
               <span className="font-black text-lg" style={{ color: "hsl(var(--primary))", fontFamily: "'Poppins', sans-serif" }}>
-                Bs {totalPrice.toFixed(2)}
+                Bs {totalPrice.toFixed(0)}
               </span>
             </div>
 
@@ -250,7 +250,7 @@ export default function GameDetailPage() {
       return;
     }
     if (payWith === "wallet" && user.balance < (game!.card_price as number) * qty) {
-      toast.error(`Saldo insuficiente. Tu saldo: Bs ${user.balance.toFixed(2)}`);
+      toast.error(`Saldo insuficiente. Tu saldo: Bs ${user.balance.toFixed(0)}`);
       return;
     }
     setBuying(true);
@@ -421,7 +421,7 @@ export default function GameDetailPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-3xl font-black" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(var(--primary))" }}>
-                      Bs {totalPrice.toFixed(2)}
+                      Bs {totalPrice.toFixed(0)}
                     </p>
                     <p className="text-xs text-muted-foreground">{qty} cartón{qty > 1 ? "es" : ""}</p>
                   </div>
@@ -453,7 +453,7 @@ export default function GameDetailPage() {
                       }}
                     >
                       <span>💰 Mi Saldo</span>
-                      {user && <span className="text-xs opacity-70">Bs {user.balance.toFixed(2)}</span>}
+                      {user && <span className="text-xs opacity-70">Bs {user.balance.toFixed(0)}</span>}
                     </button>
                   </div>
                 </div>

@@ -162,7 +162,7 @@ export default function WalletPage() {
           <div className="relative z-10">
             <p className="text-white/60 text-sm mb-1">Saldo disponible</p>
             <p className="font-black text-5xl prize-text" style={{ fontFamily: "'Poppins', sans-serif" }}>
-              Bs {(wallet?.balance ?? 0).toLocaleString("es-BO", { minimumFractionDigits: 2 })}
+              Bs {(wallet?.balance ?? 0).toLocaleString("es-BO", { maximumFractionDigits: 0 })}
             </p>
             <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t border-white/15">
               {[
@@ -188,7 +188,7 @@ export default function WalletPage() {
             <div className="flex-1">
               <p className="font-black text-sm" style={{ color: "hsl(42 98% 30%)" }}>Bono disponible</p>
               <p className="font-black text-2xl" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 30%)" }}>
-                Bs {((wallet as any).bonus_balance ?? 0).toLocaleString("es-BO", { minimumFractionDigits: 2 })}
+                Bs {((wallet as any).bonus_balance ?? 0).toLocaleString("es-BO", { maximumFractionDigits: 0 })}
               </p>
               <p className="text-xs mt-0.5" style={{ color: "hsl(42 98% 40%)" }}>Solo para compra de cartones · No retirable</p>
             </div>
@@ -219,7 +219,7 @@ export default function WalletPage() {
                 placeholder="0.00" min="1" step="0.01" max={wallet?.balance ?? 0}
                 value={amount} onChange={e => setAmount(e.target.value)} autoFocus />
             </label>
-            {wallet && <p className="text-xs text-muted-foreground">Disponible: Bs {wallet.balance.toFixed(2)}</p>}
+            {wallet && <p className="text-xs text-muted-foreground">Disponible: Bs {wallet.balance.toFixed(0)}</p>}
             <button className="btn-primary" onClick={() => {
               if (!amount || numAmount <= 0) { toast.error("Ingresa un monto"); return; }
               if (wallet && numAmount > wallet.balance) { toast.error("Saldo insuficiente"); return; }
@@ -236,7 +236,7 @@ export default function WalletPage() {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
               </button>
               <h3 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                Retirar Bs {numAmount.toFixed(2)}
+                Retirar Bs {numAmount.toFixed(0)}
               </h3>
             </div>
             <p className="text-sm text-muted-foreground">¿Cómo quieres recibir tu dinero?</p>
@@ -309,7 +309,7 @@ export default function WalletPage() {
               style={{ background: "hsl(var(--muted))" }}>
               <span className="text-sm">Monto a retirar</span>
               <span className="font-black" style={{ color: "hsl(var(--primary))", fontFamily: "'Poppins', sans-serif" }}>
-                Bs {numAmount.toFixed(2)}
+                Bs {numAmount.toFixed(0)}
               </span>
             </div>
 
@@ -376,7 +376,7 @@ export default function WalletPage() {
               style={{ background: "hsl(var(--muted))" }}>
               <span className="text-sm">Monto a retirar</span>
               <span className="font-black" style={{ color: "hsl(var(--primary))", fontFamily: "'Poppins', sans-serif" }}>
-                Bs {numAmount.toFixed(2)}
+                Bs {numAmount.toFixed(0)}
               </span>
             </div>
 
@@ -426,7 +426,7 @@ export default function WalletPage() {
                     <div key={e.id} className="bg-card border rounded-2xl p-4 flex items-center justify-between">
                       <div>
                         <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(142 70% 30%)" }}>
-                          +Bs {parseFloat(e.prize_amount).toLocaleString("es-BO", { minimumFractionDigits: 2 })}
+                          +Bs {parseFloat(e.prize_amount).toLocaleString("es-BO", { maximumFractionDigits: 0 })}
                         </p>
                         <p className="text-sm font-medium mt-0.5">{e.game_title}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
@@ -530,7 +530,7 @@ export default function WalletPage() {
                           fontFamily: "'Poppins', sans-serif",
                           color: isAdminCredit ? "hsl(142 70% 30%)" : isAdminDebit ? "hsl(0 75% 40%)" : undefined,
                         }}>
-                          {isAdminCredit ? "+" : isAdminDebit ? "−" : "−"}Bs {parseFloat(w.amount).toLocaleString("es-BO", { minimumFractionDigits: 2 })}
+                          {isAdminCredit ? "+" : isAdminDebit ? "−" : "−"}Bs {parseFloat(w.amount).toLocaleString("es-BO", { maximumFractionDigits: 0 })}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {methodLabel} · {new Date(w.created_at).toLocaleDateString("es-BO")}

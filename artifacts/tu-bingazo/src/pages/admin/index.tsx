@@ -375,7 +375,7 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
                     { label: "Departamento", value: user.department },
                     { label: "Teléfono / WhatsApp", value: user.phone },
                     { label: "Estado", value: user.status === "active" ? "✅ Activo" : user.status === "pending" ? "⏳ Pendiente" : "❌ Rechazado" },
-                    { label: "Saldo actual", value: `Bs ${parseFloat(user.balance).toFixed(2)}` },
+                    { label: "Saldo actual", value: `Bs ${parseFloat(user.balance).toFixed(0)}` },
                     { label: "Cartones comprados", value: user.cards_purchased ?? "—" },
                     { label: "Premios ganados", value: user.wins ?? "—" },
                     { label: "Miembro desde", value: new Date(user.created_at).toLocaleDateString("es-BO") },
@@ -553,7 +553,7 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
                 style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.2)" }}>
                 <p className="text-xs text-muted-foreground">Saldo actual</p>
                 <p className="text-3xl font-black" style={{ color: "hsl(var(--primary))" }}>
-                  Bs {parseFloat(user.balance).toFixed(2)}
+                  Bs {parseFloat(user.balance).toFixed(0)}
                 </p>
               </div>
 
@@ -1272,7 +1272,7 @@ export default function AdminPage() {
   async function registerPartnerPayment(snapshot: any[]) {
     if (!financeSummary) return;
     const totalPaid = snapshot.reduce((sum, p) => sum + p.amount, 0);
-    if (totalPaid <= 0 && !confirm(`La ganancia neta del período es negativa o cero (Bs ${financeSummary.net_profit.toFixed(2)}). ¿Igual querés archivar este período como registro histórico?`)) return;
+    if (totalPaid <= 0 && !confirm(`La ganancia neta del período es negativa o cero (Bs ${financeSummary.net_profit.toFixed(0)}). ¿Igual querés archivar este período como registro histórico?`)) return;
     const PERIOD_LABELS: Record<string, string> = { today: "Hoy", week: "Últimos 7 días", month: "Últimos 30 días", year: "Último año", all: "Todo el tiempo" };
     const periodLabel = financeSummary.period === "custom"
       ? `${financeFrom || "—"} al ${financeTo || "hoy"}`
@@ -1308,7 +1308,7 @@ export default function AdminPage() {
   function downloadFinancePDF(includeSnapshot?: any[]) {
     const s = financeSummary;
     const PERIOD_LABELS: Record<string, string> = { today: "Hoy", week: "Últimos 7 días", month: "Últimos 30 días", year: "Último año", all: "Todo el tiempo", custom: `${financeFrom || "—"} al ${financeTo || "hoy"}` };
-    const fmt = (v: number) => `Bs ${v.toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const fmt = (v: number) => `Bs ${v.toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
     const fmtDate = (d: string) => new Date(d).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
     const typeColor: Record<string, string> = { ingreso: "#16a34a", premio: "#b45309", retiro: "#dc2626" };
     const typeLabel: Record<string, string> = { ingreso: "Ingreso", premio: "Premio", retiro: "Retiro" };
@@ -1709,7 +1709,7 @@ ${summarySection}
   }
 
   function downloadPartnerPaymentPDF(pp: any) {
-    const fmt = (v: number) => `Bs ${Number(v).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const fmt = (v: number) => `Bs ${Number(v).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
     const archiveDate = new Date(pp.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
     const snap: any[] = Array.isArray(pp.partners_snapshot) ? pp.partners_snapshot : [];
 
@@ -2056,7 +2056,7 @@ ${pp.admin_notes ? `<div style="margin-top:20px;padding:12px;background:#f8f7ff;
   }
 
   async function sharePartnerPaymentWhatsApp(pp: any) {
-    const fmt = (v: number) => `Bs ${Number(v).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const fmt = (v: number) => `Bs ${Number(v).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
     const snapshot: any[] = Array.isArray(pp.partners_snapshot) ? pp.partners_snapshot : [];
     const dateStr = new Date(pp.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric" });
     const waText = [
@@ -2824,7 +2824,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         <p className="text-xs text-muted-foreground">CI: {u.ci}</p>
                         <p className="text-xs text-muted-foreground">{u.department} · {u.phone}</p>
                         <p className="text-xs font-bold mt-0.5" style={{ color: "hsl(var(--primary))" }}>
-                          Bs {parseFloat(u.balance).toFixed(2)}
+                          Bs {parseFloat(u.balance).toFixed(0)}
                         </p>
                         {u.is_banned && u.ban_reason && (
                           <p className="text-[11px] mt-0.5" style={{ color: "hsl(0 75% 45%)" }}>Motivo baneo: {u.ban_reason}</p>
@@ -3366,7 +3366,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-black text-lg">Bs {parseFloat(w.amount).toFixed(2)}</p>
+                          <p className="font-black text-lg">Bs {parseFloat(w.amount).toFixed(0)}</p>
                           <span className="text-xs px-2.5 py-0.5 rounded-full font-bold"
                             style={{ background: statusStyle.bg, color: statusStyle.color }}>
                             {statusStyle.label}
@@ -3465,7 +3465,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">Cartón #{w.card_id} · Puesto #{w.place}</p>
                     <p className="text-lg font-black mt-1" style={{ color: "hsl(42 98% 35%)", fontFamily: "'Poppins', sans-serif" }}>
-                      Bs {parseFloat(w.prize_amount).toFixed(2)}
+                      Bs {parseFloat(w.prize_amount).toFixed(0)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Reclamado {new Date(w.created_at).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
@@ -3495,7 +3495,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
         {/* ── FINANCE ─────────────────────────────────── */}
         {tab === "finance" && !loading && (() => {
           const s = financeSummary;
-          const fmt = (v: number) => `Bs ${v.toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          const fmt = (v: number) => `Bs ${v.toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
           const PERIODS = [
             { id: "today", label: "Hoy" },
             { id: "week",  label: "7 días" },
@@ -3871,7 +3871,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                               {FREQ_LABELS[exp.frequency] ?? exp.frequency}
                             </span>
                           </div>
-                          <p className="text-xs font-bold mt-0.5" style={{ color: "#dc2626" }}>Bs {parseFloat(exp.amount).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                          <p className="text-xs font-bold mt-0.5" style={{ color: "#dc2626" }}>Bs {parseFloat(exp.amount).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
                           {exp.notes && <p className="text-xs text-muted-foreground">{exp.notes}</p>}
                           {s && (s.expenses_detail ?? []).find((d: any) => d.id === exp.id) && (
                             <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -3905,7 +3905,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           {expenses.filter(e => !e.is_active).map(exp => (
                             <div key={exp.id} className="flex items-center justify-between px-3 py-2 rounded-lg opacity-50"
                               style={{ background: "hsl(var(--muted)/0.3)", border: "1px solid hsl(var(--border))" }}>
-                              <span>{exp.name} — {FREQ_LABELS[exp.frequency]} — Bs {parseFloat(exp.amount).toFixed(2)}</span>
+                              <span>{exp.name} — {FREQ_LABELS[exp.frequency]} — Bs {parseFloat(exp.amount).toFixed(0)}</span>
                               <button onClick={() => reactivateExpense(exp)}
                                 className="px-1.5 py-0.5 rounded text-[11px] font-bold"
                                 style={{ background: "#16a34a", color: "white" }}>
@@ -4448,8 +4448,8 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   {[
                     { label: "Activadores activos", value: referralStats.active_activators, icon: "🔗" },
                     { label: "Usuarios referidos", value: referralStats.total_referred_users, icon: "👥" },
-                    { label: "Comisiones pagadas", value: `Bs ${(referralStats.total_commissions_paid ?? 0).toFixed(2)}`, icon: "💰" },
-                    { label: "Bonos otorgados", value: `Bs ${(referralStats.total_bonuses_granted ?? 0).toFixed(2)}`, icon: "🎁" },
+                    { label: "Comisiones pagadas", value: `Bs ${(referralStats.total_commissions_paid ?? 0).toFixed(0)}`, icon: "💰" },
+                    { label: "Bonos otorgados", value: `Bs ${(referralStats.total_bonuses_granted ?? 0).toFixed(0)}`, icon: "🎁" },
                   ].map(item => (
                     <div key={item.label} className="bg-card border rounded-2xl p-4">
                       <p className="text-xl">{item.icon}</p>
@@ -4759,7 +4759,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           </p>
                           <p className="text-[11px] text-muted-foreground">Activador: {tx.activator_name?.split(" ").slice(0,2).join(" ")} · Referido: {tx.referred_name?.split(" ").slice(0,2).join(" ")}</p>
                         </div>
-                        <p className="font-black text-sm shrink-0" style={{ color: "hsl(142 70% 35%)" }}>+Bs {Number(tx.amount).toFixed(2)}</p>
+                        <p className="font-black text-sm shrink-0" style={{ color: "hsl(142 70% 35%)" }}>+Bs {Number(tx.amount).toFixed(0)}</p>
                       </div>
                     ))}
                   </div>
