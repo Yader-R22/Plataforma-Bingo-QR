@@ -143,76 +143,83 @@ export default function GamesPage() {
               const coverImg = game.cover_image_url as string | null | undefined;
               return (
                 <Link key={game.id} href={`/juegos/${game.id}`}>
+                  {/* Outer wrapper: positioning context for the FINALIZADO badge — NO filter here */}
                   <div className="rounded-3xl cursor-pointer relative overflow-hidden stars-bg">
-                    {/* Background layer — grayscale applies here only, not to content */}
-                    <div
-                      className="absolute inset-0"
-                      style={{
-                        ...(coverImg
+
+                    {/* Inner wrapper: grayscale applies to background + all content except badge */}
+                    <div className="relative" style={isFinished ? { filter: "grayscale(100%)", opacity: 0.75 } : undefined}>
+                      {/* Background */}
+                      <div
+                        className="absolute inset-0"
+                        style={coverImg
                           ? { backgroundImage: `url(${coverImg})`, backgroundSize: "cover", backgroundPosition: "center" }
-                          : { background: cfg.gradient }),
-                        ...(isFinished ? { filter: "grayscale(100%)", opacity: 0.75 } : {}),
-                      }}
-                    />
-                    {/* Dark overlay when cover image */}
-                    {coverImg && <div className="absolute inset-0 rounded-3xl" style={{ background: "rgba(0,0,0,0.45)" }} />}
-                    {/* Decorative circles */}
-                    <div className="absolute -right-8 -top-8 w-36 h-36 rounded-full opacity-15" style={{ background: "rgba(255,255,255,0.4)" }} />
-                    <div className="absolute -left-4 -bottom-6 w-24 h-24 rounded-full opacity-10" style={{ background: "rgba(255,255,255,0.3)" }} />
+                          : { background: cfg.gradient }}
+                      />
+                      {coverImg && <div className="absolute inset-0 rounded-3xl" style={{ background: "rgba(0,0,0,0.45)" }} />}
+                      <div className="absolute -right-8 -top-8 w-36 h-36 rounded-full opacity-15" style={{ background: "rgba(255,255,255,0.4)" }} />
+                      <div className="absolute -left-4 -bottom-6 w-24 h-24 rounded-full opacity-10" style={{ background: "rgba(255,255,255,0.3)" }} />
 
-                    <div className="relative z-10 p-5">
-                      {/* Status badge + title row */}
-                      <div className="flex items-start justify-between gap-3 mb-4">
-                        <div className="flex-1 min-w-0">
-                          {isLive && <div className="live-badge mb-2 inline-flex"><div className="live-dot" />EN VIVO</div>}
-                          {!isLive && !isFinished && (
-                            <div className="mb-2">
-                              <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                                style={drawDateBadgeStyle(game.draw_date)}>
-                                {drawDateLabel(game.draw_date)}
-                              </span>
-                            </div>
-                          )}
-                          {isFinished && (
-                            <div className="mb-2">
-                              <span className="text-xs font-bold text-white/50 uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded-full">FINALIZADO</span>
-                            </div>
-                          )}
-                          <p className="font-black text-white text-xl leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                            {cfg.emoji} {game.title}
-                          </p>
+                      <div className="relative z-10 p-5">
+                        {/* Status badge row */}
+                        <div className="flex items-start justify-between gap-3 mb-4">
+                          <div className="flex-1 min-w-0">
+                            {isLive && <div className="live-badge mb-2 inline-flex"><div className="live-dot" />EN VIVO</div>}
+                            {!isLive && !isFinished && (
+                              <div className="mb-2">
+                                <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                                  style={drawDateBadgeStyle(game.draw_date)}>
+                                  {drawDateLabel(game.draw_date)}
+                                </span>
+                              </div>
+                            )}
+                            {/* Spacer so layout matches when badge is rendered outside */}
+                            {isFinished && <div className="mb-2 h-[22px]" />}
+                            <p className="font-black text-white text-xl leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                              {cfg.emoji} {game.title}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="font-black text-3xl leading-none" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 65%)", textShadow: "0 0 12px rgba(255,180,0,0.5)" }}>
+                              Bs {(game.prize_amount as number).toLocaleString("es-BO")}
+                            </p>
+                            <p className="text-white/60 text-xs mt-0.5">Premio</p>
+                          </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="font-black text-3xl leading-none" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 65%)", textShadow: "0 0 12px rgba(255,180,0,0.5)" }}>
-                            Bs {(game.prize_amount as number).toLocaleString("es-BO")}
-                          </p>
-                          <p className="text-white/60 text-xs mt-0.5">Premio</p>
-                        </div>
-                      </div>
 
-                      {/* Date row */}
-                      <p className="text-white/70 text-sm mb-4">
-                        📅 {new Date(game.draw_date).toLocaleDateString("es-BO", {
-                          weekday: "long", day: "numeric", month: "long",
-                          hour: "2-digit", minute: "2-digit",
-                        })}
-                      </p>
+                        {/* Date row */}
+                        <p className="text-white/70 text-sm mb-4">
+                          📅 {new Date(game.draw_date).toLocaleDateString("es-BO", {
+                            weekday: "long", day: "numeric", month: "long",
+                            hour: "2-digit", minute: "2-digit",
+                          })}
+                        </p>
 
-                      {/* Footer row */}
-                      <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.2)" }}>
-                        <div className="flex items-center gap-3 text-white/80 text-sm">
-                          <span>👥 {game.participant_count} participantes</span>
-                          <span className="font-bold" style={{ color: "hsl(42 98% 65%)" }}>Bs {game.card_price as number}/cartón</span>
-                        </div>
-                        <div
-                          className="text-xs font-bold px-4 py-2 rounded-xl"
-                          style={{ background: "rgba(255,255,255,0.2)", color: "white" }}
-                          onClick={!isFinished && !user ? (e) => { e.preventDefault(); e.stopPropagation(); navigate("/login"); } : undefined}
-                        >
-                          {isLive ? "🎯 Jugar" : isFinished ? "Ver" : "Comprar →"}
+                        {/* Footer row */}
+                        <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.2)" }}>
+                          <div className="flex items-center gap-3 text-white/80 text-sm">
+                            <span>👥 {game.participant_count} participantes</span>
+                            <span className="font-bold" style={{ color: "hsl(42 98% 65%)" }}>Bs {game.card_price as number}/cartón</span>
+                          </div>
+                          <div
+                            className="text-xs font-bold px-4 py-2 rounded-xl"
+                            style={{ background: "rgba(255,255,255,0.2)", color: "white" }}
+                            onClick={!isFinished && !user ? (e) => { e.preventDefault(); e.stopPropagation(); navigate("/login"); } : undefined}
+                          >
+                            {isLive ? "🎯 Jugar" : isFinished ? "Ver" : "Comprar →"}
+                          </div>
                         </div>
                       </div>
                     </div>
+
+                    {/* FINALIZADO badge — outside the grayscale wrapper, keeps full color */}
+                    {isFinished && (
+                      <div className="absolute top-5 left-5 z-20">
+                        <span className="text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-full"
+                          style={{ background: "hsl(24 95% 53% / 0.25)", color: "hsl(24 95% 70%)", border: "1px solid hsl(24 95% 53% / 0.5)" }}>
+                          FINALIZADO
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </Link>
               );
