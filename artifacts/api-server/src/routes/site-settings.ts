@@ -58,14 +58,14 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
       ...(seo_keywords !== undefined && { seoKeywords: seo_keywords }),
       ...(primary_color !== undefined && { primaryColor: primary_color }),
       updatedAt: new Date(),
-      updatedById: req.user!.id,
+      updatedById: req.userId!,
     })
     .where(eq(siteSettingsTable.id, 1));
 
   const updated = await db.select().from(siteSettingsTable).where(eq(siteSettingsTable.id, 1));
   const s = updated[0]!;
 
-  req.log.info({ admin_id: req.user!.id }, "site settings updated");
+  req.log.info({ admin_id: req.userId }, "site settings updated");
 
   res.json({
     site_name: s.siteName,
