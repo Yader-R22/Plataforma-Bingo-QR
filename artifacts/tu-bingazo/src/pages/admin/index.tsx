@@ -718,6 +718,7 @@ export default function AdminPage() {
   const [showPartnerHistory, setShowPartnerHistory] = useState(false);
   const [ppFrom, setPpFrom] = useState("");
   const [ppTo, setPpTo] = useState("");
+  const [financeTab, setFinanceTab] = useState<"resumen"|"juegos"|"movimientos"|"gastos"|"socios"|"historial">("resumen");
   const [expenses, setExpenses] = useState<any[]>([]);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
@@ -3488,301 +3489,376 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           })) : [];
           const FREQ_LABELS: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual", yearly: "Anual", one_time: "Único" };
 
+          // ── Finance sub-tab helpers ──────────────
+          const FTABS = [
+            { id: "resumen",      label: "📊 Resumen" },
+            { id: "juegos",       label: "🎮 Juegos" },
+            { id: "movimientos",  label: "💸 Movimientos" },
+            { id: "gastos",       label: "🏭 Gastos" },
+            { id: "socios",       label: "🤝 Socios" },
+            { id: "historial",    label: "📜 Historial" },
+          ] as const;
+
           return (
-            <div className="space-y-4">
-              {/* Header */}
-              <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="space-y-3">
+              {/* ── Top header ── */}
+              <div className="flex items-center justify-between gap-2">
                 <h2 className="font-black text-lg">💰 Finanzas</h2>
                 <button onClick={() => downloadFinancePDF()}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-white flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 shrink-0"
                   style={{ background: "#5b21b6" }}>
                   ⬇ PDF
                 </button>
               </div>
 
-              {/* Period selector */}
-              <div className="flex gap-1.5 flex-wrap">
-                {PERIODS.map(p => (
-                  <button key={p.id} onClick={() => loadFinanceWithPeriod(p.id)}
-                    className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-                    style={{
-                      background: financePeriod === p.id ? "hsl(var(--primary))" : "hsl(var(--muted))",
-                      color: financePeriod === p.id ? "white" : "hsl(var(--foreground))",
-                    }}>
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Custom date range */}
-              <div className="rounded-2xl p-3 space-y-2" style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">📅 Rango personalizado</p>
-                <div className="flex gap-2 items-center flex-wrap">
-                  <div className="flex-1 min-w-[130px] space-y-1">
-                    <label className="text-[11px] text-muted-foreground">Desde</label>
+              {/* ── Period selector (always visible) ── */}
+              <div className="rounded-2xl p-3 space-y-2.5" style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
+                <div className="flex gap-1.5 flex-wrap">
+                  {PERIODS.map(p => (
+                    <button key={p.id} onClick={() => loadFinanceWithPeriod(p.id)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                      style={{
+                        background: financePeriod === p.id ? "hsl(var(--primary))" : "hsl(var(--background))",
+                        color: financePeriod === p.id ? "white" : "hsl(var(--foreground))",
+                        border: `1px solid ${financePeriod === p.id ? "transparent" : "hsl(var(--border))"}`,
+                      }}>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1 space-y-0.5">
+                    <label className="text-[11px] text-muted-foreground font-medium">Desde</label>
                     <input type="date" className="input-field text-xs py-1.5" value={financeFrom}
                       onChange={e => setFinanceFrom(e.target.value)} />
                   </div>
-                  <div className="flex-1 min-w-[130px] space-y-1">
-                    <label className="text-[11px] text-muted-foreground">Hasta</label>
+                  <div className="flex-1 space-y-0.5">
+                    <label className="text-[11px] text-muted-foreground font-medium">Hasta</label>
                     <input type="date" className="input-field text-xs py-1.5" value={financeTo}
                       onChange={e => setFinanceTo(e.target.value)} />
                   </div>
                   <button
                     onClick={() => { if (financeFrom) loadFinanceWithPeriod("custom", financeFrom, financeTo || undefined); else toast.error("Ingresa al menos la fecha de inicio"); }}
-                    className="px-3 py-2 rounded-xl text-xs font-bold text-white self-end"
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold text-white"
                     style={{ background: financePeriod === "custom" ? "hsl(var(--primary))" : "#64748b" }}>
                     Buscar
                   </button>
                 </div>
               </div>
 
-              {/* KPI cards */}
-              {s && (
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-card border rounded-2xl p-4">
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">💰 Ingresos brutos</p>
-                    <p className="text-xl font-black mt-1" style={{ color: "#16a34a" }}>{fmt(s.gross_revenue)}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{s.cards_sold} cartones vendidos</p>
-                  </div>
-                  <div className="bg-card border rounded-2xl p-4">
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">🏆 Premios pagados</p>
-                    <p className="text-xl font-black mt-1" style={{ color: "#b45309" }}>{fmt(s.prizes_paid)}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{s.prizes_count} ganador{s.prizes_count !== 1 ? "es" : ""}</p>
-                  </div>
-                  <div className="bg-card border rounded-2xl p-4">
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">💸 Retiros pagados</p>
-                    <p className="text-xl font-black mt-1" style={{ color: "#dc2626" }}>{fmt(s.withdrawals_paid)}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{s.withdrawals_count} retiro{s.withdrawals_count !== 1 ? "s" : ""}</p>
-                  </div>
-                  <div className="bg-card border rounded-2xl p-4" style={{ borderColor: s.pending_withdrawals_count > 0 ? "hsl(42 98% 52%)" : undefined }}>
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">⏳ Retiros pendientes</p>
-                    <p className="text-xl font-black mt-1" style={{ color: "#f59e0b" }}>{fmt(s.pending_withdrawals)}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{s.pending_withdrawals_count} solicitud{s.pending_withdrawals_count !== 1 ? "es" : ""}</p>
-                  </div>
-                  <div className="bg-card border rounded-2xl p-4">
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-wide">👛 Saldo en circulación</p>
-                    <p className="text-xl font-black mt-1" style={{ color: "#7c3aed" }}>{fmt(s.balance_in_circulation)}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{s.users_with_balance} usuarios con saldo</p>
-                  </div>
-                  <div className="bg-card border-2 rounded-2xl p-4"
-                    style={{ borderColor: s.net_profit >= 0 ? "#86efac" : "#fca5a5", background: s.net_profit >= 0 ? "hsl(142 70% 98%)" : "hsl(0 75% 98%)" }}>
-                    <p className="text-xs font-bold uppercase tracking-wide" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>📈 Ganancia neta</p>
-                    <p className="text-2xl font-black mt-1" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>{fmt(s.net_profit)}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Ingresos − Premios − Retiros</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Per-game breakdown */}
-              {financeGames.length > 0 && (
-                <div>
-                  <h3 className="font-bold text-sm mb-2 text-muted-foreground uppercase tracking-wide">Desglose por juego</h3>
-                  <div className="space-y-2">
-                    {financeGames.map(g => (
-                      <div key={g.id} className="bg-card border rounded-xl p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="font-bold text-sm truncate">{g.title}</p>
-                            <p className="text-xs text-muted-foreground">{typeGameLabel[g.type] ?? g.type} · {statusLabel[g.status] ?? g.status} · {g.cards_sold} cartones</p>
-                          </div>
-                          <span className="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full"
-                            style={{ background: g.net >= 0 ? "hsl(142 70% 45% / 0.12)" : "hsl(0 75% 50% / 0.1)", color: g.net >= 0 ? "#16a34a" : "#dc2626" }}>
-                            {g.net >= 0 ? "+" : ""}{fmt(g.net)}
-                          </span>
-                        </div>
-                        <div className="mt-2 grid grid-cols-3 gap-1 text-xs">
-                          <div className="text-center">
-                            <p className="font-bold" style={{ color: "#16a34a" }}>{fmt(g.revenue)}</p>
-                            <p className="text-muted-foreground">Ingresos</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="font-bold" style={{ color: "#b45309" }}>{fmt(g.prizes_paid)}</p>
-                            <p className="text-muted-foreground">Premios</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="font-bold">{fmt(g.card_price)}</p>
-                            <p className="text-muted-foreground">Precio/cartón</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Transactions */}
-              {financeTransactions.length > 0 && (
-                <div>
-                  <h3 className="font-bold text-sm mb-2 text-muted-foreground uppercase tracking-wide">Movimientos recientes ({financeTransactions.length})</h3>
-                  <div className="space-y-1.5">
-                    {financeTransactions.map((t, i) => (
-                      <div key={i} className="bg-card border rounded-xl px-3 py-2.5 flex items-center justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-black px-2 py-0.5 rounded-full text-white"
-                              style={{ background: typeStyle[t.type] ?? "#64748b" }}>
-                              {typeLabel[t.type] ?? t.type}
-                            </span>
-                            <p className="text-xs font-bold truncate">{t.user_name}</p>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.description}{t.game_title ? ` · ${t.game_title}` : ""}</p>
-                          <p className="text-xs text-muted-foreground">{new Date(t.date).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
-                        </div>
-                        <p className="shrink-0 font-black text-sm" style={{ color: typeStyle[t.type] ?? "#64748b" }}>
-                          {t.type === "ingreso" ? "+" : "−"}{fmt(t.amount)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ── GASTOS OPERATIVOS ────────────────────── */}
-              <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))" }}>
-                <div className="flex items-center justify-between px-4 py-3"
-                  style={{ background: "hsl(0 75% 50% / 0.06)", borderBottom: "1px solid hsl(var(--border))" }}>
-                  <div>
-                    <p className="font-black text-sm">🏭 Gastos Operativos</p>
-                    {s && (s.total_expenses ?? 0) > 0 && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Período: <span className="font-bold" style={{ color: "#dc2626" }}>−{fmt(s.total_expenses ?? 0)}</span>
-                      </p>
+              {/* ── Sub-tab nav ── */}
+              <div className="flex gap-1 overflow-x-auto pb-0.5 no-scrollbar">
+                {FTABS.map(ft => (
+                  <button key={ft.id} onClick={() => setFinanceTab(ft.id)}
+                    className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
+                    style={{
+                      background: financeTab === ft.id ? "hsl(var(--primary))" : "hsl(var(--muted))",
+                      color: financeTab === ft.id ? "white" : "hsl(var(--muted-foreground))",
+                    }}>
+                    {ft.label}
+                    {ft.id === "historial" && partnerPayments.length > 0 && (
+                      <span className="ml-1 px-1 py-0.5 rounded-full text-[9px] font-black"
+                        style={{ background: financeTab === ft.id ? "rgba(255,255,255,0.25)" : "hsl(var(--primary)/0.15)", color: financeTab === ft.id ? "white" : "hsl(var(--primary))" }}>
+                        {partnerPayments.length}
+                      </span>
                     )}
-                  </div>
-                  <button onClick={() => { setShowExpenseForm(true); setEditingExpense(null); setExpenseForm({ name: "", amount: "", frequency: "monthly", notes: "" }); }}
-                    className="px-2.5 py-1 rounded-lg text-xs font-bold text-white"
-                    style={{ background: "#dc2626" }}>
-                    + Agregar gasto
+                    {ft.id === "gastos" && activeExpensesList.length > 0 && (
+                      <span className="ml-1 px-1 py-0.5 rounded-full text-[9px] font-black"
+                        style={{ background: financeTab === ft.id ? "rgba(255,255,255,0.25)" : "hsl(0 75% 50% / 0.15)", color: financeTab === ft.id ? "white" : "#dc2626" }}>
+                        {activeExpensesList.length}
+                      </span>
+                    )}
+                    {ft.id === "socios" && activePartners.length > 0 && (
+                      <span className="ml-1 px-1 py-0.5 rounded-full text-[9px] font-black"
+                        style={{ background: financeTab === ft.id ? "rgba(255,255,255,0.25)" : "hsl(var(--primary)/0.15)", color: financeTab === ft.id ? "white" : "hsl(var(--primary))" }}>
+                        {activePartners.length}
+                      </span>
+                    )}
                   </button>
-                </div>
+                ))}
+              </div>
 
-                <div className="p-4 space-y-3">
-                  {/* Expense form */}
-                  {showExpenseForm && (
-                    <div className="rounded-xl p-3 space-y-2" style={{ background: "hsl(0 75% 50% / 0.04)", border: "1px solid hsl(0 75% 50% / 0.2)" }}>
-                      <p className="text-xs font-black">{editingExpense ? "Editar gasto" : "Nuevo gasto operativo"}</p>
+              {/* ════════════════════════════════════════════
+                  TAB: RESUMEN
+              ════════════════════════════════════════════ */}
+              {financeTab === "resumen" && (
+                <div className="space-y-3">
+                  {!s && <p className="text-center text-muted-foreground py-8">Sin datos para el período seleccionado</p>}
+                  {s && (
+                    <>
+                      {/* KPI grid 2-col */}
                       <div className="grid grid-cols-2 gap-2">
-                        <div className="col-span-2 space-y-0.5">
-                          <label className="text-[11px] text-muted-foreground">Nombre *</label>
-                          <input className="input-field text-xs py-1.5" placeholder="Ej: Hosting web, Energía eléctrica" value={expenseForm.name}
-                            onChange={e => setExpenseForm(f => ({ ...f, name: e.target.value }))} />
+                        <div className="bg-card border rounded-2xl p-4">
+                          <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">💰 Ingresos brutos</p>
+                          <p className="text-xl font-black mt-1" style={{ color: "#16a34a" }}>{fmt(s.gross_revenue)}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{s.cards_sold} cartones vendidos</p>
                         </div>
-                        <div className="space-y-0.5">
-                          <label className="text-[11px] text-muted-foreground">Monto (Bs) *</label>
-                          <input type="number" min="0" step="0.01" className="input-field text-xs py-1.5" placeholder="Ej: 211.50" value={expenseForm.amount}
-                            onChange={e => setExpenseForm(f => ({ ...f, amount: e.target.value }))} />
+                        <div className="bg-card border rounded-2xl p-4">
+                          <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">🏆 Premios pagados</p>
+                          <p className="text-xl font-black mt-1" style={{ color: "#b45309" }}>{fmt(s.prizes_paid)}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{s.prizes_count} ganador{s.prizes_count !== 1 ? "es" : ""}</p>
                         </div>
-                        <div className="space-y-0.5">
-                          <label className="text-[11px] text-muted-foreground">Frecuencia *</label>
-                          <select className="input-field text-xs py-1.5" value={expenseForm.frequency}
-                            onChange={e => setExpenseForm(f => ({ ...f, frequency: e.target.value }))}>
-                            <option value="daily">Diario</option>
-                            <option value="weekly">Semanal</option>
-                            <option value="monthly">Mensual</option>
-                            <option value="yearly">Anual</option>
-                            <option value="one_time">Pago único</option>
-                          </select>
+                        <div className="bg-card border rounded-2xl p-4">
+                          <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">💸 Retiros pagados</p>
+                          <p className="text-xl font-black mt-1" style={{ color: "#dc2626" }}>{fmt(s.withdrawals_paid)}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{s.withdrawals_count} retiro{s.withdrawals_count !== 1 ? "s" : ""}</p>
                         </div>
-                        <div className="col-span-2 space-y-0.5">
-                          <label className="text-[11px] text-muted-foreground">Notas (opcional)</label>
-                          <input className="input-field text-xs py-1.5" placeholder="Ej: USD 30 = Bs 211.50 al cambio de hoy" value={expenseForm.notes}
-                            onChange={e => setExpenseForm(f => ({ ...f, notes: e.target.value }))} />
+                        <div className="bg-card border rounded-2xl p-4" style={{ borderColor: s.pending_withdrawals_count > 0 ? "hsl(42 98% 52%)" : undefined }}>
+                          <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">⏳ Retiros pendientes</p>
+                          <p className="text-xl font-black mt-1" style={{ color: "#f59e0b" }}>{fmt(s.pending_withdrawals)}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{s.pending_withdrawals_count} solicitud{s.pending_withdrawals_count !== 1 ? "es" : ""}</p>
+                        </div>
+                        <div className="bg-card border rounded-2xl p-4">
+                          <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">👛 Saldo en circulación</p>
+                          <p className="text-xl font-black mt-1" style={{ color: "#7c3aed" }}>{fmt(s.balance_in_circulation)}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{s.users_with_balance} usuarios con saldo</p>
+                        </div>
+                        <div className="bg-card border-2 rounded-2xl p-4"
+                          style={{ borderColor: s.net_profit >= 0 ? "#86efac" : "#fca5a5", background: s.net_profit >= 0 ? "hsl(142 70% 98%)" : "hsl(0 75% 98%)" }}>
+                          <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>📈 Ganancia neta</p>
+                          <p className="text-2xl font-black mt-1" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>{fmt(s.net_profit)}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Ingresos − Premios − Retiros</p>
                         </div>
                       </div>
-                      <div className="flex gap-2 pt-1">
-                        <button onClick={saveExpense} disabled={savingExpense}
-                          className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-50"
-                          style={{ background: "#dc2626" }}>
-                          {savingExpense ? "..." : editingExpense ? "Guardar cambios" : "Agregar gasto"}
-                        </button>
-                        <button onClick={() => { setShowExpenseForm(false); setEditingExpense(null); }}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold"
-                          style={{ background: "hsl(var(--muted))" }}>
-                          Cancelar
-                        </button>
-                      </div>
-                    </div>
-                  )}
 
-                  {activeExpensesList.length === 0 && !showExpenseForm && (
-                    <p className="text-xs text-center text-muted-foreground py-3">Sin gastos configurados. Los gastos se descuentan de la ganancia neta antes de calcular dividendos.</p>
-                  )}
-
-                  {activeExpensesList.map(exp => (
-                    <div key={exp.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-                      style={{ background: "hsl(var(--muted)/0.5)", border: "1px solid hsl(var(--border))" }}>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-sm">{exp.name}</p>
-                          <span className="text-xs font-black px-2 py-0.5 rounded-full text-white" style={{ background: "#dc2626" }}>
-                            {FREQ_LABELS[exp.frequency] ?? exp.frequency}
-                          </span>
-                        </div>
-                        <p className="text-xs font-bold mt-0.5" style={{ color: "#dc2626" }}>Bs {parseFloat(exp.amount).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                        {exp.notes && <p className="text-xs text-muted-foreground">{exp.notes}</p>}
-                        {s && (s.expenses_detail ?? []).find((d: any) => d.id === exp.id) && (
-                          <p className="text-[11px] text-muted-foreground mt-0.5">
-                            Este período: <span className="font-bold" style={{ color: "#dc2626" }}>
-                              −{fmt((s.expenses_detail as any[]).find((d: any) => d.id === exp.id)?.amount_prorated ?? 0)}
-                            </span>
-                          </p>
-                        )}
+                      {/* Quick nav hints */}
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[
+                          { tab: "juegos" as const, label: "Ver juegos", count: financeGames.length, color: "#16a34a" },
+                          { tab: "movimientos" as const, label: "Ver movimientos", count: financeTransactions.length, color: "#64748b" },
+                          { tab: "socios" as const, label: "Ver dividendos", count: activePartners.length, color: "#7c3aed" },
+                        ].map(q => (
+                          <button key={q.tab} onClick={() => setFinanceTab(q.tab)}
+                            className="rounded-xl py-2 px-2 text-center border transition-all"
+                            style={{ background: "hsl(var(--card))", borderColor: "hsl(var(--border))" }}>
+                            <p className="font-black text-sm" style={{ color: q.color }}>{q.count}</p>
+                            <p className="text-[10px] text-muted-foreground leading-tight">{q.label}</p>
+                          </button>
+                        ))}
                       </div>
-                      <div className="flex gap-1">
-                        <button onClick={() => { setEditingExpense(exp); setExpenseForm({ name: exp.name, amount: String(parseFloat(exp.amount)), frequency: exp.frequency, notes: exp.notes ?? "" }); setShowExpenseForm(true); }}
-                          className="text-[11px] px-1.5 py-0.5 rounded font-bold"
-                          style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
-                          Editar
-                        </button>
-                        <button onClick={() => deleteExpense(exp)}
-                          className="text-[11px] px-1.5 py-0.5 rounded font-bold"
-                          style={{ background: "hsl(0 75% 50% / 0.1)", color: "#dc2626" }}>
-                          Quitar
-                        </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* ════════════════════════════════════════════
+                  TAB: JUEGOS
+              ════════════════════════════════════════════ */}
+              {financeTab === "juegos" && (
+                <div className="space-y-2">
+                  {financeGames.length === 0 && (
+                    <p className="text-center text-muted-foreground py-8 text-sm">Sin juegos en el período seleccionado</p>
+                  )}
+                  {financeGames.map(g => (
+                    <div key={g.id} className="bg-card border rounded-xl p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm truncate">{g.title}</p>
+                          <p className="text-xs text-muted-foreground">{typeGameLabel[g.type] ?? g.type} · {statusLabel[g.status] ?? g.status} · {g.cards_sold} cartones</p>
+                        </div>
+                        <span className="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full"
+                          style={{ background: g.net >= 0 ? "hsl(142 70% 45% / 0.12)" : "hsl(0 75% 50% / 0.1)", color: g.net >= 0 ? "#16a34a" : "#dc2626" }}>
+                          {g.net >= 0 ? "+" : ""}{fmt(g.net)}
+                        </span>
+                      </div>
+                      <div className="mt-2 grid grid-cols-3 gap-1 text-xs">
+                        <div className="text-center rounded-lg py-1.5" style={{ background: "hsl(142 70% 45% / 0.06)" }}>
+                          <p className="font-bold" style={{ color: "#16a34a" }}>{fmt(g.revenue)}</p>
+                          <p className="text-muted-foreground">Ingresos</p>
+                        </div>
+                        <div className="text-center rounded-lg py-1.5" style={{ background: "hsl(42 98% 52% / 0.06)" }}>
+                          <p className="font-bold" style={{ color: "#b45309" }}>{fmt(g.prizes_paid)}</p>
+                          <p className="text-muted-foreground">Premios</p>
+                        </div>
+                        <div className="text-center rounded-lg py-1.5" style={{ background: "hsl(var(--muted)/0.5)" }}>
+                          <p className="font-bold">{fmt(g.card_price)}</p>
+                          <p className="text-muted-foreground">Precio/cartón</p>
+                        </div>
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
 
-                  {/* Inactive expenses */}
-                  {expenses.filter(e => !e.is_active).length > 0 && (
-                    <details className="text-xs">
-                      <summary className="text-muted-foreground cursor-pointer select-none">
-                        {expenses.filter(e => !e.is_active).length} gasto(s) desactivado(s)
-                      </summary>
-                      <div className="mt-2 space-y-1.5">
-                        {expenses.filter(e => !e.is_active).map(exp => (
-                          <div key={exp.id} className="flex items-center justify-between px-3 py-2 rounded-lg opacity-50"
-                            style={{ background: "hsl(var(--muted)/0.3)", border: "1px solid hsl(var(--border))" }}>
-                            <span>{exp.name} — {FREQ_LABELS[exp.frequency]} — Bs {parseFloat(exp.amount).toFixed(2)}</span>
-                            <button onClick={() => reactivateExpense(exp)}
-                              className="px-1.5 py-0.5 rounded text-[11px] font-bold"
-                              style={{ background: "#16a34a", color: "white" }}>
-                              Reactivar
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
+              {/* ════════════════════════════════════════════
+                  TAB: MOVIMIENTOS
+              ════════════════════════════════════════════ */}
+              {financeTab === "movimientos" && (
+                <div className="space-y-1.5">
+                  {financeTransactions.length === 0 && (
+                    <p className="text-center text-muted-foreground py-8 text-sm">Sin movimientos en el período seleccionado</p>
                   )}
+                  {financeTransactions.length > 0 && (
+                    <p className="text-xs text-muted-foreground font-medium">{financeTransactions.length} movimiento{financeTransactions.length !== 1 ? "s" : ""}</p>
+                  )}
+                  {financeTransactions.map((t, i) => (
+                    <div key={i} className="bg-card border rounded-xl px-3 py-2.5 flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-black px-2 py-0.5 rounded-full text-white"
+                            style={{ background: typeStyle[t.type] ?? "#64748b" }}>
+                            {typeLabel[t.type] ?? t.type}
+                          </span>
+                          <p className="text-xs font-bold truncate">{t.user_name}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.description}{t.game_title ? ` · ${t.game_title}` : ""}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(t.date).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+                      </div>
+                      <p className="shrink-0 font-black text-sm" style={{ color: typeStyle[t.type] ?? "#64748b" }}>
+                        {t.type === "ingreso" ? "+" : "−"}{fmt(t.amount)}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              )}
 
-              {/* ── SOCIOS / DIVIDEND CALCULATOR ─────────── */}
-              <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))" }}>
-                {/* Header */}
-                <div className="flex items-center justify-between px-4 py-3"
-                  style={{ background: "hsl(var(--primary)/0.08)", borderBottom: "1px solid hsl(var(--border))" }}>
-                  <p className="font-black text-sm">🤝 Socios & Dividendos</p>
-                  <button onClick={() => { setShowPartnerForm(true); setEditingPartner(null); setPartnerForm({ name: "", identifier: "", phone: "", sharePercentage: "", notes: "" }); }}
-                    className="px-2.5 py-1 rounded-lg text-xs font-bold"
-                    style={{ background: "hsl(var(--primary))", color: "white" }}>
-                    + Agregar socio
-                  </button>
+              {/* ════════════════════════════════════════════
+                  TAB: GASTOS
+              ════════════════════════════════════════════ */}
+              {financeTab === "gastos" && (
+                <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))" }}>
+                  <div className="flex items-center justify-between px-4 py-3"
+                    style={{ background: "hsl(0 75% 50% / 0.06)", borderBottom: "1px solid hsl(var(--border))" }}>
+                    <div>
+                      <p className="font-black text-sm">🏭 Gastos Operativos</p>
+                      {s && (s.total_expenses ?? 0) > 0 && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Período: <span className="font-bold" style={{ color: "#dc2626" }}>−{fmt(s.total_expenses ?? 0)}</span>
+                        </p>
+                      )}
+                    </div>
+                    <button onClick={() => { setShowExpenseForm(true); setEditingExpense(null); setExpenseForm({ name: "", amount: "", frequency: "monthly", notes: "" }); }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-bold text-white"
+                      style={{ background: "#dc2626" }}>
+                      + Agregar gasto
+                    </button>
+                  </div>
+
+                  <div className="p-4 space-y-3">
+                    {showExpenseForm && (
+                      <div className="rounded-xl p-3 space-y-2" style={{ background: "hsl(0 75% 50% / 0.04)", border: "1px solid hsl(0 75% 50% / 0.2)" }}>
+                        <p className="text-xs font-black">{editingExpense ? "Editar gasto" : "Nuevo gasto operativo"}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="col-span-2 space-y-0.5">
+                            <label className="text-[11px] text-muted-foreground">Nombre *</label>
+                            <input className="input-field text-xs py-1.5" placeholder="Ej: Hosting web, Energía eléctrica" value={expenseForm.name}
+                              onChange={e => setExpenseForm(f => ({ ...f, name: e.target.value }))} />
+                          </div>
+                          <div className="space-y-0.5">
+                            <label className="text-[11px] text-muted-foreground">Monto (Bs) *</label>
+                            <input type="number" min="0" step="0.01" className="input-field text-xs py-1.5" placeholder="Ej: 211.50" value={expenseForm.amount}
+                              onChange={e => setExpenseForm(f => ({ ...f, amount: e.target.value }))} />
+                          </div>
+                          <div className="space-y-0.5">
+                            <label className="text-[11px] text-muted-foreground">Frecuencia *</label>
+                            <select className="input-field text-xs py-1.5" value={expenseForm.frequency}
+                              onChange={e => setExpenseForm(f => ({ ...f, frequency: e.target.value }))}>
+                              <option value="daily">Diario</option>
+                              <option value="weekly">Semanal</option>
+                              <option value="monthly">Mensual</option>
+                              <option value="yearly">Anual</option>
+                              <option value="one_time">Pago único</option>
+                            </select>
+                          </div>
+                          <div className="col-span-2 space-y-0.5">
+                            <label className="text-[11px] text-muted-foreground">Notas (opcional)</label>
+                            <input className="input-field text-xs py-1.5" placeholder="Ej: USD 30 = Bs 211.50 al cambio de hoy" value={expenseForm.notes}
+                              onChange={e => setExpenseForm(f => ({ ...f, notes: e.target.value }))} />
+                          </div>
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                          <button onClick={saveExpense} disabled={savingExpense}
+                            className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-50"
+                            style={{ background: "#dc2626" }}>
+                            {savingExpense ? "..." : editingExpense ? "Guardar cambios" : "Agregar gasto"}
+                          </button>
+                          <button onClick={() => { setShowExpenseForm(false); setEditingExpense(null); }}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold"
+                            style={{ background: "hsl(var(--muted))" }}>
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {activeExpensesList.length === 0 && !showExpenseForm && (
+                      <p className="text-xs text-center text-muted-foreground py-3">Sin gastos configurados. Los gastos se descuentan de la ganancia neta antes de calcular dividendos.</p>
+                    )}
+
+                    {activeExpensesList.map(exp => (
+                      <div key={exp.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                        style={{ background: "hsl(var(--muted)/0.5)", border: "1px solid hsl(var(--border))" }}>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-sm">{exp.name}</p>
+                            <span className="text-xs font-black px-2 py-0.5 rounded-full text-white" style={{ background: "#dc2626" }}>
+                              {FREQ_LABELS[exp.frequency] ?? exp.frequency}
+                            </span>
+                          </div>
+                          <p className="text-xs font-bold mt-0.5" style={{ color: "#dc2626" }}>Bs {parseFloat(exp.amount).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                          {exp.notes && <p className="text-xs text-muted-foreground">{exp.notes}</p>}
+                          {s && (s.expenses_detail ?? []).find((d: any) => d.id === exp.id) && (
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              Este período: <span className="font-bold" style={{ color: "#dc2626" }}>
+                                −{fmt((s.expenses_detail as any[]).find((d: any) => d.id === exp.id)?.amount_prorated ?? 0)}
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={() => { setEditingExpense(exp); setExpenseForm({ name: exp.name, amount: String(parseFloat(exp.amount)), frequency: exp.frequency, notes: exp.notes ?? "" }); setShowExpenseForm(true); }}
+                            className="text-[11px] px-1.5 py-0.5 rounded font-bold"
+                            style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
+                            Editar
+                          </button>
+                          <button onClick={() => deleteExpense(exp)}
+                            className="text-[11px] px-1.5 py-0.5 rounded font-bold"
+                            style={{ background: "hsl(0 75% 50% / 0.1)", color: "#dc2626" }}>
+                            Quitar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {expenses.filter(e => !e.is_active).length > 0 && (
+                      <details className="text-xs">
+                        <summary className="text-muted-foreground cursor-pointer select-none">
+                          {expenses.filter(e => !e.is_active).length} gasto(s) desactivado(s)
+                        </summary>
+                        <div className="mt-2 space-y-1.5">
+                          {expenses.filter(e => !e.is_active).map(exp => (
+                            <div key={exp.id} className="flex items-center justify-between px-3 py-2 rounded-lg opacity-50"
+                              style={{ background: "hsl(var(--muted)/0.3)", border: "1px solid hsl(var(--border))" }}>
+                              <span>{exp.name} — {FREQ_LABELS[exp.frequency]} — Bs {parseFloat(exp.amount).toFixed(2)}</span>
+                              <button onClick={() => reactivateExpense(exp)}
+                                className="px-1.5 py-0.5 rounded text-[11px] font-bold"
+                                style={{ background: "#16a34a", color: "white" }}>
+                                Reactivar
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
                 </div>
+              )}
 
-                <div className="p-4 space-y-3">
-                  {/* Partner form */}
+              {/* ════════════════════════════════════════════
+                  TAB: SOCIOS
+              ════════════════════════════════════════════ */}
+              {financeTab === "socios" && (
+                <div className="space-y-3">
+                  {/* Partner list header */}
+                  <div className="flex items-center justify-between">
+                    <p className="font-black text-sm">🤝 Socios activos</p>
+                    <button onClick={() => { setShowPartnerForm(true); setEditingPartner(null); setPartnerForm({ name: "", identifier: "", phone: "", sharePercentage: "", notes: "" }); }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-bold"
+                      style={{ background: "hsl(var(--primary))", color: "white" }}>
+                      + Agregar socio
+                    </button>
+                  </div>
+
                   {showPartnerForm && (
                     <div className="rounded-xl p-3 space-y-2" style={{ background: "hsl(var(--primary)/0.04)", border: "1px solid hsl(var(--primary)/0.2)" }}>
                       <p className="text-xs font-black">{editingPartner ? "Editar socio" : "Nuevo socio"}</p>
@@ -3828,7 +3904,6 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     </div>
                   )}
 
-                  {/* Partner list */}
                   {activePartners.length === 0 && !showPartnerForm && (
                     <p className="text-xs text-center text-muted-foreground py-4">Sin socios activos. Agrega uno para calcular dividendos.</p>
                   )}
@@ -3864,7 +3939,6 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     </div>
                   ))}
 
-                  {/* Total pct warning */}
                   {activePartners.length > 0 && (
                     <div className="flex items-center justify-between px-3 py-2 rounded-xl text-xs"
                       style={{ background: Math.abs(totalPct - 100) < 0.01 ? "hsl(142 70% 45% / 0.08)" : "hsl(42 98% 52% / 0.1)", border: `1px solid ${Math.abs(totalPct - 100) < 0.01 ? "hsl(142 70% 45% / 0.3)" : "hsl(42 98% 52% / 0.4)"}` }}>
@@ -3873,19 +3947,15 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     </div>
                   )}
 
-                  {/* Dividend calculator / register payment */}
                   {s && activePartners.length > 0 && (
                     <div className="rounded-xl p-3 space-y-2" style={{ background: "hsl(var(--primary)/0.04)", border: "1px solid hsl(var(--primary)/0.2)" }}>
                       <p className="text-xs font-black">📊 Calculadora de dividendos</p>
 
-                      {/* Profit breakdown */}
                       <div className="rounded-lg p-2 space-y-1 text-xs" style={{ background: "hsl(var(--muted)/0.5)" }}>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Ganancia neta del período</span>
                           <span className="font-bold" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>{fmt(s.net_profit)}</span>
                         </div>
-
-                        {/* Gastos operativos */}
                         {(s.total_expenses ?? 0) > 0 && (
                           <>
                             <div className="flex justify-between">
@@ -3900,8 +3970,6 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                             ))}
                           </>
                         )}
-
-                        {/* Premios comprometidos */}
                         {(s.committed_prizes ?? 0) > 0 && (
                           <>
                             <div className="flex justify-between">
@@ -3917,8 +3985,6 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                             <p className="pl-3 text-[10px] text-muted-foreground italic">Reservado para sorteos activos/próximos sin ganador validado</p>
                           </>
                         )}
-
-                        {/* Total distribuible */}
                         {((s.total_expenses ?? 0) > 0 || (s.committed_prizes ?? 0) > 0) && (
                           <div className="flex justify-between border-t pt-1 font-black">
                             <span>Monto distribuible</span>
@@ -3960,20 +4026,44 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       </div>
                     </div>
                   )}
+
+                  {partners.filter(p => !p.is_active).length > 0 && (
+                    <details className="rounded-xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))" }}>
+                      <summary className="px-4 py-2.5 text-xs font-bold text-muted-foreground cursor-pointer"
+                        style={{ background: "hsl(var(--muted)/0.3)" }}>
+                        Socios inactivos ({partners.filter(p => !p.is_active).length})
+                      </summary>
+                      <div className="p-3 space-y-2">
+                        {partners.filter(p => !p.is_active).map(p => (
+                          <div key={p.id} className="flex items-center justify-between px-3 py-2 rounded-xl opacity-60"
+                            style={{ background: "hsl(var(--muted)/0.4)" }}>
+                            <div>
+                              <p className="font-bold text-xs">{p.name}</p>
+                              <p className="text-xs text-muted-foreground">{parseFloat(p.share_percentage)}%{p.identifier ? ` · ${p.identifier}` : ""}</p>
+                            </div>
+                            <button onClick={() => togglePartnerActive(p)}
+                              className="text-[11px] px-2 py-0.5 rounded font-bold"
+                              style={{ background: "hsl(142 70% 45% / 0.1)", color: "#16a34a" }}>
+                              Reactivar
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                 </div>
-              </div>
+              )}
 
-              {/* ── PARTNER PAYMENT HISTORY ──────────────── */}
-              {partnerPayments.length > 0 && (
-                <div>
-                  <button onClick={() => setShowPartnerHistory(h => !h)}
-                    className="w-full flex items-center justify-between px-4 py-3 rounded-2xl font-bold text-sm"
-                    style={{ background: "hsl(var(--muted)/0.5)", border: "1px solid hsl(var(--border))" }}>
-                    <span>📜 Historial de pagos a socios ({partnerPayments.length})</span>
-                    <span>{showPartnerHistory ? "▲" : "▼"}</span>
-                  </button>
+              {/* ════════════════════════════════════════════
+                  TAB: HISTORIAL
+              ════════════════════════════════════════════ */}
+              {financeTab === "historial" && (
+                <div className="space-y-3">
+                  {partnerPayments.length === 0 && (
+                    <p className="text-center text-muted-foreground py-10 text-sm">Sin pagos a socios registrados aún</p>
+                  )}
 
-                  {showPartnerHistory && (() => {
+                  {partnerPayments.length > 0 && (() => {
                     const filtered = partnerPayments.filter(pp => {
                       const d = new Date(pp.created_at);
                       if (ppFrom && d < new Date(ppFrom)) return false;
@@ -3981,10 +4071,10 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       return true;
                     });
                     return (
-                      <div className="space-y-2 mt-2">
-                        {/* Date range filter */}
+                      <>
+                        {/* Date filter */}
                         <div className="rounded-xl p-3 space-y-2" style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
-                          <p className="text-xs font-bold text-muted-foreground">🔍 Filtrar por rango de fechas</p>
+                          <p className="text-xs font-bold text-muted-foreground">🔍 Filtrar por fecha</p>
                           <div className="grid grid-cols-2 gap-2">
                             <div>
                               <p className="text-[11px] text-muted-foreground mb-1">Desde</p>
@@ -3999,9 +4089,9 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           </div>
                           {(ppFrom || ppTo) && (
                             <div className="flex items-center justify-between">
-                              <p className="text-xs text-muted-foreground">{filtered.length} registro{filtered.length !== 1 ? "s" : ""} encontrado{filtered.length !== 1 ? "s" : ""}</p>
+                              <p className="text-xs text-muted-foreground">{filtered.length} registro{filtered.length !== 1 ? "s" : ""}</p>
                               <button onClick={() => { setPpFrom(""); setPpTo(""); }} className="text-xs font-bold" style={{ color: "hsl(var(--primary))" }}>
-                                Limpiar filtro
+                                Limpiar
                               </button>
                             </div>
                           )}
@@ -4034,7 +4124,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                               </div>
                             </div>
                             {Array.isArray(pp.partners_snapshot) && pp.partners_snapshot.length > 0 && (
-                              <div className="space-y-1">
+                              <div className="space-y-1 border-t pt-1.5">
                                 {(pp.partners_snapshot as any[]).map((ps: any, i: number) => (
                                   <div key={i} className="flex justify-between text-xs">
                                     <span className="text-muted-foreground">{ps.name} ({ps.share_percentage}%)</span>
@@ -4044,8 +4134,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                               </div>
                             )}
                             {pp.admin_notes && <p className="text-xs text-muted-foreground italic border-t pt-1">{pp.admin_notes}</p>}
-                            {/* Action buttons */}
-                            <div className="flex gap-2 pt-1 border-t">
+                            <div className="pt-1 border-t">
                               <button onClick={() => downloadPartnerPaymentPDF(pp)}
                                 className="w-full py-1.5 rounded-lg text-xs font-bold border transition-all"
                                 style={{ borderColor: "hsl(var(--primary)/0.3)", color: "hsl(var(--primary))", background: "hsl(var(--primary)/0.06)" }}>
@@ -4054,39 +4143,11 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                             </div>
                           </div>
                         ))}
-                      </div>
+                      </>
                     );
                   })()}
                 </div>
               )}
-
-              {/* Inactive partners (collapsible) */}
-              {partners.filter(p => !p.is_active).length > 0 && (
-                <details className="rounded-xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))" }}>
-                  <summary className="px-4 py-2.5 text-xs font-bold text-muted-foreground cursor-pointer"
-                    style={{ background: "hsl(var(--muted)/0.3)" }}>
-                    Socios inactivos ({partners.filter(p => !p.is_active).length})
-                  </summary>
-                  <div className="p-3 space-y-2">
-                    {partners.filter(p => !p.is_active).map(p => (
-                      <div key={p.id} className="flex items-center justify-between px-3 py-2 rounded-xl opacity-60"
-                        style={{ background: "hsl(var(--muted)/0.4)" }}>
-                        <div>
-                          <p className="font-bold text-xs">{p.name}</p>
-                          <p className="text-xs text-muted-foreground">{parseFloat(p.share_percentage)}%{p.identifier ? ` · ${p.identifier}` : ""}</p>
-                        </div>
-                        <button onClick={() => togglePartnerActive(p)}
-                          className="text-[11px] px-2 py-0.5 rounded font-bold"
-                          style={{ background: "hsl(142 70% 45% / 0.1)", color: "#16a34a" }}>
-                          Reactivar
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              )}
-
-              {!s && <p className="text-center text-muted-foreground py-8">Sin datos financieros</p>}
             </div>
           );
         })()}
