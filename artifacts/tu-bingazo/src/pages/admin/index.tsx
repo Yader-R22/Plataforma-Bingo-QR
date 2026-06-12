@@ -670,6 +670,47 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
   );
 }
 
+const DEFAULT_WINNERS_TEMPLATE = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></` + `script>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0d0028;font-family:'Segoe UI',Arial,sans-serif;padding:0}</style>
+</head><body>
+<div id="card" style="background:#0d0028;width:700px;padding:28px">
+  <div style="background:linear-gradient(135deg,#7c3aed,#4c1d95);border-radius:16px;padding:22px 28px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between">
+    <div>
+      <div style="font-size:26px;font-weight:900;color:#ffd700;letter-spacing:-0.5px">🏆 Lista de Ganadores</div>
+      <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:4px">{{SITE_NAME}} · {{TODAY}}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:32px;font-weight:900;color:#fff">{{COUNT}}</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.6)">{{COUNT_LABEL}}</div>
+    </div>
+  </div>
+  <table style="width:100%;border-collapse:collapse;border-radius:12px;overflow:hidden">
+    <thead>
+      <tr style="background:#7c3aed">
+        <th style="padding:10px 14px;color:rgba(255,255,255,0.8);font-size:11px;text-align:left;font-weight:700;letter-spacing:0.5px">#</th>
+        <th style="padding:10px 14px;color:rgba(255,255,255,0.8);font-size:11px;text-align:left;font-weight:700;letter-spacing:0.5px">JUGADOR</th>
+        <th style="padding:10px 14px;color:rgba(255,255,255,0.8);font-size:11px;text-align:left;font-weight:700;letter-spacing:0.5px">SORTEO</th>
+        <th style="padding:10px 14px;color:rgba(255,255,255,0.8);font-size:11px;text-align:right;font-weight:700;letter-spacing:0.5px">PREMIO</th>
+        <th style="padding:10px 14px;color:rgba(255,255,255,0.8);font-size:11px;text-align:left;font-weight:700;letter-spacing:0.5px">FECHA</th>
+      </tr>
+    </thead>
+    <tbody>{{ROWS}}</tbody>
+  </table>
+  <div style="margin-top:16px;text-align:center;font-size:10px;color:rgba(255,255,255,0.3)">{{SITE_NAME}} · Todos los montos en bolivianos (Bs) · Generado {{TODAY}}</div>
+</div>
+<script>
+window.onload=function(){
+  html2canvas(document.getElementById('card'),{scale:2,backgroundColor:'#0d0028',useCORS:true}).then(function(canvas){
+    var a=document.createElement('a');
+    a.href=canvas.toDataURL('image/jpeg',0.95);
+    a.download='ganadores-{{DATE_ISO}}.jpg';
+    a.click();
+    setTimeout(function(){window.close()},800);
+  });
+};
+</` + `script></body></html>`;
+
 // ── Main Admin Page ───────────────────────────────────────────────────────────
 export default function AdminPage() {
   const [, navigate] = useLocation();
@@ -708,6 +749,9 @@ export default function AdminPage() {
   const [pendingWinnersCount, setPendingWinnersCount] = useState(0);
   const [winnersFrom, setWinnersFrom] = useState("");
   const [winnersTo, setWinnersTo] = useState("");
+  const [winnersTemplate, setWinnersTemplate] = useState(() => localStorage.getItem("winners_export_template") || DEFAULT_WINNERS_TEMPLATE);
+  const [winnersTemplateEdit, setWinnersTemplateEdit] = useState(() => localStorage.getItem("winners_export_template") || DEFAULT_WINNERS_TEMPLATE);
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [deleteGameConfirm, setDeleteGameConfirm] = useState<number | null>(null);
   const [financeSummary, setFinanceSummary] = useState<any>(null);
   const [financeGames, setFinanceGames] = useState<any[]>([]);
@@ -1123,6 +1167,7 @@ export default function AdminPage() {
   function exportWinnersJpg(winnersToExport: any[]) {
     const siteName = site.site_name;
     const today = new Date().toLocaleDateString("es-BO", { day: "numeric", month: "long", year: "numeric" });
+    const dateIso = new Date().toISOString().split("T")[0];
     const rows = winnersToExport.map((w, i) => `
       <tr style="background:${i % 2 === 0 ? "#1a1040" : "#150d35"}">
         <td style="padding:10px 14px;font-weight:900;color:#ffd700;font-size:15px">#${i + 1}</td>
@@ -1134,47 +1179,13 @@ export default function AdminPage() {
         <td style="padding:10px 14px;font-weight:900;font-size:16px;color:#ffd700;text-align:right">Bs ${parseFloat(w.prize_amount).toFixed(0)}</td>
         <td style="padding:10px 14px;color:rgba(255,255,255,0.5);font-size:11px">${new Date(w.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric" })}</td>
       </tr>`).join("");
-
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0d0028;font-family:'Segoe UI',Arial,sans-serif;padding:0}</style>
-</head><body>
-<div id="card" style="background:#0d0028;width:700px;padding:28px">
-  <div style="background:linear-gradient(135deg,#7c3aed,#4c1d95);border-radius:16px;padding:22px 28px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between">
-    <div>
-      <div style="font-size:26px;font-weight:900;color:#ffd700;letter-spacing:-0.5px">🏆 Lista de Ganadores</div>
-      <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:4px">${siteName} · ${today}</div>
-    </div>
-    <div style="text-align:right">
-      <div style="font-size:32px;font-weight:900;color:#fff">${winnersToExport.length}</div>
-      <div style="font-size:11px;color:rgba(255,255,255,0.6)">ganador${winnersToExport.length !== 1 ? "es" : ""}</div>
-    </div>
-  </div>
-  <table style="width:100%;border-collapse:collapse;border-radius:12px;overflow:hidden">
-    <thead>
-      <tr style="background:#7c3aed">
-        <th style="padding:10px 14px;color:rgba(255,255,255,0.8);font-size:11px;text-align:left;font-weight:700;letter-spacing:0.5px">#</th>
-        <th style="padding:10px 14px;color:rgba(255,255,255,0.8);font-size:11px;text-align:left;font-weight:700;letter-spacing:0.5px">JUGADOR</th>
-        <th style="padding:10px 14px;color:rgba(255,255,255,0.8);font-size:11px;text-align:left;font-weight:700;letter-spacing:0.5px">SORTEO</th>
-        <th style="padding:10px 14px;color:rgba(255,255,255,0.8);font-size:11px;text-align:right;font-weight:700;letter-spacing:0.5px">PREMIO</th>
-        <th style="padding:10px 14px;color:rgba(255,255,255,0.8);font-size:11px;text-align:left;font-weight:700;letter-spacing:0.5px">FECHA</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>
-  <div style="margin-top:16px;text-align:center;font-size:10px;color:rgba(255,255,255,0.3)">${siteName} · Todos los montos en bolivianos (Bs) · Generado ${today}</div>
-</div>
-<script>
-window.onload=function(){
-  html2canvas(document.getElementById('card'),{scale:2,backgroundColor:'#0d0028',useCORS:true}).then(function(canvas){
-    var a=document.createElement('a');
-    a.href=canvas.toDataURL('image/jpeg',0.95);
-    a.download='ganadores-${new Date().toISOString().split("T")[0]}.jpg';
-    a.click();
-    setTimeout(function(){window.close()},800);
-  });
-};
-</script></body></html>`;
+    const html = winnersTemplate
+      .replace(/\{\{SITE_NAME\}\}/g, siteName)
+      .replace(/\{\{TODAY\}\}/g, today)
+      .replace(/\{\{COUNT\}\}/g, String(winnersToExport.length))
+      .replace(/\{\{COUNT_LABEL\}\}/g, `ganador${winnersToExport.length !== 1 ? "es" : ""}`)
+      .replace(/\{\{DATE_ISO\}\}/g, dateIso)
+      .replace(/\{\{ROWS\}\}/g, rows);
     const w = window.open("", "_blank", "width=750,height=600");
     if (w) { w.document.write(html); w.document.close(); }
   }
@@ -3632,13 +3643,84 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   <span className="ml-2 inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block animate-pulse" /> En tiempo real</span>
                 </p>
               </div>
-              <button
-                onClick={() => { if (winners.length === 0) { toast.error("No hay ganadores para exportar"); return; } exportWinnersJpg(winners); }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black text-white shrink-0"
-                style={{ background: "linear-gradient(135deg,#7c3aed,#4c1d95)" }}>
-                📸 Exportar JPG
-              </button>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={() => { if (winners.length === 0) { toast.error("No hay ganadores para exportar"); return; } exportWinnersJpg(winners); }}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black text-white"
+                  style={{ background: "linear-gradient(135deg,#7c3aed,#4c1d95)" }}>
+                  📸 Exportar JPG
+                </button>
+                <button
+                  onClick={() => setShowTemplateEditor(v => !v)}
+                  className="flex items-center gap-1 px-3 py-2.5 rounded-xl text-sm font-bold border"
+                  style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
+                  🎨
+                </button>
+              </div>
             </div>
+
+            {/* Template editor */}
+            {showTemplateEditor && (
+              <div className="rounded-2xl p-4 space-y-3" style={{ background: "hsl(var(--muted) / 0.5)", border: "1px solid hsl(var(--border))" }}>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-black text-muted-foreground uppercase tracking-wider">🎨 Plantilla de exportación</p>
+                  <div className="flex gap-2">
+                    <label className="text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer"
+                      style={{ background: "hsl(var(--muted))", border: "1px solid hsl(var(--border))" }}>
+                      📂 Cargar archivo
+                      <input type="file" accept=".html,.htm" className="hidden" onChange={e => {
+                        const file = e.target.files?.[0]; if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = ev => { setWinnersTemplateEdit(ev.target?.result as string); };
+                        reader.readAsText(file);
+                        e.target.value = "";
+                      }} />
+                    </label>
+                    <button
+                      onClick={() => {
+                        if (!confirm("¿Restaurar la plantilla original? Se perderán todos los cambios.")) return;
+                        setWinnersTemplateEdit(DEFAULT_WINNERS_TEMPLATE);
+                        setWinnersTemplate(DEFAULT_WINNERS_TEMPLATE);
+                        localStorage.removeItem("winners_export_template");
+                        toast.success("Plantilla restaurada");
+                      }}
+                      className="text-xs font-bold px-3 py-1.5 rounded-lg"
+                      style={{ background: "hsl(var(--destructive)/0.15)", color: "hsl(var(--destructive))", border: "1px solid hsl(var(--destructive)/0.3)" }}>
+                      ↩ Restaurar
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Usá los marcadores: <code className="bg-muted px-1 rounded">{"{{SITE_NAME}}"}</code> <code className="bg-muted px-1 rounded">{"{{TODAY}}"}</code> <code className="bg-muted px-1 rounded">{"{{COUNT}}"}</code> <code className="bg-muted px-1 rounded">{"{{COUNT_LABEL}}"}</code> <code className="bg-muted px-1 rounded">{"{{DATE_ISO}}"}</code> <code className="bg-muted px-1 rounded">{"{{ROWS}}"}</code>
+                </p>
+                <textarea
+                  value={winnersTemplateEdit}
+                  onChange={e => setWinnersTemplateEdit(e.target.value)}
+                  rows={16}
+                  className="w-full rounded-xl px-3 py-2 text-xs font-mono"
+                  style={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", resize: "vertical", lineHeight: 1.5 }}
+                  spellCheck={false}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setWinnersTemplate(winnersTemplateEdit);
+                      localStorage.setItem("winners_export_template", winnersTemplateEdit);
+                      toast.success("Plantilla guardada");
+                    }}
+                    className="flex-1 py-2 rounded-xl text-sm font-black text-white"
+                    style={{ background: "hsl(var(--primary))" }}>
+                    💾 Guardar plantilla
+                  </button>
+                  <button
+                    onClick={() => setShowTemplateEditor(false)}
+                    className="px-4 py-2 rounded-xl text-sm font-bold border"
+                    style={{ borderColor: "hsl(var(--border))" }}>
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Date range filter */}
             <div className="rounded-2xl p-4 space-y-3" style={{ background: "hsl(var(--muted) / 0.5)", border: "1px solid hsl(var(--border))" }}>
