@@ -65,6 +65,8 @@ function QRPaymentModal({
   checkoutUrl,
   qty,
   totalPrice,
+  gameTitle,
+  drawDate,
   onClose,
   onSuccess,
 }: {
@@ -72,6 +74,8 @@ function QRPaymentModal({
   checkoutUrl: string;
   qty: number;
   totalPrice: number;
+  gameTitle: string;
+  drawDate: string;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -117,26 +121,134 @@ function QRPaymentModal({
   function downloadQR() {
     const svg = svgRef.current;
     if (!svg) return;
-    const size = 400;
+
+    const W = 480, H = 720;
+    const QR = 240;
+
     const serialized = new XMLSerializer().serializeToString(svg);
     const svgBlob = new Blob([serialized], { type: "image/svg+xml;charset=utf-8" });
     const svgUrl = URL.createObjectURL(svgBlob);
-    const img = new Image();
-    img.onload = () => {
+    const qrImg = new Image();
+
+    qrImg.onload = () => {
       const canvas = document.createElement("canvas");
-      canvas.width = size;
-      canvas.height = size;
+      canvas.width = W;
+      canvas.height = H;
       const ctx = canvas.getContext("2d")!;
+
+      // ── Background gradient (purple → dark blue) ──
+      const bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, "#2d0072");
+      bg.addColorStop(1, "#0d001a");
+      ctx.fillStyle = bg;
+      roundRect(ctx, 0, 0, W, H, 28);
+      ctx.fill();
+
+      // ── Decorative circles ──
+      ctx.save();
+      ctx.globalAlpha = 0.08;
       ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, size, size);
-      ctx.drawImage(img, 0, 0, size, size);
+      ctx.beginPath(); ctx.arc(W - 40, 60, 110, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(50, H - 60, 90, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      // ── Platform name ──
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.font = "bold 15px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("TU BINGAZO", W / 2, 44);
+
+      // ── Game title ──
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 26px sans-serif";
+      wrapText(ctx, gameTitle, W / 2, 82, W - 60, 32);
+
+      // ── Amount ──
+      const amountY = 160;
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.font = "14px sans-serif";
+      ctx.fillText(`${qty} cartón${qty > 1 ? "es" : ""}`, W / 2, amountY);
+      ctx.fillStyle = "#fbbf24";
+      ctx.font = "bold 52px sans-serif";
+      ctx.fillText(`Bs ${totalPrice.toFixed(0)}`, W / 2, amountY + 52);
+
+      // ── Divider ──
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(40, amountY + 70);
+      ctx.lineTo(W - 40, amountY + 70);
+      ctx.stroke();
+
+      // ── QR white card ──
+      const qrCardX = (W - QR - 40) / 2;
+      const qrCardY = amountY + 85;
+      ctx.fillStyle = "#ffffff";
+      roundRect(ctx, qrCardX, qrCardY, QR + 40, QR + 40, 20);
+      ctx.fill();
+
+      // QR image centered inside white card
+      ctx.drawImage(qrImg, qrCardX + 20, qrCardY + 20, QR, QR);
+
+      // ── Scan instruction ──
+      const scanY = qrCardY + QR + 56;
+      ctx.fillStyle = "rgba(255,255,255,0.65)";
+      ctx.font = "13px sans-serif";
+      ctx.fillText("Escanea con tu app bancaria o billetera digital", W / 2, scanY);
+
+      // ── Date ──
+      const dateStr = new Date(drawDate).toLocaleDateString("es-BO", {
+        weekday: "long", day: "numeric", month: "long", year: "numeric",
+      });
+      ctx.fillStyle = "rgba(255,255,255,0.45)";
+      ctx.font = "12px sans-serif";
+      ctx.fillText(`Sorteo: ${dateStr}`, W / 2, scanY + 24);
+
+      // ── Footer pill ──
+      const pillW = 180, pillH = 32, pillX = (W - pillW) / 2, pillY = H - 52;
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      roundRect(ctx, pillX, pillY, pillW, pillH, 16);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      ctx.font = "11px sans-serif";
+      ctx.fillText("pagosya.bo  ·  Tu Bingazo", W / 2, pillY + 20);
+
       URL.revokeObjectURL(svgUrl);
       const a = document.createElement("a");
       a.href = canvas.toDataURL("image/png");
       a.download = `qr-bingazo-${checkoutId}.png`;
       a.click();
     };
-    img.src = svgUrl;
+
+    qrImg.src = svgUrl;
+  }
+
+  function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, lineH: number) {
+    const words = text.split(" ");
+    let line = "";
+    for (const word of words) {
+      const test = line ? line + " " + word : word;
+      if (ctx.measureText(test).width > maxW && line) {
+        ctx.fillText(line, x, y);
+        line = word;
+        y += lineH;
+      } else { line = test; }
+    }
+    if (line) ctx.fillText(line, x, y);
   }
 
   return (
@@ -605,6 +717,8 @@ export default function GameDetailPage() {
           checkoutUrl={qrData.checkoutUrl}
           qty={qty}
           totalPrice={totalPrice}
+          gameTitle={game?.title ?? "Bingo"}
+          drawDate={game?.draw_date ?? new Date().toISOString()}
           onClose={() => setQrData(null)}
           onSuccess={() => { setQrData(null); navigate("/mis-cartones"); }}
         />
