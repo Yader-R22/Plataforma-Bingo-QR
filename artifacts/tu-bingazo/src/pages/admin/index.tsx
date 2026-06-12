@@ -3643,6 +3643,31 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             {/* Date range filter */}
             <div className="rounded-2xl p-4 space-y-3" style={{ background: "hsl(var(--muted) / 0.5)", border: "1px solid hsl(var(--border))" }}>
               <p className="text-xs font-black text-muted-foreground uppercase tracking-wider">🔍 Filtrar por fecha</p>
+              {/* Quick filters */}
+              <div className="flex gap-2">
+                {[
+                  { label: "Hoy", fn: () => { const t = new Date().toISOString().split("T")[0]; setWinnersFrom(t); setWinnersTo(t); } },
+                  { label: "Esta semana", fn: () => {
+                    const now = new Date();
+                    const day = now.getDay() === 0 ? 6 : now.getDay() - 1;
+                    const mon = new Date(now); mon.setDate(now.getDate() - day);
+                    setWinnersFrom(mon.toISOString().split("T")[0]);
+                    setWinnersTo(now.toISOString().split("T")[0]);
+                  }},
+                  { label: "Este mes", fn: () => {
+                    const now = new Date();
+                    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+                    setWinnersFrom(first.toISOString().split("T")[0]);
+                    setWinnersTo(now.toISOString().split("T")[0]);
+                  }},
+                ].map(q => (
+                  <button key={q.label} onClick={q.fn}
+                    className="flex-1 text-xs font-bold rounded-xl py-2 transition-all"
+                    style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}>
+                    {q.label}
+                  </button>
+                ))}
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Desde</label>
