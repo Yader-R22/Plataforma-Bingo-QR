@@ -1316,15 +1316,17 @@ export default function AdminPage() {
     const typeGameLabel: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual" };
     const freqLabel: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual", yearly: "Anual", one_time: "Pago único" };
 
-    const netProfit      = s?.net_profit ?? 0;
-    const totalExpenses  = s?.total_expenses ?? 0;
-    const committedPrizes = s?.committed_prizes ?? 0;
-    const distributable  = s?.distributable_profit ?? netProfit;
+    const netProfit        = s?.net_profit ?? 0;
+    const totalExpenses    = s?.total_expenses ?? 0;
+    const committedPrizes  = s?.committed_prizes ?? 0;
+    const commissionsTotal = s?.total_commissions_paid ?? 0;
+    const bonusesTotal     = s?.total_bonuses_granted ?? 0;
+    const distributable    = s?.distributable_profit ?? netProfit;
     const expensesDetail: any[] = s?.expenses_detail ?? [];
     const committedDetail: any[] = s?.committed_prizes_detail ?? [];
 
     // ── Deductions section ────────────────────────────────────────
-    const hasDeductions = totalExpenses > 0 || committedPrizes > 0;
+    const hasDeductions = totalExpenses > 0 || committedPrizes > 0 || commissionsTotal > 0 || bonusesTotal > 0;
     const expenseRows = expensesDetail.map(e => `
       <tr>
         <td style="padding-left:20px">↳ ${e.name}</td>
@@ -1351,6 +1353,8 @@ export default function AdminPage() {
 <table>
   <thead><tr><th>Concepto</th><th>Frecuencia / Estado</th><th>Referencia</th><th style="text-align:right">Descuento del período</th></tr></thead>
   <tbody>
+    ${commissionsTotal > 0 ? `<tr style="background:#f5f3ff"><td colspan="3" style="font-weight:900;color:#6d28d9">🔗 Comisiones de Activadores</td><td style="text-align:right;font-weight:900;color:#6d28d9">−${fmt(commissionsTotal)}</td></tr><tr><td style="padding-left:20px">↳ ${s?.commissions_count ?? 0} pago${(s?.commissions_count ?? 0) !== 1 ? "s" : ""} de comisión</td><td>—</td><td style="color:#64748b;font-size:10px">Deducido en ganancia neta</td><td style="text-align:right;color:#6d28d9;font-weight:bold">−${fmt(commissionsTotal)}</td></tr>` : ""}
+    ${bonusesTotal > 0 ? `<tr style="background:#fefce8"><td colspan="3" style="font-weight:900;color:#b45309">🎁 Bonos de Bienvenida</td><td style="text-align:right;font-weight:900;color:#b45309">−${fmt(bonusesTotal)}</td></tr><tr><td style="padding-left:20px">↳ ${s?.bonuses_count ?? 0} bono${(s?.bonuses_count ?? 0) !== 1 ? "s" : ""} otorgados</td><td>—</td><td style="color:#64748b;font-size:10px">Deducido en ganancia neta</td><td style="text-align:right;color:#b45309;font-weight:bold">−${fmt(bonusesTotal)}</td></tr>` : ""}
     ${totalExpenses > 0 ? `<tr style="background:#fff1f2"><td colspan="3" style="font-weight:900;color:#dc2626">🏭 Gastos Operativos</td><td style="text-align:right;font-weight:900;color:#dc2626">−${fmt(totalExpenses)}</td></tr>${expenseRows}` : ""}
     ${committedPrizes > 0 ? `<tr style="background:#fffbeb"><td colspan="3" style="font-weight:900;color:#b45309">🔒 Premios Comprometidos (reservados)</td><td style="text-align:right;font-weight:900;color:#b45309">−${fmt(committedPrizes)}</td></tr>${committedRows2}` : ""}
     <tr style="background:${distributable >= 0 ? "#f0fdf4" : "#fef2f2"}">
@@ -1721,12 +1725,14 @@ ${summarySection}
     const typeGameLabel: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual" };
     const statusLabel: Record<string, string> = { upcoming: "Próximo", active: "Activo", finished: "Finalizado" };
 
-    const netProfit       = Number(s.net_profit       ?? pp.net_profit       ?? 0);
-    const grossRev        = Number(s.gross_revenue     ?? pp.gross_revenue     ?? 0);
-    const totalPaid       = Number(pp.total_paid ?? 0);
-    const totalExpenses   = Number(s.total_expenses    ?? 0);
-    const committedPrizes = Number(s.committed_prizes  ?? 0);
-    const distributable   = Number(s.distributable_profit ?? totalPaid);
+    const netProfit        = Number(s.net_profit        ?? pp.net_profit    ?? 0);
+    const grossRev         = Number(s.gross_revenue     ?? pp.gross_revenue ?? 0);
+    const totalPaid        = Number(pp.total_paid ?? 0);
+    const totalExpenses    = Number(s.total_expenses    ?? 0);
+    const committedPrizes  = Number(s.committed_prizes  ?? 0);
+    const commissionsTotal = Number(s.total_commissions_paid ?? 0);
+    const bonusesTotal     = Number(s.total_bonuses_granted  ?? 0);
+    const distributable    = Number(s.distributable_profit ?? totalPaid);
     const expensesDetail: any[] = s.expenses_detail         ?? [];
     const committedDetail: any[] = s.committed_prizes_detail ?? [];
     const finGames: any[] = s.games ?? [];
@@ -1736,7 +1742,7 @@ ${summarySection}
     const deficitAmount = Math.abs(distributable);
 
     // ── Deductions section ─────────────────────────────────────────
-    const hasDeductions = totalExpenses > 0 || committedPrizes > 0;
+    const hasDeductions = totalExpenses > 0 || committedPrizes > 0 || commissionsTotal > 0 || bonusesTotal > 0;
     const expenseRows = expensesDetail.map((e: any) => `
       <tr>
         <td style="padding-left:20px">↳ ${e.name}</td>
@@ -1761,6 +1767,8 @@ ${summarySection}
 <table>
   <thead><tr><th>Concepto</th><th>Frecuencia / Estado</th><th>Referencia</th><th style="text-align:right">Descuento del período</th></tr></thead>
   <tbody>
+    ${commissionsTotal > 0 ? `<tr style="background:#f5f3ff"><td colspan="3" style="font-weight:900;color:#6d28d9">🔗 Comisiones de Activadores</td><td style="text-align:right;font-weight:900;color:#6d28d9">−${fmt(commissionsTotal)}</td></tr><tr><td style="padding-left:20px">↳ ${s?.commissions_count ?? 0} pago${(s?.commissions_count ?? 0) !== 1 ? "s" : ""} de comisión</td><td>—</td><td style="color:#64748b;font-size:10px">Deducido en ganancia neta</td><td style="text-align:right;color:#6d28d9;font-weight:bold">−${fmt(commissionsTotal)}</td></tr>` : ""}
+    ${bonusesTotal > 0 ? `<tr style="background:#fefce8"><td colspan="3" style="font-weight:900;color:#b45309">🎁 Bonos de Bienvenida</td><td style="text-align:right;font-weight:900;color:#b45309">−${fmt(bonusesTotal)}</td></tr><tr><td style="padding-left:20px">↳ ${s?.bonuses_count ?? 0} bono${(s?.bonuses_count ?? 0) !== 1 ? "s" : ""} otorgados</td><td>—</td><td style="color:#64748b;font-size:10px">Deducido en ganancia neta</td><td style="text-align:right;color:#b45309;font-weight:bold">−${fmt(bonusesTotal)}</td></tr>` : ""}
     ${totalExpenses > 0 ? `<tr style="background:#fff1f2"><td colspan="3" style="font-weight:900;color:#dc2626">🏭 Gastos Operativos</td><td style="text-align:right;font-weight:900;color:#dc2626">−${fmt(totalExpenses)}</td></tr>${expenseRows}` : ""}
     ${committedPrizes > 0 ? `<tr style="background:#fffbeb"><td colspan="3" style="font-weight:900;color:#b45309">🔒 Premios Comprometidos (reservados)</td><td style="text-align:right;font-weight:900;color:#b45309">−${fmt(committedPrizes)}</td></tr>${committedRows2}` : ""}
     <tr style="background:${distributable >= 0 ? "#f0fdf4" : "#fef2f2"}">
@@ -3641,6 +3649,16 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           <p className="text-xs text-muted-foreground mt-0.5">{s.pending_withdrawals_count} solicitud{s.pending_withdrawals_count !== 1 ? "es" : ""}</p>
                         </div>
                         <div className="bg-card border rounded-2xl p-4">
+                          <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">🔗 Comisiones activadores</p>
+                          <p className="text-xl font-black mt-1" style={{ color: "#6d28d9" }}>{fmt(s.total_commissions_paid ?? 0)}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{s.commissions_count ?? 0} pago{(s.commissions_count ?? 0) !== 1 ? "s" : ""} de comisión</p>
+                        </div>
+                        <div className="bg-card border rounded-2xl p-4">
+                          <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">🎁 Bonos otorgados</p>
+                          <p className="text-xl font-black mt-1" style={{ color: "#b45309" }}>{fmt(s.total_bonuses_granted ?? 0)}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{s.bonuses_count ?? 0} bono{(s.bonuses_count ?? 0) !== 1 ? "s" : ""} de bienvenida</p>
+                        </div>
+                        <div className="bg-card border rounded-2xl p-4">
                           <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">👛 Saldo en circulación</p>
                           <p className="text-xl font-black mt-1" style={{ color: "#7c3aed" }}>{fmt(s.balance_in_circulation)}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{s.users_with_balance} usuarios con saldo</p>
@@ -3649,7 +3667,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           style={{ borderColor: s.net_profit >= 0 ? "#86efac" : "#fca5a5", background: s.net_profit >= 0 ? "hsl(142 70% 98%)" : "hsl(0 75% 98%)" }}>
                           <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>📈 Ganancia neta</p>
                           <p className="text-2xl font-black mt-1" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>{fmt(s.net_profit)}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">Ingresos − Premios − Retiros</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Ingresos − Premios − Retiros − Comisiones − Bonos</p>
                         </div>
                       </div>
 
@@ -4032,6 +4050,23 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           <span className="text-muted-foreground">Ganancia neta del período</span>
                           <span className="font-bold" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>{fmt(s.net_profit)}</span>
                         </div>
+                        {((s.total_commissions_paid ?? 0) > 0 || (s.total_bonuses_granted ?? 0) > 0) && (
+                          <div className="pl-3 space-y-0.5">
+                            <p className="text-[10px] text-muted-foreground italic">Incluye costos del programa de activadores:</p>
+                            {(s.total_commissions_paid ?? 0) > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">↳ Comisiones activadores ({s.commissions_count ?? 0})</span>
+                                <span style={{ color: "#6d28d9" }}>−{fmt(s.total_commissions_paid ?? 0)}</span>
+                              </div>
+                            )}
+                            {(s.total_bonuses_granted ?? 0) > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">↳ Bonos de bienvenida ({s.bonuses_count ?? 0})</span>
+                                <span style={{ color: "#b45309" }}>−{fmt(s.total_bonuses_granted ?? 0)}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {(s.total_expenses ?? 0) > 0 && (
                           <>
                             <div className="flex justify-between">

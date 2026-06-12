@@ -858,17 +858,20 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
     return sql.raw("");
   };
 
-  const [rev, prizes, wdrs, balances] = await Promise.all([
+  const [rev, prizes, wdrs, balances, refTxs] = await Promise.all([
     db.execute(sql`SELECT coalesce(sum(g.card_price),0)::text as total, count(*)::int as count FROM cards c JOIN games g ON c.game_id=g.id WHERE c.payment_status='paid' ${dateWhere("c.created_at")}`),
     db.execute(sql`SELECT coalesce(sum(prize_amount),0)::text as total, count(*)::int as count FROM winners WHERE validated=true ${dateWhere("created_at")}`),
     db.execute(sql`SELECT coalesce(sum(CASE WHEN status='paid' THEN amount ELSE 0 END),0)::text as paid_total, count(*) FILTER (WHERE status='paid') as paid_count, coalesce(sum(CASE WHEN status='pending' THEN amount ELSE 0 END),0)::text as pending_total, count(*) FILTER (WHERE status='pending') as pending_count FROM withdrawals WHERE true ${dateWhere("created_at")}`),
     db.execute(sql`SELECT coalesce(sum(balance),0)::text as total, count(*) FILTER (WHERE balance > 0) as user_count FROM users WHERE is_admin=false`),
+    db.execute(sql`SELECT coalesce(sum(CASE WHEN type='commission' THEN amount ELSE 0 END),0)::text as commissions_total, coalesce(sum(CASE WHEN type='welcome_bonus' THEN amount ELSE 0 END),0)::text as bonuses_total, count(*) FILTER (WHERE type='commission') as commissions_count, count(*) FILTER (WHERE type='welcome_bonus') as bonuses_count FROM referral_transactions WHERE true ${dateWhere("created_at")}`),
   ]);
 
-  const grossRevenue    = parseFloat((rev.rows[0] as any)?.total ?? "0");
-  const prizesPaid      = parseFloat((prizes.rows[0] as any)?.total ?? "0");
-  const withdrawalsPaid = parseFloat((wdrs.rows[0] as any)?.paid_total ?? "0");
-  const netProfit       = grossRevenue - prizesPaid - withdrawalsPaid;
+  const grossRevenue     = parseFloat((rev.rows[0] as any)?.total ?? "0");
+  const prizesPaid       = parseFloat((prizes.rows[0] as any)?.total ?? "0");
+  const withdrawalsPaid  = parseFloat((wdrs.rows[0] as any)?.paid_total ?? "0");
+  const commissionsTotal = parseFloat((refTxs.rows[0] as any)?.commissions_total ?? "0");
+  const bonusesTotal     = parseFloat((refTxs.rows[0] as any)?.bonuses_total ?? "0");
+  const netProfit        = grossRevenue - prizesPaid - withdrawalsPaid - commissionsTotal - bonusesTotal;
 
   const [activeExpenses, committedRows] = await Promise.all([
     db.select().from(operatingExpensesTable).where(eq(operatingExpensesTable.isActive, true)),
@@ -897,22 +900,26 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
     period: label,
     from: from?.toISOString() ?? null,
     to:   to?.toISOString()   ?? null,
-    gross_revenue:             grossRevenue,
-    cards_sold:                Number((rev.rows[0] as any)?.count ?? 0),
-    prizes_paid:               prizesPaid,
-    prizes_count:              Number((prizes.rows[0] as any)?.count ?? 0),
-    withdrawals_paid:          withdrawalsPaid,
-    withdrawals_count:         Number((wdrs.rows[0] as any)?.paid_count ?? 0),
-    pending_withdrawals:       parseFloat((wdrs.rows[0] as any)?.pending_total ?? "0"),
-    pending_withdrawals_count: Number((wdrs.rows[0] as any)?.pending_count ?? 0),
-    balance_in_circulation:    parseFloat((balances.rows[0] as any)?.total ?? "0"),
-    users_with_balance:        Number((balances.rows[0] as any)?.user_count ?? 0),
-    net_profit:               netProfit,
-    total_expenses:           totalExpenses,
-    expenses_detail:          expensesDetail,
-    committed_prizes:         committedPrizes,
-    committed_prizes_detail:  committedGames,
-    distributable_profit:     parseFloat((netProfit - totalExpenses - committedPrizes).toFixed(2)),
+    gross_revenue:              grossRevenue,
+    cards_sold:                 Number((rev.rows[0] as any)?.count ?? 0),
+    prizes_paid:                prizesPaid,
+    prizes_count:               Number((prizes.rows[0] as any)?.count ?? 0),
+    withdrawals_paid:           withdrawalsPaid,
+    withdrawals_count:          Number((wdrs.rows[0] as any)?.paid_count ?? 0),
+    pending_withdrawals:        parseFloat((wdrs.rows[0] as any)?.pending_total ?? "0"),
+    pending_withdrawals_count:  Number((wdrs.rows[0] as any)?.pending_count ?? 0),
+    balance_in_circulation:     parseFloat((balances.rows[0] as any)?.total ?? "0"),
+    users_with_balance:         Number((balances.rows[0] as any)?.user_count ?? 0),
+    total_commissions_paid:     commissionsTotal,
+    commissions_count:          Number((refTxs.rows[0] as any)?.commissions_count ?? 0),
+    total_bonuses_granted:      bonusesTotal,
+    bonuses_count:              Number((refTxs.rows[0] as any)?.bonuses_count ?? 0),
+    net_profit:                 netProfit,
+    total_expenses:             totalExpenses,
+    expenses_detail:            expensesDetail,
+    committed_prizes:           committedPrizes,
+    committed_prizes_detail:    committedGames,
+    distributable_profit:       parseFloat((netProfit - totalExpenses - committedPrizes).toFixed(2)),
   });
 });
 
