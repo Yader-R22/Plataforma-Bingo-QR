@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, usersTable, nameChangeRequestsTable, withdrawalsTable, winnersTable, auditLogsTable, gamesTable, feedItemsTable, cardsTable, partnersTable, partnerPaymentsTable, operatingExpensesTable, activatorRequestsTable, referralCodesTable, activatorSettingsTable, referralTransactionsTable } from "@workspace/db";
-import { eq, and, like, sql, desc } from "drizzle-orm";
+import { eq, and, like, sql, desc, gte, lte } from "drizzle-orm";
 import { requireAdmin, type AuthRequest } from "../middlewares/auth";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
@@ -215,6 +215,49 @@ router.post("/withdrawals/:id/reject", async (req: AuthRequest, res) => {
 });
 
 // All unvalidated bingo claims across every game — admin uses this for real-time monitoring
+// ── All validated winners with optional date range filter ────────────────────
+router.get("/winners", async (req: AuthRequest, res) => {
+  const from = req.query.from as string | undefined;
+  const to = req.query.to as string | undefined;
+
+  const conditions: ReturnType<typeof eq>[] = [eq(winnersTable.validated, true)];
+  if (from) {
+    const fromDate = new Date(from);
+    fromDate.setHours(0, 0, 0, 0);
+    conditions.push(gte(winnersTable.createdAt, fromDate) as any);
+  }
+  if (to) {
+    const toDate = new Date(to);
+    toDate.setHours(23, 59, 59, 999);
+    conditions.push(lte(winnersTable.createdAt, toDate) as any);
+  }
+
+  const rows = await db
+    .select({
+      id: winnersTable.id,
+      game_id: winnersTable.gameId,
+      game_title: gamesTable.title,
+      user_id: winnersTable.userId,
+      user_name: usersTable.fullName,
+      user_department: usersTable.department,
+      card_id: winnersTable.cardId,
+      round: winnersTable.round,
+      place: winnersTable.place,
+      prize_amount: winnersTable.prizeAmount,
+      created_at: winnersTable.createdAt,
+    })
+    .from(winnersTable)
+    .innerJoin(usersTable, eq(winnersTable.userId, usersTable.id))
+    .innerJoin(gamesTable, eq(winnersTable.gameId, gamesTable.id))
+    .where(and(...(conditions as any)))
+    .orderBy(desc(winnersTable.createdAt));
+
+  res.json(rows.map(w => ({
+    ...w,
+    prize_amount: parseFloat(w.prize_amount),
+  })));
+});
+
 router.get("/winners/pending", async (_req, res) => {
   const rows = await db
     .select({

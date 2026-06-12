@@ -188,6 +188,7 @@ router.get("/:id/winners", async (req: AuthRequest, res) => {
       claimed_at_ms: winnersTable.claimedAtMs,
       validated: winnersTable.validated,
       user_name: usersTable.fullName,
+      user_department: usersTable.department,
       created_at: winnersTable.createdAt,
     })
     .from(winnersTable)

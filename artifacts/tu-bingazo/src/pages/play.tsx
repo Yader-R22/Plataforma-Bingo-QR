@@ -47,6 +47,15 @@ interface BingoCard {
   payment_status: string;
 }
 
+interface LiveWinner {
+  id: number;
+  user_name: string | null;
+  user_department: string | null;
+  round: number;
+  place: number;
+  prize_amount: number;
+}
+
 export default function PlayPage() {
   const [, params] = useRoute("/juegos/:id/jugar");
   const [, navigate] = useLocation();
@@ -60,6 +69,7 @@ export default function PlayPage() {
   const [newNumberAlert, setNewNumberAlert] = useState<number | null>(null);
   const [showAllNumbers, setShowAllNumbers] = useState(false);
   const [gameTitle, setGameTitle] = useState<string | null>(null);
+  const [liveWinners, setLiveWinners] = useState<LiveWinner[]>([]);
 
   const cardsRef = useRef<BingoCard[]>([]);
   const prevCalledRef = useRef<number[]>([]);
@@ -123,6 +133,13 @@ export default function PlayPage() {
     } catch {}
   }, [gameId, token]);
 
+  const fetchWinners = useCallback(async () => {
+    try {
+      const res = await fetch(`${BASE}/api/games/${gameId}/winners`, { headers: authHeader });
+      if (res.ok) setLiveWinners(await res.json());
+    } catch {}
+  }, [gameId, token]);
+
   useEffect(() => {
     fetch(`${BASE}/api/games/${gameId}`)
       .then(r => r.ok ? r.json() : null)
@@ -130,9 +147,10 @@ export default function PlayPage() {
       .catch(() => {});
     fetchSession();
     fetchCards();
-    const iv = setInterval(fetchSession, 3000);
+    fetchWinners();
+    const iv = setInterval(() => { fetchSession(); fetchWinners(); }, 3000);
     return () => clearInterval(iv);
-  }, [fetchSession, fetchCards]);
+  }, [fetchSession, fetchCards, fetchWinners]);
 
   const card = cards[selectedCardIdx];
   const calledSet = new Set(session?.called_numbers ?? []);
@@ -286,6 +304,39 @@ export default function PlayPage() {
                 <div key={n} className="h-7 px-2 rounded-full flex items-center justify-center text-[11px] font-black min-w-[32px]"
                   style={{ background: bingoColor(n), color: "white" }}>
                   {bingoLabel(n)}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Live Winners */}
+        {liveWinners.length > 0 && (
+          <div className="rounded-2xl p-4" style={{ background: "rgba(255,215,0,0.07)", border: "1px solid rgba(255,215,0,0.2)" }}>
+            <p className="text-xs font-black uppercase tracking-wider mb-3" style={{ color: "hsl(42 98% 60%)" }}>
+              🏆 Ganadores del sorteo
+            </p>
+            <div className="space-y-2.5">
+              {liveWinners.map(w => (
+                <div key={w.id} className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5"
+                  style={{ background: "rgba(255,255,255,0.05)" }}>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-xs font-black px-1.5 py-0.5 rounded-full"
+                        style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>
+                        #{w.place}
+                      </span>
+                      <p className="text-white font-black text-sm leading-tight truncate">
+                        {w.user_name ?? "Jugador"}
+                      </p>
+                    </div>
+                    <p className="text-white/50 text-xs pl-0.5">
+                      {w.user_department ?? "Bolivia"} · Ronda {w.round}
+                    </p>
+                  </div>
+                  <p className="shrink-0 font-black text-lg" style={{ color: "hsl(42 98% 60%)", fontFamily: "'Poppins', sans-serif" }}>
+                    Bs {w.prize_amount.toFixed(0)}
+                  </p>
                 </div>
               ))}
             </div>

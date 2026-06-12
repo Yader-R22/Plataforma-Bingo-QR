@@ -696,6 +696,8 @@ export default function AdminPage() {
   });
   const [creatingUser, setCreatingUser] = useState(false);
   const [pendingWinnersCount, setPendingWinnersCount] = useState(0);
+  const [winnersFrom, setWinnersFrom] = useState("");
+  const [winnersTo, setWinnersTo] = useState("");
   const [deleteGameConfirm, setDeleteGameConfirm] = useState<number | null>(null);
   const [financeSummary, setFinanceSummary] = useState<any>(null);
   const [financeGames, setFinanceGames] = useState<any[]>([]);
@@ -753,28 +755,26 @@ export default function AdminPage() {
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
-  // Global poll for pending bingo claims — badge visible from any tab.
-  // Also refreshes the winners list when the admin is already on that tab.
+  // Global poll for new winners — auto-refreshes the winners list when on that tab.
   useEffect(() => {
     if (!token) return;
     const poll = async () => {
+      if (tab !== "winners") return;
       try {
-        const r = await fetch(`${BASE}/api/admin/winners/pending`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+        const params = new URLSearchParams();
+        if (winnersFrom) params.set("from", winnersFrom);
+        if (winnersTo) params.set("to", winnersTo);
+        const r = await fetch(`${BASE}/api/admin/winners?${params}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
         if (r.ok) {
           const d = await r.json();
-          setPendingWinnersCount(d.length);
-          setWinners(prev => {
-            // Only update when on winners tab to avoid stale-set overwriting active edits
-            if (tab === "winners") return d;
-            return prev;
-          });
+          setWinners(d);
         }
       } catch {}
     };
     poll();
     const iv = setInterval(poll, 4000);
     return () => clearInterval(iv);
-  }, [token, tab]);
+  }, [token, tab, winnersFrom, winnersTo]);
 
   async function loadStats() {
     try {
@@ -824,8 +824,8 @@ export default function AdminPage() {
         if (r.ok) setWithdrawals(await r.json());
       }
       if (t === "winners") {
-        const r = await fetch(`${BASE}/api/admin/winners/pending`, { headers: authH(), cache: "no-store" });
-        if (r.ok) { setWinners(await r.json()); setPendingWinnersCount(0); }
+        const r = await fetch(`${BASE}/api/admin/winners`, { headers: authH(), cache: "no-store" });
+        if (r.ok) setWinners(await r.json());
       }
       if (t === "logs") {
         const r = await fetch(`${BASE}/api/admin/audit-logs`, { headers: authH() });
@@ -1077,19 +1077,63 @@ export default function AdminPage() {
     }
   }
 
-  async function validateWinner(wId: number, approved: boolean) {
-    const r = await fetch(`${BASE}/api/admin/winners/${wId}/validate`, {
-      method: "POST", headers: authH(), body: JSON.stringify({ approved }),
-    });
-    if (r.ok) {
-      toast.success(approved ? "🏆 Ganador validado y saldo acreditado" : "Reclamo rechazado");
-      // Remove from pending list (both approved and rejected are no longer pending)
-      setWinners(ws => ws.filter(w => w.id !== wId));
-      setPendingWinnersCount(c => Math.max(0, c - 1));
-    } else {
-      const d = await r.json();
-      toast.error(d.error || "Error");
-    }
+  function exportWinnersJpg(winnersToExport: any[]) {
+    const siteName = site.site_name;
+    const today = new Date().toLocaleDateString("es-BO", { day: "numeric", month: "long", year: "numeric" });
+    const rows = winnersToExport.map((w, i) => `
+      <tr style="background:${i % 2 === 0 ? "#1a1040" : "#150d35"}">
+        <td style="padding:10px 14px;font-weight:900;color:#ffd700;font-size:15px">#${i + 1}</td>
+        <td style="padding:10px 14px">
+          <div style="font-weight:900;font-size:14px;color:#fff">${w.user_name ?? "Jugador"}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">${w.user_department ?? "Bolivia"}</div>
+        </td>
+        <td style="padding:10px 14px;color:rgba(255,255,255,0.7);font-size:12px">${w.game_title ?? `Juego #${w.game_id}`}</td>
+        <td style="padding:10px 14px;font-weight:900;font-size:16px;color:#ffd700;text-align:right">Bs ${parseFloat(w.prize_amount).toFixed(0)}</td>
+        <td style="padding:10px 14px;color:rgba(255,255,255,0.5);font-size:11px">${new Date(w.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric" })}</td>
+      </tr>`).join("");
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0d0028;font-family:'Segoe UI',Arial,sans-serif;padding:0}</style>
+</head><body>
+<div id="card" style="background:#0d0028;width:700px;padding:28px">
+  <div style="background:linear-gradient(135deg,#7c3aed,#4c1d95);border-radius:16px;padding:22px 28px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between">
+    <div>
+      <div style="font-size:26px;font-weight:900;color:#ffd700;letter-spacing:-0.5px">🏆 Lista de Ganadores</div>
+      <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:4px">${siteName} · ${today}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:32px;font-weight:900;color:#fff">${winnersToExport.length}</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.6)">ganador${winnersToExport.length !== 1 ? "es" : ""}</div>
+    </div>
+  </div>
+  <table style="width:100%;border-collapse:collapse;border-radius:12px;overflow:hidden">
+    <thead>
+      <tr style="background:#7c3aed">
+        <th style="padding:10px 14px;color:rgba(255,255,255,0.8);font-size:11px;text-align:left;font-weight:700;letter-spacing:0.5px">#</th>
+        <th style="padding:10px 14px;color:rgba(255,255,255,0.8);font-size:11px;text-align:left;font-weight:700;letter-spacing:0.5px">JUGADOR</th>
+        <th style="padding:10px 14px;color:rgba(255,255,255,0.8);font-size:11px;text-align:left;font-weight:700;letter-spacing:0.5px">SORTEO</th>
+        <th style="padding:10px 14px;color:rgba(255,255,255,0.8);font-size:11px;text-align:right;font-weight:700;letter-spacing:0.5px">PREMIO</th>
+        <th style="padding:10px 14px;color:rgba(255,255,255,0.8);font-size:11px;text-align:left;font-weight:700;letter-spacing:0.5px">FECHA</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div style="margin-top:16px;text-align:center;font-size:10px;color:rgba(255,255,255,0.3)">${siteName} · Todos los montos en bolivianos (Bs) · Generado ${today}</div>
+</div>
+<script>
+window.onload=function(){
+  html2canvas(document.getElementById('card'),{scale:2,backgroundColor:'#0d0028',useCORS:true}).then(function(canvas){
+    var a=document.createElement('a');
+    a.href=canvas.toDataURL('image/jpeg',0.95);
+    a.download='ganadores-${new Date().toISOString().split("T")[0]}.jpg';
+    a.click();
+    setTimeout(function(){window.close()},800);
+  });
+};
+</script></body></html>`;
+    const w = window.open("", "_blank", "width=750,height=600");
+    if (w) { w.document.write(html); w.document.close(); }
   }
 
   async function callNumber(gameId: number) {
@@ -2488,10 +2532,10 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               borderBottom: tab === t.id ? "2px solid hsl(var(--primary))" : "2px solid transparent",
             }}>
             {t.label}
-            {t.id === "winners" && pendingWinnersCount > 0 && (
+            {t.id === "winners" && winners.length > 0 && (
               <span className="ml-1.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-black text-white"
-                style={{ background: "hsl(0 75% 50%)" }}>
-                {pendingWinnersCount}
+                style={{ background: "#16a34a" }}>
+                {winners.length}
               </span>
             )}
             {t.id === "users" && pendingUsers > 0 && (
@@ -2756,7 +2800,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 { icon: "🟢", label: "En vivo", value: games.filter(g => g.status === "active").length, color: "#16a34a", bg: "hsl(142 70% 45% / 0.08)", border: "hsl(142 70% 45% / 0.2)", tab: "games" },
                 { icon: "🕐", label: "Próximos", value: games.filter(g => g.status === "upcoming").length, color: "hsl(var(--primary))", bg: "hsl(var(--primary) / 0.06)", border: "hsl(var(--primary) / 0.2)", tab: "games" },
                 { icon: "✅", label: "Finalizados", value: games.filter(g => g.status === "finished").length, color: "hsl(var(--muted-foreground))", bg: "hsl(var(--muted) / 0.5)", border: "hsl(var(--border))", tab: "games" },
-                { icon: "🏆", label: "Ganadores pend.", value: pendingWinnersCount, color: pendingWinnersCount > 0 ? "hsl(42 98% 40%)" : "#16a34a", bg: pendingWinnersCount > 0 ? "hsl(42 98% 52% / 0.08)" : "hsl(142 70% 45% / 0.06)", border: pendingWinnersCount > 0 ? "hsl(42 98% 52% / 0.3)" : "hsl(142 70% 45% / 0.15)", tab: "winners" },
+                { icon: "🏆", label: "Ganadores totales", value: stats?.prizes_count ?? 0, color: "#16a34a", bg: "hsl(142 70% 45% / 0.06)", border: "hsl(142 70% 45% / 0.15)", tab: "winners" },
               ].map(s => (
                 <button key={s.label} onClick={() => handleTab(s.tab as Tab)}
                   className="text-left rounded-2xl p-4 transition-all active:scale-95"
@@ -3487,48 +3531,87 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
 
         {/* ── WINNERS ────────────────────────────────── */}
         {tab === "winners" && !loading && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-bold text-muted-foreground">
-                {winners.length > 0 ? `${winners.length} reclamo${winners.length !== 1 ? "s" : ""} pendiente${winners.length !== 1 ? "s" : ""}` : "Sin reclamos pendientes"}
-              </p>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                Actualizando en tiempo real
+          <div className="space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <h2 className="font-black text-lg">🏆 Ganadores</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {winners.length > 0 ? `${winners.length} ganador${winners.length !== 1 ? "es" : ""}` : "Sin ganadores en este período"}
+                  <span className="ml-2 inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block animate-pulse" /> En tiempo real</span>
+                </p>
               </div>
+              <button
+                onClick={() => { if (winners.length === 0) { toast.error("No hay ganadores para exportar"); return; } exportWinnersJpg(winners); }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black text-white shrink-0"
+                style={{ background: "linear-gradient(135deg,#7c3aed,#4c1d95)" }}>
+                📸 Exportar JPG
+              </button>
             </div>
-            {winners.map(w => (
-              <div key={w.id} className="bg-card border-2 rounded-2xl p-4" style={{ borderColor: "hsl(42 98% 52% / 0.5)" }}>
+
+            {/* Date range filter */}
+            <div className="rounded-2xl p-4 space-y-3" style={{ background: "hsl(var(--muted) / 0.5)", border: "1px solid hsl(var(--border))" }}>
+              <p className="text-xs font-black text-muted-foreground uppercase tracking-wider">🔍 Filtrar por fecha</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Desde</label>
+                  <input type="date" value={winnersFrom} onChange={e => setWinnersFrom(e.target.value)}
+                    className="w-full rounded-xl px-3 py-2 text-sm border"
+                    style={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Hasta</label>
+                  <input type="date" value={winnersTo} onChange={e => setWinnersTo(e.target.value)}
+                    className="w-full rounded-xl px-3 py-2 text-sm"
+                    style={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }} />
+                </div>
+              </div>
+              {(winnersFrom || winnersTo) && (
+                <button onClick={() => { setWinnersFrom(""); setWinnersTo(""); }}
+                  className="text-xs text-muted-foreground underline">
+                  Limpiar filtro
+                </button>
+              )}
+            </div>
+
+            {/* Winners list */}
+            {winners.map((w, i) => (
+              <div key={w.id} className="bg-card rounded-2xl p-4" style={{ border: "1px solid hsl(var(--border))" }}>
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-black text-base">{w.user_name ?? `Usuario #${w.user_id}`}</p>
-                    <p className="text-xs font-bold mt-0.5" style={{ color: "hsl(var(--primary))" }}>
-                      🎱 {w.game_title ?? `Juego #${w.game_id}`}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Cartón #{w.card_id} · Puesto #{w.place}</p>
-                    <p className="text-lg font-black mt-1" style={{ color: "hsl(42 98% 35%)", fontFamily: "'Poppins', sans-serif" }}>
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm shrink-0"
+                      style={{ background: i < 3 ? "hsl(42 98% 52%)" : "hsl(var(--muted))", color: i < 3 ? "#1a0050" : "hsl(var(--foreground))" }}>
+                      #{i + 1}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-black text-base leading-tight">{w.user_name ?? `Usuario #${w.user_id}`}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        📍 {w.user_department ?? "Bolivia"} · Ronda {w.round}, Puesto #{w.place}
+                      </p>
+                      <p className="text-xs font-bold mt-1" style={{ color: "hsl(var(--primary))" }}>
+                        🎱 {w.game_title ?? `Juego #${w.game_id}`}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {new Date(w.created_at).toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" })}
+                        {" · "}{new Date(w.created_at).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-2xl font-black" style={{ color: "hsl(42 98% 35%)", fontFamily: "'Poppins', sans-serif" }}>
                       Bs {parseFloat(w.prize_amount).toFixed(0)}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      Reclamado {new Date(w.created_at).toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                    </p>
-                  </div>
-                  <div className="shrink-0 flex flex-col gap-1.5">
-                    <button onClick={() => validateWinner(w.id, true)}
-                      className="px-4 py-2 rounded-xl text-sm font-black text-white"
-                      style={{ background: "#16a34a" }}>✓ Validar</button>
-                    <button onClick={() => validateWinner(w.id, false)}
-                      className="px-4 py-2 rounded-xl text-sm font-black text-white"
-                      style={{ background: "hsl(0 75% 50%)" }}>✗ Rechazar</button>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">✅ Acreditado</p>
                   </div>
                 </div>
               </div>
             ))}
+
             {winners.length === 0 && (
-              <div className="text-center py-12 text-muted-foreground">
-                <p className="text-4xl mb-3">🏆</p>
-                <p className="font-bold">Sin reclamos pendientes</p>
-                <p className="text-sm mt-1">Los reclamos de bingo aparecerán aquí en tiempo real</p>
+              <div className="text-center py-16 text-muted-foreground">
+                <p className="text-5xl mb-3">🏆</p>
+                <p className="font-bold">Sin ganadores en este período</p>
+                <p className="text-sm mt-1">Cuando un jugador grite BINGO y sea válido, aparecerá aquí automáticamente</p>
               </div>
             )}
           </div>

@@ -48,15 +48,15 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
   await db
     .update(siteSettingsTable)
     .set({
-      ...(site_name !== undefined && { siteName: site_name }),
-      ...(site_tagline !== undefined && { siteTagline: site_tagline }),
-      ...(site_emoji !== undefined && { siteEmoji: site_emoji }),
-      ...(favicon_url !== undefined && { faviconUrl: favicon_url }),
-      ...(logo_url !== undefined && { logoUrl: logo_url }),
-      ...(seo_title !== undefined && { seoTitle: seo_title }),
-      ...(seo_description !== undefined && { seoDescription: seo_description }),
-      ...(seo_keywords !== undefined && { seoKeywords: seo_keywords }),
-      ...(primary_color !== undefined && { primaryColor: primary_color }),
+      ...(site_name !== undefined && { siteName: site_name ?? undefined }),
+      ...(site_tagline !== undefined && { siteTagline: site_tagline ?? undefined }),
+      ...(site_emoji !== undefined && { siteEmoji: site_emoji ?? undefined }),
+      ...(favicon_url !== undefined && { faviconUrl: favicon_url ?? undefined }),
+      ...(logo_url !== undefined && { logoUrl: logo_url ?? undefined }),
+      ...(seo_title !== undefined && { seoTitle: seo_title ?? undefined }),
+      ...(seo_description !== undefined && { seoDescription: seo_description ?? undefined }),
+      ...(seo_keywords !== undefined && { seoKeywords: seo_keywords ?? undefined }),
+      ...(primary_color !== undefined && { primaryColor: primary_color ?? undefined }),
       updatedAt: new Date(),
       updatedById: req.userId!,
     })

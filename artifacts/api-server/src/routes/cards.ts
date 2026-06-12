@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, cardsTable, gamesTable, winnersTable, usersTable, auditLogsTable, feedItemsTable } from "@workspace/db";
+import { db, cardsTable, gamesTable, winnersTable, usersTable, auditLogsTable, feedItemsTable, referralCodesTable, activatorSettingsTable, referralTransactionsTable } from "@workspace/db";
 import type { RoundConfig } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 
@@ -413,8 +413,13 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
         place: nextPlace,
         prizeAmount: String(prizeAmount),
         claimedAtMs: String(b.data.claimed_at_ms),
-        validated: false,
+        validated: true,
       }).returning();
+
+      // Auto-credit prize to winner's balance in the same transaction
+      await tx.execute(
+        sql`UPDATE users SET balance = balance + ${parseFloat(String(prizeAmount))} WHERE id = ${req.userId!}`
+      );
 
       await tx.insert(auditLogsTable).values({
         action: "bingo_claim",
@@ -435,7 +440,7 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
     });
   } catch (err) {
     req.log.warn({ err, cardId: card.id }, "Reclamo de bingo duplicado o en conflicto bloqueado");
-    res.json({ valid: false, message: "Ya reclamaste BINGO con este cartón. El administrador validará tu premio." });
+    res.json({ valid: false, message: "Ya reclamaste BINGO con este cartón en esta ronda." });
     return;
   }
 
@@ -444,7 +449,7 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
     return;
   }
   if (dupCard) {
-    res.json({ valid: false, message: "Ya reclamaste BINGO con este cartón. El administrador validará tu premio." });
+    res.json({ valid: false, message: "Ya reclamaste BINGO con este cartón en esta ronda." });
     return;
   }
   if (capReached) {
@@ -454,10 +459,84 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
   if (!winner) { res.status(500).json({ error: "No se pudo registrar el reclamo" }); return; }
 
   const users = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
+  const userName = users[0]?.fullName?.split(" ")[0] ?? "Un jugador";
+
+  // ── Activator commission: credit activator if referred user wins ──────────
+  try {
+    const winnerUser = await db.select({ referredByCode: usersTable.referredByCode })
+      .from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
+    const refCode = winnerUser[0]?.referredByCode;
+    if (refCode) {
+      const codeRow = await db.select({ userId: referralCodesTable.userId })
+        .from(referralCodesTable)
+        .where(and(eq(referralCodesTable.code, refCode), eq(referralCodesTable.isActive, true)))
+        .limit(1);
+      if (codeRow.length) {
+        const settings = await db.select().from(activatorSettingsTable)
+          .where(eq(activatorSettingsTable.id, 1)).limit(1);
+        const commPct = parseFloat(settings[0]?.commissionPercentage ?? "5");
+        const duration = settings[0]?.commissionDuration ?? "indefinite";
+        const durationMonths = settings[0]?.commissionDurationMonths ?? null;
+        const activatorId = codeRow[0].userId;
+
+        let applyCommission = true;
+        if (duration === "once") {
+          const prevCommissions = await db.select({ id: referralTransactionsTable.id })
+            .from(referralTransactionsTable)
+            .where(and(
+              eq(referralTransactionsTable.type, "commission"),
+              eq(referralTransactionsTable.activatorId, activatorId),
+              eq(referralTransactionsTable.referredUserId, req.userId!),
+            )).limit(1);
+          if (prevCommissions.length) applyCommission = false;
+        } else if (duration === "monthly" && durationMonths) {
+          const refTxRow = await db.select({ createdAt: referralTransactionsTable.createdAt })
+            .from(referralTransactionsTable)
+            .where(and(
+              eq(referralTransactionsTable.type, "welcome_bonus"),
+              eq(referralTransactionsTable.referredUserId, req.userId!),
+            )).limit(1);
+          if (refTxRow.length) {
+            const monthsElapsed = (Date.now() - refTxRow[0].createdAt.getTime()) / (1000 * 60 * 60 * 24 * 30);
+            if (monthsElapsed > durationMonths) applyCommission = false;
+          }
+        }
+
+        if (applyCommission && commPct > 0) {
+          const commAmount = parseFloat((parseFloat(String(winner.prizeAmount)) * commPct / 100).toFixed(2));
+          if (commAmount > 0) {
+            await db.execute(
+              sql`UPDATE users SET balance = balance + ${commAmount} WHERE id = ${activatorId}`
+            );
+            await db.insert(referralTransactionsTable).values({
+              type: "commission",
+              activatorId,
+              referredUserId: req.userId!,
+              gameId: game.id,
+              winnerId: winner.id,
+              amount: String(commAmount),
+              commissionPercentage: String(commPct),
+              description: `Comisión ${commPct}% por ganancia de ${userName} — Bs ${parseFloat(String(winner.prizeAmount)).toFixed(2)}`,
+            });
+          }
+        }
+      }
+    }
+  } catch { /* commission errors must not block winner registration */ }
+
+  // ── Add to public feed ────────────────────────────────────────────────────
+  try {
+    await db.insert(feedItemsTable).values({
+      type: "winner",
+      message: `¡${userName} ganó Bs ${parseFloat(String(winner.prizeAmount)).toFixed(0)}!`,
+      amount: String(winner.prizeAmount),
+      userDisplayName: userName,
+    });
+  } catch { /* feed errors must not block winner registration */ }
 
   res.json({
     valid: true,
-    message: `¡BINGO! Tu reclamo fue recibido en el puesto #${winner.place}. El administrador validará tu premio.`,
+    message: `¡BINGO! ¡Felicitaciones! Ganaste Bs ${parseFloat(String(winner.prizeAmount)).toFixed(0)} en el puesto #${winner.place}. El saldo ya fue acreditado a tu billetera.`,
     winner: {
       id: winner.id,
       game_id: winner.gameId,
