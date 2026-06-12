@@ -143,18 +143,20 @@ export default function GamesPage() {
               const coverImg = game.cover_image_url as string | null | undefined;
               return (
                 <Link key={game.id} href={`/juegos/${game.id}`}>
-                  <div
-                    className="rounded-3xl cursor-pointer relative overflow-hidden stars-bg"
-                    style={{
-                      ...(coverImg
-                        ? { backgroundImage: `url(${coverImg})`, backgroundSize: "cover", backgroundPosition: "center" }
-                        : { background: cfg.gradient }),
-                      ...(isFinished ? { filter: "grayscale(100%)", opacity: 0.75 } : {}),
-                    }}
-                  >
+                  <div className="rounded-3xl cursor-pointer relative overflow-hidden stars-bg">
+                    {/* Background layer — grayscale applies here only, not to content */}
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        ...(coverImg
+                          ? { backgroundImage: `url(${coverImg})`, backgroundSize: "cover", backgroundPosition: "center" }
+                          : { background: cfg.gradient }),
+                        ...(isFinished ? { filter: "grayscale(100%)", opacity: 0.75 } : {}),
+                      }}
+                    />
                     {/* Dark overlay when cover image */}
                     {coverImg && <div className="absolute inset-0 rounded-3xl" style={{ background: "rgba(0,0,0,0.45)" }} />}
-                    {/* Decorative circle */}
+                    {/* Decorative circles */}
                     <div className="absolute -right-8 -top-8 w-36 h-36 rounded-full opacity-15" style={{ background: "rgba(255,255,255,0.4)" }} />
                     <div className="absolute -left-4 -bottom-6 w-24 h-24 rounded-full opacity-10" style={{ background: "rgba(255,255,255,0.3)" }} />
 
