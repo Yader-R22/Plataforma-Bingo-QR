@@ -720,7 +720,6 @@ export default function AdminPage() {
   const [ppTo, setPpTo] = useState("");
   const [financeTab, setFinanceTab] = useState<"resumen"|"juegos"|"movimientos"|"gastos"|"socios"|"historial">("resumen");
   const [txSearch, setTxSearch] = useState("");
-  const [historialLimit, setHistorialLimit] = useState(6);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
@@ -4104,14 +4103,14 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   TAB: HISTORIAL
               ════════════════════════════════════════════ */}
               {financeTab === "historial" && (() => {
+                const hasFilter = !!(ppFrom || ppTo);
                 const filtered = partnerPayments.filter(pp => {
                   const d = new Date(pp.created_at);
                   if (ppFrom && d < new Date(ppFrom)) return false;
                   if (ppTo) { const to = new Date(ppTo); to.setHours(23,59,59,999); if (d > to) return false; }
                   return true;
                 });
-                const visible = filtered.slice(0, historialLimit);
-                const hasMore = filtered.length > historialLimit;
+                const visible = hasFilter ? filtered : filtered.slice(0, 6);
                 return (
                   <div className="space-y-3">
                     {partnerPayments.length === 0 && (
@@ -4126,19 +4125,19 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           <div className="grid grid-cols-2 gap-2">
                             <div>
                               <p className="text-[11px] text-muted-foreground mb-1">Desde</p>
-                              <input type="date" value={ppFrom} onChange={e => { setPpFrom(e.target.value); setHistorialLimit(6); }}
+                              <input type="date" value={ppFrom} onChange={e => setPpFrom(e.target.value)}
                                 className="w-full border rounded-lg px-2 py-1.5 text-xs bg-background" />
                             </div>
                             <div>
                               <p className="text-[11px] text-muted-foreground mb-1">Hasta</p>
-                              <input type="date" value={ppTo} onChange={e => { setPpTo(e.target.value); setHistorialLimit(6); }}
+                              <input type="date" value={ppTo} onChange={e => setPpTo(e.target.value)}
                                 className="w-full border rounded-lg px-2 py-1.5 text-xs bg-background" />
                             </div>
                           </div>
-                          {(ppFrom || ppTo) && (
+                          {hasFilter && (
                             <div className="flex items-center justify-between">
-                              <p className="text-xs text-muted-foreground">{filtered.length} registro{filtered.length !== 1 ? "s" : ""}</p>
-                              <button onClick={() => { setPpFrom(""); setPpTo(""); setHistorialLimit(6); }} className="text-xs font-bold" style={{ color: "hsl(var(--primary))" }}>
+                              <p className="text-xs text-muted-foreground">{filtered.length} registro{filtered.length !== 1 ? "s" : ""} encontrado{filtered.length !== 1 ? "s" : ""}</p>
+                              <button onClick={() => { setPpFrom(""); setPpTo(""); }} className="text-xs font-bold" style={{ color: "hsl(var(--primary))" }}>
                                 Limpiar
                               </button>
                             </div>
@@ -4149,10 +4148,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           <p className="text-center text-muted-foreground text-sm py-6">Sin registros en ese rango de fechas</p>
                         )}
 
-                        {/* Summary count */}
+                        {/* Count hint */}
                         {filtered.length > 0 && (
                           <p className="text-xs text-muted-foreground">
-                            Mostrando {visible.length} de {filtered.length} registro{filtered.length !== 1 ? "s" : ""}
+                            {hasFilter
+                              ? `${filtered.length} registro${filtered.length !== 1 ? "s" : ""} en el rango`
+                              : `Últimos ${visible.length} de ${partnerPayments.length} — usá el filtro para ver por fecha`}
                           </p>
                         )}
 
@@ -4198,15 +4199,6 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                             </div>
                           </div>
                         ))}
-
-                        {/* Ver más */}
-                        {hasMore && (
-                          <button onClick={() => setHistorialLimit(l => l + 6)}
-                            className="w-full py-2 rounded-xl text-xs font-bold border transition-all"
-                            style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))", background: "hsl(var(--muted)/0.3)" }}>
-                            Ver más ({filtered.length - historialLimit} restante{filtered.length - historialLimit !== 1 ? "s" : ""})
-                          </button>
-                        )}
                       </>
                     )}
                   </div>
