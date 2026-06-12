@@ -62,13 +62,17 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
 
   useEffect(() => {
     fetch(`${BASE}/api/admin/users/${userId}`, { headers: auth() })
-      .then(r => r.ok ? r.json() : null)
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(d => {
         setUser(d);
         setLoading(false);
         if (d?.status === "pending") setSection("verify");
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        setLoading(false);
+        toast.error(`No se pudo cargar el usuario (${err ?? "error"})`);
+        onClose();
+      });
   }, [userId]);
 
   async function setTempPassword() {
