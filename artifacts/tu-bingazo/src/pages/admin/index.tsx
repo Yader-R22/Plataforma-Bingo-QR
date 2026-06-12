@@ -3655,7 +3655,15 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       #{i + 1}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-black text-base leading-tight">{w.user_name ?? `Usuario #${w.user_id}`}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-black text-base leading-tight">{w.user_name ?? `Usuario #${w.user_id}`}</p>
+                        {w.is_historical && (
+                          <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md"
+                            style={{ background: "hsl(220 60% 50% / 0.12)", color: "hsl(220 60% 50%)", border: "1px solid hsl(220 60% 50% / 0.25)" }}>
+                            🗂 Histórico
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         📍 {w.user_department ?? "Bolivia"} · Ronda {w.round}, Puesto #{w.place}
                       </p>

@@ -244,6 +244,7 @@ router.get("/winners", async (req: AuthRequest, res) => {
       round: winnersTable.round,
       place: winnersTable.place,
       prize_amount: winnersTable.prizeAmount,
+      is_historical: winnersTable.isHistorical,
       created_at: winnersTable.createdAt,
     })
     .from(winnersTable)

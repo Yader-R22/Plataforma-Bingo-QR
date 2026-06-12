@@ -193,7 +193,11 @@ router.get("/:id/winners", async (req: AuthRequest, res) => {
     })
     .from(winnersTable)
     .innerJoin(usersTable, eq(winnersTable.userId, usersTable.id))
-    .where(and(eq(winnersTable.gameId, p.data.id), eq(winnersTable.validated, true)))
+    .where(and(
+      eq(winnersTable.gameId, p.data.id),
+      eq(winnersTable.validated, true),
+      eq(winnersTable.isHistorical, false),
+    ))
     .orderBy(winnersTable.round, winnersTable.place);
 
   res.json(winners.map(w => ({
