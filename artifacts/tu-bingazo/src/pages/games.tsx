@@ -214,7 +214,8 @@ export default function GamesPage() {
                     {/* FINALIZADO badge — outside the grayscale wrapper, keeps original color */}
                     {isFinished && (
                       <div className="absolute top-5 left-5 z-20">
-                        <span className="text-xs font-bold text-white/50 uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded-full">FINALIZADO</span>
+                        <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                          style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>FINALIZADO</span>
                       </div>
                     )}
                   </div>
