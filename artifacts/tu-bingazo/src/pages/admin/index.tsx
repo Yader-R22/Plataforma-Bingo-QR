@@ -734,6 +734,8 @@ export default function AdminPage() {
   const [savingActSettings, setSavingActSettings] = useState(false);
   const [actSettingsForm, setActSettingsForm] = useState({ bonus_amount: "5", bonus_title: "Bono de bienvenida por activador {activator}", commission_percentage: "5", commission_duration: "indefinite", commission_duration_months: "" });
   const [pendingActivatorCount, setPendingActivatorCount] = useState(0);
+  const [reqNoteInput, setReqNoteInput] = useState<Record<number, string>>({});
+  const [reqNoteOpen, setReqNoteOpen] = useState<Record<number, "reject" | "hold" | null>>({});
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
@@ -4452,76 +4454,123 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 </div>
               )}
 
-              {/* Pending requests */}
+              {/* Requests — ordered: pending → accepted → hold → rejected */}
               <div>
-                <h3 className="font-black text-base mb-3" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                  📋 Solicitudes de Activador
-                  {pendingReqs.length > 0 && (
-                    <span className="ml-2 bg-yellow-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{pendingReqs.length}</span>
-                  )}
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                    📋 Solicitudes de Activador
+                    {pendingReqs.length > 0 && (
+                      <span className="ml-2 bg-yellow-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{pendingReqs.length}</span>
+                    )}
+                  </h3>
+                  <button onClick={() => loadTab("referidos")} className="text-xs font-bold px-2.5 py-1 rounded-lg border"
+                    style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>🔄</button>
+                </div>
                 {activatorRequests.length === 0 ? (
                   <p className="text-muted-foreground text-sm py-4 text-center">No hay solicitudes aún</p>
                 ) : (
-                  <div className="space-y-3">
-                    {activatorRequests.map((req: any) => {
+                  <div className="space-y-2.5">
+                    {[...activatorRequests]
+                      .sort((a, b) => {
+                        const order: Record<string, number> = { pending: 0, accepted: 1, hold: 2, rejected: 3 };
+                        return (order[a.status] ?? 9) - (order[b.status] ?? 9);
+                      })
+                      .map((req: any) => {
                       const sc = reqStatusConfig[req.status] ?? reqStatusConfig.pending;
+                      const noteOpen = reqNoteOpen[req.id];
                       return (
-                        <div key={req.id} className="bg-card border rounded-2xl p-4">
-                          <div className="flex items-start justify-between gap-3 mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black shrink-0"
-                                style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
-                                {req.user_avatar_url
-                                  ? <img src={req.user_avatar_url} className="w-10 h-10 rounded-full object-cover" />
-                                  : (req.user_full_name?.charAt(0) ?? "?")}
-                              </div>
-                              <div>
-                                <p className="font-bold text-sm">{req.user_full_name}</p>
-                                <p className="text-xs text-muted-foreground">CI: {req.user_ci} · {req.user_department}</p>
-                                <p className="text-xs text-muted-foreground">📱 {req.user_phone}</p>
-                                <p className="text-xs text-muted-foreground">Verificado: {req.user_status === "active" ? "✅" : "⏳"} · Desde {new Date(req.user_created_at).toLocaleDateString("es-BO")}</p>
+                        <div key={req.id} className="bg-card border rounded-2xl p-3.5">
+                          {/* Header row */}
+                          <div className="flex items-center gap-2.5 mb-2">
+                            <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-sm font-black shrink-0"
+                              style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
+                              {req.user_avatar_url
+                                ? <img src={req.user_avatar_url} className="w-9 h-9 object-cover" />
+                                : (req.user_full_name?.charAt(0) ?? "?")}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-sm truncate">{req.user_full_name}</p>
+                              <p className="text-[11px] text-muted-foreground truncate">CI: {req.user_ci} · {req.user_department} · {req.user_status === "active" ? "✅" : "⏳"}</p>
+                            </div>
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-md shrink-0" style={{ color: sc.color, background: sc.bg }}>{sc.label}</span>
+                          </div>
+
+                          {/* Meta */}
+                          <div className="flex gap-3 text-[11px] text-muted-foreground mb-2">
+                            <span>📱 {req.user_phone}</span>
+                            <span>📅 {new Date(req.created_at).toLocaleDateString("es-BO")}</span>
+                          </div>
+
+                          {/* Admin note (rejection/hold reason) */}
+                          {req.notes && (
+                            <div className="rounded-lg px-2.5 py-1.5 mb-2 text-[11px]"
+                              style={{ background: "hsl(var(--muted)/0.5)", borderLeft: `2px solid ${sc.color}` }}>
+                              💬 {req.notes}
+                            </div>
+                          )}
+
+                          {/* Inline note input for reject/hold */}
+                          {noteOpen && (
+                            <div className="mb-2 space-y-1.5">
+                              <textarea
+                                className="w-full rounded-xl border px-3 py-2 text-xs resize-none"
+                                rows={2}
+                                placeholder={noteOpen === "reject" ? "Motivo del rechazo (visible para el usuario)..." : "Motivo de espera (visible para el usuario)..."}
+                                value={reqNoteInput[req.id] ?? ""}
+                                onChange={e => setReqNoteInput(n => ({ ...n, [req.id]: e.target.value }))}
+                                style={{ borderColor: noteOpen === "reject" ? "hsl(0 75% 52%)" : "#7c3aed" }}
+                                autoFocus
+                              />
+                              <div className="flex gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    reviewRequest(req.id, noteOpen, reqNoteInput[req.id] || undefined);
+                                    setReqNoteOpen(o => ({ ...o, [req.id]: null }));
+                                    setReqNoteInput(n => ({ ...n, [req.id]: "" }));
+                                  }}
+                                  className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
+                                  style={{ background: noteOpen === "reject" ? "hsl(0 75% 45%)" : "#7c3aed" }}>
+                                  {noteOpen === "reject" ? "✖ Confirmar rechazo" : "⏸ Confirmar espera"}
+                                </button>
+                                <button
+                                  onClick={() => setReqNoteOpen(o => ({ ...o, [req.id]: null }))}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-bold border"
+                                  style={{ borderColor: "hsl(var(--border))" }}>
+                                  Cancelar
+                                </button>
                               </div>
                             </div>
-                            <span className="text-xs font-bold px-2 py-1 rounded-lg shrink-0" style={{ color: sc.color, background: sc.bg }}>{sc.label}</span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mb-3">Solicitado: {new Date(req.created_at).toLocaleDateString("es-BO")}</p>
-                          {req.notes && <p className="text-xs text-muted-foreground italic mb-3">Nota: {req.notes}</p>}
-                          {(req.status === "pending" || req.status === "hold") && (
-                            <div className="flex gap-2">
+                          )}
+
+                          {/* Action buttons */}
+                          {(req.status === "pending" || req.status === "hold") && !noteOpen && (
+                            <div className="flex gap-1.5">
                               <button onClick={() => reviewRequest(req.id, "accept")}
-                                className="flex-1 py-2 rounded-xl text-sm font-bold text-white"
+                                className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
                                 style={{ background: "hsl(142 70% 40%)" }}>✅ Aceptar</button>
-                              <button onClick={() => {
-                                const notes = prompt("Motivo (opcional):");
-                                reviewRequest(req.id, "hold", notes ?? undefined);
-                              }} className="px-3 py-2 rounded-xl text-sm font-bold border-2"
-                                style={{ borderColor: "#7c3aed", color: "#7c3aed" }}>⏸ Espera</button>
-                              <button onClick={() => {
-                                const notes = prompt("Motivo del rechazo (opcional):");
-                                reviewRequest(req.id, "reject", notes ?? undefined);
-                              }} className="px-3 py-2 rounded-xl text-sm font-bold border-2"
-                                style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>✖ Rechazar</button>
+                              <button onClick={() => setReqNoteOpen(o => ({ ...o, [req.id]: "hold" }))}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold border-2"
+                                style={{ borderColor: "#7c3aed", color: "#7c3aed" }}>⏸</button>
+                              <button onClick={() => setReqNoteOpen(o => ({ ...o, [req.id]: "reject" }))}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold border-2"
+                                style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>✖</button>
                             </div>
                           )}
                           {req.status === "accepted" && (
                             <button onClick={async () => {
-                              if (!confirm(`¿Eliminar completamente a ${req.user_full_name} como activador? Se borrará su código de referidos y no podrá reactivarse.`)) return;
-                              const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}`, {
-                                method: "DELETE",
-                                headers: authH(),
-                              });
-                              if (r.ok) { loadTab("referidos"); toast.success("Activador eliminado completamente"); }
-                              else toast.error("Error al eliminar activador");
-                            }} className="w-full py-2 rounded-xl text-sm font-bold border-2"
+                              if (!confirm(`¿Eliminar completamente a ${req.user_full_name} como activador?`)) return;
+                              const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}`, { method: "DELETE", headers: authH() });
+                              if (r.ok) { loadTab("referidos"); toast.success("Activador eliminado"); }
+                              else toast.error("Error al eliminar");
+                            }} className="w-full py-1.5 rounded-lg text-xs font-bold border-2"
                               style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>
                               🗑️ Eliminar activador
                             </button>
                           )}
                           {req.status === "rejected" && (
                             <button onClick={() => reviewRequest(req.id, "accept")}
-                              className="w-full py-2 rounded-xl text-sm font-bold text-white"
-                              style={{ background: "hsl(142 70% 40%)" }}>✅ Reactivar como activador</button>
+                              className="w-full py-1.5 rounded-lg text-xs font-bold text-white"
+                              style={{ background: "hsl(142 70% 40%)" }}>✅ Reactivar</button>
                           )}
                         </div>
                       );
@@ -4552,52 +4601,50 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               )}
 
               {/* Settings */}
-              <div className="bg-card border rounded-2xl p-5 space-y-4">
-                <h3 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>⚙️ Configuración de Referidos</h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-bold block mb-1">Monto del bono de bienvenida (Bs)</label>
-                    <input className="input-field" type="number" min="0" step="0.50" value={actSettingsForm.bonus_amount}
-                      onChange={e => setActSettingsForm(f => ({ ...f, bonus_amount: e.target.value }))} />
+              <div className="bg-card border rounded-2xl p-4">
+                <h3 className="font-black text-sm mb-3" style={{ fontFamily: "'Poppins', sans-serif" }}>⚙️ Configuración de Referidos</h3>
+                <div className="space-y-2.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[11px] font-bold block mb-1">Bono bienvenida (Bs)</label>
+                      <input className="input-field text-sm py-2" type="number" min="0" step="0.50" value={actSettingsForm.bonus_amount}
+                        onChange={e => setActSettingsForm(f => ({ ...f, bonus_amount: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold block mb-1">Comisión activador (%)</label>
+                      <input className="input-field text-sm py-2" type="number" min="0" max="100" step="0.5" value={actSettingsForm.commission_percentage}
+                        onChange={e => setActSettingsForm(f => ({ ...f, commission_percentage: e.target.value }))} />
+                    </div>
                   </div>
                   <div>
-                    <label className="text-xs font-bold block mb-1">Título del bono</label>
-                    <input className="input-field" placeholder="Bono de bienvenida por activador {activator}"
+                    <label className="text-[11px] font-bold block mb-1">Título del bono <span className="font-normal text-muted-foreground">(usa {"{activator}"} para el nombre)</span></label>
+                    <input className="input-field text-sm py-2" placeholder="Bono de bienvenida por activador {activator}"
                       value={actSettingsForm.bonus_title}
                       onChange={e => setActSettingsForm(f => ({ ...f, bonus_title: e.target.value }))} />
-                    <p className="text-[11px] text-muted-foreground mt-1">Usa <code className="bg-muted px-1 rounded">{"{activator}"}</code> para insertar el nombre del activador</p>
                   </div>
-                  <div>
-                    <label className="text-xs font-bold block mb-1">Comisión al activador (%)</label>
-                    <input className="input-field" type="number" min="0" max="100" step="0.5" value={actSettingsForm.commission_percentage}
-                      onChange={e => setActSettingsForm(f => ({ ...f, commission_percentage: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold block mb-1">Duración del beneficio de comisión</label>
-                    <select className="input-field" value={actSettingsForm.commission_duration}
-                      onChange={e => setActSettingsForm(f => ({ ...f, commission_duration: e.target.value }))}>
-                      <option value="once">Una sola vez</option>
-                      <option value="monthly">Por meses</option>
-                      <option value="indefinite">Indefinido</option>
-                    </select>
-                  </div>
-                  {actSettingsForm.commission_duration === "monthly" && (
-                    <div>
-                      <label className="text-xs font-bold block mb-1">Número de meses</label>
-                      <input className="input-field" type="number" min="1" max="120" value={actSettingsForm.commission_duration_months}
-                        onChange={e => setActSettingsForm(f => ({ ...f, commission_duration_months: e.target.value }))} />
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="text-[11px] font-bold block mb-1">Duración comisión</label>
+                      <select className="input-field text-sm py-2" value={actSettingsForm.commission_duration}
+                        onChange={e => setActSettingsForm(f => ({ ...f, commission_duration: e.target.value }))}>
+                        <option value="once">Una vez</option>
+                        <option value="monthly">Por meses</option>
+                        <option value="indefinite">Indefinido</option>
+                      </select>
                     </div>
-                  )}
-                  <button className="btn-primary" onClick={saveActSettings} disabled={savingActSettings}>
+                    {actSettingsForm.commission_duration === "monthly" && (
+                      <div className="w-24">
+                        <label className="text-[11px] font-bold block mb-1">Meses</label>
+                        <input className="input-field text-sm py-2" type="number" min="1" max="120" value={actSettingsForm.commission_duration_months}
+                          onChange={e => setActSettingsForm(f => ({ ...f, commission_duration_months: e.target.value }))} />
+                      </div>
+                    )}
+                  </div>
+                  <button className="btn-primary py-2 text-sm" onClick={saveActSettings} disabled={savingActSettings}>
                     {savingActSettings ? "Guardando..." : "💾 Guardar configuración"}
                   </button>
                 </div>
               </div>
-
-              <button onClick={() => loadTab("referidos")} className="w-full py-3 rounded-xl border-2 font-bold text-sm"
-                style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
-                🔄 Actualizar
-              </button>
             </div>
           );
         })()}
