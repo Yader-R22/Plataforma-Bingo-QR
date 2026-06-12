@@ -724,6 +724,7 @@ export default function AdminPage() {
   const [activatorSettings, setActivatorSettings] = useState<any>(null);
   const [referralStats, setReferralStats] = useState<any>(null);
   const [activatorPerformance, setActivatorPerformance] = useState<any[]>([]);
+  const [deptFilter, setDeptFilter] = useState<string>("__all__");
   const [savingActSettings, setSavingActSettings] = useState(false);
   const [actSettingsForm, setActSettingsForm] = useState({ is_enabled: true, whatsapp_group_link: "", bonus_amount: "5", bonus_title: "Bono de bienvenida por activador {activator}", commission_percentage: "5", commission_duration: "indefinite", commission_duration_months: "" });
   const [pendingActivatorCount, setPendingActivatorCount] = useState(0);
@@ -4455,51 +4456,92 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 </div>
               )}
 
-              {/* Activator performance: podium + full table */}
+              {/* Activator performance: podium + full table with department filter */}
               {activatorPerformance.length > 0 && (() => {
-                const medals = ["🥇","🥇","🥈","🥉"];
                 const podiumColors = [
-                  { bg: "hsl(47 95% 52% / 0.15)", border: "hsl(47 95% 52% / 0.5)", text: "hsl(47 90% 30%)" },
                   { bg: "hsl(47 95% 52% / 0.15)", border: "hsl(47 95% 52% / 0.5)", text: "hsl(47 90% 30%)" },
                   { bg: "hsl(220 15% 60% / 0.15)", border: "hsl(220 15% 60% / 0.4)", text: "hsl(220 10% 35%)" },
                   { bg: "hsl(27 80% 55% / 0.15)", border: "hsl(27 80% 55% / 0.4)", text: "hsl(27 70% 30%)" },
                 ];
-                const top3 = activatorPerformance.slice(0, 3);
+                const podiumMedals = ["🥇","🥈","🥉"];
+
+                // Unique departments sorted
+                const departments = Array.from(new Set(activatorPerformance.map(a => a.department || "Sin depto."))).sort();
+
+                // Filtered list: if dept selected, only that dept ordered by total; else global
+                const filtered = deptFilter === "__all__"
+                  ? [...activatorPerformance].sort((a, b) => b.total - a.total)
+                  : [...activatorPerformance].filter(a => (a.department || "Sin depto.") === deptFilter).sort((a, b) => b.total - a.total);
+
+                const top3 = filtered.slice(0, 3);
+
                 return (
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>🏆 Desempeño de Activadores</h3>
+                      <span className="text-[11px] text-muted-foreground font-bold">{filtered.length} activador{filtered.length !== 1 ? "es" : ""}</span>
                     </div>
 
-                    {/* Podium */}
-                    <div className="grid grid-cols-3 gap-2 mb-3">
-                      {top3.map((a, i) => (
-                        <div key={a.code} className="rounded-2xl p-3 text-center"
-                          style={{ background: podiumColors[i+1].bg, border: `1px solid ${podiumColors[i+1].border}` }}>
-                          <p className="text-2xl">{medals[i+1]}</p>
-                          <p className="font-black text-xs mt-1 leading-tight truncate" style={{ color: podiumColors[i+1].text, fontFamily: "'Poppins', sans-serif" }}>
-                            {a.full_name.split(" ")[0]}
-                          </p>
-                          <p className="text-[10px] font-mono text-muted-foreground">{a.code}</p>
-                          <p className="font-black text-lg mt-1" style={{ fontFamily: "'Poppins', sans-serif" }}>{a.total}</p>
-                          <p className="text-[10px] text-muted-foreground">referidos</p>
-                        </div>
-                      ))}
+                    {/* Department filter pills */}
+                    <div className="flex gap-1.5 flex-wrap mb-3">
+                      {["__all__", ...departments].map(dept => {
+                        const label = dept === "__all__" ? "🌐 Todos" : dept;
+                        const count = dept === "__all__" ? activatorPerformance.length : activatorPerformance.filter(a => (a.department || "Sin depto.") === dept).length;
+                        const active = deptFilter === dept;
+                        return (
+                          <button key={dept}
+                            onClick={() => setDeptFilter(dept)}
+                            className="px-2.5 py-1 rounded-full text-[11px] font-bold transition-all"
+                            style={{
+                              background: active ? "hsl(var(--primary))" : "hsl(var(--muted))",
+                              color: active ? "white" : "hsl(var(--muted-foreground))",
+                              border: active ? "none" : "1px solid hsl(var(--border))",
+                            }}>
+                            {label} <span className="opacity-75">({count})</span>
+                          </button>
+                        );
+                      })}
                     </div>
+
+                    {/* Podium top 3 of current filter */}
+                    {top3.length >= 1 && (
+                      <div className={`grid gap-2 mb-3 ${top3.length === 1 ? "grid-cols-1" : top3.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+                        {top3.map((a, i) => (
+                          <div key={a.code} className="rounded-2xl p-3 text-center"
+                            style={{ background: podiumColors[i].bg, border: `1px solid ${podiumColors[i].border}` }}>
+                            <p className="text-2xl">{podiumMedals[i]}</p>
+                            <p className="font-black text-xs mt-1 leading-tight truncate" style={{ color: podiumColors[i].text, fontFamily: "'Poppins', sans-serif" }}>
+                              {a.full_name.split(" ")[0]}
+                            </p>
+                            <p className="text-[10px] font-mono text-muted-foreground">{a.code}</p>
+                            {deptFilter === "__all__" && (
+                              <p className="text-[10px] font-bold mt-0.5" style={{ color: "hsl(var(--primary))" }}>{a.department || "—"}</p>
+                            )}
+                            <p className="font-black text-lg mt-1" style={{ fontFamily: "'Poppins', sans-serif" }}>{a.total}</p>
+                            <p className="text-[10px] text-muted-foreground">referidos</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Full table */}
                     <div className="rounded-2xl border overflow-hidden">
                       <div className="grid text-[10px] font-black text-muted-foreground px-3 py-2"
                         style={{ gridTemplateColumns: "1.5rem 1fr 2.5rem 2.5rem 3rem 3rem", gap: "0.25rem", background: "hsl(var(--muted)/0.4)" }}>
-                        <span>#</span><span>Activador</span><span className="text-center">Hoy</span><span className="text-center">Sem.</span><span className="text-center">Mes</span><span className="text-center">Total</span>
+                        <span>#</span>
+                        <span>Activador{deptFilter === "__all__" ? " / Depto." : ` · ${deptFilter}`}</span>
+                        <span className="text-center">Hoy</span><span className="text-center">Sem.</span>
+                        <span className="text-center">Mes</span><span className="text-center">Total</span>
                       </div>
-                      {activatorPerformance.map((a, i) => (
+                      {filtered.map((a, i) => (
                         <div key={a.code} className="grid items-center px-3 py-2.5 border-t text-xs"
-                          style={{ gridTemplateColumns: "1.5rem 1fr 2.5rem 2.5rem 3rem 3rem", gap: "0.25rem", background: i < 1 ? "hsl(47 95% 52% / 0.06)" : undefined }}>
-                          <span className="font-black text-[11px]">{medals[i] ?? `${i+1}`}</span>
+                          style={{ gridTemplateColumns: "1.5rem 1fr 2.5rem 2.5rem 3rem 3rem", gap: "0.25rem", background: i === 0 ? "hsl(47 95% 52% / 0.06)" : undefined }}>
+                          <span className="font-black text-[11px]">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i+1}`}</span>
                           <div className="min-w-0">
                             <p className="font-bold truncate leading-tight">{a.full_name.split(" ").slice(0,2).join(" ")}</p>
-                            <p className="text-[10px] font-mono text-muted-foreground">{a.code}</p>
+                            <p className="text-[10px] font-mono text-muted-foreground">
+                              {a.code}{deptFilter === "__all__" ? ` · ${a.department || "—"}` : ""}
+                            </p>
                           </div>
                           <span className="text-center font-bold" style={{ color: a.today > 0 ? "hsl(142 70% 30%)" : undefined }}>{a.today}</span>
                           <span className="text-center font-bold" style={{ color: a.this_week > 0 ? "hsl(142 70% 30%)" : undefined }}>{a.this_week}</span>
@@ -4507,8 +4549,8 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           <span className="text-center font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>{a.total}</span>
                         </div>
                       ))}
-                      {activatorPerformance.length === 0 && (
-                        <p className="text-xs text-muted-foreground text-center py-6">Sin activadores aún</p>
+                      {filtered.length === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-6">Sin activadores en {deptFilter === "__all__" ? "el sistema" : deptFilter}</p>
                       )}
                     </div>
                   </div>

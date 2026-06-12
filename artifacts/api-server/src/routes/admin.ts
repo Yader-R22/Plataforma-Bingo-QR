@@ -1243,6 +1243,7 @@ router.get("/activator-performance", async (_req, res) => {
       rc.user_id                                                          AS activator_id,
       u.full_name,
       u.ci,
+      u.department,
       COUNT(ref.id)                                                        AS total,
       COUNT(ref.id) FILTER (WHERE ref.created_at >= CURRENT_DATE)         AS today,
       COUNT(ref.id) FILTER (WHERE ref.created_at >= DATE_TRUNC('week',  CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz'))  AS this_week,
@@ -1251,8 +1252,8 @@ router.get("/activator-performance", async (_req, res) => {
     JOIN users u ON u.id = rc.user_id
     LEFT JOIN users ref ON ref.referred_by_code = rc.code
     WHERE rc.is_active = true
-    GROUP BY rc.code, rc.user_id, u.full_name, u.ci
-    ORDER BY total DESC, this_week DESC
+    GROUP BY rc.code, rc.user_id, u.full_name, u.ci, u.department
+    ORDER BY u.department ASC, total DESC
   `);
 
   res.json(rows.rows.map((r: any) => ({
@@ -1260,6 +1261,7 @@ router.get("/activator-performance", async (_req, res) => {
     activator_id: Number(r.activator_id),
     full_name: r.full_name,
     ci: r.ci,
+    department: r.department ?? "",
     total: Number(r.total),
     today: Number(r.today),
     this_week: Number(r.this_week),
