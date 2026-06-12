@@ -1358,16 +1358,15 @@ router.put("/activator-settings", async (req: AuthRequest, res) => {
     await db.insert(activatorSettingsTable).values({ id: 1, ...patch });
   }
 
-  // Retroactively set bonus_expires_at for existing referred users that have
-  // bonus_balance > 0 and no expiry yet. This lets the admin apply a validity
-  // window to users who registered before the setting was configured.
+  // Retroactively apply the new validity window to ALL current bonus holders
+  // (bonus_balance > 0 and referred via a code). This handles both first-time
+  // configuration (bonus_expires_at IS NULL) and adjustments (e.g. 24h → 48h).
   if (bonus_validity_hours != null && bonus_validity_hours > 0) {
     await db.execute(
       sql`UPDATE users
           SET bonus_expires_at = NOW() + (${bonus_validity_hours} * INTERVAL '1 hour')
           WHERE bonus_balance > 0
-            AND referred_by_code IS NOT NULL
-            AND bonus_expires_at IS NULL`
+            AND referred_by_code IS NOT NULL`
     );
   }
 
