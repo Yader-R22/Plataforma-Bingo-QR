@@ -434,38 +434,45 @@ export default function PlayPage() {
           </div>
         )}
 
-        {/* Live Winners */}
-        {liveWinners.length > 0 && (
-          <div className="rounded-2xl p-4" style={{ background: "rgba(255,215,0,0.07)", border: "1px solid rgba(255,215,0,0.2)" }}>
-            <p className="text-xs font-black uppercase tracking-wider mb-3" style={{ color: "hsl(42 98% 60%)" }}>
-              🏆 Ganadores del bingo
-            </p>
-            <div className="space-y-2.5">
-              {liveWinners.map(w => (
-                <div key={w.id} className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5"
-                  style={{ background: "rgba(255,255,255,0.05)" }}>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="text-xs font-black px-1.5 py-0.5 rounded-full"
+        {/* Live Winners — solo ganadores de la ronda actual */}
+        {(() => {
+          const currentRound = session?.current_round ?? 1;
+          const totalRounds = session?.total_rounds ?? 1;
+          const roundWinners = liveWinners.filter(w => w.round === currentRound);
+          if (roundWinners.length === 0) return null;
+
+          const roundLabel = totalRounds > 1
+            ? `Ganador de la ronda ${currentRound}`
+            : "Ganador del bingo";
+
+          return (
+            <div className="rounded-2xl p-4" style={{ background: "rgba(255,215,0,0.07)", border: "1px solid rgba(255,215,0,0.2)" }}>
+              <p className="text-xs font-black uppercase tracking-wider mb-3" style={{ color: "hsl(42 98% 60%)" }}>
+                🏆 {roundLabel}
+              </p>
+              <div className="space-y-2">
+                {roundWinners.map(w => (
+                  <div key={w.id} className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-white font-black text-base leading-tight truncate">
+                        {w.user_name ?? "Jugador"}
+                      </p>
+                      <p className="text-white/50 text-xs mt-0.5">
+                        {w.user_department ?? "Bolivia"} · Bs {w.prize_amount.toFixed(0)}
+                      </p>
+                    </div>
+                    {roundWinners.length > 1 && (
+                      <span className="shrink-0 text-xs font-black px-2 py-0.5 rounded-full"
                         style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>
                         #{w.place}
                       </span>
-                      <p className="text-white font-black text-sm leading-tight truncate">
-                        {w.user_name ?? "Jugador"}
-                      </p>
-                    </div>
-                    <p className="text-white/50 text-xs pl-0.5">
-                      {w.user_department ?? "Bolivia"} · Ronda {w.round}
-                    </p>
+                    )}
                   </div>
-                  <p className="shrink-0 font-black text-lg" style={{ color: "hsl(42 98% 60%)", fontFamily: "'Poppins', sans-serif" }}>
-                    Bs {w.prize_amount.toFixed(0)}
-                  </p>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Auto-mark info */}
         <div className="flex items-center gap-2 px-1">
