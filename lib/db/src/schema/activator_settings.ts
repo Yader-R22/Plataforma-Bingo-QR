@@ -12,6 +12,7 @@ import { usersTable } from "./users";
 export const activatorSettingsTable = pgTable("activator_settings", {
   id: serial("id").primaryKey(),
   isEnabled: boolean("is_enabled").notNull().default(true),
+  whatsappGroupLink: text("whatsapp_group_link"),
   bonusAmount: numeric("bonus_amount", { precision: 10, scale: 2 }).notNull().default("5"),
   bonusTitle: text("bonus_title").notNull().default("Bono de bienvenida"),
   commissionPercentage: numeric("commission_percentage", { precision: 5, scale: 2 }).notNull().default("5"),

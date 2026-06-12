@@ -732,7 +732,7 @@ export default function AdminPage() {
   const [activatorSettings, setActivatorSettings] = useState<any>(null);
   const [referralStats, setReferralStats] = useState<any>(null);
   const [savingActSettings, setSavingActSettings] = useState(false);
-  const [actSettingsForm, setActSettingsForm] = useState({ is_enabled: true, bonus_amount: "5", bonus_title: "Bono de bienvenida por activador {activator}", commission_percentage: "5", commission_duration: "indefinite", commission_duration_months: "" });
+  const [actSettingsForm, setActSettingsForm] = useState({ is_enabled: true, whatsapp_group_link: "", bonus_amount: "5", bonus_title: "Bono de bienvenida por activador {activator}", commission_percentage: "5", commission_duration: "indefinite", commission_duration_months: "" });
   const [pendingActivatorCount, setPendingActivatorCount] = useState(0);
   const [reqNoteInput, setReqNoteInput] = useState<Record<number, string>>({});
   const [reqNoteOpen, setReqNoteOpen] = useState<Record<number, "reject" | "hold" | null>>({});
@@ -849,6 +849,7 @@ export default function AdminPage() {
           setActivatorSettings(s);
           setActSettingsForm({
             is_enabled: s.is_enabled ?? true,
+            whatsapp_group_link: s.whatsapp_group_link ?? "",
             bonus_amount: String(s.bonus_amount),
             bonus_title: s.bonus_title,
             commission_percentage: String(s.commission_percentage),
@@ -4419,6 +4420,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 headers: authH(),
                 body: JSON.stringify({
                   is_enabled: actSettingsForm.is_enabled,
+                  whatsapp_group_link: actSettingsForm.whatsapp_group_link.trim() || null,
                   bonus_amount: parseFloat(actSettingsForm.bonus_amount) || 5,
                   bonus_title: actSettingsForm.bonus_title,
                   commission_percentage: parseFloat(actSettingsForm.commission_percentage) || 5,
@@ -4673,6 +4675,18 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 </div>
 
                 <div className="space-y-2.5">
+                  <div>
+                    <label className="text-[11px] font-bold block mb-1">
+                      <span style={{ color: "#25D366" }}>💬</span> Enlace grupo WhatsApp de activadores
+                    </label>
+                    <input
+                      className="input-field text-sm py-2"
+                      placeholder="https://chat.whatsapp.com/..."
+                      value={actSettingsForm.whatsapp_group_link}
+                      onChange={e => setActSettingsForm(f => ({ ...f, whatsapp_group_link: e.target.value }))}
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">Los activadores aceptados verán este botón en su perfil. Déjalo vacío para ocultarlo.</p>
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="text-[11px] font-bold block mb-1">Bono bienvenida (Bs)</label>

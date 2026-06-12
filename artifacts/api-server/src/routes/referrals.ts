@@ -85,9 +85,10 @@ router.get("/status", requireAuth, async (req: AuthRequest, res) => {
   ]);
 
   const programEnabled = settingsRows.length ? settingsRows[0].isEnabled : true;
+  const whatsappGroupLink = settingsRows.length ? (settingsRows[0].whatsappGroupLink ?? null) : null;
 
   if (!requests.length) {
-    res.json({ has_request: false, status: null, code: null, link: null, program_enabled: programEnabled });
+    res.json({ has_request: false, status: null, code: null, link: null, program_enabled: programEnabled, whatsapp_group_link: whatsappGroupLink });
     return;
   }
 
@@ -114,6 +115,7 @@ router.get("/status", requireAuth, async (req: AuthRequest, res) => {
     link,
     created_at: request.createdAt,
     program_enabled: programEnabled,
+    whatsapp_group_link: whatsappGroupLink,
   });
 });
 

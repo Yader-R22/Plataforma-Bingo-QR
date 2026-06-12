@@ -1186,6 +1186,7 @@ router.get("/activator-settings", async (_req, res) => {
   const s = rows[0];
   res.json({
     is_enabled: s.isEnabled,
+    whatsapp_group_link: s.whatsappGroupLink ?? null,
     bonus_amount: parseFloat(s.bonusAmount),
     bonus_title: s.bonusTitle,
     commission_percentage: parseFloat(s.commissionPercentage),
@@ -1195,8 +1196,9 @@ router.get("/activator-settings", async (_req, res) => {
 });
 
 router.put("/activator-settings", async (req: AuthRequest, res) => {
-  const { is_enabled, bonus_amount, bonus_title, commission_percentage, commission_duration, commission_duration_months } = req.body as {
+  const { is_enabled, whatsapp_group_link, bonus_amount, bonus_title, commission_percentage, commission_duration, commission_duration_months } = req.body as {
     is_enabled?: boolean;
+    whatsapp_group_link?: string | null;
     bonus_amount?: number;
     bonus_title?: string;
     commission_percentage?: number;
@@ -1207,6 +1209,7 @@ router.put("/activator-settings", async (req: AuthRequest, res) => {
   const existing = await db.select().from(activatorSettingsTable).where(eq(activatorSettingsTable.id, 1)).limit(1);
   const patch: Record<string, any> = { updatedAt: new Date(), updatedById: req.userId! };
   if (is_enabled != null) patch.isEnabled = Boolean(is_enabled);
+  if (whatsapp_group_link !== undefined) patch.whatsappGroupLink = whatsapp_group_link?.trim() || null;
   if (bonus_amount != null) patch.bonusAmount = String(bonus_amount);
   if (bonus_title != null) patch.bonusTitle = bonus_title.trim();
   if (commission_percentage != null) patch.commissionPercentage = String(commission_percentage);
@@ -1222,6 +1225,7 @@ router.put("/activator-settings", async (req: AuthRequest, res) => {
   const [updated] = await db.select().from(activatorSettingsTable).where(eq(activatorSettingsTable.id, 1));
   res.json({
     is_enabled: updated.isEnabled,
+    whatsapp_group_link: updated.whatsappGroupLink ?? null,
     bonus_amount: parseFloat(updated.bonusAmount),
     bonus_title: updated.bonusTitle,
     commission_percentage: parseFloat(updated.commissionPercentage),
