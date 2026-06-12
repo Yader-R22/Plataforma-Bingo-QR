@@ -259,7 +259,13 @@ export default function HomePage() {
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
 
-  const { data: games = [] } = useListGames();
+  const { data: games = [], refetch: refetchGames } = useListGames();
+
+  // Poll game list every 8s so any admin change is immediately visible on home
+  useEffect(() => {
+    const iv = setInterval(() => { void refetchGames(); }, 8000);
+    return () => clearInterval(iv);
+  }, []);
   const { data: categories = [] } = useListCategories();
   const { data: wallet } = useGetWallet({
     query: {

@@ -225,7 +225,13 @@ export default function GameDetailPage() {
   const [winners, setWinners] = useState<Winner[]>([]);
 
   const gameId = parseInt(params?.id ?? "0");
-  const { data: game, isLoading } = useGetGame(gameId);
+  const { data: game, isLoading, refetch: refetchGame } = useGetGame(gameId);
+
+  // Poll game data every 8s so any admin change (reset, start, finish) is reflected immediately
+  useEffect(() => {
+    const iv = setInterval(() => { void refetchGame(); }, 8000);
+    return () => clearInterval(iv);
+  }, []);
 
   // Refresh user balance from server so wallet display is always current
   useEffect(() => {
@@ -236,13 +242,21 @@ export default function GameDetailPage() {
       .catch(() => {});
   }, [token]);
 
+  // Load winners when finished (poll every 8s); clear immediately when status changes away
   useEffect(() => {
-    if (game?.status === "finished") {
+    if (game?.status !== "finished") {
+      setWinners([]);
+      return;
+    }
+    const load = () => {
       fetch(`${BASE}/api/games/${gameId}/winners`)
         .then(r => r.ok ? r.json() : [])
         .then(data => setWinners(Array.isArray(data) ? data : []))
         .catch(() => {});
-    }
+    };
+    load();
+    const iv = setInterval(load, 8000);
+    return () => clearInterval(iv);
   }, [game?.status, gameId]);
 
   async function handleBuy() {

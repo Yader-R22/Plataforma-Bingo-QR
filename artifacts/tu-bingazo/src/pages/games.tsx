@@ -70,7 +70,13 @@ export default function GamesPage() {
   }, [search]);
 
   const user = useAuthStore(s => s.user);
-  const { data: allGames, isLoading } = useListGames();
+  const { data: allGames, isLoading, refetch: refetchGames } = useListGames();
+
+  // Poll game list every 8s so status changes from admin are reflected immediately
+  useEffect(() => {
+    const iv = setInterval(() => { void refetchGames(); }, 8000);
+    return () => clearInterval(iv);
+  }, []);
   const allGamesList = (allGames ?? []) as any[];
   const existingTypes = new Set(allGamesList.map((g: any) => g.type));
   const TYPE_FILTERS = ALL_TYPE_FILTERS.filter(f => f.value === "all" || existingTypes.has(f.value));
