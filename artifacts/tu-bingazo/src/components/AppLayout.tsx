@@ -344,6 +344,7 @@ interface AppLayoutProps {
   children: ReactNode;
   hideNav?: boolean;
   hideLogo?: boolean;
+  hideTopBar?: boolean;
   title?: string;
   showBack?: boolean;
   onBack?: () => void;
@@ -452,7 +453,7 @@ function IconRegister({ active }: { active: boolean }) {
   );
 }
 
-export default function AppLayout({ children, hideNav, hideLogo, title, showBack, onBack }: AppLayoutProps) {
+export default function AppLayout({ children, hideNav, hideLogo, hideTopBar, title, showBack, onBack }: AppLayoutProps) {
   const [location] = useLocation();
   const user = useAuthStore(s => s.user);
   const token = useAuthStore(s => s.token);
@@ -512,7 +513,7 @@ export default function AppLayout({ children, hideNav, hideLogo, title, showBack
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Top bar */}
-      <header
+      {!hideTopBar && <header
         className="sticky top-0 z-40 flex items-center px-4 gap-3"
         style={{
           background: "linear-gradient(135deg, #1a0050, #2d0082)",
@@ -555,7 +556,7 @@ export default function AppLayout({ children, hideNav, hideLogo, title, showBack
             </div>
           </Link>
         ) : null}
-      </header>
+      </header>}
 
       {/* Content */}
       <main className={hideNav ? "flex-1" : "flex-1 safe-pb"}>{children}</main>
