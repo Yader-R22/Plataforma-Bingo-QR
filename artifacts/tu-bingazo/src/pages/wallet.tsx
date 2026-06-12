@@ -134,7 +134,7 @@ export default function WalletPage() {
   const numAmount = parseFloat(amount) || 0;
 
   return (
-    <AppLayout>
+    <AppLayout hideTopBar>
       {proofModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}
           onClick={() => setProofModal(null)}>

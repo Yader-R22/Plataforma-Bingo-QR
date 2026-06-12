@@ -342,7 +342,7 @@ export default function HomePage() {
   const featuredGame = gamesList.find((g: any) => g.is_featured && g.status !== "finished");
 
   return (
-    <AppLayout>
+    <AppLayout hideTopBar={!!user}>
       {/* Hero */}
       <div className="hero-bg px-4 pt-5 pb-0 text-white relative overflow-hidden">
         {/* Banner images — rotate behind all content */}

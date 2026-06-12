@@ -87,7 +87,7 @@ export default function GamesPage() {
   const typeTitle = filter === "daily" ? "Bingos Diarios" : filter === "weekly" ? "Bingos Semanales" : filter === "monthly" ? "Bingos Mensuales" : "Juegos Disponibles";
 
   return (
-    <AppLayout>
+    <AppLayout hideTopBar>
       {/* Header */}
       <div className="hero-bg px-4 py-5 text-white">
         <h1 className="text-2xl font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>
