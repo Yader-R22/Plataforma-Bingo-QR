@@ -152,7 +152,7 @@ router.post("/register", async (req, res) => {
     }
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await bcrypt.hash(password, 10);
   const hasPhotos = !!(id_photo_front && id_photo_back);
   const [user] = await db.insert(usersTable).values({
     fullName: full_name,
@@ -238,7 +238,7 @@ router.post("/reset-password", async (req, res) => {
     res.status(400).json({ error: "Token inválido o expirado" });
     return;
   }
-  const passwordHash = await bcrypt.hash(new_password, 12);
+  const passwordHash = await bcrypt.hash(new_password, 10);
   await db.update(usersTable).set({ passwordHash, mustChangePassword: false, tempPasswordDisplay: null, resetToken: null, resetTokenExpiresAt: null }).where(eq(usersTable.id, users[0].id));
   res.json({ message: "Contraseña actualizada correctamente" });
 });
