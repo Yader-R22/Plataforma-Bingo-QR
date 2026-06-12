@@ -18,6 +18,7 @@ export default function WalletPage() {
   const user = useAuthStore(s => s.user);
   const [step, setStep] = useState<"idle" | "amount" | "method" | "qr-upload" | "bank-form">("idle");
   const [amount, setAmount] = useState("");
+  const [cajeroError, setCajeroError] = useState(false);
   const [qrPreview, setQrPreview] = useState<string | null>(null);
   const [qrBase64, setQrBase64] = useState<string | null>(null);
   const [bank, setBank] = useState(BANKS[0]);
@@ -232,7 +233,7 @@ export default function WalletPage() {
         {step === "method" && (
           <div className="bg-card border rounded-2xl p-5 space-y-4">
             <div className="flex items-center gap-3 mb-2">
-              <button onClick={() => setStep("amount")} className="text-muted-foreground p-1">
+              <button onClick={() => { setStep("amount"); setCajeroError(false); }} className="text-muted-foreground p-1">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
               </button>
               <h3 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>
@@ -241,7 +242,7 @@ export default function WalletPage() {
             </div>
             <p className="text-sm text-muted-foreground">¿Cómo quieres recibir tu dinero?</p>
 
-            <button onClick={() => setStep("qr-upload")}
+            <button onClick={() => { setCajeroError(false); setStep("qr-upload"); }}
               className="w-full p-4 rounded-2xl border-2 text-left transition-all hover:border-primary"
               style={{ borderColor: "hsl(var(--border))" }}>
               <div className="flex items-center gap-3">
@@ -254,9 +255,17 @@ export default function WalletPage() {
               </div>
             </button>
 
-            <button onClick={() => setStep("bank-form")}
+            <button
+              onClick={() => {
+                if (numAmount % 10 !== 0) {
+                  setCajeroError(true);
+                } else {
+                  setCajeroError(false);
+                  setStep("bank-form");
+                }
+              }}
               className="w-full p-4 rounded-2xl border-2 text-left transition-all hover:border-primary"
-              style={{ borderColor: "hsl(var(--border))" }}>
+              style={{ borderColor: cajeroError ? "hsl(0 75% 52%)" : "hsl(var(--border))" }}>
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
                   style={{ background: "hsl(var(--primary) / 0.1)" }}>🏧</div>
@@ -266,6 +275,39 @@ export default function WalletPage() {
                 </div>
               </div>
             </button>
+
+            {cajeroError && (
+              <div className="rounded-2xl p-4 space-y-3"
+                style={{ background: "hsl(0 75% 52% / 0.07)", border: "1.5px solid hsl(0 75% 52% / 0.3)" }}>
+                <p className="text-sm font-bold" style={{ color: "hsl(0 75% 40%)" }}>
+                  🏧 Los cajeros solo entregan billetes enteros
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  El monto <strong>Bs {numAmount.toFixed(0)}</strong> no es válido para cajero. Elige un múltiplo de 10:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {(() => {
+                    const base = Math.floor(numAmount / 10) * 10;
+                    const opts = new Set<number>();
+                    for (let i = -2; i <= 3; i++) {
+                      const v = base + i * 10;
+                      if (v >= 10 && v <= (wallet?.balance ?? 0)) opts.add(v);
+                    }
+                    return Array.from(opts).sort((a, b) => a - b).map(v => (
+                      <button key={v} onClick={() => { setAmount(String(v)); setCajeroError(false); setStep("bank-form"); }}
+                        className="px-4 py-2 rounded-xl font-black text-sm transition-all"
+                        style={{
+                          background: "hsl(var(--primary))",
+                          color: "white",
+                          fontFamily: "'Poppins', sans-serif",
+                        }}>
+                        Bs {v}
+                      </button>
+                    ));
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

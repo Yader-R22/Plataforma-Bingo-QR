@@ -22,6 +22,7 @@ const ALL_TABS = [
   { id: "winners",      label: "🏆 Ganadores",   perm: "admin:games" },
   { id: "referidos",    label: "🔗 Referidos",   perm: null },
   { id: "resets",       label: "🔑 Resets",       perm: "admin:resets" },
+  { id: "sitio",        label: "🌐 Sitio Web",   perm: null },
   { id: "logs",         label: "📋 Auditoría",   perm: "admin:logs" },
 ] as const;
 
@@ -734,6 +735,19 @@ export default function AdminPage() {
   const [banModal, setBanModal] = useState<{ id: number; name: string } | null>(null);
   const [banReason, setBanReason] = useState("");
   const [togglingProgram, setTogglingProgram] = useState(false);
+  const [siteSettingsData, setSiteSettingsData] = useState<any>(null);
+  const [siteForm, setSiteForm] = useState({
+    site_name: "Tu Bingazo",
+    site_tagline: "Bingo en Vivo Bolivia",
+    site_emoji: "🎱",
+    favicon_url: "",
+    logo_url: "",
+    seo_title: "Tu Bingazo — Bingo en Vivo Bolivia",
+    seo_description: "La plataforma de bingo en vivo más grande de Bolivia. Gana premios en efectivo desde tu celular.",
+    seo_keywords: "bingo, bolivia, bingo en vivo, premios, dinero",
+    primary_color: "#1a0050",
+  });
+  const [savingSite, setSavingSite] = useState(false);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
@@ -856,6 +870,24 @@ export default function AdminPage() {
         }
         if (stR.ok) setReferralStats(await stR.json());
         if (perfR.ok) setActivatorPerformance(await perfR.json());
+      }
+      if (t === "sitio") {
+        const r = await fetch(`${BASE}/api/site-settings`);
+        if (r.ok) {
+          const s = await r.json();
+          setSiteSettingsData(s);
+          setSiteForm({
+            site_name: s.site_name,
+            site_tagline: s.site_tagline,
+            site_emoji: s.site_emoji,
+            favicon_url: s.favicon_url ?? "",
+            logo_url: s.logo_url ?? "",
+            seo_title: s.seo_title,
+            seo_description: s.seo_description,
+            seo_keywords: s.seo_keywords,
+            primary_color: s.primary_color,
+          });
+        }
       }
       if (t === "finance") {
         const period = financePeriod;
@@ -4959,6 +4991,200 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             {logs.length === 0 && <p className="text-center text-muted-foreground py-8">Sin registros de auditoría</p>}
           </div>
         )}
+
+        {/* ── Sitio Web ───────────────────────────────────────────── */}
+        {tab === "sitio" && !loading && (() => {
+          const imgRef = { favicon: null as HTMLInputElement | null, logo: null as HTMLInputElement | null };
+
+          function handleImgUpload(field: "favicon_url" | "logo_url", e: React.ChangeEvent<HTMLInputElement>) {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => setSiteForm(f => ({ ...f, [field]: ev.target?.result as string }));
+            reader.readAsDataURL(file);
+          }
+
+          async function saveSiteSettings() {
+            setSavingSite(true);
+            try {
+              const body: Record<string, string | null> = {
+                site_name: siteForm.site_name,
+                site_tagline: siteForm.site_tagline,
+                site_emoji: siteForm.site_emoji,
+                favicon_url: siteForm.favicon_url || null,
+                logo_url: siteForm.logo_url || null,
+                seo_title: siteForm.seo_title,
+                seo_description: siteForm.seo_description,
+                seo_keywords: siteForm.seo_keywords,
+                primary_color: siteForm.primary_color,
+              };
+              const r = await fetch(`${BASE}/api/site-settings`, {
+                method: "PUT",
+                headers: authH(),
+                body: JSON.stringify(body),
+              });
+              if (r.ok) {
+                const updated = await r.json();
+                setSiteSettingsData(updated);
+                toast.success("✅ Configuración del sitio guardada");
+              } else {
+                const d = await r.json().catch(() => ({}));
+                toast.error(d.error || "Error al guardar");
+              }
+            } catch {
+              toast.error("Error de red");
+            } finally {
+              setSavingSite(false);
+            }
+          }
+
+          const sf = siteForm;
+
+          return (
+            <div className="space-y-6">
+              <div className="rounded-2xl p-5 space-y-5" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>🌐 Identidad del Sitio</h2>
+
+                {/* Preview strip */}
+                <div className="rounded-xl p-3 flex items-center gap-3"
+                  style={{ background: "linear-gradient(135deg, " + (sf.primary_color || "#1a0050") + ", " + (sf.primary_color || "#1a0050") + "cc)" }}>
+                  {sf.logo_url
+                    ? <img src={sf.logo_url} alt="logo" className="h-8 w-auto object-contain" />
+                    : <span className="text-2xl">{sf.site_emoji || "🎱"}</span>}
+                  <div>
+                    <p className="font-black text-white text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>{sf.site_name || "Tu Bingazo"}</p>
+                    <p className="text-white/60 text-xs">{sf.site_tagline || "Bingo en Vivo Bolivia"}</p>
+                  </div>
+                </div>
+
+                {/* Nombre + tagline */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Nombre del sitio</label>
+                    <input className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold bg-background"
+                      value={sf.site_name} onChange={e => setSiteForm(f => ({ ...f, site_name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Eslogan / Tagline</label>
+                    <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
+                      value={sf.site_tagline} onChange={e => setSiteForm(f => ({ ...f, site_tagline: e.target.value }))} />
+                  </div>
+                </div>
+
+                {/* Emoji + Color */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Emoji del logo (si no usas imagen)</label>
+                    <input className="w-full rounded-xl border px-3 py-2.5 text-2xl bg-background"
+                      value={sf.site_emoji} onChange={e => setSiteForm(f => ({ ...f, site_emoji: e.target.value }))} maxLength={4} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Color principal</label>
+                    <div className="flex items-center gap-2">
+                      <input type="color" className="w-10 h-10 rounded-lg border cursor-pointer"
+                        value={sf.primary_color} onChange={e => setSiteForm(f => ({ ...f, primary_color: e.target.value }))} />
+                      <input className="flex-1 rounded-xl border px-3 py-2.5 text-sm font-mono bg-background"
+                        value={sf.primary_color} onChange={e => setSiteForm(f => ({ ...f, primary_color: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Logo image upload */}
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Logo (imagen) — se muestra en el encabezado</label>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex-1 border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition-all"
+                      style={{ borderColor: sf.logo_url ? "hsl(var(--primary))" : "hsl(var(--border))" }}
+                      onClick={() => {
+                        const el = document.getElementById("admin-logo-upload") as HTMLInputElement;
+                        el?.click();
+                      }}>
+                      {sf.logo_url ? (
+                        <img src={sf.logo_url} alt="logo" className="max-h-16 mx-auto object-contain" />
+                      ) : (
+                        <p className="text-xs text-muted-foreground py-2">📁 Subir logo (PNG/SVG recomendado, fondo transparente)</p>
+                      )}
+                      <input id="admin-logo-upload" type="file" accept="image/*" className="hidden"
+                        onChange={e => handleImgUpload("logo_url", e)} />
+                    </div>
+                    {sf.logo_url && (
+                      <button onClick={() => setSiteForm(f => ({ ...f, logo_url: "" }))}
+                        className="text-red-500 text-xs font-bold px-3 py-2 rounded-lg border border-red-200 hover:bg-red-50">
+                        Quitar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Favicon */}
+              <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>🔖 Favicon (icono del sitio)</h2>
+                <p className="text-xs text-muted-foreground">El ícono que aparece en la pestaña del navegador, acceso directo al teléfono y en los resultados de búsqueda.</p>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-2xl border-2 flex items-center justify-center overflow-hidden shrink-0"
+                    style={{ borderColor: sf.favicon_url ? "hsl(var(--primary))" : "hsl(var(--border))", background: "hsl(var(--muted))" }}>
+                    {sf.favicon_url
+                      ? <img src={sf.favicon_url} alt="favicon" className="w-full h-full object-contain" />
+                      : <span className="text-3xl">{sf.site_emoji || "🎱"}</span>}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div
+                      className="border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition-all"
+                      style={{ borderColor: "hsl(var(--border))" }}
+                      onClick={() => {
+                        const el = document.getElementById("admin-favicon-upload") as HTMLInputElement;
+                        el?.click();
+                      }}>
+                      <p className="text-xs text-muted-foreground">📁 Subir favicon (PNG/ICO/SVG, mínimo 32×32px)</p>
+                      <input id="admin-favicon-upload" type="file" accept="image/*" className="hidden"
+                        onChange={e => handleImgUpload("favicon_url", e)} />
+                    </div>
+                    {sf.favicon_url && (
+                      <button onClick={() => setSiteForm(f => ({ ...f, favicon_url: "" }))}
+                        className="text-red-500 text-xs font-bold">
+                        ✕ Quitar favicon personalizado (usar emoji)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* SEO */}
+              <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>🔍 SEO & Metadatos</h2>
+                <p className="text-xs text-muted-foreground">Controla cómo aparece el sitio en Google y qué ven los usuarios al compartir el enlace.</p>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Título de la pestaña / SEO</label>
+                    <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
+                      value={sf.seo_title} onChange={e => setSiteForm(f => ({ ...f, seo_title: e.target.value }))} />
+                    <p className="text-[11px] text-muted-foreground mt-1">Se muestra en la pestaña del navegador y en resultados de Google.</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Descripción SEO</label>
+                    <textarea className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background resize-none" rows={3}
+                      value={sf.seo_description} onChange={e => setSiteForm(f => ({ ...f, seo_description: e.target.value }))} />
+                    <p className="text-[11px] text-muted-foreground mt-1">Descripción corta (≤160 caracteres) para Google y redes sociales.</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Palabras clave (separadas por coma)</label>
+                    <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
+                      value={sf.seo_keywords} onChange={e => setSiteForm(f => ({ ...f, seo_keywords: e.target.value }))} />
+                  </div>
+                </div>
+              </div>
+
+              <button onClick={saveSiteSettings} disabled={savingSite}
+                className="btn-primary w-full">
+                {savingSite ? "Guardando..." : "💾 Guardar configuración del sitio"}
+              </button>
+            </div>
+          );
+        })()}
       </div>
     </AppLayout>
   );

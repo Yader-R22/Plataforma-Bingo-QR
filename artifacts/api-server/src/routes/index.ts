@@ -10,6 +10,7 @@ import { feedRouter } from "./feed";
 import { adminRouter } from "./admin";
 import { categoriesRouter } from "./categories";
 import { referralsRouter } from "./referrals";
+import { siteSettingsRouter } from "./site-settings";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use("/feed", feedRouter);
 router.use("/admin", adminRouter);
 router.use("/categories", categoriesRouter);
 router.use("/referrals", referralsRouter);
+router.use("/site-settings", siteSettingsRouter);
 
 export default router;

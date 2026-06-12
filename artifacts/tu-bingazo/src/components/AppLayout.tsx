@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
 
 const BASE = "";
@@ -454,6 +455,7 @@ export default function AppLayout({ children, hideNav, title, showBack, onBack }
   const token = useAuthStore(s => s.token);
   const setUser = useAuthStore(s => s.setUser);
   const logout = useAuthStore(s => s.logout);
+  const site = useSiteSettings();
 
   // On every mount (including page reloads) re-fetch the real user state from
   // the server so stale localStorage never shows a wrong screen.
@@ -523,9 +525,12 @@ export default function AppLayout({ children, hideNav, title, showBack, onBack }
         ) : (
           <Link href="/">
             <div className="flex items-center gap-2 cursor-pointer">
-              <span className="text-2xl leading-none">🎱</span>
+              {site.logo_url
+                ? <img src={site.logo_url} alt={site.site_name} className="h-8 w-auto object-contain" />
+                : <span className="text-2xl leading-none">{site.site_emoji}</span>
+              }
               <span className="font-black text-white" style={{ fontFamily: "'Poppins', sans-serif", fontSize: "1.15rem", letterSpacing: "-0.01em" }}>
-                Tu Bingazo
+                {site.site_name}
               </span>
             </div>
           </Link>
