@@ -79,8 +79,9 @@ export default function RegisterPage() {
   const { setAuth } = useAuthStore();
   const [, navigate] = useLocation();
 
-  // Detect referral code from URL query param ?ref=CODE
+  // Referral code: from URL (?ref=CODE) or typed manually in form
   const referralCode = new URLSearchParams(window.location.search).get("ref") ?? "";
+  const [manualRefCode, setManualRefCode] = useState("");
   const [refInfo, setRefInfo] = useState<{ activator_name: string; bonus_amount: number; bonus_title: string } | null>(null);
   useEffect(() => {
     if (!referralCode) return;
@@ -146,7 +147,7 @@ export default function RegisterPage() {
           department: form.department, password: form.password,
           id_photo_front: form.id_photo_front || undefined,
           id_photo_back: form.id_photo_back || undefined,
-          referral_code: referralCode || undefined,
+          referral_code: manualRefCode || referralCode || undefined,
         }),
       });
       const data = await res.json();
@@ -251,6 +252,28 @@ export default function RegisterPage() {
                 <div>
                   <label className="text-sm font-bold block mb-1.5">Confirmar contraseña</label>
                   <input className="input-field" type="password" placeholder="Repite la contraseña" value={form.confirmPassword} onChange={e => update("confirmPassword", e.target.value)} required />
+                </div>
+                <div>
+                  <label className="text-sm font-bold block mb-1.5">
+                    Código de activador <span className="font-normal text-muted-foreground">(opcional)</span>
+                  </label>
+                  <input
+                    className="input-field uppercase tracking-widest"
+                    placeholder="Ej: A3F2C9B1"
+                    maxLength={8}
+                    value={manualRefCode}
+                    onChange={e => {
+                      const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+                      setManualRefCode(val);
+                      if (val.length === 8) {
+                        fetch(`${BASE}/api/referrals/validate/${encodeURIComponent(val)}`)
+                          .then(r => r.ok ? r.json() : null)
+                          .then(d => { if (d?.valid) { setRefInfo(d); toast.success(`✅ Código válido · Activador: ${d.activator_name}`); } else if (val.length === 8) toast.error("Código de activador no válido"); })
+                          .catch(() => {});
+                      } else if (!val) setRefInfo(null);
+                    }}
+                  />
+                  {refInfo && <p className="text-xs font-bold mt-1" style={{ color: "hsl(142 70% 35%)" }}>✅ Activador: {refInfo.activator_name} · Bono Bs {refInfo.bonus_amount}</p>}
                 </div>
               </div>
               <button

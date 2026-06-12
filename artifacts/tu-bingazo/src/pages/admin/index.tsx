@@ -4504,6 +4504,21 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                 style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>✖ Rechazar</button>
                             </div>
                           )}
+                          {req.status === "accepted" && (
+                            <button onClick={async () => {
+                              if (!confirm(`¿Eliminar a ${req.user_full_name} como activador? Se revocará su código de referidos.`)) return;
+                              const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}/review`, {
+                                method: "POST",
+                                headers: authH(),
+                                body: JSON.stringify({ action: "reject", notes: "Activador eliminado por administrador" }),
+                              });
+                              if (r.ok) { loadTab("referidos"); toast.success("Activador eliminado"); }
+                              else toast.error("Error al eliminar activador");
+                            }} className="w-full py-2 rounded-xl text-sm font-bold border-2"
+                              style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>
+                              🗑️ Eliminar activador
+                            </button>
+                          )}
                           {req.status === "rejected" && (
                             <button onClick={() => reviewRequest(req.id, "accept")}
                               className="w-full py-2 rounded-xl text-sm font-bold text-white"

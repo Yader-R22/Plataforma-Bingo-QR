@@ -240,9 +240,17 @@ export default function ProfilePage() {
               {user.full_name}
             </h1>
             <p className="text-white/60 text-sm mt-0.5">CI: {user.ci}</p>
-            <div className="inline-block mt-2 text-xs font-bold px-3 py-1 rounded-full"
-              style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.color }}>
-              {sc.label}
+            <div className="flex flex-wrap gap-2 mt-2">
+              <div className="inline-block text-xs font-bold px-3 py-1 rounded-full"
+                style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.color }}>
+                {sc.label}
+              </div>
+              {activatorStatus?.status === "accepted" && (
+                <div className="inline-block text-xs font-bold px-3 py-1 rounded-full"
+                  style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.4)", color: "#4f46e5" }}>
+                  🔗 Activador
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -513,13 +521,8 @@ export default function ProfilePage() {
                   Compartir por WhatsApp
                 </button>
               </div>
-              {/* Referral history */}
-              <button className="w-full py-2 rounded-xl border text-sm font-bold"
-                style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}
-                onClick={loadReferralHistory}>
-                📋 Ver mis movimientos de referidos
-              </button>
-              {showReferralHistory && referralHistory && (
+              {/* Referral history — auto-load when activator panel opens */}
+              {referralHistory && (
                 <div className="space-y-2">
                   <p className="text-xs font-bold text-muted-foreground">
                     Total referidos: {referralHistory.total_referred}
