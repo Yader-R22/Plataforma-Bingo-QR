@@ -1236,6 +1236,37 @@ router.put("/activator-settings", async (req: AuthRequest, res) => {
 });
 
 // ── Referral stats for admin ──────────────────────────────────────────────────
+router.get("/activator-performance", async (_req, res) => {
+  const rows = await db.execute(sql`
+    SELECT
+      rc.code,
+      rc.user_id                                                          AS activator_id,
+      u.full_name,
+      u.ci,
+      COUNT(ref.id)                                                        AS total,
+      COUNT(ref.id) FILTER (WHERE ref.created_at >= CURRENT_DATE)         AS today,
+      COUNT(ref.id) FILTER (WHERE ref.created_at >= DATE_TRUNC('week',  CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz'))  AS this_week,
+      COUNT(ref.id) FILTER (WHERE ref.created_at >= DATE_TRUNC('month', CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz'))  AS this_month
+    FROM referral_codes rc
+    JOIN users u ON u.id = rc.user_id
+    LEFT JOIN users ref ON ref.referred_by_code = rc.code
+    WHERE rc.is_active = true
+    GROUP BY rc.code, rc.user_id, u.full_name, u.ci
+    ORDER BY total DESC, this_week DESC
+  `);
+
+  res.json(rows.rows.map((r: any) => ({
+    code: r.code,
+    activator_id: Number(r.activator_id),
+    full_name: r.full_name,
+    ci: r.ci,
+    total: Number(r.total),
+    today: Number(r.today),
+    this_week: Number(r.this_week),
+    this_month: Number(r.this_month),
+  })));
+});
+
 router.get("/referral-stats", async (_req, res) => {
   const [activators, totalReferrals, totalCommissions, totalBonuses] = await Promise.all([
     db.select({ count: sql<number>`count(*)` }).from(referralCodesTable).where(eq(referralCodesTable.isActive, true)),
