@@ -2022,25 +2022,78 @@ ${pp.admin_notes ? `<div style="margin-top:20px;padding:12px;background:#f8f7ff;
     setTimeout(() => w.print(), 400);
   }
 
-  function sharePartnerPaymentWhatsApp(pp: any) {
+  async function sharePartnerPaymentWhatsApp(pp: any) {
     const fmt = (v: number) => `Bs ${Number(v).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const snapshot: any[] = Array.isArray(pp.partners_snapshot) ? pp.partners_snapshot : [];
-    const lines = [
+    const dateStr = new Date(pp.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric" });
+    const waText = [
       `💜 *Pago a Socios — ${pp.period_label}*`,
-      `📅 ${new Date(pp.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric" })}`,
+      `📅 ${dateStr}`,
       ``,
       `📊 *Resumen del período:*`,
-      `  • Ingresos brutos: ${fmt(pp.gross_revenue)}`,
-      `  • Ganancia neta: ${fmt(pp.net_profit)}`,
-      `  • Total distribuido: *${fmt(pp.total_paid)}*`,
+      `  • Ingresos brutos: ${fmt(Number(pp.gross_revenue))}`,
+      `  • Ganancia neta: ${fmt(Number(pp.net_profit))}`,
+      `  • Total distribuido: *${fmt(Number(pp.total_paid))}*`,
       ``,
       `👥 *Detalle por socio:*`,
-      ...snapshot.map(ps => `  • ${ps.name} (${ps.share_percentage}%): *${fmt(ps.amount)}*`),
+      ...snapshot.map((ps: any) => `  • ${ps.name} (${ps.share_percentage}%): *${fmt(ps.amount)}*`),
       pp.admin_notes ? `\n📝 ${pp.admin_notes}` : "",
       ``,
       `_Tu Bingazo — Plataforma de Bingo Bolivia_ 🇧🇴`,
-    ].filter(l => l !== undefined).join("\n");
-    window.open(`https://wa.me/?text=${encodeURIComponent(lines)}`, "_blank");
+    ].filter(Boolean).join("\n");
+
+    // Build the same HTML used for the PDF so we can share an actual file
+    const pdfHtml = (() => {
+      const fmt2 = fmt;
+      const archiveDate = new Date(pp.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      const fs: any = pp.finance_snapshot ?? {};
+      const netProfit = Number(fs.net_profit ?? pp.net_profit ?? 0);
+      const grossRev  = Number(fs.gross_revenue ?? pp.gross_revenue ?? 0);
+      const totalPaid = Number(pp.total_paid ?? 0);
+      const snap      = snapshot;
+      const partnerRows = snap.map((p: any) => `<tr><td><b>${p.name}</b></td><td style="color:#64748b">${p.identifier || "—"}</td><td style="text-align:right;font-weight:bold;color:#7c3aed">${p.share_percentage}%</td><td style="text-align:right;font-weight:900;color:#5b21b6">${fmt2(p.amount)}</td></tr>`).join("");
+      return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Reporte — ${pp.period_label}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#1a1a2e;padding:32px;font-size:12px}h1{font-size:22px;color:#5b21b6;margin-bottom:4px}.subtitle{color:#64748b;font-size:13px;margin-bottom:24px}table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px}th{background:#5b21b6;color:white;padding:7px 10px;text-align:left;font-size:10px;text-transform:uppercase}td{padding:6px 10px;border-bottom:1px solid #f1f5f9}tr:nth-child(even) td{background:#faf5ff}.footer{margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:10px}.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}.kpi{border:1px solid #e2e8f0;border-radius:10px;padding:16px;text-align:center}.kpi-value{font-size:18px;font-weight:900}.kpi-label{font-size:10px;color:#64748b;margin-top:4px;text-transform:uppercase}</style></head><body>
+<h1>💰 Reporte Financiero — Tu Bingazo</h1>
+<p class="subtitle">Período: <b>${pp.period_label}</b> · Archivado el ${archiveDate}</p>
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt2(grossRev)}</div><div class="kpi-label">Ingresos brutos</div></div>
+  <div class="kpi" style="background:${netProfit>=0?"#f0fdf4":"#fef2f2"};border-color:${netProfit>=0?"#86efac":"#fca5a5"}"><div class="kpi-value" style="color:${netProfit>=0?"#16a34a":"#dc2626"}">${fmt2(netProfit)}</div><div class="kpi-label">Ganancia neta</div></div>
+  <div class="kpi" style="border-color:#c4b5fd"><div class="kpi-value" style="color:#5b21b6">${fmt2(totalPaid)}</div><div class="kpi-label">Total distribuido</div></div>
+</div>
+${snap.length > 0 ? `<table><thead><tr><th>Socio</th><th>CI / Identificador</th><th style="text-align:right">Porcentaje</th><th style="text-align:right">Monto</th></tr></thead><tbody>${partnerRows}<tr style="background:#ede9fe"><td colspan="3" style="text-align:right;font-weight:900">Total distribuido</td><td style="text-align:right;font-weight:900;color:#5b21b6">${fmt2(totalPaid)}</td></tr></tbody></table>` : ""}
+${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;border-radius:8px;border-left:4px solid #7c3aed;font-size:11px"><b>Nota:</b> ${pp.admin_notes}</p>` : ""}
+<div class="footer">Tu Bingazo · Todos los montos en bolivianos (Bs) · Documento de uso interno</div>
+</body></html>`;
+    })();
+
+    // Try Web Share API with file (works on mobile + some desktop browsers)
+    const htmlBlob = new Blob([pdfHtml], { type: "text/html" });
+    const fileName = `reporte-socios-${pp.period_label.replace(/[\s/]/g, "-")}.html`;
+    const file = new File([htmlBlob], fileName, { type: "text/html" });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: `Pago a Socios — ${pp.period_label}`, text: waText });
+        return;
+      } catch (e: any) {
+        if (e?.name !== "AbortError") { /* fall through to manual flow */ }
+        else return; // user cancelled
+      }
+    }
+
+    // PC fallback: download the file + open WhatsApp Web
+    const url = URL.createObjectURL(htmlBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+    toast.info("📎 Archivo descargado. En WhatsApp Web, hacé clic en el ícono de adjunto (📎) y seleccioná el archivo.", { duration: 7000 });
+    setTimeout(() => window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, "_blank"), 800);
   }
 
   function updCatDraft(id: number, field: string, value: any) {
