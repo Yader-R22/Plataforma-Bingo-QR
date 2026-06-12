@@ -201,22 +201,15 @@ export default function WalletPage() {
           }
           return (
             <div className="rounded-2xl p-4 flex items-center gap-4"
-              style={{
-                background: isExpiringSoon ? "hsl(0 75% 52% / 0.08)" : "hsl(42 98% 52% / 0.1)",
-                border: `1.5px solid ${isExpiringSoon ? "hsl(0 75% 52% / 0.35)" : "hsl(42 98% 52% / 0.35)"}`,
-              }}>
+              style={{ background: "hsl(42 98% 52% / 0.1)", border: "1.5px solid hsl(42 98% 52% / 0.35)" }}>
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
-                style={{ background: isExpiringSoon ? "hsl(0 75% 52% / 0.12)" : "hsl(42 98% 52% / 0.15)" }}>
-                {isExpiringSoon ? "⚠️" : "🎁"}
-              </div>
+                style={{ background: "hsl(42 98% 52% / 0.15)" }}>🎁</div>
               <div className="flex-1">
-                <p className="font-black text-sm" style={{ color: isExpiringSoon ? "hsl(0 75% 40%)" : "hsl(42 98% 30%)" }}>
-                  Bono disponible
-                </p>
-                <p className="font-black text-2xl" style={{ fontFamily: "'Poppins', sans-serif", color: isExpiringSoon ? "hsl(0 75% 40%)" : "hsl(42 98% 30%)" }}>
+                <p className="font-black text-sm" style={{ color: "hsl(42 98% 30%)" }}>Bono disponible</p>
+                <p className="font-black text-2xl" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 30%)" }}>
                   Bs {((wallet as any).bonus_balance ?? 0).toLocaleString("es-BO", { maximumFractionDigits: 0 })}
                 </p>
-                <p className="text-xs mt-0.5" style={{ color: isExpiringSoon ? "hsl(0 75% 45%)" : "hsl(42 98% 40%)" }}>
+                <p className="text-xs mt-0.5" style={{ color: "hsl(42 98% 40%)" }}>
                   Solo para compra de cartones · No retirable
                   {expiryLabel ? ` · ${expiryLabel}` : ""}
                 </p>
