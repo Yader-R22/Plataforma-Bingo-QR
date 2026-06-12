@@ -93,13 +93,12 @@ function GameTypeSection({
   const gradient = `linear-gradient(135deg, ${category.color_from}, ${category.color_to})`;
   const bgImageUrl = category.background_image_url as string | null | undefined;
 
+  const cardStyle = bgImageUrl
+    ? { backgroundImage: `url(${bgImageUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+    : { background: gradient };
+
   const game = games.find((g: any) => g.type === type && g.status !== "finished")
     ?? games.find((g: any) => g.type === type);
-
-  const effectiveImageUrl = (game?.cover_image_url as string | null | undefined) || bgImageUrl;
-  const cardStyle = effectiveImageUrl
-    ? { backgroundImage: `url(${effectiveImageUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
-    : { background: gradient };
 
   const ytUrl = (category.stream_url_youtube || undefined) as string | undefined;
   const ttUrl = (category.stream_url_tiktok || undefined) as string | undefined;
