@@ -398,9 +398,17 @@ export default function ProfilePage() {
           {(!activatorStatus || !activatorStatus.has_request) && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">Comparte Tu Bingazo y gana comisiones cuando tus referidos ganen premios.</p>
-              <button className="btn-primary" onClick={requestActivator} disabled={requestingActivator}>
-                {requestingActivator ? "Enviando..." : "✨ Volverme Activador"}
-              </button>
+              {activatorStatus?.program_enabled === false ? (
+                <div className="rounded-xl px-4 py-3 text-center"
+                  style={{ background: "hsl(0 75% 52% / 0.08)", border: "1px solid hsl(0 75% 52% / 0.25)" }}>
+                  <p className="font-bold text-sm" style={{ color: "hsl(0 75% 40%)" }}>⛔ Programa temporalmente desactivado</p>
+                  <p className="text-xs text-muted-foreground mt-1">El administrador ha pausado las solicitudes de activador.</p>
+                </div>
+              ) : (
+                <button className="btn-primary" onClick={requestActivator} disabled={requestingActivator}>
+                  {requestingActivator ? "Enviando..." : "✨ Volverme Activador"}
+                </button>
+              )}
             </div>
           )}
 

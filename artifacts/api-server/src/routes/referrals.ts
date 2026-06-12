@@ -39,6 +39,13 @@ router.get("/validate/:code", async (req, res) => {
 
 // ── POST /referrals/request — player requests to become activator ─────────────
 router.post("/request", requireAuth, async (req: AuthRequest, res) => {
+  // Block if program is disabled
+  const settings = await db.select().from(activatorSettingsTable).where(eq(activatorSettingsTable.id, 1)).limit(1);
+  if (settings.length && settings[0].isEnabled === false) {
+    res.status(403).json({ error: "El Programa de Activadores está temporalmente desactivado" });
+    return;
+  }
+
   const existing = await db.select()
     .from(activatorRequestsTable)
     .where(eq(activatorRequestsTable.userId, req.userId!))
@@ -72,13 +79,15 @@ router.post("/request", requireAuth, async (req: AuthRequest, res) => {
 
 // ── GET /referrals/status — player checks their activator status + code ───────
 router.get("/status", requireAuth, async (req: AuthRequest, res) => {
-  const requests = await db.select()
-    .from(activatorRequestsTable)
-    .where(eq(activatorRequestsTable.userId, req.userId!))
-    .limit(1);
+  const [requests, settingsRows] = await Promise.all([
+    db.select().from(activatorRequestsTable).where(eq(activatorRequestsTable.userId, req.userId!)).limit(1),
+    db.select().from(activatorSettingsTable).where(eq(activatorSettingsTable.id, 1)).limit(1),
+  ]);
+
+  const programEnabled = settingsRows.length ? settingsRows[0].isEnabled : true;
 
   if (!requests.length) {
-    res.json({ has_request: false, status: null, code: null, link: null });
+    res.json({ has_request: false, status: null, code: null, link: null, program_enabled: programEnabled });
     return;
   }
 
@@ -104,6 +113,7 @@ router.get("/status", requireAuth, async (req: AuthRequest, res) => {
     code,
     link,
     created_at: request.createdAt,
+    program_enabled: programEnabled,
   });
 });
 
