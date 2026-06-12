@@ -1,4 +1,5 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { useAuthStore, authStore } from "@/hooks/useAuth";
@@ -44,6 +45,12 @@ window.fetch = async (...args) => {
   return response;
 };
 
+function ScrollToTop() {
+  const [location] = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [location]);
+  return null;
+}
+
 function PrivateRoute({ component: Component }: { component: React.ComponentType }) {
   const token = useAuthStore(s => s.token);
   if (!token) return <Redirect to="/login" />;
@@ -52,7 +59,9 @@ function PrivateRoute({ component: Component }: { component: React.ComponentType
 
 function Router() {
   return (
-    <Switch>
+    <>
+      <ScrollToTop />
+      <Switch>
       <Route path="/" component={HomePage} />
       <Route path="/login" component={LoginPage} />
       <Route path="/registro" component={RegisterPage} />
@@ -68,6 +77,7 @@ function Router() {
       <Route path="/admin/editar-juego/:id" component={() => <PrivateRoute component={CreateGamePage} />} />
       <Route component={NotFound} />
     </Switch>
+    </>
   );
 }
 
