@@ -717,7 +717,10 @@ export default function AdminPage() {
   const site = useSiteSettings();
   const token = useAuthStore(s => s.token);
   const user = useAuthStore(s => s.user);
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>(() => {
+    const h = window.location.hash.slice(1);
+    return ALL_TABS.some(t => t.id === h) ? (h as Tab) : "overview";
+  });
 
   const [stats, setStats] = useState<any>(null);
   const [deptStats, setDeptStats] = useState<any[]>([]);
@@ -1083,7 +1086,7 @@ export default function AdminPage() {
     } else { const d = await r.json(); toast.error(d.error || "Error al crear usuario"); }
   }
 
-  function handleTab(t: Tab) { setTab(t); loadTab(t); }
+  function handleTab(t: Tab) { setTab(t); loadTab(t); window.location.hash = t; }
 
   async function verifyUser(userId: number, approved: boolean) {
     const r = await fetch(`${BASE}/api/admin/users/${userId}/verify`, {
