@@ -16,7 +16,10 @@ router.get("/recent", async (req, res) => {
     items: items.map(item => ({
       id: item.id,
       type: item.type,
-      message: item.message?.replace(/Tu Bingazo/gi, siteName) ?? item.message,
+      message: item.message
+        ?.replace(/\{SITE_NAME\}/g, siteName)
+        .replace(/Tu Bingazo/gi, siteName)
+        ?? item.message,
       amount: item.amount ? parseFloat(item.amount) : null,
       user_display_name: item.userDisplayName ?? null,
       created_at: item.createdAt,

@@ -2,7 +2,6 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { db, usersTable, feedItemsTable, winnersTable, referralCodesTable, activatorSettingsTable, referralTransactionsTable } from "@workspace/db";
-import { getSiteName } from "../lib/getSiteName";
 import { and, eq, sql } from "drizzle-orm";
 import { generateToken, requireAuth, type AuthRequest } from "../middlewares/auth";
 import { LoginBody, RegisterBody, ForgotPasswordBody, ResetPasswordBody } from "@workspace/api-zod";
@@ -193,12 +192,10 @@ router.post("/register", async (req, res) => {
   const parts = user.fullName.trim().split(/\s+/);
   const displayName = parts.length >= 2 ? `${parts[0]} ${parts[1]}` : parts[0];
   const dept = user.department ?? "";
-  getSiteName().then(siteName => {
-    db.insert(feedItemsTable).values({
-      type: "new_user",
-      message: `${displayName}${dept ? ` de ${dept}` : ""} se unió a ${siteName}`,
-      userDisplayName: displayName,
-    }).catch(() => {});
+  db.insert(feedItemsTable).values({
+    type: "new_user",
+    message: `${displayName}${dept ? ` de ${dept}` : ""} se unió a {SITE_NAME}`,
+    userDisplayName: displayName,
   }).catch(() => {});
 
   res.status(201).json({ token, user: formatUser(user) });
