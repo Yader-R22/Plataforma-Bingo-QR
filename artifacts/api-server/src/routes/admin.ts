@@ -1053,7 +1053,7 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
       coalesce(sum(bonus_balance),0)::text as total_bonus,
       count(*) FILTER (WHERE bonus_balance > 0) as bonus_user_count
     FROM users WHERE is_admin=false`),
-    db.execute(sql`SELECT coalesce(sum(CASE WHEN type='commission' THEN amount ELSE 0 END),0)::text as commissions_total, coalesce(sum(CASE WHEN type='welcome_bonus' THEN amount ELSE 0 END),0)::text as bonuses_total, count(*) FILTER (WHERE type='commission') as commissions_count, count(*) FILTER (WHERE type='welcome_bonus') as bonuses_count FROM referral_transactions WHERE true ${dateWhere("created_at")}`),
+    db.execute(sql`SELECT coalesce(sum(CASE WHEN type='commission' THEN amount ELSE 0 END),0)::text as commissions_total, coalesce(sum(CASE WHEN type='welcome_bonus' THEN amount ELSE 0 END),0)::text as bonuses_total, count(*) FILTER (WHERE type='commission') as commissions_count, count(*) FILTER (WHERE type='welcome_bonus') as bonuses_count, count(DISTINCT activator_id) FILTER (WHERE type='commission') as activators_count FROM referral_transactions WHERE true ${dateWhere("created_at")}`),
   ]);
 
   const grossRevenue     = parseFloat((rev.rows[0] as any)?.total ?? "0");
@@ -1063,8 +1063,10 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
   const adminDebitsTotal  = parseFloat((wdrs.rows[0] as any)?.admin_debits_total ?? "0");
   const commissionsTotal = parseFloat((refTxs.rows[0] as any)?.commissions_total ?? "0");
   const bonusesTotal     = parseFloat((refTxs.rows[0] as any)?.bonuses_total ?? "0");
-  // net_profit only uses real cash flows; admin adjustments are balance-sheet corrections, not P&L
-  const netProfit        = grossRevenue - prizesPaid - withdrawalsPaid - commissionsTotal - bonusesTotal;
+  // net_profit uses ACCRUAL basis: recognize costs when obligations are created (prize validated,
+  // commission credited, bonus granted). withdrawals_paid is excluded because it is the PAYMENT
+  // of already-recognized liabilities — including it would double-count prizes and commissions.
+  const netProfit        = grossRevenue - prizesPaid - commissionsTotal - bonusesTotal;
 
   const [activeExpenses, committedRows] = await Promise.all([
     db.select().from(operatingExpensesTable).where(eq(operatingExpensesTable.isActive, true)),
@@ -1110,10 +1112,12 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
     users_with_balance:         Number((balances.rows[0] as any)?.user_count ?? 0),
     bonus_balance_in_circulation: parseFloat((balances.rows[0] as any)?.total_bonus ?? "0"),
     bonus_users_count:          Number((balances.rows[0] as any)?.bonus_user_count ?? 0),
-    total_commissions_paid:     commissionsTotal,
-    commissions_count:          Number((refTxs.rows[0] as any)?.commissions_count ?? 0),
-    total_bonuses_granted:      bonusesTotal,
-    bonuses_count:              Number((refTxs.rows[0] as any)?.bonuses_count ?? 0),
+    total_commissions_paid:       commissionsTotal,
+    commissions_count:            Number((refTxs.rows[0] as any)?.commissions_count ?? 0),
+    activators_with_commissions:  Number((refTxs.rows[0] as any)?.activators_count ?? 0),
+    total_bonuses_granted:        bonusesTotal,
+    bonuses_count:                Number((refTxs.rows[0] as any)?.bonuses_count ?? 0),
+    cash_out_real:                withdrawalsPaid,
     net_profit:                 netProfit,
     total_expenses:             totalExpenses,
     expenses_detail:            expensesDetail,

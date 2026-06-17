@@ -1848,7 +1848,7 @@ ${signaturesSection}` : "";
       return {
         label: "🔴 Estado: Déficit — Sin distribución este período",
         color: "#dc2626", bg: "#fef2f2", border: "#fca5a5",
-        desc: `La ganancia neta del período es negativa (${fmt(netProfit)}), lo que indica que los egresos totales (premios pagados + retiros) superaron los ingresos por ventas de cartones. El déficit distribuible asciende a ${fmt(deficitAmount)}.`,
+        desc: `La ganancia neta del período es negativa (${fmt(netProfit)}), lo que indica que los egresos totales (premios + comisiones + bonos) superaron los ingresos por ventas de cartones. El déficit distribuible asciende a ${fmt(deficitAmount)}.`,
         advice: `No corresponde pagar dividendos en este período. Se recomienda revisar la estructura de precios de los cartones, el monto de los premios y el volumen de sorteos programados para los próximos períodos. ${grossRev === 0 ? "No se registraron ingresos en el período seleccionado — verificar que el período sea correcto." : `Los ingresos del período fueron ${fmt(grossRev)}, insuficientes para cubrir los egresos.`}`
       };
     })();
@@ -1937,14 +1937,16 @@ ${signaturesSection}` : "";
 <div class="kpi-grid">
   <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt(s?.gross_revenue ?? 0)}</div><div class="kpi-label">Ingresos brutos</div><div class="kpi-sub">${s?.cards_sold ?? 0} cartones vendidos</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(s?.prizes_paid ?? 0)}</div><div class="kpi-label">Premios pagados</div><div class="kpi-sub">${s?.prizes_count ?? 0} ganadores</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#dc2626">${fmt(s?.withdrawals_paid ?? 0)}</div><div class="kpi-label">Retiros pagados</div><div class="kpi-sub">${s?.withdrawals_count ?? 0} retiros efectivo/banco</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#7c3aed">${fmt(s?.balance_in_circulation ?? 0)}</div><div class="kpi-label">Saldo en circulación</div><div class="kpi-sub">${s?.users_with_balance ?? 0} usuarios con saldo</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#f59e0b">${fmt(s?.pending_withdrawals ?? 0)}</div><div class="kpi-label">Retiros pendientes</div><div class="kpi-sub">${s?.pending_withdrawals_count ?? 0} solicitudes</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#6d28d9">${fmt(s?.total_commissions_paid ?? 0)}</div><div class="kpi-label">Comisiones activadores</div><div class="kpi-sub">${s?.commissions_count ?? 0} pagos · ${s?.activators_with_commissions ?? 0} activadores</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(s?.total_bonuses_granted ?? 0)}</div><div class="kpi-label">Bonos de bienvenida</div><div class="kpi-sub">${s?.bonuses_count ?? 0} bonos otorgados · costo descontado</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#7c3aed">${fmt(s?.balance_in_circulation ?? 0)}</div><div class="kpi-label">Saldo pendiente de retiro</div><div class="kpi-sub">${s?.users_with_balance ?? 0} usuarios con saldo</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#64748b">${fmt(s?.cash_out_real ?? s?.withdrawals_paid ?? 0)}</div><div class="kpi-label">Flujo de caja real</div><div class="kpi-sub">${s?.withdrawals_count ?? 0} retiros pagados · solo informativo</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#f59e0b">${fmt(s?.pending_withdrawals ?? 0)}</div><div class="kpi-label">Retiros pendientes</div><div class="kpi-sub">${s?.pending_withdrawals_count ?? 0} solicitudes por pagar</div></div>
   ${(s?.admin_credits_total ?? 0) > 0 || (s?.admin_debits_total ?? 0) > 0 ? `<div class="kpi"><div class="kpi-value" style="color:#7c3aed">+${fmt(s?.admin_credits_total ?? 0)}</div><div class="kpi-label">Ajustes manuales</div><div class="kpi-sub">Créditos / −${fmt(s?.admin_debits_total ?? 0)} Débitos · no afectan ganancia</div></div>` : ""}
   <div class="kpi" style="background:${netProfit >= 0 ? "#f0fdf4" : "#fef2f2"};border-color:${netProfit >= 0 ? "#86efac" : "#fca5a5"}">
     <div class="kpi-value" style="color:${netProfit >= 0 ? "#16a34a" : "#dc2626"}">${fmt(netProfit)}</div>
     <div class="kpi-label">Ganancia neta</div>
-    <div class="kpi-sub">Ingresos − Premios − Retiros reales</div>
+    <div class="kpi-sub">Ingresos − Premios − Comisiones − Bonos</div>
   </div>
 </div>
 
@@ -2204,7 +2206,7 @@ ${signaturesSection}` : "";
           desc: `La ganancia neta del período es positiva (${fmt(netProfit)}), pero los compromisos pendientes superan el excedente disponible, generando un déficit distribuible de ${fmt(deficitAmount)}.`,
           advice: "No corresponde pagar dividendos en este período. El déficit es de naturaleza temporal." };
       return { label: "🔴 Estado: Déficit — Sin distribución este período", color: "#dc2626", bg: "#fef2f2", border: "#fca5a5",
-        desc: `La ganancia neta del período es negativa (${fmt(netProfit)}), lo que indica que los egresos totales superaron los ingresos. El déficit distribuible asciende a ${fmt(deficitAmount)}.`,
+        desc: `La ganancia neta del período es negativa (${fmt(netProfit)}), lo que indica que los egresos totales (premios + comisiones + bonos) superaron los ingresos. El déficit distribuible asciende a ${fmt(deficitAmount)}.`,
         advice: `No corresponde pagar dividendos en este período. Se recomienda revisar la estructura de precios de los cartones y el volumen de sorteos programados.` };
     })();
 
@@ -2287,14 +2289,16 @@ ${signaturesSection}` : "";
 <div class="kpi-grid">
   <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt(grossRev)}</div><div class="kpi-label">Ingresos brutos</div><div class="kpi-sub">${s.cards_sold ?? 0} cartones vendidos</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(Number(s.prizes_paid ?? 0))}</div><div class="kpi-label">Premios pagados</div><div class="kpi-sub">${s.prizes_count ?? 0} ganadores</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#dc2626">${fmt(Number(s.withdrawals_paid ?? 0))}</div><div class="kpi-label">Retiros pagados</div><div class="kpi-sub">${s.withdrawals_count ?? 0} retiros efectivo/banco</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#7c3aed">${fmt(Number(s.balance_in_circulation ?? 0))}</div><div class="kpi-label">Saldo en circulación</div><div class="kpi-sub">${s.users_with_balance ?? 0} usuarios con saldo</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#f59e0b">${fmt(Number(s.pending_withdrawals ?? 0))}</div><div class="kpi-label">Retiros pendientes</div><div class="kpi-sub">${s.pending_withdrawals_count ?? 0} solicitudes</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#6d28d9">${fmt(Number(s.total_commissions_paid ?? 0))}</div><div class="kpi-label">Comisiones activadores</div><div class="kpi-sub">${s.commissions_count ?? 0} pagos · ${s.activators_with_commissions ?? 0} activadores</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(Number(s.total_bonuses_granted ?? 0))}</div><div class="kpi-label">Bonos de bienvenida</div><div class="kpi-sub">${s.bonuses_count ?? 0} bonos otorgados · costo descontado</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#7c3aed">${fmt(Number(s.balance_in_circulation ?? 0))}</div><div class="kpi-label">Saldo pendiente de retiro</div><div class="kpi-sub">${s.users_with_balance ?? 0} usuarios con saldo</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#64748b">${fmt(Number(s.cash_out_real ?? s.withdrawals_paid ?? 0))}</div><div class="kpi-label">Flujo de caja real</div><div class="kpi-sub">${s.withdrawals_count ?? 0} retiros pagados · solo informativo</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#f59e0b">${fmt(Number(s.pending_withdrawals ?? 0))}</div><div class="kpi-label">Retiros pendientes</div><div class="kpi-sub">${s.pending_withdrawals_count ?? 0} solicitudes por pagar</div></div>
   ${(Number(s.admin_credits_total ?? 0) > 0 || Number(s.admin_debits_total ?? 0) > 0) ? `<div class="kpi"><div class="kpi-value" style="color:#7c3aed">+${fmt(Number(s.admin_credits_total ?? 0))}</div><div class="kpi-label">Ajustes manuales</div><div class="kpi-sub">Créditos / −${fmt(Number(s.admin_debits_total ?? 0))} Débitos · no afectan ganancia</div></div>` : ""}
   <div class="kpi" style="background:${netProfit >= 0 ? "#f0fdf4" : "#fef2f2"};border-color:${netProfit >= 0 ? "#86efac" : "#fca5a5"}">
     <div class="kpi-value" style="color:${netProfit >= 0 ? "#16a34a" : "#dc2626"}">${fmt(netProfit)}</div>
     <div class="kpi-label">Ganancia neta</div>
-    <div class="kpi-sub">Ingresos − Premios − Retiros reales</div>
+    <div class="kpi-sub">Ingresos − Premios − Comisiones − Bonos</div>
   </div>
 </div>
 
@@ -4237,25 +4241,20 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           <p className="text-xl font-black mt-1" style={{ color: "#b45309" }}>{fmt(s.prizes_paid)}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{s.prizes_count} ganador{s.prizes_count !== 1 ? "es" : ""}</p>
                         </div>
-                        <div className="bg-card border rounded-2xl p-4">
-                          <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">💸 Retiros pagados</p>
-                          <p className="text-xl font-black mt-1" style={{ color: "#dc2626" }}>{fmt(s.withdrawals_paid)}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{s.withdrawals_count} retiro{s.withdrawals_count !== 1 ? "s" : ""} efectivo/banco</p>
-                        </div>
                         <div className="bg-card border rounded-2xl p-4" style={{ borderColor: s.pending_withdrawals_count > 0 ? "hsl(42 98% 52%)" : undefined }}>
                           <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">⏳ Retiros pendientes</p>
                           <p className="text-xl font-black mt-1" style={{ color: "#f59e0b" }}>{fmt(s.pending_withdrawals)}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{s.pending_withdrawals_count} solicitud{s.pending_withdrawals_count !== 1 ? "es" : ""}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{s.pending_withdrawals_count} solicitud{s.pending_withdrawals_count !== 1 ? "es" : ""} por pagar</p>
                         </div>
                         <div className="bg-card border rounded-2xl p-4">
                           <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">🔗 Comisiones activadores</p>
                           <p className="text-xl font-black mt-1" style={{ color: "#6d28d9" }}>{fmt(s.total_commissions_paid ?? 0)}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{s.commissions_count ?? 0} pago{(s.commissions_count ?? 0) !== 1 ? "s" : ""} de comisión</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{s.commissions_count ?? 0} pagos · {(s.activators_with_commissions ?? 0)} activador{(s.activators_with_commissions ?? 0) !== 1 ? "es" : ""}</p>
                         </div>
                         <div className="bg-card border rounded-2xl p-4">
-                          <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">🎁 Bonos otorgados</p>
+                          <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">🎁 Bonos de bienvenida</p>
                           <p className="text-xl font-black mt-1" style={{ color: "#b45309" }}>{fmt(s.total_bonuses_granted ?? 0)}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{s.bonuses_count ?? 0} bono{(s.bonuses_count ?? 0) !== 1 ? "s" : ""} de bienvenida</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{s.bonuses_count ?? 0} bono{(s.bonuses_count ?? 0) !== 1 ? "s" : ""} · costo ya descontado</p>
                         </div>
                         <div className="bg-card border rounded-2xl p-4">
                           <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">👛 Saldo en circulación</p>
@@ -4287,7 +4286,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           style={{ borderColor: s.net_profit >= 0 ? "#86efac" : "#fca5a5", background: s.net_profit >= 0 ? "hsl(142 70% 98%)" : "hsl(0 75% 98%)" }}>
                           <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>📈 Ganancia neta</p>
                           <p className="text-2xl font-black mt-1" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>{fmt(s.net_profit)}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">Ingresos − Premios − Retiros reales − Comisiones − Bonos</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Ingresos − Premios − Comisiones − Bonos</p>
+                        </div>
+                        <div className="bg-card border rounded-2xl p-4" style={{ borderColor: "hsl(var(--border))", opacity: 0.85 }}>
+                          <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">💳 Flujo de caja real</p>
+                          <p className="text-xl font-black mt-1" style={{ color: "#64748b" }}>{fmt(s.cash_out_real ?? s.withdrawals_paid)}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{s.withdrawals_count} retiros pagados efectivo/banco · solo informativo</p>
                         </div>
                       </div>
 
@@ -4666,30 +4670,47 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       <p className="text-xs font-black">📊 Calculadora de dividendos</p>
 
                       <div className="rounded-lg p-2 space-y-1 text-xs" style={{ background: "hsl(var(--muted)/0.5)" }}>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Ganancia neta del período</span>
-                          <span className="font-bold" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>{fmt(s.net_profit)}</span>
+                        {/* Ganancia neta — base de cálculo accrual */}
+                        <div className="flex justify-between font-bold">
+                          <span>Ingresos brutos</span>
+                          <span style={{ color: "#16a34a" }}>+{fmt(s.gross_revenue)}</span>
                         </div>
-                        {((s.total_commissions_paid ?? 0) > 0 || (s.total_bonuses_granted ?? 0) > 0) && (
-                          <div className="pl-3 space-y-0.5">
-                            <p className="text-[10px] text-muted-foreground italic">Incluye costos del programa de activadores:</p>
-                            {(s.total_commissions_paid ?? 0) > 0 && (
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">↳ Comisiones activadores ({s.commissions_count ?? 0})</span>
-                                <span style={{ color: "#6d28d9" }}>−{fmt(s.total_commissions_paid ?? 0)}</span>
-                              </div>
-                            )}
-                            {(s.total_bonuses_granted ?? 0) > 0 && (
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">↳ Bonos de bienvenida ({s.bonuses_count ?? 0})</span>
-                                <span style={{ color: "#b45309" }}>−{fmt(s.total_bonuses_granted ?? 0)}</span>
-                              </div>
-                            )}
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">↳ Premios validados ({s.prizes_count})</span>
+                          <span style={{ color: "#dc2626" }}>−{fmt(s.prizes_paid)}</span>
+                        </div>
+                        {(s.total_commissions_paid ?? 0) > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">↳ Comisiones activadores ({s.commissions_count ?? 0} · {s.activators_with_commissions ?? 0} act.)</span>
+                            <span style={{ color: "#6d28d9" }}>−{fmt(s.total_commissions_paid ?? 0)}</span>
                           </div>
                         )}
+                        {(s.total_bonuses_granted ?? 0) > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">↳ Bonos bienvenida ({s.bonuses_count ?? 0})</span>
+                            <span style={{ color: "#b45309" }}>−{fmt(s.total_bonuses_granted ?? 0)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-t pt-1 font-bold" style={{ borderColor: "hsl(var(--border))" }}>
+                          <span>= Ganancia neta</span>
+                          <span style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>{fmt(s.net_profit)}</span>
+                        </div>
+                        {/* Flujo de caja real — solo informativo, ya está incluido arriba */}
+                        <div className="pt-1 border-t space-y-0.5" style={{ borderColor: "hsl(var(--border))" }}>
+                          <p className="text-[10px] text-muted-foreground italic font-bold">Flujo de caja (informativo — no modifica la ganancia neta):</p>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">↳ Retiros ya cobrados por usuarios</span>
+                            <span style={{ color: "#64748b" }}>{fmt(s.cash_out_real ?? s.withdrawals_paid)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">↳ Saldo pendiente de retirar</span>
+                            <span style={{ color: "#64748b" }}>{fmt(s.balance_in_circulation)}</span>
+                          </div>
+                          <p className="text-[9px] text-muted-foreground italic">Los premios y comisiones ya se descuentan cuando se acreditan, no cuando se retiran.</p>
+                        </div>
                         {((s.admin_credits_total ?? 0) > 0 || (s.admin_debits_total ?? 0) > 0) && (
                           <div className="pl-3 space-y-0.5 pt-0.5 border-t" style={{ borderColor: "hsl(var(--border))" }}>
-                            <p className="text-[10px] text-muted-foreground italic">Ajustes manuales de saldo (informativo, no afectan ganancia):</p>
+                            <p className="text-[10px] text-muted-foreground italic">Ajustes manuales de saldo (no afectan ganancia):</p>
                             {(s.admin_credits_total ?? 0) > 0 && (
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">↳ Créditos a usuarios ({s.admin_credits_count ?? 0})</span>
