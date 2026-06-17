@@ -57,16 +57,24 @@ router.post("/users/:id/verify", async (req: AuthRequest, res) => {
 
 router.get("/name-change-requests", async (req: AuthRequest, res) => {
   const rows = await db
-    .select({ r: nameChangeRequestsTable, userName: usersTable.fullName, userCi: usersTable.ci })
+    .select({
+      r: nameChangeRequestsTable,
+      userName: usersTable.fullName,
+      userCi: usersTable.ci,
+      regPhotoFront: usersTable.idPhotoFrontUrl,
+      regPhotoBack: usersTable.idPhotoBackUrl,
+    })
     .from(nameChangeRequestsTable)
     .leftJoin(usersTable, eq(nameChangeRequestsTable.userId, usersTable.id))
     .orderBy(desc(nameChangeRequestsTable.createdAt));
-  res.json(rows.map(({ r, userName, userCi }) => ({
+  res.json(rows.map(({ r, userName, userCi, regPhotoFront, regPhotoBack }) => ({
     id: r.id,
     user_id: r.userId,
     user_name: userName ?? null,
     user_ci: userCi ?? null,
     requested_name: r.requestedName,
+    reg_photo_front_url: regPhotoFront ?? null,
+    reg_photo_back_url: regPhotoBack ?? null,
     status: r.status,
     admin_notes: r.adminNotes ?? null,
     created_at: r.createdAt,
