@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, usersTable, nameChangeRequestsTable, withdrawalsTable, winnersTable, auditLogsTable, gamesTable, feedItemsTable, cardsTable, partnersTable, partnerPaymentsTable, operatingExpensesTable, activatorRequestsTable, referralCodesTable, activatorSettingsTable, referralTransactionsTable } from "@workspace/db";
+import { db, usersTable, nameChangeRequestsTable, ciChangeRequestsTable, withdrawalsTable, winnersTable, auditLogsTable, gamesTable, feedItemsTable, cardsTable, partnersTable, partnerPaymentsTable, operatingExpensesTable, activatorRequestsTable, referralCodesTable, activatorSettingsTable, referralTransactionsTable } from "@workspace/db";
 import { eq, and, like, sql, desc, gte, lte, or } from "drizzle-orm";
 import { requireAdmin, type AuthRequest } from "../middlewares/auth";
 import bcrypt from "bcryptjs";
@@ -56,16 +56,72 @@ router.post("/users/:id/verify", async (req: AuthRequest, res) => {
 });
 
 router.get("/name-change-requests", async (req: AuthRequest, res) => {
-  const requests = await db.select().from(nameChangeRequestsTable)
+  const rows = await db
+    .select({ r: nameChangeRequestsTable, userName: usersTable.fullName, userCi: usersTable.ci })
+    .from(nameChangeRequestsTable)
+    .leftJoin(usersTable, eq(nameChangeRequestsTable.userId, usersTable.id))
     .orderBy(desc(nameChangeRequestsTable.createdAt));
-  res.json(requests.map(r => ({
+  res.json(rows.map(({ r, userName, userCi }) => ({
     id: r.id,
     user_id: r.userId,
+    user_name: userName ?? null,
+    user_ci: userCi ?? null,
     requested_name: r.requestedName,
     status: r.status,
     admin_notes: r.adminNotes ?? null,
     created_at: r.createdAt,
   })));
+});
+
+router.get("/ci-change-requests", async (req: AuthRequest, res) => {
+  const rows = await db
+    .select({ r: ciChangeRequestsTable, userName: usersTable.fullName })
+    .from(ciChangeRequestsTable)
+    .leftJoin(usersTable, eq(ciChangeRequestsTable.userId, usersTable.id))
+    .orderBy(desc(ciChangeRequestsTable.createdAt));
+  res.json(rows.map(({ r, userName }) => ({
+    id: r.id,
+    user_id: r.userId,
+    user_name: userName ?? null,
+    current_ci: r.currentCi,
+    requested_ci: r.requestedCi,
+    status: r.status,
+    admin_notes: r.adminNotes ?? null,
+    created_at: r.createdAt,
+  })));
+});
+
+router.patch("/ci-change-requests/:id", async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+  const { approved, admin_notes } = req.body as { approved: boolean; admin_notes?: string };
+  if (typeof approved !== "boolean") { res.status(400).json({ error: "Campo 'approved' requerido" }); return; }
+
+  const rows = await db.select().from(ciChangeRequestsTable).where(eq(ciChangeRequestsTable.id, id)).limit(1);
+  if (!rows.length) { res.status(404).json({ error: "Solicitud no encontrada" }); return; }
+  const req2 = rows[0];
+  if (req2.status !== "pending") { res.status(400).json({ error: "Solicitud ya resuelta" }); return; }
+
+  const newStatus = approved ? "approved" : "rejected";
+  const [updated] = await db.update(ciChangeRequestsTable)
+    .set({ status: newStatus, adminNotes: admin_notes?.trim() ?? null, resolvedAt: new Date() })
+    .where(eq(ciChangeRequestsTable.id, id))
+    .returning();
+
+  if (approved) {
+    await db.update(usersTable).set({ ci: req2.requestedCi }).where(eq(usersTable.id, req2.userId));
+  }
+
+  req.log.info({ admin_id: req.userId, ci_request_id: id, approved }, "CI change request resolved");
+  res.json({
+    id: updated.id,
+    user_id: updated.userId,
+    current_ci: updated.currentCi,
+    requested_ci: updated.requestedCi,
+    status: updated.status,
+    admin_notes: updated.adminNotes ?? null,
+    created_at: updated.createdAt,
+  });
 });
 
 router.patch("/name-change-requests/:id", async (req: AuthRequest, res) => {

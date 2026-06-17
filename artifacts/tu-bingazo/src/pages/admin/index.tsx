@@ -22,6 +22,7 @@ const ALL_TABS = [
   { id: "withdrawals",  label: "💸 Retiros",      perm: "admin:withdrawals" },
   { id: "winners",      label: "🏆 Ganadores",   perm: "admin:games" },
   { id: "referidos",    label: "🔗 Referidos",   perm: null },
+  { id: "solicitudes",  label: "📋 Solicitudes",  perm: "admin:users" },
   { id: "resets",       label: "🔑 Resets",       perm: "admin:resets" },
   { id: "sitio",        label: "🌐 Sitio Web",   perm: null },
   { id: "logs",         label: "📋 Auditoría",   perm: "admin:logs" },
@@ -763,6 +764,9 @@ export default function AdminPage() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [pendingResets, setPendingResets] = useState<any[]>([]);
   const [approvedResets, setApprovedResets] = useState<any[]>([]);
+  const [nameChangeRequests, setNameChangeRequests] = useState<any[]>([]);
+  const [ciChangeRequests, setCiChangeRequests] = useState<any[]>([]);
+  const [solicitudAction, setSolicitudAction] = useState<{ id: number; type: "name" | "ci"; approved: boolean; notes: string; loading: boolean } | null>(null);
   const [approvingReset, setApprovingReset] = useState<number | null>(null);
   const [rejectingReset, setRejectingReset] = useState<number | null>(null);
   const [showCreateUser, setShowCreateUser] = useState(false);
@@ -954,6 +958,14 @@ export default function AdminPage() {
           for (const c of cats) draft[c.id] = { ...c };
           setCatDraft(draft);
         }
+      }
+      if (t === "solicitudes") {
+        const [nR, cR] = await Promise.all([
+          fetch(`${BASE}/api/admin/name-change-requests`, { headers: authH() }),
+          fetch(`${BASE}/api/admin/ci-change-requests`, { headers: authH() }),
+        ]);
+        if (nR.ok) setNameChangeRequests(await nR.json());
+        if (cR.ok) setCiChangeRequests(await cR.json());
       }
       if (t === "resets") {
         const r = await fetch(`${BASE}/api/admin/password-resets`, { headers: authH() });
@@ -1160,6 +1172,34 @@ export default function AdminPage() {
     } else {
       const d = await r.json();
       toast.error(d.error || "Error");
+    }
+  }
+
+  async function submitSolicitudAction() {
+    if (!solicitudAction) return;
+    setSolicitudAction(a => a ? { ...a, loading: true } : null);
+    const { id, type, approved, notes } = solicitudAction;
+    const url = type === "name"
+      ? `${BASE}/api/admin/name-change-requests/${id}`
+      : `${BASE}/api/admin/ci-change-requests/${id}`;
+    const r = await fetch(url, {
+      method: type === "name" ? "PATCH" : "PATCH",
+      headers: authH(),
+      body: JSON.stringify({ approved, admin_notes: notes.trim() || undefined }),
+    });
+    if (r.ok) {
+      const updated = await r.json();
+      toast.success(approved ? "✅ Solicitud aprobada" : "✗ Solicitud rechazada");
+      if (type === "name") {
+        setNameChangeRequests(rs => rs.map(r => r.id === id ? { ...r, ...updated } : r));
+      } else {
+        setCiChangeRequests(rs => rs.map(r => r.id === id ? { ...r, ...updated } : r));
+      }
+      setSolicitudAction(null);
+    } else {
+      const d = await r.json();
+      toast.error(d.error || "Error al procesar la solicitud");
+      setSolicitudAction(a => a ? { ...a, loading: false } : null);
     }
   }
 
@@ -4798,6 +4838,153 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
         })()}
 
         {/* ── PASSWORD RESETS ────────────────────────── */}
+        {/* ── SOLICITUDES ─────────────────────────────── */}
+        {tab === "solicitudes" && !loading && (
+          <div className="space-y-4">
+
+            {/* Confirm modal */}
+            {solicitudAction && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}
+                onClick={() => !solicitudAction.loading && setSolicitudAction(null)}>
+                <div className="bg-card rounded-3xl p-5 max-w-sm w-full space-y-4 border" onClick={e => e.stopPropagation()}>
+                  <p className="font-black text-base">
+                    {solicitudAction.approved ? "✅ Aprobar solicitud" : "❌ Rechazar solicitud"}
+                  </p>
+                  <div>
+                    <p className="text-xs font-bold text-muted-foreground mb-1">
+                      Nota para el usuario <span className="font-normal">(opcional)</span>
+                    </p>
+                    <textarea rows={2} className="input-field text-xs w-full resize-none"
+                      placeholder={solicitudAction.approved ? "Ej: Cambio aplicado correctamente" : "Ej: El CI ingresado ya existe en el sistema"}
+                      value={solicitudAction.notes}
+                      onChange={e => setSolicitudAction(a => a ? { ...a, notes: e.target.value } : null)} />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setSolicitudAction(null)} disabled={solicitudAction.loading}
+                      className="flex-1 py-2 rounded-xl text-sm font-bold border"
+                      style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
+                      Cancelar
+                    </button>
+                    <button onClick={submitSolicitudAction} disabled={solicitudAction.loading}
+                      className="flex-1 py-2 rounded-xl text-sm font-bold text-white"
+                      style={{ background: solicitudAction.approved ? "#16a34a" : "#dc2626", opacity: solicitudAction.loading ? 0.7 : 1 }}>
+                      {solicitudAction.loading ? "..." : solicitudAction.approved ? "✓ Aprobar" : "✗ Rechazar"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Cambios de nombre ── */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  ✏️ Correcciones de nombre ({nameChangeRequests.filter(r => r.status === "pending").length} pendientes)
+                </p>
+              </div>
+
+              {nameChangeRequests.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground text-sm">No hay solicitudes de cambio de nombre</div>
+              )}
+
+              {nameChangeRequests.map(r => {
+                const statusStyle = r.status === "approved"
+                  ? { bg: "hsl(142 70% 45% / 0.1)", color: "hsl(142 70% 30%)", label: "✓ Aprobado" }
+                  : r.status === "rejected"
+                  ? { bg: "hsl(0 75% 52% / 0.1)", color: "hsl(0 75% 40%)", label: "✗ Rechazado" }
+                  : { bg: "hsl(42 98% 52% / 0.1)", color: "hsl(42 98% 35%)", label: "⏳ Pendiente" };
+                return (
+                  <div key={r.id} className="bg-card border rounded-2xl p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-sm">{r.user_name ?? `Usuario #${r.user_id}`}</p>
+                        <p className="text-xs text-muted-foreground">CI: {r.user_ci ?? "—"} · {new Date(r.created_at).toLocaleString("es-BO")}</p>
+                      </div>
+                      <span className="text-xs px-2.5 py-0.5 rounded-full font-bold shrink-0"
+                        style={{ background: statusStyle.bg, color: statusStyle.color }}>
+                        {statusStyle.label}
+                      </span>
+                    </div>
+                    <div className="text-xs rounded-xl px-3 py-2 space-y-0.5" style={{ background: "hsl(var(--muted))" }}>
+                      <p><span className="text-muted-foreground">Nombre actual:</span> {r.user_name ?? "—"}</p>
+                      <p><span className="text-muted-foreground">Nombre solicitado:</span> <span className="font-bold">{r.requested_name}</span></p>
+                    </div>
+                    {r.admin_notes && (
+                      <p className="text-xs text-muted-foreground px-1">📝 {r.admin_notes}</p>
+                    )}
+                    {r.status === "pending" && (
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={() => setSolicitudAction({ id: r.id, type: "name", approved: true, notes: "", loading: false })}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold text-white" style={{ background: "#16a34a" }}>
+                          ✓ Aprobar
+                        </button>
+                        <button onClick={() => setSolicitudAction({ id: r.id, type: "name", approved: false, notes: "", loading: false })}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold text-white" style={{ background: "#dc2626" }}>
+                          ✗ Rechazar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── Cambios de CI ── */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  🪪 Correcciones de cédula ({ciChangeRequests.filter(r => r.status === "pending").length} pendientes)
+                </p>
+              </div>
+
+              {ciChangeRequests.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground text-sm">No hay solicitudes de cambio de CI</div>
+              )}
+
+              {ciChangeRequests.map(r => {
+                const statusStyle = r.status === "approved"
+                  ? { bg: "hsl(142 70% 45% / 0.1)", color: "hsl(142 70% 30%)", label: "✓ Aprobado" }
+                  : r.status === "rejected"
+                  ? { bg: "hsl(0 75% 52% / 0.1)", color: "hsl(0 75% 40%)", label: "✗ Rechazado" }
+                  : { bg: "hsl(42 98% 52% / 0.1)", color: "hsl(42 98% 35%)", label: "⏳ Pendiente" };
+                return (
+                  <div key={r.id} className="bg-card border rounded-2xl p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-sm">{r.user_name ?? `Usuario #${r.user_id}`}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString("es-BO")}</p>
+                      </div>
+                      <span className="text-xs px-2.5 py-0.5 rounded-full font-bold shrink-0"
+                        style={{ background: statusStyle.bg, color: statusStyle.color }}>
+                        {statusStyle.label}
+                      </span>
+                    </div>
+                    <div className="text-xs rounded-xl px-3 py-2 space-y-0.5" style={{ background: "hsl(var(--muted))" }}>
+                      <p><span className="text-muted-foreground">CI actual:</span> {r.current_ci}</p>
+                      <p><span className="text-muted-foreground">CI solicitado:</span> <span className="font-bold">{r.requested_ci}</span></p>
+                    </div>
+                    {r.admin_notes && (
+                      <p className="text-xs text-muted-foreground px-1">📝 {r.admin_notes}</p>
+                    )}
+                    {r.status === "pending" && (
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={() => setSolicitudAction({ id: r.id, type: "ci", approved: true, notes: "", loading: false })}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold text-white" style={{ background: "#16a34a" }}>
+                          ✓ Aprobar
+                        </button>
+                        <button onClick={() => setSolicitudAction({ id: r.id, type: "ci", approved: false, notes: "", loading: false })}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold text-white" style={{ background: "#dc2626" }}>
+                          ✗ Rechazar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {tab === "resets" && !loading && (
           <div className="space-y-5">
 

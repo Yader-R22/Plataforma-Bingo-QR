@@ -1,6 +1,6 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable, nameChangeRequestsTable } from "@workspace/db";
+import { db, usersTable, nameChangeRequestsTable, ciChangeRequestsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { UploadAvatarBody, RequestNameChangeBody } from "@workspace/api-zod";
@@ -36,13 +36,22 @@ router.patch("/contact", requireAuth, async (req: AuthRequest, res) => {
 router.post("/ci-change-request", requireAuth, async (req: AuthRequest, res) => {
   const { requested_ci } = req.body as { requested_ci?: string };
   if (!requested_ci?.trim()) { res.status(400).json({ error: "CI requerido" }); return; }
-  await db.insert(auditLogsTable).values({
-    action: "ci_change_request",
-    userId: req.userId,
-    details: { requested_ci: requested_ci.trim() },
-    ipAddress: req.ip,
+  const users = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
+  if (!users.length) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
+  const [request] = await db.insert(ciChangeRequestsTable).values({
+    userId: req.userId!,
+    currentCi: users[0].ci,
+    requestedCi: requested_ci.trim(),
+  }).returning();
+  res.status(201).json({
+    id: request.id,
+    user_id: request.userId,
+    current_ci: request.currentCi,
+    requested_ci: request.requestedCi,
+    status: request.status,
+    admin_notes: request.adminNotes ?? null,
+    created_at: request.createdAt,
   });
-  res.status(201).json({ message: "Solicitud de cambio de CI enviada. El administrador la revisará." });
 });
 
 router.post("/name-change-request", requireAuth, async (req: AuthRequest, res) => {
