@@ -756,6 +756,8 @@ export default function AdminPage() {
   const [payForm, setPayForm] = useState<Record<number, { proof: string; pin: string; open: boolean }>>({});
   const [wdAction, setWdAction] = useState<{ id: number; mode: "approve" | "reject"; notes: string; proof: string | null; pin: string; isCajero: boolean; loading: boolean } | null>(null);
   const [resendPinModal, setResendPinModal] = useState<{ id: number; pin: string; loading: boolean } | null>(null);
+  const [wdStatusFilter, setWdStatusFilter] = useState<"all" | "pending" | "paid" | "rejected">("all");
+  const [wdSearch, setWdSearch] = useState("");
   const [viewQrModal, setViewQrModal] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [pendingResets, setPendingResets] = useState<any[]>([]);
@@ -3614,6 +3616,49 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               </div>
             )}
 
+            {/* Filter bar + search */}
+            {(() => {
+              const counts = {
+                all: withdrawals.length,
+                pending: withdrawals.filter(w => w.status === "pending").length,
+                paid: withdrawals.filter(w => w.status === "paid").length,
+                rejected: withdrawals.filter(w => w.status === "rejected").length,
+              };
+              const tabs: { key: typeof wdStatusFilter; label: string }[] = [
+                { key: "all",      label: `Todas (${counts.all})` },
+                { key: "pending",  label: `⏳ Pendientes (${counts.pending})` },
+                { key: "paid",     label: `✓ Aceptadas (${counts.paid})` },
+                { key: "rejected", label: `✗ Rechazadas (${counts.rejected})` },
+              ];
+              return (
+                <div className="space-y-2">
+                  {/* Search */}
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm select-none">🔍</span>
+                    <input
+                      type="text"
+                      placeholder="Buscar por nombre, usuario o banco…"
+                      className="input-field text-sm w-full pl-8"
+                      value={wdSearch}
+                      onChange={e => setWdSearch(e.target.value)}
+                    />
+                  </div>
+                  {/* Status tabs */}
+                  <div className="flex gap-1.5 flex-wrap">
+                    {tabs.map(t => (
+                      <button key={t.key} onClick={() => setWdStatusFilter(t.key)}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold border transition-all"
+                        style={wdStatusFilter === t.key
+                          ? { background: "hsl(var(--primary))", color: "white", borderColor: "transparent" }
+                          : { background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))", borderColor: "transparent" }}>
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Resend PIN modal */}
             {resendPinModal && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}
@@ -3651,7 +3696,18 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               </div>
             )}
 
-            {withdrawals.map(w => {
+            {withdrawals.filter(w => {
+              if (wdStatusFilter !== "all" && w.status !== wdStatusFilter) return false;
+              if (wdSearch.trim()) {
+                const q = wdSearch.toLowerCase();
+                const name = (w.user_name ?? "").toLowerCase();
+                const userId = String(w.user_id);
+                let bank = "";
+                try { bank = (JSON.parse(w.bank_account_info ?? "{}").bank ?? "").toLowerCase(); } catch { /* noop */ }
+                if (!name.includes(q) && !userId.includes(q) && !bank.includes(q)) return false;
+              }
+              return true;
+            }).map(w => {
               const isPending = w.status === "pending";
               const isAdminAdj = w.method === "admin_credit" || w.method === "admin_debit";
               const isQr = w.method === "bank_transfer" && (() => { try { return JSON.parse(w.bank_account_info ?? "{}").method === "qr"; } catch { return false; } })();
