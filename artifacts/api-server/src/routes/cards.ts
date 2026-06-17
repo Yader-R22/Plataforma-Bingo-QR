@@ -32,8 +32,8 @@ import {
   ClaimBingoBody,
 } from "@workspace/api-zod";
 
-const PAGOSYA_BASE_URL = process.env.PAGOSYA_BASE_URL || "https://nbjwpakpimrqfocsxkda.supabase.co/functions/v1";
-const PAGOSYA_SECRET_KEY = process.env.PAGOSYA_SECRET_KEY || "";
+const PAYMENT_API_URL = "https://yhzzqeogsakeeknjlwtw.supabase.co/functions/v1";
+const PAYMENT_API_KEY = process.env.PAYMENT_API_KEY || "";
 
 const router = Router();
 
@@ -297,42 +297,32 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
 
   const cardIds = newCards.map(c => c.id);
 
-  // Call PagosYa API
-  let checkoutUrl = `https://www.pagosya.com.bo/demo/${orderId}`;
-  let checkoutId = `checkout-${orderId}`;
+  // Call new QR payment API
+  let transactionId = `tx-${orderId}`;
+  let qrImage = "";
   try {
-    const response = await fetch(`${PAGOSYA_BASE_URL}/create-external-checkout`, {
+    const response = await fetch(`${PAYMENT_API_URL}/generate-qr`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${PAGOSYA_SECRET_KEY}`,
+        "Authorization": `Bearer ${PAYMENT_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        amount: totalAmount,
-        currency: "BOB",
-        order_id: orderId,
-        success_url: `${process.env.APP_URL || "http://localhost"}/pago/${checkoutId}?status=success`,
-        cancel_url: `${process.env.APP_URL || "http://localhost"}/pago/${checkoutId}?status=cancel`,
-        customer: {
-          name: user.fullName,
-          phone: user.phone,
-        },
-        metadata: { card_ids: cardIds, game_id },
-        expiration_minutes: 30,
-      }),
+      body: JSON.stringify({ amount: totalAmount }),
     });
     if (response.ok) {
-      const data = await response.json() as { checkout_id: string; checkout_url: string };
-      checkoutId = data.checkout_id;
-      checkoutUrl = data.checkout_url;
+      const data = await response.json() as { qrImage: string; transactionId: string };
+      transactionId = data.transactionId;
+      qrImage = data.qrImage;
+    } else {
+      req.log.error({ status: response.status }, "generate-qr API error");
     }
   } catch (err) {
-    req.log.error({ err }, "PagosYa API error, using fallback checkout");
+    req.log.error({ err }, "generate-qr API error");
   }
 
-  // Update cards with checkout ID
+  // Update cards with transaction ID
   for (const card of newCards) {
-    await db.update(cardsTable).set({ checkoutId }).where(eq(cardsTable.id, card.id));
+    await db.update(cardsTable).set({ checkoutId: transactionId }).where(eq(cardsTable.id, card.id));
   }
 
   // Log audit
@@ -340,7 +330,7 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
     action: "card_purchase",
     userId: req.userId,
     gameId: game_id,
-    details: { card_ids: cardIds, amount: totalAmount, order_id: orderId, checkout_id: checkoutId },
+    details: { card_ids: cardIds, amount: totalAmount, order_id: orderId, transaction_id: transactionId },
     ipAddress: req.ip,
   });
 
@@ -348,8 +338,8 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
 
   res.status(201).json({
     cards: updatedCards.map(formatCard),
-    checkout_url: checkoutUrl,
-    checkout_id: checkoutId,
+    qr_image: qrImage,
+    checkout_id: transactionId,
   });
 });
 

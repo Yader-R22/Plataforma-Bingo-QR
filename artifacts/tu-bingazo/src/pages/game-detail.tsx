@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useGetGame } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
-import { QRCodeSVG } from "qrcode.react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -62,7 +61,7 @@ interface Winner {
 // QR Payment modal that shows inline
 function QRPaymentModal({
   checkoutId,
-  checkoutUrl,
+  qrImage,
   qty,
   totalPrice,
   gameTitle,
@@ -71,7 +70,7 @@ function QRPaymentModal({
   onSuccess,
 }: {
   checkoutId: string;
-  checkoutUrl: string;
+  qrImage: string;
   qty: number;
   totalPrice: number;
   gameTitle: string;
@@ -81,7 +80,6 @@ function QRPaymentModal({
 }) {
   const token = useAuthStore(s => s.token);
   const [payStatus, setPayStatus] = useState<"pending" | "completed" | "failed">("pending");
-  const svgRef = useRef<SVGSVGElement>(null);
   const [siteName, setSiteName] = useState("Tu Bingazo");
   const [siteTagline, setSiteTagline] = useState("Bingo en Vivo Bolivia");
   const [siteEmoji, setSiteEmoji] = useState("🎱");
@@ -136,17 +134,14 @@ function QRPaymentModal({
   }, [payStatus]);
 
   function downloadQR() {
-    const svg = svgRef.current;
-    if (!svg) return;
+    if (!qrImage) return;
 
     const W = 480, H = 720;
     const QR = 240;
     const SCALE = 3; // 3× for crisp high-res output
 
-    const serialized = new XMLSerializer().serializeToString(svg);
-    const svgBlob = new Blob([serialized], { type: "image/svg+xml;charset=utf-8" });
-    const svgUrl = URL.createObjectURL(svgBlob);
     const qrImg = new Image();
+    qrImg.crossOrigin = "anonymous";
 
     qrImg.onload = () => {
       const canvas = document.createElement("canvas");
@@ -232,7 +227,6 @@ function QRPaymentModal({
         ctx.font = "11px sans-serif";
         ctx.fillText(`${siteEmoji}  ${siteName}`, W / 2, pillY + 20);
 
-        URL.revokeObjectURL(svgUrl);
         const a = document.createElement("a");
         a.href = canvas.toDataURL("image/png");
         a.download = `qr-bingazo-${checkoutId}.png`;
@@ -282,7 +276,7 @@ function QRPaymentModal({
       }
     };
 
-    qrImg.src = svgUrl;
+    qrImg.src = qrImage;
   }
 
   function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -335,13 +329,13 @@ function QRPaymentModal({
                 Escanea este código QR con tu app bancaria o billetera digital para pagar
               </p>
               <div className="inline-block p-4 rounded-2xl border-2" style={{ borderColor: "hsl(var(--primary) / 0.2)" }}>
-                <QRCodeSVG
-                  ref={svgRef}
-                  value={checkoutUrl || `https://pagosya.bo/checkout/${checkoutId}`}
-                  size={200}
-                  level="M"
-                  fgColor="#1a0050"
-                />
+                {qrImage ? (
+                  <img src={qrImage} alt="QR de pago" width={200} height={200} style={{ display: "block" }} />
+                ) : (
+                  <div className="w-[200px] h-[200px] flex items-center justify-center bg-muted rounded-xl text-muted-foreground text-sm">
+                    Generando QR...
+                  </div>
+                )}
               </div>
               <div className="mt-3 flex items-center justify-center gap-2 text-sm">
                 <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
@@ -407,7 +401,7 @@ export default function GameDetailPage() {
   const [qty, setQty] = useState(1);
   const [buying, setBuying] = useState(false);
   const [payWith, setPayWith] = useState<"qr" | "wallet">("qr");
-  const [qrData, setQrData] = useState<{ checkoutId: string; checkoutUrl: string } | null>(null);
+  const [qrData, setQrData] = useState<{ checkoutId: string; qrImage: string } | null>(null);
   const [winners, setWinners] = useState<Winner[]>([]);
 
   const gameId = parseInt(params?.id ?? "0");
@@ -476,7 +470,7 @@ export default function GameDetailPage() {
         navigate(isActive ? `/juegos/${gameId}/jugar` : "/mis-cartones");
       } else {
         // Show QR inline
-        setQrData({ checkoutId: data.checkout_id, checkoutUrl: data.checkout_url ?? "" });
+        setQrData({ checkoutId: data.checkout_id, qrImage: data.qr_image ?? "" });
       }
     } catch {
       toast.error("Error al procesar la compra");
@@ -779,7 +773,7 @@ export default function GameDetailPage() {
       {qrData && (
         <QRPaymentModal
           checkoutId={qrData.checkoutId}
-          checkoutUrl={qrData.checkoutUrl}
+          qrImage={qrData.qrImage}
           qty={qty}
           totalPrice={totalPrice}
           gameTitle={game?.title ?? "Bingo"}
