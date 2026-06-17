@@ -1,7 +1,6 @@
 import { db, cardsTable, gamesTable, feedItemsTable, usersTable } from "@workspace/db";
 import { eq, and, isNotNull } from "drizzle-orm";
 import { logger } from "./logger";
-
 const PAYMENT_API_URL = "https://yhzzqeogsakeeknjlwtw.supabase.co/functions/v1";
 const RECONCILE_INTERVAL_MS = 30_000;
 

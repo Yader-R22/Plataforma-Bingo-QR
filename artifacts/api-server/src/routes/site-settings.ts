@@ -29,6 +29,7 @@ router.get("/", async (_req, res) => {
     primary_color: s.primaryColor,
     qr_background_url: s.qrBackgroundUrl,
     banner_interval: s.bannerInterval,
+    payment_api_key_configured: !!s.paymentApiKey,
   });
 });
 
@@ -45,6 +46,7 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
     primary_color,
     qr_background_url,
     banner_interval,
+    payment_api_key,
   } = req.body as Record<string, string | null | undefined>;
 
   await ensureSettings();
@@ -63,6 +65,7 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
       ...(primary_color !== undefined && { primaryColor: primary_color ?? undefined }),
       ...(qr_background_url !== undefined && { qrBackgroundUrl: qr_background_url }),
       ...(banner_interval !== undefined && banner_interval !== null && { bannerInterval: Number(banner_interval) }),
+      ...(payment_api_key !== undefined && payment_api_key !== null && payment_api_key !== "" && { paymentApiKey: payment_api_key }),
       updatedAt: new Date(),
       updatedById: req.userId!,
     })
@@ -84,6 +87,7 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
     seo_keywords: s.seoKeywords,
     primary_color: s.primaryColor,
     qr_background_url: s.qrBackgroundUrl,
+    payment_api_key_configured: !!s.paymentApiKey,
   });
 });
 

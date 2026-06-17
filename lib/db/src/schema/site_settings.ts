@@ -20,6 +20,7 @@ export const siteSettingsTable = pgTable("site_settings", {
   primaryColor: text("primary_color").notNull().default("#1a0050"),
   qrBackgroundUrl: text("qr_background_url"),
   bannerInterval: integer("banner_interval").notNull().default(5),
+  paymentApiKey: text("payment_api_key"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedById: integer("updated_by_id").references(() => usersTable.id),
 });

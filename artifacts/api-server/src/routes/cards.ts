@@ -32,8 +32,9 @@ import {
   ClaimBingoBody,
 } from "@workspace/api-zod";
 
+import { getPaymentApiKey } from "../lib/paymentApiKey";
+
 const PAYMENT_API_URL = "https://yhzzqeogsakeeknjlwtw.supabase.co/functions/v1";
-const PAYMENT_API_KEY = process.env.PAYMENT_API_KEY || "";
 
 const router = Router();
 
@@ -301,10 +302,11 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
   let transactionId = `tx-${orderId}`;
   let qrImage = "";
   try {
+    const apiKey = await getPaymentApiKey();
     const response = await fetch(`${PAYMENT_API_URL}/generate-qr`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${PAYMENT_API_KEY}`,
+        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ amount: totalAmount }),

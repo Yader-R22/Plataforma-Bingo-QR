@@ -826,6 +826,8 @@ export default function AdminPage() {
     primary_color: "#1a0050",
     qr_background_url: "",
     banner_interval: 5,
+    payment_api_key: "",
+    payment_api_key_configured: false,
   });
   const [savingSite, setSavingSite] = useState(false);
   const [banners, setBanners] = useState<{ id: number; image_url: string; media_type: string; display_order: number; is_active: boolean }[]>([]);
@@ -995,6 +997,8 @@ export default function AdminPage() {
             seo_description: s.seo_description,
             seo_keywords: s.seo_keywords,
             primary_color: s.primary_color,
+            payment_api_key: "",
+            payment_api_key_configured: !!s.payment_api_key_configured,
           });
         }
         if (br.ok) { setBanners(await br.json()); }
@@ -5352,6 +5356,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 primary_color: siteForm.primary_color,
                 qr_background_url: siteForm.qr_background_url || null,
                 banner_interval: siteForm.banner_interval,
+                ...(siteForm.payment_api_key && { payment_api_key: siteForm.payment_api_key }),
               };
               const r = await fetch(`${BASE}/api/site-settings`, {
                 method: "PUT",
@@ -5637,6 +5642,33 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Payment API Key */}
+              <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>💳 API de Pagos QR</h2>
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">
+                    Llave Secreta (API Key)
+                  </label>
+                  {siteForm.payment_api_key_configured && (
+                    <div className="flex items-center gap-2 mb-2 text-xs text-green-600 font-semibold">
+                      <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                      Llave configurada — ingresa una nueva para reemplazarla
+                    </div>
+                  )}
+                  <input
+                    type="password"
+                    className="w-full rounded-xl border px-3 py-2.5 text-sm font-mono bg-background"
+                    placeholder={siteForm.payment_api_key_configured ? "••••••••••••••••••••••••••••••••••••••" : "sk_live_..."}
+                    value={siteForm.payment_api_key}
+                    onChange={e => setSiteForm(f => ({ ...f, payment_api_key: e.target.value }))}
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Esta llave se usa para generar los códigos QR de pago. No la compartas públicamente.
+                  </p>
                 </div>
               </div>
 
