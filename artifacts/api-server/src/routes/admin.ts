@@ -874,8 +874,9 @@ router.delete("/users/:id", async (req: AuthRequest, res) => {
       await tx.delete(activatorRequestsTable).where(eq(activatorRequestsTable.userId, id));
       // 3. Referral code for this user
       await tx.delete(referralCodesTable).where(eq(referralCodesTable.userId, id));
-      // 4. Name-change requests
+      // 4. Name-change requests and CI-change requests
       await tx.delete(nameChangeRequestsTable).where(eq(nameChangeRequestsTable.userId, id));
+      await tx.delete(ciChangeRequestsTable).where(eq(ciChangeRequestsTable.userId, id));
       // 5. Audit logs
       await tx.delete(auditLogsTable).where(eq(auditLogsTable.userId, id));
       // 6. Winners (historical and active)
