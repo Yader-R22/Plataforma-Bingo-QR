@@ -844,6 +844,15 @@ export default function AdminPage() {
     payment_api_key_configured: false,
     pwa_short_name: "Bingazo",
     pwa_icon_url: "",
+    pwa_icon_192_url: "",
+    pwa_icon_512_url: "",
+    pwa_icon_maskable_url: "",
+    pwa_theme_color: "",
+    pwa_bg_color: "",
+    pwa_display_mode: "standalone",
+    pwa_orientation: "portrait",
+    pwa_start_url: "/",
+    pwa_screenshot_url: "",
     pwa_cache_version: 1,
   });
   const [savingSite, setSavingSite] = useState(false);
@@ -1033,6 +1042,15 @@ export default function AdminPage() {
             payment_api_key_configured: !!s.payment_api_key_configured,
             pwa_short_name: s.pwa_short_name ?? "Bingazo",
             pwa_icon_url: s.pwa_icon_url ?? "",
+            pwa_icon_192_url: s.pwa_icon_192_url ?? "",
+            pwa_icon_512_url: s.pwa_icon_512_url ?? "",
+            pwa_icon_maskable_url: s.pwa_icon_maskable_url ?? "",
+            pwa_theme_color: s.pwa_theme_color ?? "",
+            pwa_bg_color: s.pwa_bg_color ?? "",
+            pwa_display_mode: s.pwa_display_mode ?? "standalone",
+            pwa_orientation: s.pwa_orientation ?? "portrait",
+            pwa_start_url: s.pwa_start_url ?? "/",
+            pwa_screenshot_url: s.pwa_screenshot_url ?? "",
             pwa_cache_version: s.pwa_cache_version ?? 1,
           });
         }
@@ -6033,6 +6051,15 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 banner_interval: siteForm.banner_interval,
                 pwa_short_name: siteForm.pwa_short_name,
                 pwa_icon_url: siteForm.pwa_icon_url || null,
+                pwa_icon_192_url: siteForm.pwa_icon_192_url || null,
+                pwa_icon_512_url: siteForm.pwa_icon_512_url || null,
+                pwa_icon_maskable_url: siteForm.pwa_icon_maskable_url || null,
+                pwa_theme_color: siteForm.pwa_theme_color || null,
+                pwa_bg_color: siteForm.pwa_bg_color || null,
+                pwa_display_mode: siteForm.pwa_display_mode,
+                pwa_orientation: siteForm.pwa_orientation,
+                pwa_start_url: siteForm.pwa_start_url || "/",
+                pwa_screenshot_url: siteForm.pwa_screenshot_url || null,
                 ...(siteForm.payment_api_key && { payment_api_key: siteForm.payment_api_key }),
               };
               const r = await fetch(`${BASE}/api/site-settings`, {
@@ -6204,77 +6231,297 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               </div>
 
               {/* PWA Management */}
-              <div className="rounded-2xl p-5 space-y-5" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>📱 App Móvil (PWA)</h2>
-                  <span className="text-xs font-bold px-2 py-1 rounded-full" style={{ background: "hsl(var(--primary)/0.12)", color: "hsl(var(--primary))" }}>
-                    Versión de caché: v{sf.pwa_cache_version}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground -mt-2">
-                  Estos valores se usan cuando el usuario instala la app en su celular o PC.
-                </p>
-
-                {/* Nombre corto + icono */}
-                <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))" }}>
+                {/* Header */}
+                <div className="px-5 py-4 flex items-center justify-between gap-3" style={{ background: "linear-gradient(135deg, #1a0050, #2d0082)" }}>
                   <div>
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Nombre corto (bajo el ícono)</label>
-                    <input className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold bg-background"
-                      maxLength={12}
-                      placeholder="Ej: Bingazo"
-                      value={sf.pwa_short_name}
-                      onChange={e => setSiteForm(f => ({ ...f, pwa_short_name: e.target.value }))} />
-                    <p className="text-xs text-muted-foreground mt-1">Máx. 12 caracteres — aparece bajo el ícono en el celular</p>
+                    <h2 className="font-black text-lg text-white" style={{ fontFamily: "'Poppins', sans-serif" }}>📱 App Móvil (PWA)</h2>
+                    <p className="text-white/60 text-xs mt-0.5">Control total de la app instalable en celulares y PC</p>
                   </div>
-                  <div>
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Ícono de la app (URL)</label>
-                    <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background font-mono text-xs"
-                      placeholder="https://... o subí una imagen de logo"
-                      value={sf.pwa_icon_url}
-                      onChange={e => setSiteForm(f => ({ ...f, pwa_icon_url: e.target.value }))} />
-                    <p className="text-xs text-muted-foreground mt-1">Si vacío, usa el logo del sitio</p>
-                  </div>
-                </div>
-
-                {/* Upload icono PWA */}
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-2">Subir ícono de la app (PNG recomendado 512×512)</label>
-                  <div className="flex items-center gap-3">
-                    <input id="pwa-icon-upload" type="file" accept="image/*" className="hidden"
-                      onChange={e => handleImgUpload("pwa_icon_url" as any, e)} />
-                    <label htmlFor="pwa-icon-upload"
-                      className="px-4 py-2 rounded-xl text-sm font-bold cursor-pointer transition-all active:scale-95"
-                      style={{ background: "hsl(var(--primary))", color: "white" }}>
-                      📁 Seleccionar imagen
-                    </label>
-                    {sf.pwa_icon_url && (
-                      <div className="flex items-center gap-2">
-                        <img src={sf.pwa_icon_url} alt="PWA icon" className="w-12 h-12 rounded-xl object-contain border" />
-                        <button className="text-xs text-red-500 font-bold"
-                          onClick={() => setSiteForm(f => ({ ...f, pwa_icon_url: "" }))}>✕ Quitar</button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Cache control */}
-                <div className="rounded-xl p-4 space-y-3" style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-black">🔄 Forzar actualización de caché</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Usá esto después de subir cambios de diseño para que todos los usuarios reciban la app actualizada en su próxima visita.
-                      </p>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.15)", color: "white" }}>
+                      v{sf.pwa_cache_version}
+                    </span>
                     <button onClick={bumpPwaCache}
-                      className="shrink-0 px-4 py-2.5 rounded-xl text-sm font-black transition-all active:scale-95 whitespace-nowrap"
-                      style={{ background: "hsl(var(--primary))", color: "white" }}>
-                      Forzar actualización
+                      className="px-3 py-1.5 rounded-full text-xs font-black transition-all active:scale-95 whitespace-nowrap"
+                      style={{ background: "#fbbf24", color: "#1a0050" }}>
+                      🔄 Forzar caché
                     </button>
                   </div>
-                  <p className="text-xs font-mono text-muted-foreground">
-                    Versión actual: <span className="font-black text-foreground">v{sf.pwa_cache_version}</span> — al forzar pasa a v{sf.pwa_cache_version + 1}
-                  </p>
+                </div>
+
+                <div className="p-5 space-y-6" style={{ background: "hsl(var(--card))" }}>
+
+                  {/* ── 1. Identidad ── */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Identidad</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-muted-foreground block mb-1.5">Nombre completo de la app</label>
+                        <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-muted text-muted-foreground font-bold cursor-not-allowed"
+                          value={sf.site_name} readOnly tabIndex={-1} />
+                        <p className="text-xs text-muted-foreground mt-1">Tomado de "Nombre del sitio" arriba</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-muted-foreground block mb-1.5">Nombre corto (bajo el ícono)</label>
+                        <input className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold bg-background"
+                          maxLength={12} placeholder="Ej: Bingazo"
+                          value={sf.pwa_short_name}
+                          onChange={e => setSiteForm(f => ({ ...f, pwa_short_name: e.target.value }))} />
+                        <p className="text-xs text-muted-foreground mt-1">Máx. 12 caracteres — aparece bajo el ícono en el celular</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-muted-foreground block mb-1.5">URL de inicio de la app</label>
+                        <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background font-mono"
+                          placeholder="/" value={sf.pwa_start_url}
+                          onChange={e => setSiteForm(f => ({ ...f, pwa_start_url: e.target.value }))} />
+                        <p className="text-xs text-muted-foreground mt-1">Página que abre al lanzar la app instalada</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-muted-foreground block mb-1.5">Idioma</label>
+                        <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-muted text-muted-foreground cursor-not-allowed font-mono"
+                          value="es" readOnly tabIndex={-1} />
+                        <p className="text-xs text-muted-foreground mt-1">Fijo en español (es)</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── 2. Íconos ── */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Íconos</p>
+                      <span className="text-xs text-muted-foreground">— Se usan según el dispositivo. Si no subís uno, usa el logo del sitio.</span>
+                    </div>
+
+                    {/* Icon slots */}
+                    {([
+                      { key: "pwa_icon_192_url", label: "192 × 192 px", hint: "Requerido para Android (pantalla de inicio)", inputId: "pwa-ic192" },
+                      { key: "pwa_icon_512_url", label: "512 × 512 px", hint: "Requerido para splash screen y tiendas", inputId: "pwa-ic512" },
+                      { key: "pwa_icon_maskable_url", label: "512 × 512 px — Maskable", hint: "Adaptive icon de Android (ícono recortado en círculo/squircle)", inputId: "pwa-icmask" },
+                    ] as { key: keyof typeof sf; label: string; hint: string; inputId: string }[]).map(slot => (
+                      <div key={slot.key} className="rounded-xl p-3 flex items-center gap-3" style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
+                        {sf[slot.key]
+                          ? <img src={sf[slot.key] as string} alt={slot.label} className="w-14 h-14 rounded-xl object-contain shrink-0 border bg-white" />
+                          : <div className="w-14 h-14 rounded-xl shrink-0 flex items-center justify-center text-2xl" style={{ background: "hsl(var(--muted))" }}>📱</div>
+                        }
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-black text-foreground">{slot.label}</p>
+                          <p className="text-xs text-muted-foreground">{slot.hint}</p>
+                          <input className="w-full mt-1.5 rounded-lg border px-2.5 py-1.5 text-xs bg-background font-mono"
+                            placeholder="https://... o subí una imagen ↓"
+                            value={sf[slot.key] as string}
+                            onChange={e => setSiteForm(f => ({ ...f, [slot.key]: e.target.value }))} />
+                        </div>
+                        <div className="flex flex-col gap-1.5 shrink-0">
+                          <input id={slot.inputId} type="file" accept="image/*" className="hidden"
+                            onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const reader = new FileReader();
+                              reader.onload = ev => setSiteForm(f => ({ ...f, [slot.key]: ev.target?.result as string }));
+                              reader.readAsDataURL(file);
+                            }} />
+                          <label htmlFor={slot.inputId}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer text-center"
+                            style={{ background: "hsl(var(--primary))", color: "white" }}>
+                            📁 Subir
+                          </label>
+                          {sf[slot.key] && (
+                            <button className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-500"
+                              style={{ border: "1px solid hsl(var(--border))" }}
+                              onClick={() => setSiteForm(f => ({ ...f, [slot.key]: "" }))}>
+                              ✕ Quitar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* ── 3. Colores ── */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Colores</p>
+                      <span className="text-xs text-muted-foreground">— Si no se configuran, usan el color primario del sitio</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl p-3 space-y-2" style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
+                        <label className="text-xs font-black text-foreground block">Color del tema</label>
+                        <p className="text-xs text-muted-foreground">Barra de navegador y barra de estado en Android</p>
+                        <div className="flex items-center gap-2">
+                          <input type="color"
+                            className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0.5"
+                            style={{ background: "transparent" }}
+                            value={sf.pwa_theme_color || sf.primary_color || "#1a0050"}
+                            onChange={e => setSiteForm(f => ({ ...f, pwa_theme_color: e.target.value }))} />
+                          <input className="flex-1 rounded-lg border px-2.5 py-1.5 text-xs bg-background font-mono"
+                            placeholder={sf.primary_color || "#1a0050"}
+                            value={sf.pwa_theme_color}
+                            onChange={e => setSiteForm(f => ({ ...f, pwa_theme_color: e.target.value }))} />
+                          {sf.pwa_theme_color && (
+                            <button className="text-xs text-muted-foreground font-bold px-2 py-1 rounded-lg"
+                              style={{ border: "1px solid hsl(var(--border))" }}
+                              onClick={() => setSiteForm(f => ({ ...f, pwa_theme_color: "" }))}>
+                              Reset
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="rounded-xl p-3 space-y-2" style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
+                        <label className="text-xs font-black text-foreground block">Color de fondo (Splash)</label>
+                        <p className="text-xs text-muted-foreground">Fondo de la pantalla de carga al abrir la app instalada</p>
+                        <div className="flex items-center gap-2">
+                          <input type="color"
+                            className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0.5"
+                            style={{ background: "transparent" }}
+                            value={sf.pwa_bg_color || sf.primary_color || "#1a0050"}
+                            onChange={e => setSiteForm(f => ({ ...f, pwa_bg_color: e.target.value }))} />
+                          <input className="flex-1 rounded-lg border px-2.5 py-1.5 text-xs bg-background font-mono"
+                            placeholder={sf.primary_color || "#1a0050"}
+                            value={sf.pwa_bg_color}
+                            onChange={e => setSiteForm(f => ({ ...f, pwa_bg_color: e.target.value }))} />
+                          {sf.pwa_bg_color && (
+                            <button className="text-xs text-muted-foreground font-bold px-2 py-1 rounded-lg"
+                              style={{ border: "1px solid hsl(var(--border))" }}
+                              onClick={() => setSiteForm(f => ({ ...f, pwa_bg_color: "" }))}>
+                              Reset
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Preview splash */}
+                    <div className="rounded-xl p-3" style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
+                      <p className="text-xs font-bold text-muted-foreground mb-2">Preview de splash screen</p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-20 h-36 rounded-2xl flex flex-col items-center justify-center gap-2 shrink-0 border border-white/20"
+                          style={{ background: sf.pwa_bg_color || sf.primary_color || "#1a0050" }}>
+                          {(sf.pwa_icon_512_url || sf.pwa_icon_192_url || sf.pwa_icon_url || sf.logo_url)
+                            ? <img src={sf.pwa_icon_512_url || sf.pwa_icon_192_url || sf.pwa_icon_url || sf.logo_url}
+                                alt="icon" className="w-10 h-10 rounded-xl object-contain" />
+                            : <span className="text-2xl">{sf.site_emoji || "🎱"}</span>}
+                          <p className="text-white text-[8px] font-black text-center leading-tight px-1"
+                            style={{ fontFamily: "'Poppins', sans-serif" }}>
+                            {sf.pwa_short_name || sf.site_name || "Bingazo"}
+                          </p>
+                        </div>
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <p>• Fondo: <span className="font-mono font-bold">{sf.pwa_bg_color || sf.primary_color || "#1a0050"}</span></p>
+                          <p>• Tema: <span className="font-mono font-bold">{sf.pwa_theme_color || sf.primary_color || "#1a0050"}</span></p>
+                          <p>• Nombre corto: <span className="font-bold">{sf.pwa_short_name || "Bingazo"}</span></p>
+                          <p className="text-muted-foreground/60 italic">Preview aproximado. El sistema operativo puede variar.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── 4. Comportamiento ── */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Comportamiento</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-muted-foreground block mb-1.5">Modo de visualización</label>
+                        <select className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
+                          value={sf.pwa_display_mode}
+                          onChange={e => setSiteForm(f => ({ ...f, pwa_display_mode: e.target.value }))}>
+                          <option value="standalone">Standalone — sin barra de navegador (recomendado)</option>
+                          <option value="fullscreen">Fullscreen — pantalla completa sin ninguna barra</option>
+                          <option value="minimal-ui">Minimal UI — con botones mínimos de navegador</option>
+                          <option value="browser">Browser — abre como pestaña normal</option>
+                        </select>
+                        <p className="text-xs text-muted-foreground mt-1">Cómo se ve la app al abrirse desde el ícono instalado</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-muted-foreground block mb-1.5">Orientación de pantalla</label>
+                        <select className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
+                          value={sf.pwa_orientation}
+                          onChange={e => setSiteForm(f => ({ ...f, pwa_orientation: e.target.value }))}>
+                          <option value="portrait">Portrait — vertical (recomendado para móvil)</option>
+                          <option value="landscape">Landscape — horizontal</option>
+                          <option value="any">Any — libre según el dispositivo</option>
+                          <option value="portrait-primary">Portrait Primary — vertical estricto</option>
+                          <option value="landscape-primary">Landscape Primary — horizontal estricto</option>
+                        </select>
+                        <p className="text-xs text-muted-foreground mt-1">Bloquea la rotación de la app instalada</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── 5. Captura de pantalla (install prompt) ── */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Captura de pantalla</p>
+                      <span className="text-xs text-muted-foreground">— Opcional. Mejora el prompt de instalación en Chrome/Android</span>
+                    </div>
+                    <div className="rounded-xl p-3 flex items-center gap-3" style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
+                      {sf.pwa_screenshot_url
+                        ? <img src={sf.pwa_screenshot_url} alt="screenshot" className="w-16 h-28 rounded-xl object-cover shrink-0 border" />
+                        : <div className="w-16 h-28 rounded-xl shrink-0 flex items-center justify-center" style={{ background: "hsl(var(--muted))" }}>
+                            <span className="text-2xl">🖼️</span>
+                          </div>
+                      }
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black">Screenshot del app</p>
+                        <p className="text-xs text-muted-foreground mb-2">Se muestra en el diálogo de instalación. Recomendado: 1080×1920 px (vertical)</p>
+                        <input className="w-full rounded-lg border px-2.5 py-1.5 text-xs bg-background font-mono mb-2"
+                          placeholder="https://... o subí una imagen ↓"
+                          value={sf.pwa_screenshot_url}
+                          onChange={e => setSiteForm(f => ({ ...f, pwa_screenshot_url: e.target.value }))} />
+                        <div className="flex gap-2">
+                          <input id="pwa-screenshot-upload" type="file" accept="image/*" className="hidden"
+                            onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const reader = new FileReader();
+                              reader.onload = ev => setSiteForm(f => ({ ...f, pwa_screenshot_url: ev.target?.result as string }));
+                              reader.readAsDataURL(file);
+                            }} />
+                          <label htmlFor="pwa-screenshot-upload"
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer"
+                            style={{ background: "hsl(var(--primary))", color: "white" }}>
+                            📁 Subir imagen
+                          </label>
+                          {sf.pwa_screenshot_url && (
+                            <button className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-500"
+                              style={{ border: "1px solid hsl(var(--border))" }}
+                              onClick={() => setSiteForm(f => ({ ...f, pwa_screenshot_url: "" }))}>
+                              ✕ Quitar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── 6. Control de caché ── */}
+                  <div className="rounded-xl p-4 space-y-3" style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.3)" }}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black">🔄 Control de versión del caché</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Después de guardar cambios de íconos o colores, forzá el caché para que los usuarios instalados reciban la versión actualizada en su próxima visita. El botón también está en el encabezado de esta sección.
+                        </p>
+                      </div>
+                      <button onClick={bumpPwaCache}
+                        className="shrink-0 px-4 py-2.5 rounded-xl text-sm font-black transition-all active:scale-95 whitespace-nowrap"
+                        style={{ background: "#fbbf24", color: "#1a0050" }}>
+                        Forzar actualización
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 rounded-lg px-3 py-2 font-mono text-sm" style={{ background: "hsl(var(--muted))" }}>
+                        Versión actual: <span className="font-black">v{sf.pwa_cache_version}</span>
+                        <span className="text-muted-foreground"> → al forzar: <span className="font-bold">v{sf.pwa_cache_version + 1}</span></span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      💡 <strong>Flujo recomendado:</strong> 1. Guardar cambios → 2. Forzar caché → 3. Verificar en el celular
+                    </p>
+                  </div>
+
                 </div>
               </div>
 

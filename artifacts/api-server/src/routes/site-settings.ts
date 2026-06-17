@@ -34,6 +34,15 @@ router.get("/", async (_req, res) => {
     pwa_short_name: s.pwaShortName,
     pwa_cache_version: s.pwaCacheVersion,
     pwa_icon_url: s.pwaIconUrl,
+    pwa_icon_192_url: s.pwaIcon192Url,
+    pwa_icon_512_url: s.pwaIcon512Url,
+    pwa_icon_maskable_url: s.pwaIconMaskableUrl,
+    pwa_theme_color: s.pwaThemeColor,
+    pwa_bg_color: s.pwaBgColor,
+    pwa_display_mode: s.pwaDisplayMode,
+    pwa_orientation: s.pwaOrientation,
+    pwa_start_url: s.pwaStartUrl,
+    pwa_screenshot_url: s.pwaScreenshotUrl,
   });
 });
 
@@ -53,6 +62,15 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
     payment_api_key,
     pwa_short_name,
     pwa_icon_url,
+    pwa_icon_192_url,
+    pwa_icon_512_url,
+    pwa_icon_maskable_url,
+    pwa_theme_color,
+    pwa_bg_color,
+    pwa_display_mode,
+    pwa_orientation,
+    pwa_start_url,
+    pwa_screenshot_url,
   } = req.body as Record<string, string | null | undefined>;
 
   await ensureSettings();
@@ -74,6 +92,15 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
       ...(payment_api_key !== undefined && payment_api_key !== null && payment_api_key !== "" && { paymentApiKey: payment_api_key }),
       ...(pwa_short_name !== undefined && { pwaShortName: pwa_short_name ?? undefined }),
       ...(pwa_icon_url !== undefined && { pwaIconUrl: pwa_icon_url }),
+      ...(pwa_icon_192_url !== undefined && { pwaIcon192Url: pwa_icon_192_url }),
+      ...(pwa_icon_512_url !== undefined && { pwaIcon512Url: pwa_icon_512_url }),
+      ...(pwa_icon_maskable_url !== undefined && { pwaIconMaskableUrl: pwa_icon_maskable_url }),
+      ...(pwa_theme_color !== undefined && { pwaThemeColor: pwa_theme_color }),
+      ...(pwa_bg_color !== undefined && { pwaBgColor: pwa_bg_color }),
+      ...(pwa_display_mode !== undefined && { pwaDisplayMode: pwa_display_mode ?? undefined }),
+      ...(pwa_orientation !== undefined && { pwaOrientation: pwa_orientation ?? undefined }),
+      ...(pwa_start_url !== undefined && { pwaStartUrl: pwa_start_url ?? undefined }),
+      ...(pwa_screenshot_url !== undefined && { pwaScreenshotUrl: pwa_screenshot_url }),
       updatedAt: new Date(),
       updatedById: req.userId!,
     })
@@ -101,6 +128,15 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
     pwa_short_name: s.pwaShortName,
     pwa_cache_version: s.pwaCacheVersion,
     pwa_icon_url: s.pwaIconUrl,
+    pwa_icon_192_url: s.pwaIcon192Url,
+    pwa_icon_512_url: s.pwaIcon512Url,
+    pwa_icon_maskable_url: s.pwaIconMaskableUrl,
+    pwa_theme_color: s.pwaThemeColor,
+    pwa_bg_color: s.pwaBgColor,
+    pwa_display_mode: s.pwaDisplayMode,
+    pwa_orientation: s.pwaOrientation,
+    pwa_start_url: s.pwaStartUrl,
+    pwa_screenshot_url: s.pwaScreenshotUrl,
   });
 });
 
