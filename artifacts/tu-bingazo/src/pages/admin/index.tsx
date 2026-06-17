@@ -842,6 +842,9 @@ export default function AdminPage() {
     banner_interval: 5,
     payment_api_key: "",
     payment_api_key_configured: false,
+    pwa_short_name: "Bingazo",
+    pwa_icon_url: "",
+    pwa_cache_version: 1,
   });
   const [savingSite, setSavingSite] = useState(false);
   const [banners, setBanners] = useState<{ id: number; image_url: string; media_type: string; display_order: number; is_active: boolean }[]>([]);
@@ -1028,6 +1031,9 @@ export default function AdminPage() {
             primary_color: s.primary_color,
             payment_api_key: "",
             payment_api_key_configured: !!s.payment_api_key_configured,
+            pwa_short_name: s.pwa_short_name ?? "Bingazo",
+            pwa_icon_url: s.pwa_icon_url ?? "",
+            pwa_cache_version: s.pwa_cache_version ?? 1,
           });
         }
         if (br.ok) { setBanners(await br.json()); }
@@ -5999,6 +6005,17 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             reader.readAsDataURL(file);
           }
 
+          async function bumpPwaCache() {
+            try {
+              const r = await fetch(`${BASE}/api/pwa/bump-cache`, { method: "POST", headers: authH() });
+              if (r.ok) {
+                const d = await r.json();
+                setSiteForm(f => ({ ...f, pwa_cache_version: d.version }));
+                toast.success(`🔄 Caché forzado — versión v${d.version}. Los usuarios recibirán la app actualizada en su próxima visita.`);
+              }
+            } catch { toast.error("Error al forzar actualización de caché"); }
+          }
+
           async function saveSiteSettings() {
             setSavingSite(true);
             try {
@@ -6014,6 +6031,8 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 primary_color: siteForm.primary_color,
                 qr_background_url: siteForm.qr_background_url || null,
                 banner_interval: siteForm.banner_interval,
+                pwa_short_name: siteForm.pwa_short_name,
+                pwa_icon_url: siteForm.pwa_icon_url || null,
                 ...(siteForm.payment_api_key && { payment_api_key: siteForm.payment_api_key }),
               };
               const r = await fetch(`${BASE}/api/site-settings`, {
@@ -6300,6 +6319,81 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* PWA Management */}
+              <div className="rounded-2xl p-5 space-y-5" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>📱 App Móvil (PWA)</h2>
+                  <span className="text-xs font-bold px-2 py-1 rounded-full" style={{ background: "hsl(var(--primary)/0.12)", color: "hsl(var(--primary))" }}>
+                    Versión de caché: v{sf.pwa_cache_version}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Estos valores se usan cuando el usuario instala la app en su celular o PC.
+                </p>
+
+                {/* Nombre corto + icono */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Nombre corto (bajo el ícono)</label>
+                    <input className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold bg-background"
+                      maxLength={12}
+                      placeholder="Ej: Bingazo"
+                      value={sf.pwa_short_name}
+                      onChange={e => setSiteForm(f => ({ ...f, pwa_short_name: e.target.value }))} />
+                    <p className="text-xs text-muted-foreground mt-1">Máx. 12 caracteres — aparece bajo el ícono en el celular</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Ícono de la app (URL)</label>
+                    <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background font-mono text-xs"
+                      placeholder="https://... o subí una imagen de logo"
+                      value={sf.pwa_icon_url}
+                      onChange={e => setSiteForm(f => ({ ...f, pwa_icon_url: e.target.value }))} />
+                    <p className="text-xs text-muted-foreground mt-1">Si vacío, usa el logo del sitio</p>
+                  </div>
+                </div>
+
+                {/* Upload icono PWA */}
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-2">Subir ícono de la app (PNG recomendado 512×512)</label>
+                  <div className="flex items-center gap-3">
+                    <input id="pwa-icon-upload" type="file" accept="image/*" className="hidden"
+                      onChange={e => handleImgUpload("pwa_icon_url" as any, e)} />
+                    <label htmlFor="pwa-icon-upload"
+                      className="px-4 py-2 rounded-xl text-sm font-bold cursor-pointer transition-all active:scale-95"
+                      style={{ background: "hsl(var(--primary))", color: "white" }}>
+                      📁 Seleccionar imagen
+                    </label>
+                    {sf.pwa_icon_url && (
+                      <div className="flex items-center gap-2">
+                        <img src={sf.pwa_icon_url} alt="PWA icon" className="w-12 h-12 rounded-xl object-contain border" />
+                        <button className="text-xs text-red-500 font-bold"
+                          onClick={() => setSiteForm(f => ({ ...f, pwa_icon_url: "" }))}>✕ Quitar</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Cache control */}
+                <div className="rounded-xl p-4 space-y-3" style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-black">🔄 Control de versión del caché</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Cuando subas cambios de diseño o contenido, forzá el caché para que todos los usuarios reciban la app actualizada en su próxima visita.
+                      </p>
+                    </div>
+                    <button onClick={bumpPwaCache}
+                      className="shrink-0 px-4 py-2.5 rounded-xl text-sm font-black transition-all active:scale-95 whitespace-nowrap"
+                      style={{ background: "hsl(var(--primary))", color: "white" }}>
+                      Forzar actualización
+                    </button>
+                  </div>
+                  <p className="text-xs font-mono text-muted-foreground">
+                    Versión actual: <span className="font-black text-foreground">v{sf.pwa_cache_version}</span> — al forzar pasa a v{sf.pwa_cache_version + 1}
+                  </p>
                 </div>
               </div>
 

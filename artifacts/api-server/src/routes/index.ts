@@ -12,6 +12,7 @@ import { categoriesRouter } from "./categories";
 import { referralsRouter } from "./referrals";
 import { siteSettingsRouter } from "./site-settings";
 import { bannersRouter } from "./banners";
+import { pwaRouter } from "./pwa";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use("/categories", categoriesRouter);
 router.use("/referrals", referralsRouter);
 router.use("/site-settings", siteSettingsRouter);
 router.use("/banners", bannersRouter);
+router.use("/pwa", pwaRouter);
 
 export default router;

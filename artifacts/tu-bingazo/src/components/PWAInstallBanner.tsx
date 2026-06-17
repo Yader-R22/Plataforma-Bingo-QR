@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { X, Download, Monitor } from "lucide-react";
 
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 type Platform = "android" | "desktop" | "ios" | "other";
 
 function detectPlatform(): Platform {
@@ -24,17 +26,23 @@ export default function PWAInstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [show, setShow] = useState(false);
   const [platform, setPlatform] = useState<Platform>("other");
+  const [appName, setAppName] = useState("Tu Bingazo");
 
   useEffect(() => {
     if (isStandalone()) return;
 
     const p = detectPlatform();
     setPlatform(p);
-
     if (p === "ios") return;
 
     const dismissed = localStorage.getItem(DISMISSED_KEY);
     if (dismissed && Date.now() - parseInt(dismissed) < DISMISS_TTL) return;
+
+    // Fetch app name from site settings
+    fetch(`${BASE}/api/site-settings`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.site_name) setAppName(d.site_name); })
+      .catch(() => {});
 
     const handler = (e: Event) => {
       e.preventDefault();
@@ -87,7 +95,7 @@ export default function PWAInstallBanner() {
 
         <div className="flex-1 min-w-0">
           <p className="text-white font-black text-sm leading-tight">
-            {isAndroid ? "¡Instala Tu Bingazo!" : "Instala Tu Bingazo en tu PC"}
+            {isAndroid ? `¡Instala ${appName}!` : `Instala ${appName} en tu PC`}
           </p>
           <p className="text-white/55 text-xs mt-0.5 leading-tight">
             {isAndroid

@@ -21,6 +21,10 @@ export const siteSettingsTable = pgTable("site_settings", {
   qrBackgroundUrl: text("qr_background_url"),
   bannerInterval: integer("banner_interval").notNull().default(5),
   paymentApiKey: text("payment_api_key"),
+  // PWA-specific fields
+  pwaShortName: text("pwa_short_name").notNull().default("Bingazo"),
+  pwaCacheVersion: integer("pwa_cache_version").notNull().default(1),
+  pwaIconUrl: text("pwa_icon_url"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedById: integer("updated_by_id").references(() => usersTable.id),
 });
