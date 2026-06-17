@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
@@ -758,6 +758,7 @@ export default function AdminPage() {
   const [resendPinModal, setResendPinModal] = useState<{ id: number; pin: string; loading: boolean } | null>(null);
   const [wdStatusFilter, setWdStatusFilter] = useState<"all" | "pending" | "paid" | "rejected">("all");
   const [wdSearch, setWdSearch] = useState("");
+  const loadedTabsRef = useRef<Set<Tab>>(new Set());
   const [viewQrModal, setViewQrModal] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [pendingResets, setPendingResets] = useState<any[]>([]);
@@ -908,8 +909,15 @@ export default function AdminPage() {
     } catch {}
   }
 
-  async function loadTab(t: Tab) {
-    setLoading(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function loadTab(t: Tab, force = false) {
+    const cached = loadedTabsRef.current.has(t);
+    // First visit: full spinner. Subsequent visits: silent background refresh.
+    if (!cached) setLoading(true);
+    else if (force) setRefreshing(true);
+    else setRefreshing(true);
+
     try {
       if (t === "users" || t === "overview") {
         const r = await fetch(`${BASE}/api/admin/users`, { headers: authH() });
@@ -1023,8 +1031,10 @@ export default function AdminPage() {
         if (ppR.ok) setPartnerPayments(await ppR.json());
         if (eR.ok) setExpenses(await eR.json());
       }
+      loadedTabsRef.current.add(t);
     } catch {}
     setLoading(false);
+    setRefreshing(false);
   }
 
   async function approveReset(userId: number, phone: string | null) {
@@ -2673,6 +2683,14 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           </button>
         ))}
       </div>
+
+      {/* Subtle top refresh bar — shown while background-refreshing cached tabs */}
+      {refreshing && !loading && (
+        <div className="fixed top-0 left-0 right-0 z-50 h-0.5 overflow-hidden">
+          <div className="h-full animate-[shimmer_1.2s_ease-in-out_infinite]"
+            style={{ background: "hsl(var(--primary))", width: "60%", marginLeft: "-10%", animation: "slide-refresh 1.2s ease-in-out infinite" }} />
+        </div>
+      )}
 
       <div className="px-4 py-4 max-w-5xl mx-auto space-y-4 pb-24">
         {loading && (
