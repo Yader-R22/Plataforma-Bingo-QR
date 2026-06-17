@@ -6488,7 +6488,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           ];
 
           return (
-            <div className="space-y-4 pb-10 max-w-3xl">
+            <div className="space-y-4 pb-10 max-w-3xl mx-auto">
               {/* Header */}
               <div className="flex items-center justify-between gap-3 mb-2">
                 <div>
