@@ -16,6 +16,7 @@ import ProfilePage from "@/pages/profile";
 import AdminPage from "@/pages/admin/index";
 import CreateGamePage from "@/pages/admin/create-game";
 import NotFound from "@/pages/not-found";
+import PWAInstallBanner from "@/components/PWAInstallBanner";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -88,6 +89,7 @@ function App() {
         <Router />
       </WouterRouter>
       <Toaster position="top-center" richColors closeButton />
+      <PWAInstallBanner />
     </QueryClientProvider>
   );
 }
