@@ -39,21 +39,27 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
+
   if (e.request.url.includes("/api/")) {
     e.respondWith(
       fetch(e.request).catch(() => new Response("Offline", { status: 503 }))
     );
     return;
   }
+
+  // Network-first: always try network, fall back to cache when offline
   e.respondWith(
-    caches.match(e.request).then((cached) =>
-      cached ||
-      fetch(e.request).then((res) => {
+    fetch(e.request)
+      .then((res) => {
         if (res.ok) {
           caches.open(currentCacheName).then((c) => c.put(e.request, res.clone()));
         }
         return res;
       })
-    )
+      .catch(() =>
+        caches.match(e.request).then(
+          (cached) => cached ?? new Response("Offline", { status: 503 })
+        )
+      )
   );
 });
