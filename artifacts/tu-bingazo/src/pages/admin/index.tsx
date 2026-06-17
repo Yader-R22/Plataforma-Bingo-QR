@@ -768,6 +768,8 @@ export default function AdminPage() {
   const [ciChangeRequests, setCiChangeRequests] = useState<any[]>([]);
   const [solicitudAction, setSolicitudAction] = useState<{ id: number; type: "name" | "ci"; approved: boolean; notes: string; loading: boolean } | null>(null);
   const [photoLightbox, setPhotoLightbox] = useState<{ photos: { url: string; label: string }[]; index: number } | null>(null);
+  const [nameFilter, setNameFilter] = useState<"pending" | "approved" | "rejected">("pending");
+  const [ciFilter, setCiFilter] = useState<"pending" | "approved" | "rejected">("pending");
   const [approvingReset, setApprovingReset] = useState<number | null>(null);
   const [rejectingReset, setRejectingReset] = useState<number | null>(null);
   const [showCreateUser, setShowCreateUser] = useState(false);
@@ -4911,17 +4913,40 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
 
             {/* ── Cambios de nombre ── */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  ✏️ Correcciones de nombre ({nameChangeRequests.filter(r => r.status === "pending").length} pendientes)
-                </p>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">✏️ Correcciones de nombre</p>
+
+              {/* Filter tabs */}
+              <div className="flex rounded-2xl overflow-hidden border" style={{ borderColor: "hsl(var(--border))" }}>
+                {(["pending", "approved", "rejected"] as const).map(f => {
+                  const count = nameChangeRequests.filter(r => r.status === f).length;
+                  const labels = { pending: "⏳ Pendientes", approved: "✓ Aceptadas", rejected: "✗ Rechazadas" };
+                  const active = nameFilter === f;
+                  return (
+                    <button key={f} onClick={() => setNameFilter(f)}
+                      className="flex-1 py-2 text-xs font-bold transition-all flex items-center justify-center gap-1"
+                      style={{
+                        background: active ? "hsl(var(--primary))" : "transparent",
+                        color: active ? "white" : "hsl(var(--muted-foreground))",
+                      }}>
+                      {labels[f]}
+                      {count > 0 && (
+                        <span className="rounded-full px-1.5 py-0.5 text-[10px] font-black leading-none"
+                          style={{ background: active ? "rgba(255,255,255,0.25)" : "hsl(var(--muted))", color: active ? "white" : "hsl(var(--foreground))" }}>
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
-              {nameChangeRequests.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground text-sm">No hay solicitudes de cambio de nombre</div>
+              {nameChangeRequests.filter(r => r.status === nameFilter).length === 0 && (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  {nameFilter === "pending" ? "No hay solicitudes pendientes" : nameFilter === "approved" ? "No hay solicitudes aceptadas" : "No hay solicitudes rechazadas"}
+                </div>
               )}
 
-              {nameChangeRequests.map(r => {
+              {nameChangeRequests.filter(r => r.status === nameFilter).map(r => {
                 const statusStyle = r.status === "approved"
                   ? { bg: "hsl(142 70% 45% / 0.1)", color: "hsl(142 70% 30%)", label: "✓ Aprobado" }
                   : r.status === "rejected"
@@ -4997,17 +5022,40 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
 
             {/* ── Cambios de CI ── */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  🪪 Correcciones de cédula ({ciChangeRequests.filter(r => r.status === "pending").length} pendientes)
-                </p>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">🪪 Correcciones de cédula</p>
+
+              {/* Filter tabs */}
+              <div className="flex rounded-2xl overflow-hidden border" style={{ borderColor: "hsl(var(--border))" }}>
+                {(["pending", "approved", "rejected"] as const).map(f => {
+                  const count = ciChangeRequests.filter(r => r.status === f).length;
+                  const labels = { pending: "⏳ Pendientes", approved: "✓ Aceptadas", rejected: "✗ Rechazadas" };
+                  const active = ciFilter === f;
+                  return (
+                    <button key={f} onClick={() => setCiFilter(f)}
+                      className="flex-1 py-2 text-xs font-bold transition-all flex items-center justify-center gap-1"
+                      style={{
+                        background: active ? "hsl(var(--primary))" : "transparent",
+                        color: active ? "white" : "hsl(var(--muted-foreground))",
+                      }}>
+                      {labels[f]}
+                      {count > 0 && (
+                        <span className="rounded-full px-1.5 py-0.5 text-[10px] font-black leading-none"
+                          style={{ background: active ? "rgba(255,255,255,0.25)" : "hsl(var(--muted))", color: active ? "white" : "hsl(var(--foreground))" }}>
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
-              {ciChangeRequests.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground text-sm">No hay solicitudes de cambio de CI</div>
+              {ciChangeRequests.filter(r => r.status === ciFilter).length === 0 && (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  {ciFilter === "pending" ? "No hay solicitudes pendientes" : ciFilter === "approved" ? "No hay solicitudes aceptadas" : "No hay solicitudes rechazadas"}
+                </div>
               )}
 
-              {ciChangeRequests.map(r => {
+              {ciChangeRequests.filter(r => r.status === ciFilter).map(r => {
                 const statusStyle = r.status === "approved"
                   ? { bg: "hsl(142 70% 45% / 0.1)", color: "hsl(142 70% 30%)", label: "✓ Aprobado" }
                   : r.status === "rejected"
