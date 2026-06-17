@@ -1571,7 +1571,7 @@ export default function AdminPage() {
     const fmt = (v: number) => `Bs ${v.toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
     const fmtDate = (d: string) => new Date(d).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
     const typeColor: Record<string, string> = { ingreso: "#16a34a", premio: "#b45309", retiro: "#dc2626" };
-    const typeLabel: Record<string, string> = { ingreso: "Ingreso", premio: "Premio", retiro: "Retiro" };
+    const typeLabel: Record<string, string> = { ingreso: "Ingreso", premio: "Premio", retiro: "Retiro", admin_credit: "✅ Crédito admin", admin_debit: "➖ Débito admin" };
     const statusLabel: Record<string, string> = { upcoming: "Próximo", active: "Activo", finished: "Finalizado" };
     const typeGameLabel: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual" };
     const freqLabel: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual", yearly: "Anual", one_time: "Pago único" };
@@ -1937,13 +1937,14 @@ ${signaturesSection}` : "";
 <div class="kpi-grid">
   <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt(s?.gross_revenue ?? 0)}</div><div class="kpi-label">Ingresos brutos</div><div class="kpi-sub">${s?.cards_sold ?? 0} cartones vendidos</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(s?.prizes_paid ?? 0)}</div><div class="kpi-label">Premios pagados</div><div class="kpi-sub">${s?.prizes_count ?? 0} ganadores</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#dc2626">${fmt(s?.withdrawals_paid ?? 0)}</div><div class="kpi-label">Retiros pagados</div><div class="kpi-sub">${s?.withdrawals_count ?? 0} retiros</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#dc2626">${fmt(s?.withdrawals_paid ?? 0)}</div><div class="kpi-label">Retiros pagados</div><div class="kpi-sub">${s?.withdrawals_count ?? 0} retiros efectivo/banco</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#7c3aed">${fmt(s?.balance_in_circulation ?? 0)}</div><div class="kpi-label">Saldo en circulación</div><div class="kpi-sub">${s?.users_with_balance ?? 0} usuarios con saldo</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#f59e0b">${fmt(s?.pending_withdrawals ?? 0)}</div><div class="kpi-label">Retiros pendientes</div><div class="kpi-sub">${s?.pending_withdrawals_count ?? 0} solicitudes</div></div>
+  ${(s?.admin_credits_total ?? 0) > 0 || (s?.admin_debits_total ?? 0) > 0 ? `<div class="kpi"><div class="kpi-value" style="color:#7c3aed">+${fmt(s?.admin_credits_total ?? 0)}</div><div class="kpi-label">Ajustes manuales</div><div class="kpi-sub">Créditos / −${fmt(s?.admin_debits_total ?? 0)} Débitos · no afectan ganancia</div></div>` : ""}
   <div class="kpi" style="background:${netProfit >= 0 ? "#f0fdf4" : "#fef2f2"};border-color:${netProfit >= 0 ? "#86efac" : "#fca5a5"}">
     <div class="kpi-value" style="color:${netProfit >= 0 ? "#16a34a" : "#dc2626"}">${fmt(netProfit)}</div>
     <div class="kpi-label">Ganancia neta</div>
-    <div class="kpi-sub">Ingresos − Premios − Retiros</div>
+    <div class="kpi-sub">Ingresos − Premios − Retiros reales</div>
   </div>
 </div>
 
@@ -2286,13 +2287,14 @@ ${signaturesSection}` : "";
 <div class="kpi-grid">
   <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt(grossRev)}</div><div class="kpi-label">Ingresos brutos</div><div class="kpi-sub">${s.cards_sold ?? 0} cartones vendidos</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(Number(s.prizes_paid ?? 0))}</div><div class="kpi-label">Premios pagados</div><div class="kpi-sub">${s.prizes_count ?? 0} ganadores</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#dc2626">${fmt(Number(s.withdrawals_paid ?? 0))}</div><div class="kpi-label">Retiros pagados</div><div class="kpi-sub">${s.withdrawals_count ?? 0} retiros</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#dc2626">${fmt(Number(s.withdrawals_paid ?? 0))}</div><div class="kpi-label">Retiros pagados</div><div class="kpi-sub">${s.withdrawals_count ?? 0} retiros efectivo/banco</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#7c3aed">${fmt(Number(s.balance_in_circulation ?? 0))}</div><div class="kpi-label">Saldo en circulación</div><div class="kpi-sub">${s.users_with_balance ?? 0} usuarios con saldo</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#f59e0b">${fmt(Number(s.pending_withdrawals ?? 0))}</div><div class="kpi-label">Retiros pendientes</div><div class="kpi-sub">${s.pending_withdrawals_count ?? 0} solicitudes</div></div>
+  ${(Number(s.admin_credits_total ?? 0) > 0 || Number(s.admin_debits_total ?? 0) > 0) ? `<div class="kpi"><div class="kpi-value" style="color:#7c3aed">+${fmt(Number(s.admin_credits_total ?? 0))}</div><div class="kpi-label">Ajustes manuales</div><div class="kpi-sub">Créditos / −${fmt(Number(s.admin_debits_total ?? 0))} Débitos · no afectan ganancia</div></div>` : ""}
   <div class="kpi" style="background:${netProfit >= 0 ? "#f0fdf4" : "#fef2f2"};border-color:${netProfit >= 0 ? "#86efac" : "#fca5a5"}">
     <div class="kpi-value" style="color:${netProfit >= 0 ? "#16a34a" : "#dc2626"}">${fmt(netProfit)}</div>
     <div class="kpi-label">Ganancia neta</div>
-    <div class="kpi-sub">Ingresos − Premios − Retiros</div>
+    <div class="kpi-sub">Ingresos − Premios − Retiros reales</div>
   </div>
 </div>
 
@@ -4108,8 +4110,8 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             { id: "year",  label: "1 año" },
             { id: "all",   label: "Todo" },
           ];
-          const typeLabel: Record<string, string> = { ingreso: "Ingreso", premio: "Premio", retiro: "Retiro" };
-          const typeStyle: Record<string, string> = { ingreso: "#16a34a", premio: "#b45309", retiro: "#dc2626" };
+          const typeLabel: Record<string, string> = { ingreso: "Ingreso", premio: "Premio", retiro: "Retiro", admin_credit: "✅ Crédito admin", admin_debit: "➖ Débito admin" };
+          const typeStyle: Record<string, string> = { ingreso: "#16a34a", premio: "#b45309", retiro: "#dc2626", admin_credit: "#7c3aed", admin_debit: "#b45309" };
           const statusLabel: Record<string, string> = { upcoming: "Próximo", active: "Activo", finished: "Finalizado" };
           const typeGameLabel: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual" };
 
@@ -4238,7 +4240,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         <div className="bg-card border rounded-2xl p-4">
                           <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">💸 Retiros pagados</p>
                           <p className="text-xl font-black mt-1" style={{ color: "#dc2626" }}>{fmt(s.withdrawals_paid)}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{s.withdrawals_count} retiro{s.withdrawals_count !== 1 ? "s" : ""}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{s.withdrawals_count} retiro{s.withdrawals_count !== 1 ? "s" : ""} efectivo/banco</p>
                         </div>
                         <div className="bg-card border rounded-2xl p-4" style={{ borderColor: s.pending_withdrawals_count > 0 ? "hsl(42 98% 52%)" : undefined }}>
                           <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">⏳ Retiros pendientes</p>
@@ -4260,11 +4262,32 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           <p className="text-xl font-black mt-1" style={{ color: "#7c3aed" }}>{fmt(s.balance_in_circulation)}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{s.users_with_balance} usuarios con saldo</p>
                         </div>
+                        {(s.bonus_balance_in_circulation ?? 0) > 0 && (
+                          <div className="bg-card border rounded-2xl p-4">
+                            <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">🎟️ Saldo bonus en circulación</p>
+                            <p className="text-xl font-black mt-1" style={{ color: "#b45309" }}>{fmt(s.bonus_balance_in_circulation ?? 0)}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{s.bonus_users_count ?? 0} usuarios · no retirable</p>
+                          </div>
+                        )}
+                        {((s.admin_credits_total ?? 0) > 0 || (s.admin_debits_total ?? 0) > 0) && (
+                          <div className="bg-card border rounded-2xl p-4">
+                            <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">⚙️ Ajustes manuales</p>
+                            <div className="flex justify-between items-baseline mt-1">
+                              <span className="text-xs text-muted-foreground">+Créditos ({s.admin_credits_count ?? 0})</span>
+                              <span className="font-black text-sm" style={{ color: "#7c3aed" }}>+{fmt(s.admin_credits_total ?? 0)}</span>
+                            </div>
+                            <div className="flex justify-between items-baseline">
+                              <span className="text-xs text-muted-foreground">−Débitos ({s.admin_debits_count ?? 0})</span>
+                              <span className="font-black text-sm" style={{ color: "#b45309" }}>−{fmt(s.admin_debits_total ?? 0)}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">No afectan ganancia neta</p>
+                          </div>
+                        )}
                         <div className="bg-card border-2 rounded-2xl p-4"
                           style={{ borderColor: s.net_profit >= 0 ? "#86efac" : "#fca5a5", background: s.net_profit >= 0 ? "hsl(142 70% 98%)" : "hsl(0 75% 98%)" }}>
                           <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>📈 Ganancia neta</p>
                           <p className="text-2xl font-black mt-1" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>{fmt(s.net_profit)}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">Ingresos − Premios − Retiros − Comisiones − Bonos</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Ingresos − Premios − Retiros reales − Comisiones − Bonos</p>
                         </div>
                       </div>
 
@@ -4388,7 +4411,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           <p className="text-xs text-muted-foreground">{new Date(t.date).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
                         </div>
                         <p className="shrink-0 font-black text-sm" style={{ color: typeStyle[t.type] ?? "#64748b" }}>
-                          {t.type === "ingreso" ? "+" : "−"}{fmt(t.amount)}
+                          {["ingreso", "admin_debit"].includes(t.type) ? "+" : "−"}{fmt(t.amount)}
                         </p>
                       </div>
                     ))}
@@ -4660,6 +4683,23 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">↳ Bonos de bienvenida ({s.bonuses_count ?? 0})</span>
                                 <span style={{ color: "#b45309" }}>−{fmt(s.total_bonuses_granted ?? 0)}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {((s.admin_credits_total ?? 0) > 0 || (s.admin_debits_total ?? 0) > 0) && (
+                          <div className="pl-3 space-y-0.5 pt-0.5 border-t" style={{ borderColor: "hsl(var(--border))" }}>
+                            <p className="text-[10px] text-muted-foreground italic">Ajustes manuales de saldo (informativo, no afectan ganancia):</p>
+                            {(s.admin_credits_total ?? 0) > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">↳ Créditos a usuarios ({s.admin_credits_count ?? 0})</span>
+                                <span style={{ color: "#7c3aed" }}>+{fmt(s.admin_credits_total ?? 0)}</span>
+                              </div>
+                            )}
+                            {(s.admin_debits_total ?? 0) > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">↳ Débitos a usuarios ({s.admin_debits_count ?? 0})</span>
+                                <span style={{ color: "#b45309" }}>−{fmt(s.admin_debits_total ?? 0)}</span>
                               </div>
                             )}
                           </div>

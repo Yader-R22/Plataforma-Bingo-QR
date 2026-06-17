@@ -1037,16 +1037,33 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
   const [rev, prizes, wdrs, balances, refTxs] = await Promise.all([
     db.execute(sql`SELECT coalesce(sum(g.card_price),0)::text as total, count(*)::int as count FROM cards c JOIN games g ON c.game_id=g.id WHERE c.payment_status='paid' ${dateWhere("c.created_at")}`),
     db.execute(sql`SELECT coalesce(sum(prize_amount),0)::text as total, count(*)::int as count FROM winners WHERE validated=true ${dateWhere("created_at")}`),
-    db.execute(sql`SELECT coalesce(sum(CASE WHEN status='paid' THEN amount ELSE 0 END),0)::text as paid_total, count(*) FILTER (WHERE status='paid') as paid_count, coalesce(sum(CASE WHEN status='pending' THEN amount ELSE 0 END),0)::text as pending_total, count(*) FILTER (WHERE status='pending') as pending_count FROM withdrawals WHERE true ${dateWhere("created_at")}`),
-    db.execute(sql`SELECT coalesce(sum(balance),0)::text as total, count(*) FILTER (WHERE balance > 0) as user_count FROM users WHERE is_admin=false`),
+    db.execute(sql`SELECT
+      coalesce(sum(CASE WHEN status='paid' AND method NOT IN ('admin_credit','admin_debit') THEN amount ELSE 0 END),0)::text as paid_total,
+      count(*) FILTER (WHERE status='paid' AND method NOT IN ('admin_credit','admin_debit')) as paid_count,
+      coalesce(sum(CASE WHEN status='pending' THEN amount ELSE 0 END),0)::text as pending_total,
+      count(*) FILTER (WHERE status='pending') as pending_count,
+      coalesce(sum(CASE WHEN status='paid' AND method='admin_credit' THEN amount ELSE 0 END),0)::text as admin_credits_total,
+      count(*) FILTER (WHERE status='paid' AND method='admin_credit') as admin_credits_count,
+      coalesce(sum(CASE WHEN status='paid' AND method='admin_debit' THEN amount ELSE 0 END),0)::text as admin_debits_total,
+      count(*) FILTER (WHERE status='paid' AND method='admin_debit') as admin_debits_count
+    FROM withdrawals WHERE true ${dateWhere("created_at")}`),
+    db.execute(sql`SELECT
+      coalesce(sum(balance),0)::text as total,
+      count(*) FILTER (WHERE balance > 0) as user_count,
+      coalesce(sum(bonus_balance),0)::text as total_bonus,
+      count(*) FILTER (WHERE bonus_balance > 0) as bonus_user_count
+    FROM users WHERE is_admin=false`),
     db.execute(sql`SELECT coalesce(sum(CASE WHEN type='commission' THEN amount ELSE 0 END),0)::text as commissions_total, coalesce(sum(CASE WHEN type='welcome_bonus' THEN amount ELSE 0 END),0)::text as bonuses_total, count(*) FILTER (WHERE type='commission') as commissions_count, count(*) FILTER (WHERE type='welcome_bonus') as bonuses_count FROM referral_transactions WHERE true ${dateWhere("created_at")}`),
   ]);
 
   const grossRevenue     = parseFloat((rev.rows[0] as any)?.total ?? "0");
   const prizesPaid       = parseFloat((prizes.rows[0] as any)?.total ?? "0");
   const withdrawalsPaid  = parseFloat((wdrs.rows[0] as any)?.paid_total ?? "0");
+  const adminCreditsTotal = parseFloat((wdrs.rows[0] as any)?.admin_credits_total ?? "0");
+  const adminDebitsTotal  = parseFloat((wdrs.rows[0] as any)?.admin_debits_total ?? "0");
   const commissionsTotal = parseFloat((refTxs.rows[0] as any)?.commissions_total ?? "0");
   const bonusesTotal     = parseFloat((refTxs.rows[0] as any)?.bonuses_total ?? "0");
+  // net_profit only uses real cash flows; admin adjustments are balance-sheet corrections, not P&L
   const netProfit        = grossRevenue - prizesPaid - withdrawalsPaid - commissionsTotal - bonusesTotal;
 
   const [activeExpenses, committedRows] = await Promise.all([
@@ -1084,8 +1101,15 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
     withdrawals_count:          Number((wdrs.rows[0] as any)?.paid_count ?? 0),
     pending_withdrawals:        parseFloat((wdrs.rows[0] as any)?.pending_total ?? "0"),
     pending_withdrawals_count:  Number((wdrs.rows[0] as any)?.pending_count ?? 0),
+    admin_credits_total:        adminCreditsTotal,
+    admin_credits_count:        Number((wdrs.rows[0] as any)?.admin_credits_count ?? 0),
+    admin_debits_total:         adminDebitsTotal,
+    admin_debits_count:         Number((wdrs.rows[0] as any)?.admin_debits_count ?? 0),
+    net_admin_adjustments:      parseFloat((adminCreditsTotal - adminDebitsTotal).toFixed(2)),
     balance_in_circulation:     parseFloat((balances.rows[0] as any)?.total ?? "0"),
     users_with_balance:         Number((balances.rows[0] as any)?.user_count ?? 0),
+    bonus_balance_in_circulation: parseFloat((balances.rows[0] as any)?.total_bonus ?? "0"),
+    bonus_users_count:          Number((balances.rows[0] as any)?.bonus_user_count ?? 0),
     total_commissions_paid:     commissionsTotal,
     commissions_count:          Number((refTxs.rows[0] as any)?.commissions_count ?? 0),
     total_bonuses_granted:      bonusesTotal,
@@ -1157,7 +1181,17 @@ router.get("/finance/transactions", async (req: AuthRequest, res) => {
       SELECT 'retiro'::text, wd.created_at, u.full_name, NULL,
              wd.amount::text, ('Retiro via ' || wd.method)::text
       FROM withdrawals wd JOIN users u ON wd.user_id=u.id
-      WHERE wd.status='paid' ${dw("wd.created_at")}
+      WHERE wd.status='paid' AND wd.method NOT IN ('admin_credit','admin_debit') ${dw("wd.created_at")}
+      UNION ALL
+      SELECT 'admin_credit'::text, wd.created_at, u.full_name, NULL,
+             wd.amount::text, ('Crédito admin' || COALESCE(': ' || wd.notes, ''))::text
+      FROM withdrawals wd JOIN users u ON wd.user_id=u.id
+      WHERE wd.status='paid' AND wd.method='admin_credit' ${dw("wd.created_at")}
+      UNION ALL
+      SELECT 'admin_debit'::text, wd.created_at, u.full_name, NULL,
+             wd.amount::text, ('Débito admin' || COALESCE(': ' || wd.notes, ''))::text
+      FROM withdrawals wd JOIN users u ON wd.user_id=u.id
+      WHERE wd.status='paid' AND wd.method='admin_debit' ${dw("wd.created_at")}
     ) t
     ORDER BY t.date DESC
     LIMIT ${limit}`);
