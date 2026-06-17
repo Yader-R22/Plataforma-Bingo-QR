@@ -15,76 +15,49 @@ async function getSettings() {
   return rows[0]!;
 }
 
-function guessType(src: string): string {
-  if (src.includes("data:image/png") || src.toLowerCase().endsWith(".png")) return "image/png";
-  if (src.includes("data:image/webp") || src.toLowerCase().endsWith(".webp")) return "image/webp";
-  if (src.includes("data:image/jpeg") || /\.jpe?g$/i.test(src)) return "image/jpeg";
-  return "image/svg+xml";
-}
-
+// Dynamic manifest — served from DB so admin changes reflect immediately
 router.get("/manifest.json", async (_req, res) => {
   const s = await getSettings();
 
-  const themeColor = s.pwaThemeColor || s.primaryColor || "#1a0050";
-  const bgColor = s.pwaBgColor || s.primaryColor || "#1a0050";
-
   const icons: { src: string; sizes: string; type: string; purpose: string }[] = [];
+  const iconSrc = s.pwaIconUrl || s.logoUrl || s.faviconUrl || "/favicon.svg";
+  const isDataUrl = iconSrc.startsWith("data:");
+  const isPng = iconSrc.includes("data:image/png") || iconSrc.toLowerCase().endsWith(".png");
 
-  const fallback = s.pwaIconUrl || s.logoUrl || s.faviconUrl || "/favicon.svg";
-
-  if (s.pwaIcon192Url) {
-    icons.push({ src: s.pwaIcon192Url, sizes: "192x192", type: guessType(s.pwaIcon192Url), purpose: "any" });
-  }
-  if (s.pwaIcon512Url) {
-    icons.push({ src: s.pwaIcon512Url, sizes: "512x512", type: guessType(s.pwaIcon512Url), purpose: "any" });
-  }
-  if (s.pwaIconMaskableUrl) {
-    icons.push({ src: s.pwaIconMaskableUrl, sizes: "512x512", type: guessType(s.pwaIconMaskableUrl), purpose: "maskable" });
+  if (isDataUrl) {
+    icons.push({ src: iconSrc, sizes: "512x512", type: isPng ? "image/png" : "image/svg+xml", purpose: "any maskable" });
+  } else {
+    icons.push({ src: iconSrc, sizes: "any", type: "image/svg+xml", purpose: "any maskable" });
+    icons.push({ src: iconSrc, sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" });
   }
 
-  if (icons.length === 0) {
-    const type = guessType(fallback);
-    if (fallback.startsWith("data:") || fallback.toLowerCase().endsWith(".png") || fallback.toLowerCase().endsWith(".webp")) {
-      icons.push({ src: fallback, sizes: "192x192", type, purpose: "any" });
-      icons.push({ src: fallback, sizes: "512x512", type, purpose: "any maskable" });
-    } else {
-      icons.push({ src: fallback, sizes: "any", type: "image/svg+xml", purpose: "any maskable" });
-    }
-  }
-
-  const screenshots: { src: string; sizes: string; type: string }[] = [];
-  if (s.pwaScreenshotUrl) {
-    screenshots.push({ src: s.pwaScreenshotUrl, sizes: "1080x1920", type: guessType(s.pwaScreenshotUrl) });
-  }
-
-  const manifest: Record<string, unknown> = {
+  const manifest = {
     name: s.siteName,
     short_name: s.pwaShortName || s.siteName.split(" ")[0],
     description: s.siteTagline,
-    start_url: s.pwaStartUrl || "/",
-    scope: "/",
-    display: s.pwaDisplayMode || "standalone",
-    background_color: bgColor,
-    theme_color: themeColor,
-    orientation: s.pwaOrientation || "portrait",
+    start_url: "/",
+    display: "standalone",
+    background_color: s.primaryColor || "#1a0050",
+    theme_color: s.primaryColor || "#1a0050",
+    orientation: "portrait",
     icons,
     categories: ["games", "entertainment"],
     lang: "es",
   };
-
-  if (screenshots.length > 0) manifest.screenshots = screenshots;
 
   res.setHeader("Content-Type", "application/manifest+json");
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.json(manifest);
 });
 
+// Returns current cache version so the SW knows when to bust its cache
 router.get("/cache-version", async (_req, res) => {
   const s = await getSettings();
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.json({ version: s.pwaCacheVersion ?? 1 });
 });
 
+// Admin: increment cache version — forces all PWA clients to clear cache on next visit
 router.post("/bump-cache", requireAdmin, async (req: AuthRequest, res) => {
   const s = await getSettings();
   const newVersion = (s.pwaCacheVersion ?? 1) + 1;
