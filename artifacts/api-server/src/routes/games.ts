@@ -285,6 +285,11 @@ router.post("/:id/next-round", requireAdmin, async (req: AuthRequest, res) => {
     .where(eq(gamesTable.id, p.data.id))
     .returning();
 
+  // Reset all active cards' marked numbers so players start with a blank card
+  await db.update(cardsTable)
+    .set({ markedNumbers: [] })
+    .where(and(eq(cardsTable.gameId, p.data.id), eq(cardsTable.status, "active")));
+
   req.log.info({ gameId: p.data.id, newRound: currentRound + 1 }, "Ronda avanzada por admin");
   res.json(formatGame(updated));
 });

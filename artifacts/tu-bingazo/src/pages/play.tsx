@@ -192,6 +192,8 @@ export default function PlayPage() {
 
   const cardsRef = useRef<BingoCard[]>([]);
   const prevCalledRef = useRef<number[]>([]);
+  const prevRoundRef = useRef<number>(1);
+  const [roundTransition, setRoundTransition] = useState<number | null>(null);
   const authHeader = { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" };
 
   async function autoMarkOnCards(newNums: number[], currentCards: BingoCard[]) {
@@ -225,12 +227,24 @@ export default function PlayPage() {
       if (res.ok) {
         const data: GameSession = await res.json();
         setSession(prev => {
+          // Detect round change
+          const prevRound = prevRoundRef.current;
+          if (prev && data.current_round !== prevRound) {
+            prevRoundRef.current = data.current_round;
+            prevCalledRef.current = []; // reset called number tracking
+            // Reload cards from server (they now have marked_numbers = [])
+            fetchCards();
+            setRoundTransition(data.current_round);
+            setTimeout(() => setRoundTransition(null), 4000);
+            return data;
+          }
+          prevRoundRef.current = data.current_round;
+
           const prevSet = new Set(prevCalledRef.current);
           const newNums = data.called_numbers.filter(n => !prevSet.has(n));
           if (newNums.length > 0) {
             setNewNumberAlert(data.last_called_number);
             setTimeout(() => setNewNumberAlert(null), 4000);
-            // Auto-mark on all cards
             autoMarkOnCards(newNums, cardsRef.current);
           }
           prevCalledRef.current = data.called_numbers;
@@ -381,8 +395,16 @@ export default function PlayPage() {
         <span className="text-white/60 text-xs">{session?.called_numbers?.length ?? 0} 🎱</span>
       </div>
 
+      {/* Round transition banner */}
+      {roundTransition !== null && (
+        <div className="text-center py-3 text-sm font-black"
+          style={{ background: "linear-gradient(90deg, #7c3aed, #4f46e5)", color: "white", animation: "feed-slide 0.3s ease-out" }}>
+          🔄 ¡Ronda {roundTransition} comenzó! Tu cartón fue reiniciado — ¡buena suerte!
+        </div>
+      )}
+
       {/* New number alert banner */}
-      {newNumberAlert && (
+      {newNumberAlert && !roundTransition && (
         <div className="text-center py-2.5 text-sm font-black"
           style={{ background: "linear-gradient(90deg, hsl(42 98% 52%), hsl(38 98% 48%))", color: "#1a0050", animation: "feed-slide 0.3s ease-out" }}>
           🎱 ¡Nuevo bolillo: <span className="text-xl font-black">{newNumberAlert ? bingoLabel(newNumberAlert) : ""}</span> — marcado automáticamente!
