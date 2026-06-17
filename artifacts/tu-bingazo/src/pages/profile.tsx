@@ -42,12 +42,17 @@ export default function ProfilePage() {
   const [changingCi, setChangingCi] = useState(false);
 
   // Requests status (polling)
-  type ReqStatus = { id: number; status: "pending" | "approved" | "rejected"; admin_notes: string | null; created_at: string };
+  type ReqStatus = { id: number; status: "pending" | "approved" | "rejected"; admin_notes: string | null; created_at: string; resolved_at: string | null };
   type NameReq = ReqStatus & { requested_name: string };
   type CiReq = ReqStatus & { current_ci: string; requested_ci: string };
   const [nameReq, setNameReq] = useState<NameReq | null>(null);
   const [ciReq, setCiReq] = useState<CiReq | null>(null);
   const [reqStatusLoaded, setReqStatusLoaded] = useState(false);
+  const RESOLUTION_VISIBLE_MS = 60 * 60 * 1000; // 1 hora
+  function isRecentlyResolved(req: ReqStatus | null): boolean {
+    if (!req || req.status === "pending" || !req.resolved_at) return false;
+    return Date.now() - new Date(req.resolved_at).getTime() < RESOLUTION_VISIBLE_MS;
+  }
 
   // Temp password change
   const [newPwd, setNewPwd] = useState("");
@@ -242,7 +247,7 @@ export default function ProfilePage() {
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Error al enviar solicitud"); return; }
       toast.success("✅ Solicitud enviada. El admin la revisará pronto.");
-      setNameReq({ id: data.id, requested_name: data.requested_name, status: "pending", admin_notes: null, created_at: data.created_at });
+      setNameReq({ id: data.id, requested_name: data.requested_name, status: "pending", admin_notes: null, created_at: data.created_at, resolved_at: null });
       setShowNameForm(false); setNewName("");
     } catch { toast.error("Error al procesar la solicitud"); }
     finally { setChangingName(false); }
@@ -261,7 +266,7 @@ export default function ProfilePage() {
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Error al enviar solicitud"); return; }
       toast.success("✅ Solicitud enviada. El admin la revisará pronto.");
-      setCiReq({ id: data.id, current_ci: data.current_ci, requested_ci: data.requested_ci, status: "pending", admin_notes: null, created_at: data.created_at });
+      setCiReq({ id: data.id, current_ci: data.current_ci, requested_ci: data.requested_ci, status: "pending", admin_notes: null, created_at: data.created_at, resolved_at: null });
       setShowCiForm(false); setNewCi("");
     } catch { toast.error("Error al procesar la solicitud"); }
     finally { setChangingCi(false); }
@@ -612,8 +617,8 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Approved */}
-            {nameReq?.status === "approved" && (
+            {/* Approved (visible solo 1h) */}
+            {nameReq?.status === "approved" && isRecentlyResolved(nameReq) && (
               <div className="rounded-xl p-3 space-y-1" style={{ background: "hsl(142 70% 45% / 0.08)", border: "1px solid hsl(142 70% 45% / 0.3)" }}>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "hsl(142 70% 45% / 0.15)", color: "hsl(142 70% 28%)" }}>✓ Aprobado</span>
@@ -626,8 +631,8 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Rejected */}
-            {nameReq?.status === "rejected" && (
+            {/* Rejected (visible solo 1h) */}
+            {nameReq?.status === "rejected" && isRecentlyResolved(nameReq) && (
               <div className="rounded-xl p-3 space-y-1.5" style={{ background: "hsl(0 75% 52% / 0.07)", border: "1px solid hsl(0 75% 52% / 0.3)" }}>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "hsl(0 75% 52% / 0.12)", color: "hsl(0 75% 38%)" }}>✗ Rechazado</span>
@@ -659,7 +664,7 @@ export default function ProfilePage() {
                   <button type="button" onClick={() => setShowNameForm(false)} className="px-4 py-3 rounded-[14px] border-2 font-bold text-sm" style={{ borderColor: "hsl(var(--border))" }}>Cancelar</button>
                 </div>
               </form>
-            ) : (!nameReq || nameReq.status === "approved") && !showNameForm && reqStatusLoaded && (
+            ) : (!nameReq || (nameReq.status !== "pending" && !isRecentlyResolved(nameReq))) && !showNameForm && reqStatusLoaded && (
               <button className="w-full py-3 rounded-xl border-2 font-bold text-sm flex items-center justify-center gap-2"
                 style={{ borderColor: "hsl(var(--primary))", color: "hsl(var(--primary))" }}
                 onClick={() => setShowNameForm(true)}>
@@ -685,8 +690,8 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Approved */}
-            {ciReq?.status === "approved" && (
+            {/* Approved (visible solo 1h) */}
+            {ciReq?.status === "approved" && isRecentlyResolved(ciReq) && (
               <div className="rounded-xl p-3 space-y-1" style={{ background: "hsl(142 70% 45% / 0.08)", border: "1px solid hsl(142 70% 45% / 0.3)" }}>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "hsl(142 70% 45% / 0.15)", color: "hsl(142 70% 28%)" }}>✓ Aprobado</span>
@@ -699,8 +704,8 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Rejected */}
-            {ciReq?.status === "rejected" && (
+            {/* Rejected (visible solo 1h) */}
+            {ciReq?.status === "rejected" && isRecentlyResolved(ciReq) && (
               <div className="rounded-xl p-3 space-y-1.5" style={{ background: "hsl(0 75% 52% / 0.07)", border: "1px solid hsl(0 75% 52% / 0.3)" }}>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "hsl(0 75% 52% / 0.12)", color: "hsl(0 75% 38%)" }}>✗ Rechazado</span>
@@ -732,7 +737,7 @@ export default function ProfilePage() {
                   <button type="button" onClick={() => setShowCiForm(false)} className="px-4 py-3 rounded-[14px] border-2 font-bold text-sm" style={{ borderColor: "hsl(var(--border))" }}>Cancelar</button>
                 </div>
               </form>
-            ) : (!ciReq || ciReq.status === "approved") && !showCiForm && reqStatusLoaded && (
+            ) : (!ciReq || (ciReq.status !== "pending" && !isRecentlyResolved(ciReq))) && !showCiForm && reqStatusLoaded && (
               <button className="w-full py-3 rounded-xl border-2 font-bold text-sm flex items-center justify-center gap-2"
                 style={{ borderColor: "hsl(42 98% 52%)", color: "hsl(42 98% 35%)" }}
                 onClick={() => setShowCiForm(true)}>

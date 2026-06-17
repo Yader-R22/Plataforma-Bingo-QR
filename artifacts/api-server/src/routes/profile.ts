@@ -52,6 +52,7 @@ router.get("/requests-status", requireAuth, async (req: AuthRequest, res) => {
       status: nameReq.status,
       admin_notes: nameReq.adminNotes ?? null,
       created_at: nameReq.createdAt,
+      resolved_at: nameReq.resolvedAt ?? null,
     } : null,
     ci_change: ciReq ? {
       id: ciReq.id,
@@ -60,6 +61,7 @@ router.get("/requests-status", requireAuth, async (req: AuthRequest, res) => {
       status: ciReq.status,
       admin_notes: ciReq.adminNotes ?? null,
       created_at: ciReq.createdAt,
+      resolved_at: ciReq.resolvedAt ?? null,
     } : null,
   });
 });
