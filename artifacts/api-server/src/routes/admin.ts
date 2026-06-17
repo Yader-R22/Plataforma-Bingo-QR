@@ -75,16 +75,25 @@ router.get("/name-change-requests", async (req: AuthRequest, res) => {
 
 router.get("/ci-change-requests", async (req: AuthRequest, res) => {
   const rows = await db
-    .select({ r: ciChangeRequestsTable, userName: usersTable.fullName })
+    .select({
+      r: ciChangeRequestsTable,
+      userName: usersTable.fullName,
+      regPhotoFront: usersTable.idPhotoFrontUrl,
+      regPhotoBack: usersTable.idPhotoBackUrl,
+    })
     .from(ciChangeRequestsTable)
     .leftJoin(usersTable, eq(ciChangeRequestsTable.userId, usersTable.id))
     .orderBy(desc(ciChangeRequestsTable.createdAt));
-  res.json(rows.map(({ r, userName }) => ({
+  res.json(rows.map(({ r, userName, regPhotoFront, regPhotoBack }) => ({
     id: r.id,
     user_id: r.userId,
     user_name: userName ?? null,
     current_ci: r.currentCi,
     requested_ci: r.requestedCi,
+    photo_front_url: r.photoFrontUrl ?? null,
+    photo_back_url: r.photoBackUrl ?? null,
+    reg_photo_front_url: regPhotoFront ?? null,
+    reg_photo_back_url: regPhotoBack ?? null,
     status: r.status,
     admin_notes: r.adminNotes ?? null,
     created_at: r.createdAt,

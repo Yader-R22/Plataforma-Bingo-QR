@@ -39,7 +39,11 @@ export default function ProfilePage() {
   // CI change
   const [showCiForm, setShowCiForm] = useState(false);
   const [newCi, setNewCi] = useState("");
+  const [ciPhotoFront, setCiPhotoFront] = useState("");
+  const [ciPhotoBack, setCiPhotoBack] = useState("");
   const [changingCi, setChangingCi] = useState(false);
+  const ciPhotoFrontRef = useRef<HTMLInputElement>(null);
+  const ciPhotoBackRef = useRef<HTMLInputElement>(null);
 
   // Temp password change
   const [newPwd, setNewPwd] = useState("");
@@ -212,20 +216,34 @@ export default function ProfilePage() {
     finally { setChangingName(false); }
   }
 
+  function handleCiPhoto(setter: (v: string) => void) {
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => setter(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    };
+  }
+
   async function requestCiChange(e: React.FormEvent) {
     e.preventDefault();
     if (!newCi.trim()) return;
+    if (!ciPhotoFront || !ciPhotoBack) {
+      toast.error("Adjunta las fotos del anverso y reverso de tu nuevo CI");
+      return;
+    }
     setChangingCi(true);
     try {
       const res = await fetch(`${BASE}/api/profile/ci-change-request`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ requested_ci: newCi }),
+        body: JSON.stringify({ requested_ci: newCi, photo_front: ciPhotoFront, photo_back: ciPhotoBack }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Error al enviar solicitud"); return; }
       toast.success("✅ Solicitud de cambio de CI enviada. El admin la revisará pronto.");
-      setShowCiForm(false); setNewCi("");
+      setShowCiForm(false); setNewCi(""); setCiPhotoFront(""); setCiPhotoBack("");
     } catch { toast.error("Error al procesar la solicitud"); }
     finally { setChangingCi(false); }
   }
@@ -591,10 +609,61 @@ export default function ProfilePage() {
             <form onSubmit={requestCiChange} className="space-y-3">
               <label className="text-sm font-bold block">Nuevo número de CI</label>
               <input className="input-field" placeholder="Nuevo número de carnet" value={newCi} onChange={e => setNewCi(e.target.value)} required autoFocus />
-              <p className="text-xs text-muted-foreground">El admin verificará tu identidad antes de aplicar el cambio.</p>
+
+              {/* Foto anverso */}
+              <div>
+                <p className="text-sm font-bold mb-1.5">📷 Anverso del nuevo CI <span className="text-red-500">*</span></p>
+                <div
+                  className="relative rounded-2xl border-2 border-dashed cursor-pointer overflow-hidden"
+                  style={{ borderColor: ciPhotoFront ? "hsl(var(--primary))" : "hsl(var(--border))", background: "hsl(var(--muted))", minHeight: 90 }}
+                  onClick={() => ciPhotoFrontRef.current?.click()}
+                >
+                  {ciPhotoFront ? (
+                    <div className="relative">
+                      <img src={ciPhotoFront} alt="Anverso CI" className="w-full h-24 object-cover" />
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                        <span className="text-white text-xs font-bold">Cambiar</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-20 gap-1">
+                      <span className="text-2xl">🪪</span>
+                      <span className="text-xs font-semibold text-muted-foreground">Foto frontal del nuevo CI</span>
+                    </div>
+                  )}
+                  <input ref={ciPhotoFrontRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCiPhoto(setCiPhotoFront)} />
+                </div>
+              </div>
+
+              {/* Foto reverso */}
+              <div>
+                <p className="text-sm font-bold mb-1.5">📷 Reverso del nuevo CI <span className="text-red-500">*</span></p>
+                <div
+                  className="relative rounded-2xl border-2 border-dashed cursor-pointer overflow-hidden"
+                  style={{ borderColor: ciPhotoBack ? "hsl(var(--primary))" : "hsl(var(--border))", background: "hsl(var(--muted))", minHeight: 90 }}
+                  onClick={() => ciPhotoBackRef.current?.click()}
+                >
+                  {ciPhotoBack ? (
+                    <div className="relative">
+                      <img src={ciPhotoBack} alt="Reverso CI" className="w-full h-24 object-cover" />
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                        <span className="text-white text-xs font-bold">Cambiar</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-20 gap-1">
+                      <span className="text-2xl">🪪</span>
+                      <span className="text-xs font-semibold text-muted-foreground">Foto trasera del nuevo CI</span>
+                    </div>
+                  )}
+                  <input ref={ciPhotoBackRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCiPhoto(setCiPhotoBack)} />
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">El admin verificará tu identidad con las fotos antes de aplicar el cambio.</p>
               <div className="flex gap-2">
-                <button type="submit" className="btn-primary flex-1" disabled={changingCi}>{changingCi ? "Enviando..." : "Solicitar cambio"}</button>
-                <button type="button" onClick={() => setShowCiForm(false)} className="px-4 py-3 rounded-[14px] border-2 font-bold text-sm" style={{ borderColor: "hsl(var(--border))" }}>Cancelar</button>
+                <button type="submit" className="btn-primary flex-1" disabled={changingCi || !ciPhotoFront || !ciPhotoBack}>{changingCi ? "Enviando..." : "Solicitar cambio"}</button>
+                <button type="button" onClick={() => { setShowCiForm(false); setCiPhotoFront(""); setCiPhotoBack(""); }} className="px-4 py-3 rounded-[14px] border-2 font-bold text-sm" style={{ borderColor: "hsl(var(--border))" }}>Cancelar</button>
               </div>
             </form>
           )}

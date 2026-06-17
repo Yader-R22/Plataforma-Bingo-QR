@@ -34,14 +34,24 @@ router.patch("/contact", requireAuth, async (req: AuthRequest, res) => {
 });
 
 router.post("/ci-change-request", requireAuth, async (req: AuthRequest, res) => {
-  const { requested_ci } = req.body as { requested_ci?: string };
+  const { requested_ci, photo_front, photo_back } = req.body as {
+    requested_ci?: string;
+    photo_front?: string;
+    photo_back?: string;
+  };
   if (!requested_ci?.trim()) { res.status(400).json({ error: "CI requerido" }); return; }
+  if (!photo_front || !photo_back) {
+    res.status(400).json({ error: "Debes adjuntar la foto del anverso y reverso de tu nuevo CI" });
+    return;
+  }
   const users = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
   if (!users.length) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
   const [request] = await db.insert(ciChangeRequestsTable).values({
     userId: req.userId!,
     currentCi: users[0].ci,
     requestedCi: requested_ci.trim(),
+    photoFrontUrl: photo_front,
+    photoBackUrl: photo_back,
   }).returning();
   res.status(201).json({
     id: request.id,

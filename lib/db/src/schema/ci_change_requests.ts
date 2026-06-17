@@ -14,6 +14,8 @@ export const ciChangeRequestsTable = pgTable("ci_change_requests", {
   userId: integer("user_id").notNull().references(() => usersTable.id),
   currentCi: text("current_ci").notNull(),
   requestedCi: text("requested_ci").notNull(),
+  photoFrontUrl: text("photo_front_url"),
+  photoBackUrl: text("photo_back_url"),
   status: text("status", { enum: ["pending", "approved", "rejected"] }).notNull().default("pending"),
   adminNotes: text("admin_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

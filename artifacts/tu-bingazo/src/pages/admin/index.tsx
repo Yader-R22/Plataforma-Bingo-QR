@@ -767,6 +767,7 @@ export default function AdminPage() {
   const [nameChangeRequests, setNameChangeRequests] = useState<any[]>([]);
   const [ciChangeRequests, setCiChangeRequests] = useState<any[]>([]);
   const [solicitudAction, setSolicitudAction] = useState<{ id: number; type: "name" | "ci"; approved: boolean; notes: string; loading: boolean } | null>(null);
+  const [photoLightbox, setPhotoLightbox] = useState<{ photos: { url: string; label: string }[]; index: number } | null>(null);
   const [approvingReset, setApprovingReset] = useState<number | null>(null);
   const [rejectingReset, setRejectingReset] = useState<number | null>(null);
   const [showCreateUser, setShowCreateUser] = useState(false);
@@ -4842,6 +4843,39 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
         {tab === "solicitudes" && !loading && (
           <div className="space-y-4">
 
+            {/* Photo lightbox */}
+            {photoLightbox && (
+              <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center p-4"
+                style={{ background: "rgba(0,0,0,0.92)" }}
+                onClick={() => setPhotoLightbox(null)}>
+                <div className="w-full max-w-md" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center justify-between mb-3 px-1">
+                    <p className="text-white font-bold text-sm">{photoLightbox.photos[photoLightbox.index]?.label}</p>
+                    <button onClick={() => setPhotoLightbox(null)} className="text-white/60 hover:text-white text-2xl leading-none">×</button>
+                  </div>
+                  <img
+                    src={photoLightbox.photos[photoLightbox.index]?.url}
+                    alt={photoLightbox.photos[photoLightbox.index]?.label}
+                    className="w-full rounded-2xl object-contain max-h-[60vh]"
+                  />
+                  {photoLightbox.photos.length > 1 && (
+                    <div className="flex gap-2 mt-3 justify-center">
+                      {photoLightbox.photos.map((p, i) => (
+                        <button key={i} onClick={() => setPhotoLightbox(lb => lb ? { ...lb, index: i } : null)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                          style={{
+                            background: i === photoLightbox.index ? "white" : "rgba(255,255,255,0.15)",
+                            color: i === photoLightbox.index ? "#000" : "rgba(255,255,255,0.8)",
+                          }}>
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Confirm modal */}
             {solicitudAction && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}
@@ -4947,8 +4981,16 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   : r.status === "rejected"
                   ? { bg: "hsl(0 75% 52% / 0.1)", color: "hsl(0 75% 40%)", label: "✗ Rechazado" }
                   : { bg: "hsl(42 98% 52% / 0.1)", color: "hsl(42 98% 35%)", label: "⏳ Pendiente" };
+
+                const allPhotos = [
+                  r.reg_photo_front_url && { url: r.reg_photo_front_url, label: "Registro · Anverso" },
+                  r.reg_photo_back_url && { url: r.reg_photo_back_url, label: "Registro · Reverso" },
+                  r.photo_front_url && { url: r.photo_front_url, label: "Nuevo CI · Anverso" },
+                  r.photo_back_url && { url: r.photo_back_url, label: "Nuevo CI · Reverso" },
+                ].filter(Boolean) as { url: string; label: string }[];
+
                 return (
-                  <div key={r.id} className="bg-card border rounded-2xl p-4 space-y-2">
+                  <div key={r.id} className="bg-card border rounded-2xl p-4 space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="font-bold text-sm">{r.user_name ?? `Usuario #${r.user_id}`}</p>
@@ -4959,10 +5001,93 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         {statusStyle.label}
                       </span>
                     </div>
+
                     <div className="text-xs rounded-xl px-3 py-2 space-y-0.5" style={{ background: "hsl(var(--muted))" }}>
-                      <p><span className="text-muted-foreground">CI actual:</span> {r.current_ci}</p>
-                      <p><span className="text-muted-foreground">CI solicitado:</span> <span className="font-bold">{r.requested_ci}</span></p>
+                      <p><span className="text-muted-foreground">CI actual:</span> <span className="font-mono">{r.current_ci}</span></p>
+                      <p><span className="text-muted-foreground">CI solicitado:</span> <span className="font-mono font-bold">{r.requested_ci}</span></p>
                     </div>
+
+                    {/* Photo grid */}
+                    {allPhotos.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Fotos de identidad</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {/* Registration photos */}
+                          {(r.reg_photo_front_url || r.reg_photo_back_url) && (
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Del registro</p>
+                              <div className="flex gap-1.5">
+                                {r.reg_photo_front_url && (
+                                  <button onClick={() => setPhotoLightbox({ photos: allPhotos, index: allPhotos.findIndex(p => p.url === r.reg_photo_front_url) })}
+                                    className="flex-1 rounded-xl overflow-hidden border-2 relative group"
+                                    style={{ borderColor: "hsl(var(--border))", height: 64 }}>
+                                    <img src={r.reg_photo_front_url} alt="Anverso registro" className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                      <span className="text-white text-xs font-bold">🔍</span>
+                                    </div>
+                                    <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] font-bold text-center py-0.5">Anverso</span>
+                                  </button>
+                                )}
+                                {r.reg_photo_back_url && (
+                                  <button onClick={() => setPhotoLightbox({ photos: allPhotos, index: allPhotos.findIndex(p => p.url === r.reg_photo_back_url) })}
+                                    className="flex-1 rounded-xl overflow-hidden border-2 relative group"
+                                    style={{ borderColor: "hsl(var(--border))", height: 64 }}>
+                                    <img src={r.reg_photo_back_url} alt="Reverso registro" className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                      <span className="text-white text-xs font-bold">🔍</span>
+                                    </div>
+                                    <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] font-bold text-center py-0.5">Reverso</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* New CI photos */}
+                          {(r.photo_front_url || r.photo_back_url) && (
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "hsl(var(--primary))" }}>Nuevo CI</p>
+                              <div className="flex gap-1.5">
+                                {r.photo_front_url && (
+                                  <button onClick={() => setPhotoLightbox({ photos: allPhotos, index: allPhotos.findIndex(p => p.url === r.photo_front_url) })}
+                                    className="flex-1 rounded-xl overflow-hidden border-2 relative group"
+                                    style={{ borderColor: "hsl(var(--primary) / 0.5)", height: 64 }}>
+                                    <img src={r.photo_front_url} alt="Anverso nuevo CI" className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                      <span className="text-white text-xs font-bold">🔍</span>
+                                    </div>
+                                    <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] font-bold text-center py-0.5">Anverso</span>
+                                  </button>
+                                )}
+                                {r.photo_back_url && (
+                                  <button onClick={() => setPhotoLightbox({ photos: allPhotos, index: allPhotos.findIndex(p => p.url === r.photo_back_url) })}
+                                    className="flex-1 rounded-xl overflow-hidden border-2 relative group"
+                                    style={{ borderColor: "hsl(var(--primary) / 0.5)", height: 64 }}>
+                                    <img src={r.photo_back_url} alt="Reverso nuevo CI" className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                      <span className="text-white text-xs font-bold">🔍</span>
+                                    </div>
+                                    <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] font-bold text-center py-0.5">Reverso</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        {allPhotos.length > 0 && (
+                          <button onClick={() => setPhotoLightbox({ photos: allPhotos, index: 0 })}
+                            className="w-full py-1.5 rounded-xl text-xs font-bold border"
+                            style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}>
+                            🔍 Ver todas las fotos ({allPhotos.length})
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {!r.photo_front_url && !r.photo_back_url && (
+                      <p className="text-xs text-amber-600 font-medium px-1">⚠️ Sin fotos del nuevo CI adjuntas</p>
+                    )}
+
                     {r.admin_notes && (
                       <p className="text-xs text-muted-foreground px-1">📝 {r.admin_notes}</p>
                     )}
