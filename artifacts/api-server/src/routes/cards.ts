@@ -424,6 +424,21 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
     return;
   }
 
+  // ── Número pisado: el bingo ya era válido ANTES del último bolillo cantado.
+  // El jugador debió reclamar en el número anterior — este reclamo llega tarde.
+  if (calledNumbers.length > 1) {
+    const prevNumbers = calledNumbers.slice(0, -1);
+    const alreadyHadBingo = validateBingo(card, roundCfg.game_mode, prevNumbers);
+    if (alreadyHadBingo) {
+      res.json({
+        valid: false,
+        pisado: true,
+        message: "¡Número pisado! Ya tenías bingo antes del último bolillo. Debías reclamar en cuanto se cantó tu número ganador.",
+      });
+      return;
+    }
+  }
+
   // Dedupe, max-winners cap, place assignment, winner insert and audit all run
   // inside ONE transaction that locks the game row (SELECT ... FOR UPDATE).
   // This serializes concurrent valid claims so two players cannot both pass the

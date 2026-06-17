@@ -333,6 +333,11 @@ export default function PlayPage() {
       const data = await res.json();
       if (data.valid) {
         toast.success(`🎉 ${data.message}`, { duration: 10000 });
+      } else if (data.pisado) {
+        toast.error("¡Número pisado! 🚫", {
+          duration: 10000,
+          description: data.message,
+        });
       } else if (data.expired) {
         toast.error(data.message, { duration: 8000, description: "Recuerda: debes gritar BINGO antes de que se cante el siguiente bolillo." });
       } else {
