@@ -473,7 +473,7 @@ export default function HomePage() {
         <div className="grid grid-cols-2 gap-3">
           {[
             { icon: "📝", title: "Regístrate", desc: "Con tu CI boliviano" },
-            { icon: "💳", title: "Compra cartones", desc: "Paga con QR PagosYa" },
+            { icon: "💳", title: "Compra cartones", desc: "Paga con QR" },
             { icon: "🎱", title: "Juega en vivo", desc: "Marcado automático" },
             { icon: "💸", title: "Cobra tu premio", desc: "Directo a tu billetera" },
           ].map(s => (

@@ -628,7 +628,7 @@ export default function GameDetailPage() {
                         color: payWith === "qr" ? "hsl(var(--primary))" : "hsl(var(--foreground))",
                       }}
                     >
-                      📱 QR / PagosYa
+                      📱 Pagar por QR
                     </button>
                     <button
                       onClick={() => setPayWith("wallet")}
