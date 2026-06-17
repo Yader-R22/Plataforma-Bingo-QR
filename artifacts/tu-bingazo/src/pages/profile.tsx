@@ -41,6 +41,14 @@ export default function ProfilePage() {
   const [newCi, setNewCi] = useState("");
   const [changingCi, setChangingCi] = useState(false);
 
+  // Requests status (polling)
+  type ReqStatus = { id: number; status: "pending" | "approved" | "rejected"; admin_notes: string | null; created_at: string };
+  type NameReq = ReqStatus & { requested_name: string };
+  type CiReq = ReqStatus & { current_ci: string; requested_ci: string };
+  const [nameReq, setNameReq] = useState<NameReq | null>(null);
+  const [ciReq, setCiReq] = useState<CiReq | null>(null);
+  const [reqStatusLoaded, setReqStatusLoaded] = useState(false);
+
   // Temp password change
   const [newPwd, setNewPwd] = useState("");
   const [newPwdConfirm, setNewPwdConfirm] = useState("");
@@ -70,6 +78,33 @@ export default function ProfilePage() {
     }
     fetchStatus();
     const interval = setInterval(fetchStatus, 5000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [token]);
+
+  // Poll requests status every 10s
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    function fetchReqStatus() {
+      fetch(`${BASE}/api/profile/requests-status`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (!d || cancelled) return;
+          setNameReq(d.name_change ?? null);
+          setCiReq(d.ci_change ?? null);
+          setReqStatusLoaded(true);
+          // If name change just got approved, refresh user profile
+          if (d.name_change?.status === "approved") {
+            fetch(`${BASE}/api/profile`, { headers: { Authorization: `Bearer ${token}` } })
+              .then(r => r.ok ? r.json() : null)
+              .then(u => { if (u && !cancelled) setUser(u); })
+              .catch(() => {});
+          }
+        })
+        .catch(() => { if (!cancelled) setReqStatusLoaded(true); });
+    }
+    fetchReqStatus();
+    const interval = setInterval(fetchReqStatus, 10000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [token]);
 
@@ -206,7 +241,8 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Error al enviar solicitud"); return; }
-      toast.success("✅ Solicitud de nombre enviada. El admin la revisará pronto.");
+      toast.success("✅ Solicitud enviada. El admin la revisará pronto.");
+      setNameReq({ id: data.id, requested_name: data.requested_name, status: "pending", admin_notes: null, created_at: data.created_at });
       setShowNameForm(false); setNewName("");
     } catch { toast.error("Error al procesar la solicitud"); }
     finally { setChangingName(false); }
@@ -224,7 +260,8 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Error al enviar solicitud"); return; }
-      toast.success("✅ Solicitud de cambio de CI enviada. El admin la revisará pronto.");
+      toast.success("✅ Solicitud enviada. El admin la revisará pronto.");
+      setCiReq({ id: data.id, current_ci: data.current_ci, requested_ci: data.requested_ci, status: "pending", admin_notes: null, created_at: data.created_at });
       setShowCiForm(false); setNewCi("");
     } catch { toast.error("Error al procesar la solicitud"); }
     finally { setChangingCi(false); }
@@ -560,44 +597,149 @@ export default function ProfilePage() {
           <h3 className="font-black">Solicitudes de Cambio</h3>
           <p className="text-xs text-muted-foreground -mt-2">El nombre y CI requieren aprobación del administrador con verificación de identidad.</p>
 
-          {!showNameForm && !showCiForm && (
-            <div className="space-y-2">
+          {/* ── Nombre ── */}
+          <div className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">✏️ Nombre completo</p>
+
+            {/* Pending */}
+            {nameReq?.status === "pending" && (
+              <div className="rounded-xl p-3 space-y-1" style={{ background: "hsl(42 98% 52% / 0.08)", border: "1px solid hsl(42 98% 52% / 0.3)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "hsl(42 98% 52% / 0.15)", color: "hsl(42 98% 30%)" }}>⏳ En revisión</span>
+                </div>
+                <p className="text-sm font-medium mt-1">Nombre solicitado: <span className="font-bold">{nameReq.requested_name}</span></p>
+                <p className="text-xs text-muted-foreground">El administrador revisará tu solicitud pronto.</p>
+              </div>
+            )}
+
+            {/* Approved */}
+            {nameReq?.status === "approved" && (
+              <div className="rounded-xl p-3 space-y-1" style={{ background: "hsl(142 70% 45% / 0.08)", border: "1px solid hsl(142 70% 45% / 0.3)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "hsl(142 70% 45% / 0.15)", color: "hsl(142 70% 28%)" }}>✓ Aprobado</span>
+                </div>
+                <p className="text-sm font-medium mt-1">Tu nombre fue actualizado a: <span className="font-bold">{nameReq.requested_name}</span></p>
+                <button className="text-xs font-bold mt-1 underline" style={{ color: "hsl(var(--primary))" }}
+                  onClick={() => { setNameReq(null); setShowNameForm(true); }}>
+                  Hacer otra solicitud
+                </button>
+              </div>
+            )}
+
+            {/* Rejected */}
+            {nameReq?.status === "rejected" && (
+              <div className="rounded-xl p-3 space-y-1.5" style={{ background: "hsl(0 75% 52% / 0.07)", border: "1px solid hsl(0 75% 52% / 0.3)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "hsl(0 75% 52% / 0.12)", color: "hsl(0 75% 38%)" }}>✗ Rechazado</span>
+                </div>
+                <p className="text-sm font-medium">Nombre solicitado: <span className="font-bold">{nameReq.requested_name}</span></p>
+                {nameReq.admin_notes && (
+                  <div className="rounded-lg p-2 mt-1" style={{ background: "hsl(0 75% 52% / 0.08)" }}>
+                    <p className="text-xs font-bold" style={{ color: "hsl(0 75% 38%)" }}>Motivo del rechazo:</p>
+                    <p className="text-xs mt-0.5">{nameReq.admin_notes}</p>
+                  </div>
+                )}
+                {!showNameForm && (
+                  <button className="text-xs font-bold mt-1 underline" style={{ color: "hsl(var(--primary))" }}
+                    onClick={() => { setShowNameForm(true); }}>
+                    Volver a solicitar
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Form */}
+            {showNameForm ? (
+              <form onSubmit={requestNameChange} className="space-y-3">
+                <label className="text-sm font-bold block">Nuevo nombre completo</label>
+                <input className="input-field" placeholder="Nombre completo correcto" value={newName} onChange={e => setNewName(e.target.value)} required autoFocus />
+                <p className="text-xs text-muted-foreground">El admin revisará tu solicitud en 24-48h con tu CI.</p>
+                <div className="flex gap-2">
+                  <button type="submit" className="btn-primary flex-1" disabled={changingName}>{changingName ? "Enviando..." : "Solicitar cambio"}</button>
+                  <button type="button" onClick={() => setShowNameForm(false)} className="px-4 py-3 rounded-[14px] border-2 font-bold text-sm" style={{ borderColor: "hsl(var(--border))" }}>Cancelar</button>
+                </div>
+              </form>
+            ) : (!nameReq || nameReq.status === "approved") && !showNameForm && reqStatusLoaded && (
               <button className="w-full py-3 rounded-xl border-2 font-bold text-sm flex items-center justify-center gap-2"
                 style={{ borderColor: "hsl(var(--primary))", color: "hsl(var(--primary))" }}
                 onClick={() => setShowNameForm(true)}>
                 ✏️ Solicitar corrección de nombre
               </button>
+            )}
+          </div>
+
+          <div className="border-t" style={{ borderColor: "hsl(var(--border))" }} />
+
+          {/* ── CI ── */}
+          <div className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">🪪 Número de cédula</p>
+
+            {/* Pending */}
+            {ciReq?.status === "pending" && (
+              <div className="rounded-xl p-3 space-y-1" style={{ background: "hsl(42 98% 52% / 0.08)", border: "1px solid hsl(42 98% 52% / 0.3)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "hsl(42 98% 52% / 0.15)", color: "hsl(42 98% 30%)" }}>⏳ En revisión</span>
+                </div>
+                <p className="text-sm font-medium mt-1">CI solicitado: <span className="font-bold">{ciReq.requested_ci}</span></p>
+                <p className="text-xs text-muted-foreground">El administrador verificará tu identidad pronto.</p>
+              </div>
+            )}
+
+            {/* Approved */}
+            {ciReq?.status === "approved" && (
+              <div className="rounded-xl p-3 space-y-1" style={{ background: "hsl(142 70% 45% / 0.08)", border: "1px solid hsl(142 70% 45% / 0.3)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "hsl(142 70% 45% / 0.15)", color: "hsl(142 70% 28%)" }}>✓ Aprobado</span>
+                </div>
+                <p className="text-sm font-medium mt-1">Tu CI fue actualizado a: <span className="font-bold">{ciReq.requested_ci}</span></p>
+                <button className="text-xs font-bold mt-1 underline" style={{ color: "hsl(var(--primary))" }}
+                  onClick={() => { setCiReq(null); setShowCiForm(true); }}>
+                  Hacer otra solicitud
+                </button>
+              </div>
+            )}
+
+            {/* Rejected */}
+            {ciReq?.status === "rejected" && (
+              <div className="rounded-xl p-3 space-y-1.5" style={{ background: "hsl(0 75% 52% / 0.07)", border: "1px solid hsl(0 75% 52% / 0.3)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "hsl(0 75% 52% / 0.12)", color: "hsl(0 75% 38%)" }}>✗ Rechazado</span>
+                </div>
+                <p className="text-sm font-medium">CI solicitado: <span className="font-bold">{ciReq.requested_ci}</span></p>
+                {ciReq.admin_notes && (
+                  <div className="rounded-lg p-2 mt-1" style={{ background: "hsl(0 75% 52% / 0.08)" }}>
+                    <p className="text-xs font-bold" style={{ color: "hsl(0 75% 38%)" }}>Motivo del rechazo:</p>
+                    <p className="text-xs mt-0.5">{ciReq.admin_notes}</p>
+                  </div>
+                )}
+                {!showCiForm && (
+                  <button className="text-xs font-bold mt-1 underline" style={{ color: "hsl(var(--primary))" }}
+                    onClick={() => { setShowCiForm(true); }}>
+                    Volver a solicitar
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Form */}
+            {showCiForm ? (
+              <form onSubmit={requestCiChange} className="space-y-3">
+                <label className="text-sm font-bold block">Nuevo número de CI</label>
+                <input className="input-field" placeholder="Nuevo número de carnet" value={newCi} onChange={e => setNewCi(e.target.value)} required autoFocus />
+                <p className="text-xs text-muted-foreground">El admin verificará tu identidad antes de aplicar el cambio.</p>
+                <div className="flex gap-2">
+                  <button type="submit" className="btn-primary flex-1" disabled={changingCi}>{changingCi ? "Enviando..." : "Solicitar cambio"}</button>
+                  <button type="button" onClick={() => setShowCiForm(false)} className="px-4 py-3 rounded-[14px] border-2 font-bold text-sm" style={{ borderColor: "hsl(var(--border))" }}>Cancelar</button>
+                </div>
+              </form>
+            ) : (!ciReq || ciReq.status === "approved") && !showCiForm && reqStatusLoaded && (
               <button className="w-full py-3 rounded-xl border-2 font-bold text-sm flex items-center justify-center gap-2"
                 style={{ borderColor: "hsl(42 98% 52%)", color: "hsl(42 98% 35%)" }}
                 onClick={() => setShowCiForm(true)}>
                 🪪 Solicitar corrección de CI
               </button>
-            </div>
-          )}
-
-          {showNameForm && (
-            <form onSubmit={requestNameChange} className="space-y-3">
-              <label className="text-sm font-bold block">Nuevo nombre completo</label>
-              <input className="input-field" placeholder="Nombre completo correcto" value={newName} onChange={e => setNewName(e.target.value)} required autoFocus />
-              <p className="text-xs text-muted-foreground">El admin revisará tu solicitud en 24-48h con tu CI.</p>
-              <div className="flex gap-2">
-                <button type="submit" className="btn-primary flex-1" disabled={changingName}>{changingName ? "Enviando..." : "Solicitar cambio"}</button>
-                <button type="button" onClick={() => setShowNameForm(false)} className="px-4 py-3 rounded-[14px] border-2 font-bold text-sm" style={{ borderColor: "hsl(var(--border))" }}>Cancelar</button>
-              </div>
-            </form>
-          )}
-
-          {showCiForm && (
-            <form onSubmit={requestCiChange} className="space-y-3">
-              <label className="text-sm font-bold block">Nuevo número de CI</label>
-              <input className="input-field" placeholder="Nuevo número de carnet" value={newCi} onChange={e => setNewCi(e.target.value)} required autoFocus />
-              <p className="text-xs text-muted-foreground">El admin verificará tu identidad antes de aplicar el cambio.</p>
-              <div className="flex gap-2">
-                <button type="submit" className="btn-primary flex-1" disabled={changingCi}>{changingCi ? "Enviando..." : "Solicitar cambio"}</button>
-                <button type="button" onClick={() => setShowCiForm(false)} className="px-4 py-3 rounded-[14px] border-2 font-bold text-sm" style={{ borderColor: "hsl(var(--border))" }}>Cancelar</button>
-              </div>
-            </form>
-          )}
+            )}
+          </div>
         </div>
 
         {user.is_admin && (

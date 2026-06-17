@@ -1,7 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { db, usersTable, nameChangeRequestsTable, ciChangeRequestsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { UploadAvatarBody, RequestNameChangeBody } from "@workspace/api-zod";
 import { auditLogsTable } from "@workspace/db";
@@ -33,9 +33,51 @@ router.patch("/contact", requireAuth, async (req: AuthRequest, res) => {
   res.json(formatUser(user));
 });
 
+// ── Estado actual de solicitudes del usuario ────────────────────────────────
+router.get("/requests-status", requireAuth, async (req: AuthRequest, res) => {
+  const [nameReq] = await db.select()
+    .from(nameChangeRequestsTable)
+    .where(eq(nameChangeRequestsTable.userId, req.userId!))
+    .orderBy(desc(nameChangeRequestsTable.createdAt))
+    .limit(1);
+  const [ciReq] = await db.select()
+    .from(ciChangeRequestsTable)
+    .where(eq(ciChangeRequestsTable.userId, req.userId!))
+    .orderBy(desc(ciChangeRequestsTable.createdAt))
+    .limit(1);
+  res.json({
+    name_change: nameReq ? {
+      id: nameReq.id,
+      requested_name: nameReq.requestedName,
+      status: nameReq.status,
+      admin_notes: nameReq.adminNotes ?? null,
+      created_at: nameReq.createdAt,
+    } : null,
+    ci_change: ciReq ? {
+      id: ciReq.id,
+      current_ci: ciReq.currentCi,
+      requested_ci: ciReq.requestedCi,
+      status: ciReq.status,
+      admin_notes: ciReq.adminNotes ?? null,
+      created_at: ciReq.createdAt,
+    } : null,
+  });
+});
+
 router.post("/ci-change-request", requireAuth, async (req: AuthRequest, res) => {
   const { requested_ci } = req.body as { requested_ci?: string };
   if (!requested_ci?.trim()) { res.status(400).json({ error: "CI requerido" }); return; }
+
+  // Bloquear si hay una solicitud pendiente
+  const [existing] = await db.select({ status: ciChangeRequestsTable.status })
+    .from(ciChangeRequestsTable)
+    .where(and(eq(ciChangeRequestsTable.userId, req.userId!), eq(ciChangeRequestsTable.status, "pending")))
+    .limit(1);
+  if (existing) {
+    res.status(409).json({ error: "Ya tienes una solicitud de cambio de CI en revisión. Espera a que sea resuelta." });
+    return;
+  }
+
   const users = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
   if (!users.length) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
   const [request] = await db.insert(ciChangeRequestsTable).values({
@@ -57,6 +99,17 @@ router.post("/ci-change-request", requireAuth, async (req: AuthRequest, res) => 
 router.post("/name-change-request", requireAuth, async (req: AuthRequest, res) => {
   const parsed = RequestNameChangeBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Datos inválidos" }); return; }
+
+  // Bloquear si hay una solicitud pendiente
+  const [existing] = await db.select({ status: nameChangeRequestsTable.status })
+    .from(nameChangeRequestsTable)
+    .where(and(eq(nameChangeRequestsTable.userId, req.userId!), eq(nameChangeRequestsTable.status, "pending")))
+    .limit(1);
+  if (existing) {
+    res.status(409).json({ error: "Ya tienes una solicitud de cambio de nombre en revisión. Espera a que sea resuelta." });
+    return;
+  }
+
   const [request] = await db.insert(nameChangeRequestsTable).values({
     userId: req.userId!,
     requestedName: parsed.data.requested_name,
