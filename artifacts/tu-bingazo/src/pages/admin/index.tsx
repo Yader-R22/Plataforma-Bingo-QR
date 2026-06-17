@@ -15,6 +15,8 @@ function hasPermission(perms: string[], perm: string): boolean {
 
 const ALL_TABS = [
   { id: "overview",     label: "📊 Resumen",     perm: null },
+  { id: "pwa",          label: "📱 Config. PWA", perm: null },
+  { id: "sitio",        label: "🌐 Sitio Web",   perm: null },
   { id: "finance",      label: "💰 Finanzas",    perm: null },
   { id: "users",        label: "👥 Usuarios",    perm: "admin:users" },
   { id: "games",        label: "🎱 Juegos",       perm: "admin:games" },
@@ -24,8 +26,6 @@ const ALL_TABS = [
   { id: "referidos",    label: "🔗 Referidos",   perm: null },
   { id: "solicitudes",  label: "📋 Solicitudes",  perm: "admin:users" },
   { id: "resets",       label: "🔑 Resets",       perm: "admin:resets" },
-  { id: "sitio",        label: "🌐 Sitio Web",   perm: null },
-  { id: "pwa",          label: "📱 Config. PWA", perm: null },
   { id: "logs",         label: "📋 Auditoría",   perm: "admin:logs" },
 ] as const;
 
