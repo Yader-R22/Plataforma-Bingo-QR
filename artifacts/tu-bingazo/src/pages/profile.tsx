@@ -109,7 +109,7 @@ export default function ProfilePage() {
         .catch(() => { if (!cancelled) setReqStatusLoaded(true); });
     }
     fetchReqStatus();
-    const interval = setInterval(fetchReqStatus, 10000);
+    const interval = setInterval(fetchReqStatus, 5000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [token]);
 
@@ -624,6 +624,12 @@ export default function ProfilePage() {
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "hsl(142 70% 45% / 0.15)", color: "hsl(142 70% 28%)" }}>✓ Aprobado</span>
                 </div>
                 <p className="text-sm font-medium mt-1">Tu nombre fue actualizado a: <span className="font-bold">{nameReq.requested_name}</span></p>
+                {nameReq.admin_notes && (
+                  <div className="rounded-lg p-2 mt-1" style={{ background: "hsl(142 70% 45% / 0.08)" }}>
+                    <p className="text-xs font-bold" style={{ color: "hsl(142 70% 28%)" }}>Nota del administrador:</p>
+                    <p className="text-xs mt-0.5">{nameReq.admin_notes}</p>
+                  </div>
+                )}
                 <button className="text-xs font-bold mt-1 underline" style={{ color: "hsl(var(--primary))" }}
                   onClick={() => { setNameReq(null); setShowNameForm(true); }}>
                   Hacer otra solicitud
@@ -697,6 +703,12 @@ export default function ProfilePage() {
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "hsl(142 70% 45% / 0.15)", color: "hsl(142 70% 28%)" }}>✓ Aprobado</span>
                 </div>
                 <p className="text-sm font-medium mt-1">Tu CI fue actualizado a: <span className="font-bold">{ciReq.requested_ci}</span></p>
+                {ciReq.admin_notes && (
+                  <div className="rounded-lg p-2 mt-1" style={{ background: "hsl(142 70% 45% / 0.08)" }}>
+                    <p className="text-xs font-bold" style={{ color: "hsl(142 70% 28%)" }}>Nota del administrador:</p>
+                    <p className="text-xs mt-0.5">{ciReq.admin_notes}</p>
+                  </div>
+                )}
                 <button className="text-xs font-bold mt-1 underline" style={{ color: "hsl(var(--primary))" }}
                   onClick={() => { setCiReq(null); setShowCiForm(true); }}>
                   Hacer otra solicitud

@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
@@ -476,6 +476,94 @@ export default function AppLayout({ children, hideNav, hideLogo, hideTopBar, tit
       .then(d => { if (d) setUser(d); })
       .catch(() => {});
   }, []);
+
+  // Global poll: detect when admin approves/rejects name or CI change requests
+  // and show a toast notification regardless of which page the user is on.
+  const prevNameStatus = useRef<string | null>(null);
+  const prevCiStatus = useRef<string | null>(null);
+  const reqPollReady = useRef(false);
+
+  const refreshUserProfile = useCallback(() => {
+    if (!token) return;
+    fetch(`${BASE}/api/profile`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(u => { if (u) setUser(u); })
+      .catch(() => {});
+  }, [token, setUser]);
+
+  useEffect(() => {
+    if (!token || !user || user.is_admin) return;
+    let cancelled = false;
+
+    function pollRequests() {
+      fetch(`${BASE}/api/profile/requests-status`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (!d || cancelled) return;
+          const nameStatus = d.name_change?.status ?? null;
+          const ciStatus = d.ci_change?.status ?? null;
+
+          if (!reqPollReady.current) {
+            reqPollReady.current = true;
+            prevNameStatus.current = nameStatus;
+            prevCiStatus.current = ciStatus;
+            return;
+          }
+
+          if (prevNameStatus.current === "pending" && nameStatus === "approved") {
+            const notes = d.name_change?.admin_notes;
+            toast.success(
+              notes
+                ? `✓ Cambio de nombre aprobado: "${notes}"`
+                : "✓ Tu solicitud de cambio de nombre fue aprobada",
+              { duration: 8000 }
+            );
+            refreshUserProfile();
+          } else if (prevNameStatus.current === "pending" && nameStatus === "rejected") {
+            const notes = d.name_change?.admin_notes;
+            toast.error(
+              notes
+                ? `✗ Cambio de nombre rechazado: "${notes}"`
+                : "✗ Tu solicitud de cambio de nombre fue rechazada",
+              { duration: 10000 }
+            );
+          }
+
+          if (prevCiStatus.current === "pending" && ciStatus === "approved") {
+            const notes = d.ci_change?.admin_notes;
+            toast.success(
+              notes
+                ? `✓ Cambio de CI aprobado: "${notes}"`
+                : "✓ Tu solicitud de cambio de CI fue aprobada",
+              { duration: 8000 }
+            );
+            refreshUserProfile();
+          } else if (prevCiStatus.current === "pending" && ciStatus === "rejected") {
+            const notes = d.ci_change?.admin_notes;
+            toast.error(
+              notes
+                ? `✗ Cambio de CI rechazado: "${notes}"`
+                : "✗ Tu solicitud de cambio de CI fue rechazada",
+              { duration: 10000 }
+            );
+          }
+
+          prevNameStatus.current = nameStatus;
+          prevCiStatus.current = ciStatus;
+        })
+        .catch(() => {});
+    }
+
+    pollRequests();
+    const id = setInterval(pollRequests, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+      reqPollReady.current = false;
+      prevNameStatus.current = null;
+      prevCiStatus.current = null;
+    };
+  }, [token, user?.is_admin, refreshUserProfile]);
 
   // Guard: banned account
   if (user && user.is_banned) {
