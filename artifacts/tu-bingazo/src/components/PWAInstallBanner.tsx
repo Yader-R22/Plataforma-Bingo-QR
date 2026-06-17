@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import { X, Download, Monitor } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -23,6 +24,7 @@ const DISMISSED_KEY = "pwa_install_dismissed_at";
 const DISMISS_TTL = 7 * 24 * 60 * 60 * 1000;
 
 export default function PWAInstallBanner() {
+  const [location] = useLocation();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [show, setShow] = useState(false);
   const [platform, setPlatform] = useState<Platform>("other");
@@ -30,6 +32,7 @@ export default function PWAInstallBanner() {
 
   useEffect(() => {
     if (isStandalone()) return;
+    if (location.startsWith("/admin")) return;
 
     const p = detectPlatform();
     setPlatform(p);
@@ -66,7 +69,7 @@ export default function PWAInstallBanner() {
     setShow(false);
   }
 
-  if (!show) return null;
+  if (!show || location.startsWith("/admin")) return null;
 
   const isAndroid = platform === "android";
 
