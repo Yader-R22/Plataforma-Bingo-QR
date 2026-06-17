@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, siteSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAdmin, type AuthRequest } from "../middlewares/auth";
+import { invalidateSiteNameCache } from "../lib/getSiteName";
 
 const router = Router();
 
@@ -73,6 +74,8 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
 
   const updated = await db.select().from(siteSettingsTable).where(eq(siteSettingsTable.id, 1));
   const s = updated[0]!;
+
+  if (site_name !== undefined) invalidateSiteNameCache();
 
   req.log.info({ admin_id: req.userId }, "site settings updated");
 
