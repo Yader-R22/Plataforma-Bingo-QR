@@ -100,15 +100,25 @@ router.patch("/name-change-requests/:id", async (req: AuthRequest, res) => {
 
 router.get("/withdrawals", async (req: AuthRequest, res) => {
   const query = AdminListWithdrawalsQueryParams.safeParse(req.query);
-  let withdrawals;
+  let rows;
   if (query.success && query.data.status) {
-    withdrawals = await db.select().from(withdrawalsTable).where(eq(withdrawalsTable.status, query.data.status as "pending" | "paid" | "rejected")).orderBy(desc(withdrawalsTable.createdAt));
+    rows = await db
+      .select({ w: withdrawalsTable, userName: usersTable.fullName })
+      .from(withdrawalsTable)
+      .leftJoin(usersTable, eq(withdrawalsTable.userId, usersTable.id))
+      .where(eq(withdrawalsTable.status, query.data.status as "pending" | "paid" | "rejected"))
+      .orderBy(desc(withdrawalsTable.createdAt));
   } else {
-    withdrawals = await db.select().from(withdrawalsTable).orderBy(desc(withdrawalsTable.createdAt));
+    rows = await db
+      .select({ w: withdrawalsTable, userName: usersTable.fullName })
+      .from(withdrawalsTable)
+      .leftJoin(usersTable, eq(withdrawalsTable.userId, usersTable.id))
+      .orderBy(desc(withdrawalsTable.createdAt));
   }
-  res.json(withdrawals.map(w => ({
+  res.json(rows.map(({ w, userName }) => ({
     id: w.id,
     user_id: w.userId,
+    user_name: userName ?? null,
     amount: parseFloat(w.amount),
     method: w.method,
     status: w.status,
@@ -186,6 +196,25 @@ router.post("/withdrawals/:id/mark-paid", async (req: AuthRequest, res) => {
     created_at: updated.createdAt,
     paid_at: updated.paidAt ?? null,
   });
+});
+
+router.patch("/withdrawals/:id/pin", requireAdmin, async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+  const { withdrawal_pin } = req.body as { withdrawal_pin?: string };
+  if (!withdrawal_pin?.trim()) { res.status(400).json({ error: "El PIN es obligatorio" }); return; }
+
+  const rows = await db.select().from(withdrawalsTable).where(eq(withdrawalsTable.id, id)).limit(1);
+  if (!rows.length) { res.status(404).json({ error: "Retiro no encontrado" }); return; }
+  if (rows[0].status !== "paid") { res.status(400).json({ error: "Solo se puede reenviar el PIN de retiros ya aprobados" }); return; }
+
+  const [updated] = await db.update(withdrawalsTable)
+    .set({ withdrawalPin: withdrawal_pin.trim() })
+    .where(eq(withdrawalsTable.id, id))
+    .returning();
+
+  req.log.info({ admin_id: req.userId, withdrawal_id: id }, "withdrawal pin updated");
+  res.json({ withdrawal_pin: updated.withdrawalPin });
 });
 
 router.post("/withdrawals/:id/reject", async (req: AuthRequest, res) => {

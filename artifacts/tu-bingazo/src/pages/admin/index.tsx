@@ -755,6 +755,7 @@ export default function AdminPage() {
   const [userStatusFilter, setUserStatusFilter] = useState<string>("all");
   const [payForm, setPayForm] = useState<Record<number, { proof: string; pin: string; open: boolean }>>({});
   const [wdAction, setWdAction] = useState<{ id: number; mode: "approve" | "reject"; notes: string; proof: string | null; pin: string; isCajero: boolean; loading: boolean } | null>(null);
+  const [resendPinModal, setResendPinModal] = useState<{ id: number; pin: string; loading: boolean } | null>(null);
   const [viewQrModal, setViewQrModal] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [pendingResets, setPendingResets] = useState<any[]>([]);
@@ -1147,6 +1148,25 @@ export default function AdminPage() {
     } else {
       const d = await r.json();
       toast.error(d.error || "Error");
+    }
+  }
+
+  async function submitResendPin() {
+    if (!resendPinModal) return;
+    if (!resendPinModal.pin.trim()) { toast.error("Ingresa el nuevo PIN"); return; }
+    setResendPinModal(m => m ? { ...m, loading: true } : null);
+    const r = await fetch(`${BASE}/api/admin/withdrawals/${resendPinModal.id}/pin`, {
+      method: "PATCH", headers: authH(), body: JSON.stringify({ withdrawal_pin: resendPinModal.pin.trim() }),
+    });
+    if (r.ok) {
+      const data = await r.json();
+      toast.success("✅ PIN actualizado");
+      setWithdrawals(ws => ws.map(w => w.id === resendPinModal.id ? { ...w, withdrawal_pin: data.withdrawal_pin } : w));
+      setResendPinModal(null);
+    } else {
+      const d = await r.json();
+      toast.error(d.error || "Error al actualizar el PIN");
+      setResendPinModal(m => m ? { ...m, loading: false } : null);
     }
   }
 
@@ -3594,16 +3614,55 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               </div>
             )}
 
+            {/* Resend PIN modal */}
+            {resendPinModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}
+                onClick={() => !resendPinModal.loading && setResendPinModal(null)}>
+                <div className="bg-card rounded-3xl p-5 max-w-sm w-full space-y-4 border" onClick={e => e.stopPropagation()}>
+                  <p className="font-black text-base">🔄 Reenviar código PIN</p>
+                  <p className="text-xs text-muted-foreground">Ingresa el nuevo PIN que el usuario usará en el cajero automático.</p>
+                  <div>
+                    <p className="text-xs font-bold mb-1" style={{ color: "hsl(0 75% 45%)" }}>Nuevo PIN <span style={{ color: "hsl(0 75% 45%)" }}>*</span></p>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={12}
+                      placeholder="Ej: 654321"
+                      className="input-field text-sm font-mono tracking-widest w-full"
+                      style={{ letterSpacing: "0.25em" }}
+                      value={resendPinModal.pin}
+                      onChange={e => setResendPinModal(m => m ? { ...m, pin: e.target.value.replace(/\D/g, "") } : null)}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setResendPinModal(null)} disabled={resendPinModal.loading}
+                      className="flex-1 py-2 rounded-xl text-sm font-bold border"
+                      style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
+                      Cancelar
+                    </button>
+                    <button onClick={submitResendPin} disabled={resendPinModal.loading}
+                      className="flex-1 py-2 rounded-xl text-sm font-bold text-white"
+                      style={{ background: "#2563eb", opacity: resendPinModal.loading ? 0.7 : 1 }}>
+                      {resendPinModal.loading ? "..." : "✓ Actualizar PIN"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {withdrawals.map(w => {
               const isPending = w.status === "pending";
               const isAdminAdj = w.method === "admin_credit" || w.method === "admin_debit";
               const isQr = w.method === "bank_transfer" && (() => { try { return JSON.parse(w.bank_account_info ?? "{}").method === "qr"; } catch { return false; } })();
               const bankInfo = (() => { try { return JSON.parse(w.bank_account_info ?? "{}"); } catch { return {}; } })();
+              const isCajero = bankInfo.method === "bank";
+              const methodTag = isQr ? "📱 QR" : isCajero ? "🏧 Cajero" : null;
               const statusStyle = w.status === "paid"
-                ? { bg: "hsl(142 70% 45% / 0.1)", color: "hsl(142 70% 30%)", label: "✓ Pagado" }
+                ? { bg: "hsl(142 70% 45% / 0.1)", color: "hsl(142 70% 30%)", label: methodTag ? `✓ ${methodTag} · Pagado` : "✓ Pagado" }
                 : w.status === "pending"
-                ? { bg: "hsl(42 98% 52% / 0.1)", color: "hsl(42 98% 35%)", label: "⏳ Pendiente" }
-                : { bg: "hsl(0 75% 52% / 0.1)", color: "hsl(0 75% 40%)", label: "✗ Rechazado" };
+                ? { bg: "hsl(42 98% 52% / 0.1)", color: "hsl(42 98% 35%)", label: methodTag ? `⏳ ${methodTag} · Pendiente` : "⏳ Pendiente" }
+                : { bg: "hsl(0 75% 52% / 0.1)", color: "hsl(0 75% 40%)", label: methodTag ? `✗ ${methodTag} · Rechazado` : "✗ Rechazado" };
 
               return (
                 <div key={w.id} className="bg-card border rounded-2xl overflow-hidden">
@@ -3619,7 +3678,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          Usuario #{w.user_id} · {isQr ? "📱 QR / PagosYa" : bankInfo.method === "bank" ? `🏧 ${bankInfo.bank ?? "Banco"}` : methodLabel(w.method)} · {new Date(w.created_at).toLocaleString("es-BO")}
+                          {w.user_name ?? `Usuario #${w.user_id}`} · {isQr ? "📱 QR" : isCajero ? `🏧 Cajero · ${bankInfo.bank ?? ""}`.trimEnd().replace(/·\s*$/, "").trim() : methodLabel(w.method)} · {new Date(w.created_at).toLocaleString("es-BO")}
                         </p>
                       </div>
                     </div>
@@ -3662,6 +3721,15 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           className="px-3 py-1.5 rounded-xl text-xs font-bold border transition-all"
                           style={{ borderColor: "hsl(142 70% 45% / 0.4)", color: "hsl(142 70% 30%)" }}>
                           🧾 Ver comprobante enviado
+                        </button>
+                      )}
+
+                      {/* Reenviar PIN (cajero pagado) */}
+                      {w.status === "paid" && isCajero && (
+                        <button onClick={() => setResendPinModal({ id: w.id, pin: "", loading: false })}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold border transition-all"
+                          style={{ borderColor: "hsl(220 70% 50% / 0.4)", color: "hsl(220 70% 45%)" }}>
+                          🔄 Reenviar PIN
                         </button>
                       )}
 
