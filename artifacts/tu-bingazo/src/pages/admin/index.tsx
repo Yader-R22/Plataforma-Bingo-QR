@@ -770,6 +770,9 @@ export default function AdminPage() {
   const [photoLightbox, setPhotoLightbox] = useState<{ photos: { url: string; label: string }[]; index: number } | null>(null);
   const [nameFilter, setNameFilter] = useState<"pending" | "approved" | "rejected">("pending");
   const [ciFilter, setCiFilter] = useState<"pending" | "approved" | "rejected">("pending");
+  const [namePage, setNamePage] = useState(0);
+  const [ciPage, setCiPage] = useState(0);
+  const SOLICITUDES_PAGE_SIZE = 5;
   const [approvingReset, setApprovingReset] = useState<number | null>(null);
   const [rejectingReset, setRejectingReset] = useState<number | null>(null);
   const [showCreateUser, setShowCreateUser] = useState(false);
@@ -4922,7 +4925,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   const labels = { pending: "⏳ Pendientes", approved: "✓ Aceptadas", rejected: "✗ Rechazadas" };
                   const active = nameFilter === f;
                   return (
-                    <button key={f} onClick={() => setNameFilter(f)}
+                    <button key={f} onClick={() => { setNameFilter(f); setNamePage(0); }}
                       className="flex-1 py-2 text-xs font-bold transition-all flex items-center justify-center gap-1"
                       style={{
                         background: active ? "hsl(var(--primary))" : "transparent",
@@ -4946,7 +4949,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 </div>
               )}
 
-              {nameChangeRequests.filter(r => r.status === nameFilter).map(r => {
+              {(() => {
+                const filtered = nameChangeRequests.filter(r => r.status === nameFilter);
+                const totalPages = Math.ceil(filtered.length / SOLICITUDES_PAGE_SIZE);
+                const page = nameChangeRequests.filter(r => r.status === nameFilter).slice(namePage * SOLICITUDES_PAGE_SIZE, (namePage + 1) * SOLICITUDES_PAGE_SIZE);
+                return (<>
+                  {page.map(r => {
                 const statusStyle = r.status === "approved"
                   ? { bg: "hsl(142 70% 45% / 0.1)", color: "hsl(142 70% 30%)", label: "✓ Aprobado" }
                   : r.status === "rejected"
@@ -5017,7 +5025,31 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     )}
                   </div>
                 );
-              })}
+                })}
+                {(() => {
+                  const filtered = nameChangeRequests.filter(r => r.status === nameFilter);
+                  const totalPages = Math.ceil(filtered.length / SOLICITUDES_PAGE_SIZE);
+                  if (totalPages <= 1) return null;
+                  return (
+                    <div className="flex items-center justify-between pt-1">
+                      <button onClick={() => setNamePage(p => Math.max(0, p - 1))} disabled={namePage === 0}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold border disabled:opacity-40"
+                        style={{ borderColor: "hsl(var(--border))" }}>
+                        ← Anterior
+                      </button>
+                      <span className="text-xs text-muted-foreground font-medium">
+                        {namePage + 1} / {totalPages}
+                      </span>
+                      <button onClick={() => setNamePage(p => Math.min(totalPages - 1, p + 1))} disabled={namePage >= totalPages - 1}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold border disabled:opacity-40"
+                        style={{ borderColor: "hsl(var(--border))" }}>
+                        Siguiente →
+                      </button>
+                    </div>
+                  );
+                })()}
+                </>);
+              })()}
             </div>
 
             {/* ── Cambios de CI ── */}
@@ -5031,7 +5063,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   const labels = { pending: "⏳ Pendientes", approved: "✓ Aceptadas", rejected: "✗ Rechazadas" };
                   const active = ciFilter === f;
                   return (
-                    <button key={f} onClick={() => setCiFilter(f)}
+                    <button key={f} onClick={() => { setCiFilter(f); setCiPage(0); }}
                       className="flex-1 py-2 text-xs font-bold transition-all flex items-center justify-center gap-1"
                       style={{
                         background: active ? "hsl(var(--primary))" : "transparent",
@@ -5055,7 +5087,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 </div>
               )}
 
-              {ciChangeRequests.filter(r => r.status === ciFilter).map(r => {
+              {(() => {
+                const filtered = ciChangeRequests.filter(r => r.status === ciFilter);
+                const totalPages = Math.ceil(filtered.length / SOLICITUDES_PAGE_SIZE);
+                const page = filtered.slice(ciPage * SOLICITUDES_PAGE_SIZE, (ciPage + 1) * SOLICITUDES_PAGE_SIZE);
+                return (<>
+                  {page.map(r => {
                 const statusStyle = r.status === "approved"
                   ? { bg: "hsl(142 70% 45% / 0.1)", color: "hsl(142 70% 30%)", label: "✓ Aprobado" }
                   : r.status === "rejected"
@@ -5126,7 +5163,31 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     )}
                   </div>
                 );
-              })}
+                })}
+                {(() => {
+                  const filtered = ciChangeRequests.filter(r => r.status === ciFilter);
+                  const totalPages = Math.ceil(filtered.length / SOLICITUDES_PAGE_SIZE);
+                  if (totalPages <= 1) return null;
+                  return (
+                    <div className="flex items-center justify-between pt-1">
+                      <button onClick={() => setCiPage(p => Math.max(0, p - 1))} disabled={ciPage === 0}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold border disabled:opacity-40"
+                        style={{ borderColor: "hsl(var(--border))" }}>
+                        ← Anterior
+                      </button>
+                      <span className="text-xs text-muted-foreground font-medium">
+                        {ciPage + 1} / {totalPages}
+                      </span>
+                      <button onClick={() => setCiPage(p => Math.min(totalPages - 1, p + 1))} disabled={ciPage >= totalPages - 1}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold border disabled:opacity-40"
+                        style={{ borderColor: "hsl(var(--border))" }}>
+                        Siguiente →
+                      </button>
+                    </div>
+                  );
+                })()}
+                </>);
+              })()}
             </div>
           </div>
         )}
