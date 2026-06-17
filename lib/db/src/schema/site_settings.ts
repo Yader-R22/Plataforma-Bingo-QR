@@ -25,6 +25,13 @@ export const siteSettingsTable = pgTable("site_settings", {
   pwaShortName: text("pwa_short_name").notNull().default("Bingazo"),
   pwaCacheVersion: integer("pwa_cache_version").notNull().default(1),
   pwaIconUrl: text("pwa_icon_url"),
+  pwaIcon192Url: text("pwa_icon_192_url"),
+  pwaDisplayMode: text("pwa_display_mode").notNull().default("standalone"),
+  pwaOrientation: text("pwa_orientation").notNull().default("portrait"),
+  pwaThemeColor: text("pwa_theme_color"),
+  pwaBgColor: text("pwa_bg_color"),
+  pwaStartUrl: text("pwa_start_url").notNull().default("/"),
+  pwaCategories: text("pwa_categories").notNull().default("games,entertainment"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedById: integer("updated_by_id").references(() => usersTable.id),
 });

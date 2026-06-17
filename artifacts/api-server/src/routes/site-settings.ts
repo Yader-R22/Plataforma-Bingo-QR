@@ -34,6 +34,13 @@ router.get("/", async (_req, res) => {
     pwa_short_name: s.pwaShortName,
     pwa_cache_version: s.pwaCacheVersion,
     pwa_icon_url: s.pwaIconUrl,
+    pwa_icon_192_url: s.pwaIcon192Url,
+    pwa_display_mode: s.pwaDisplayMode,
+    pwa_orientation: s.pwaOrientation,
+    pwa_theme_color: s.pwaThemeColor,
+    pwa_bg_color: s.pwaBgColor,
+    pwa_start_url: s.pwaStartUrl,
+    pwa_categories: s.pwaCategories,
   });
 });
 
@@ -101,6 +108,13 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
     pwa_short_name: s.pwaShortName,
     pwa_cache_version: s.pwaCacheVersion,
     pwa_icon_url: s.pwaIconUrl,
+    pwa_icon_192_url: s.pwaIcon192Url,
+    pwa_display_mode: s.pwaDisplayMode,
+    pwa_orientation: s.pwaOrientation,
+    pwa_theme_color: s.pwaThemeColor,
+    pwa_bg_color: s.pwaBgColor,
+    pwa_start_url: s.pwaStartUrl,
+    pwa_categories: s.pwaCategories,
   });
 });
 
