@@ -312,7 +312,10 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
     if (response.ok) {
       const data = await response.json() as { qrImage: string; transactionId: string };
       transactionId = data.transactionId;
-      qrImage = data.qrImage;
+      // API returns raw base64 — prefix it so browsers can render it as <img src>
+      qrImage = data.qrImage.startsWith("data:")
+        ? data.qrImage
+        : `data:image/png;base64,${data.qrImage}`;
     } else {
       req.log.error({ status: response.status }, "generate-qr API error");
     }
