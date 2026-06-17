@@ -754,7 +754,7 @@ export default function AdminPage() {
   const [userSearch, setUserSearch] = useState("");
   const [userStatusFilter, setUserStatusFilter] = useState<string>("all");
   const [payForm, setPayForm] = useState<Record<number, { proof: string; pin: string; open: boolean }>>({});
-  const [wdAction, setWdAction] = useState<{ id: number; mode: "approve" | "reject"; notes: string; proof: string | null; loading: boolean } | null>(null);
+  const [wdAction, setWdAction] = useState<{ id: number; mode: "approve" | "reject"; notes: string; proof: string | null; pin: string; isCajero: boolean; loading: boolean } | null>(null);
   const [viewQrModal, setViewQrModal] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [pendingResets, setPendingResets] = useState<any[]>([]);
@@ -1153,18 +1153,24 @@ export default function AdminPage() {
   async function submitWdAction() {
     if (!wdAction) return;
     setWdAction(a => a ? { ...a, loading: true } : null);
-    const { id, mode, notes, proof } = wdAction;
+    const { id, mode, notes, proof, pin, isCajero } = wdAction;
     if (mode === "approve") {
+      if (isCajero && !pin.trim()) {
+        toast.error("El código PIN es obligatorio para retiros por cajero");
+        setWdAction(a => a ? { ...a, loading: false } : null);
+        return;
+      }
       const body: any = {};
       if (proof) body.payment_proof_url = proof;
       if (notes.trim()) body.notes = notes.trim();
+      if (isCajero && pin.trim()) body.withdrawal_pin = pin.trim();
       const r = await fetch(`${BASE}/api/admin/withdrawals/${id}/mark-paid`, {
         method: "POST", headers: authH(), body: JSON.stringify(body),
       });
       if (r.ok) {
         const updated = await r.json();
         toast.success("✅ Retiro aprobado y pagado");
-        setWithdrawals(ws => ws.map(w => w.id === id ? { ...w, status: "paid", payment_proof_url: updated.payment_proof_url, notes: updated.notes } : w));
+        setWithdrawals(ws => ws.map(w => w.id === id ? { ...w, status: "paid", payment_proof_url: updated.payment_proof_url, withdrawal_pin: updated.withdrawal_pin, notes: updated.notes } : w));
         setWdAction(null);
         loadStats();
       } else {
@@ -3510,23 +3516,50 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
 
                   {wdAction.mode === "approve" && (
                     <div className="space-y-3">
-                      <div>
-                        <p className="text-xs font-bold text-muted-foreground mb-1">Comprobante de pago QR <span className="text-muted-foreground font-normal">(opcional)</span></p>
-                        <label className="block cursor-pointer border-2 border-dashed rounded-2xl p-3 text-center text-xs text-muted-foreground hover:border-primary transition-colors"
-                          style={{ borderColor: wdAction.proof ? "hsl(142 70% 45%)" : undefined }}>
-                          {wdAction.proof
-                            ? <img src={wdAction.proof} alt="Comprobante" className="w-full max-h-40 object-contain rounded-xl" />
-                            : <span>📷 Subir imagen del comprobante</span>}
-                          <input type="file" accept="image/*" className="hidden"
-                            onChange={e => {
-                              const f = e.target.files?.[0];
-                              if (!f) return;
-                              const reader = new FileReader();
-                              reader.onload = ev => setWdAction(a => a ? { ...a, proof: ev.target?.result as string } : null);
-                              reader.readAsDataURL(f);
-                            }} />
-                        </label>
-                      </div>
+                      {/* PIN field — only for cajero/ATM withdrawals */}
+                      {wdAction.isCajero && (
+                        <div>
+                          <p className="text-xs font-bold mb-1" style={{ color: "hsl(0 75% 45%)" }}>
+                            🏧 Código PIN para cajero <span style={{ color: "hsl(0 75% 45%)" }}>*</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground mb-1.5">
+                            Este PIN se enviará al usuario para retirar desde el cajero automático.
+                          </p>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={12}
+                            placeholder="Ej: 123456"
+                            className="input-field text-sm font-mono tracking-widest w-full"
+                            style={{ letterSpacing: "0.25em" }}
+                            value={wdAction.pin}
+                            onChange={e => setWdAction(a => a ? { ...a, pin: e.target.value.replace(/\D/g, "") } : null)}
+                            autoFocus
+                          />
+                        </div>
+                      )}
+
+                      {/* Proof upload — only for QR/non-cajero */}
+                      {!wdAction.isCajero && (
+                        <div>
+                          <p className="text-xs font-bold text-muted-foreground mb-1">Comprobante de pago <span className="text-muted-foreground font-normal">(opcional)</span></p>
+                          <label className="block cursor-pointer border-2 border-dashed rounded-2xl p-3 text-center text-xs text-muted-foreground hover:border-primary transition-colors"
+                            style={{ borderColor: wdAction.proof ? "hsl(142 70% 45%)" : undefined }}>
+                            {wdAction.proof
+                              ? <img src={wdAction.proof} alt="Comprobante" className="w-full max-h-40 object-contain rounded-xl" />
+                              : <span>📷 Subir imagen del comprobante</span>}
+                            <input type="file" accept="image/*" className="hidden"
+                              onChange={e => {
+                                const f = e.target.files?.[0];
+                                if (!f) return;
+                                const reader = new FileReader();
+                                reader.onload = ev => setWdAction(a => a ? { ...a, proof: ev.target?.result as string } : null);
+                                reader.readAsDataURL(f);
+                              }} />
+                          </label>
+                        </div>
+                      )}
+
                       <div>
                         <p className="text-xs font-bold text-muted-foreground mb-1">Nota de aprobación <span className="text-muted-foreground font-normal">(opcional)</span></p>
                         <textarea rows={2} placeholder="Ej: Pago realizado el 8/06 a las 14:30" className="input-field text-xs w-full resize-none"
@@ -3635,12 +3668,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       {/* Approve / Reject (pending only) */}
                       {isPending && (
                         <>
-                          <button onClick={() => setWdAction({ id: w.id, mode: "approve", notes: "", proof: null, loading: false })}
+                          <button onClick={() => setWdAction({ id: w.id, mode: "approve", notes: "", proof: null, pin: "", isCajero: bankInfo.method === "bank", loading: false })}
                             className="px-3 py-1.5 rounded-xl text-xs font-bold text-white"
                             style={{ background: "#16a34a" }}>
                             ✓ Aprobar
                           </button>
-                          <button onClick={() => setWdAction({ id: w.id, mode: "reject", notes: "", proof: null, loading: false })}
+                          <button onClick={() => setWdAction({ id: w.id, mode: "reject", notes: "", proof: null, pin: "", isCajero: false, loading: false })}
                             className="px-3 py-1.5 rounded-xl text-xs font-bold text-white"
                             style={{ background: "#dc2626" }}>
                             ✗ Rechazar
