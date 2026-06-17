@@ -2,16 +2,21 @@ import { Router } from "express";
 import { db, feedItemsTable, winnersTable, withdrawalsTable, usersTable, gamesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { desc, sql } from "drizzle-orm";
+import { getSiteName } from "../lib/getSiteName";
 
 const router = Router();
 
 router.get("/recent", async (req, res) => {
-  const items = await db.select().from(feedItemsTable).orderBy(desc(feedItemsTable.createdAt)).limit(20);
+  const [items, siteName] = await Promise.all([
+    db.select().from(feedItemsTable).orderBy(desc(feedItemsTable.createdAt)).limit(20),
+    getSiteName(),
+  ]);
+
   res.json({
     items: items.map(item => ({
       id: item.id,
       type: item.type,
-      message: item.message,
+      message: item.message?.replace(/Tu Bingazo/gi, siteName) ?? item.message,
       amount: item.amount ? parseFloat(item.amount) : null,
       user_display_name: item.userDisplayName ?? null,
       created_at: item.createdAt,
