@@ -164,7 +164,12 @@ function validateBingo(card: typeof cardsTable.$inferSelect, gameMode: string, c
 
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   const query = ListMyCardsQueryParams.safeParse(req.query);
-  const conditions = [eq(cardsTable.userId, req.userId!)];
+  const conditions = [
+    eq(cardsTable.userId, req.userId!),
+    // Excluir cartones expirados de sesiones anteriores (juegos reseteados).
+    // Se preservan en la DB para historial financiero pero no se muestran al jugador.
+    sql`${cardsTable.status} != 'expired'`,
+  ];
   if (query.success && query.data.game_id) {
     conditions.push(eq(cardsTable.gameId, query.data.game_id));
   }

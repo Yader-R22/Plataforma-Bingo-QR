@@ -1372,9 +1372,9 @@ export default function AdminPage() {
   async function resetGame(gameId: number) {
     if (!confirm(
       "¿Resetear este juego?\n\n" +
-      "Esto ELIMINARÁ todos los cartones vendidos y ganadores de este juego para poder jugarlo de nuevo desde cero.\n\n" +
-      "El juego en sí no se elimina — solo se limpian los datos de la partida anterior.\n\n" +
-      "Esta acción no se puede deshacer."
+      "El historial completo queda guardado (cartones, pagos, ganadores).\n\n" +
+      "El juego vuelve a estado 'Próximo' listo para una nueva ronda. Los jugadores podrán comprar cartones nuevos y la partida empieza desde cero.\n\n" +
+      "¿Confirmar reset?"
     )) return;
     const r = await fetch(`${BASE}/api/games/${gameId}/reset`, { method: "POST", headers: authH() });
     if (r.ok) {

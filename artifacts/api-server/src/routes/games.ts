@@ -319,13 +319,18 @@ router.post("/:id/reset", requireAdmin, async (req: AuthRequest, res) => {
   }
 
   await db.transaction(async (tx) => {
-    // Marcar ganadores como históricos (preserva estadísticas del usuario) y anular FK a cartones
+    // Marcar ganadores como históricos (preserva estadísticas del usuario)
+    // NO anulamos cardId porque los cartones se conservan como registro histórico
     await tx.update(winnersTable)
-      .set({ isHistorical: true, cardId: null })
+      .set({ isHistorical: true })
       .where(eq(winnersTable.gameId, gameId));
-    // Ahora sí podemos borrar los cartones (FK ya anulada)
-    await tx.delete(cardsTable).where(eq(cardsTable.gameId, gameId));
-    // Resetear estado del juego para que pueda volver a jugarse
+    // Marcar cartones como expirados — preserva historial de compras, pagos y ganadores
+    // en vez de borrarlos. Las consultas de finanzas siguen contándolos (payment_status='paid').
+    // Las queries de sesión de juego ya filtran status='active', así que no interfieren.
+    await tx.update(cardsTable)
+      .set({ status: "expired" })
+      .where(eq(cardsTable.gameId, gameId));
+    // Resetear estado del juego para que pueda volver a jugarse como nueva sesión
     await tx.update(gamesTable)
       .set({ status: "upcoming", calledNumbers: [], currentRound: 1, roundHistory: [], participantCount: 0 })
       .where(eq(gamesTable.id, gameId));
@@ -333,7 +338,7 @@ router.post("/:id/reset", requireAdmin, async (req: AuthRequest, res) => {
       action: "game_reset",
       userId: req.userId!,
       gameId,
-      details: { title: game.title },
+      details: { title: game.title, preserved_cards: true },
       ipAddress: req.ip,
     });
   });
