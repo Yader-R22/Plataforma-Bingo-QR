@@ -21,7 +21,7 @@ function isStandalone(): boolean {
 }
 
 const DISMISSED_KEY = "pwa_install_dismissed_at";
-const DISMISS_TTL = 7 * 24 * 60 * 60 * 1000;
+const DISMISS_TTL = 24 * 60 * 60 * 1000;
 
 export default function PWAInstallBanner() {
   const [location] = useLocation();
