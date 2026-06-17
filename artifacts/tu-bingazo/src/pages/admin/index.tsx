@@ -866,6 +866,7 @@ export default function AdminPage() {
   });
   const [savingPwa, setSavingPwa] = useState(false);
   const [pwaManifestPreview, setPwaManifestPreview] = useState<string | null>(null);
+  const [showManifest, setShowManifest] = useState(false);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
@@ -6488,349 +6489,297 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           ];
 
           return (
-            <div className="space-y-4 pb-10 max-w-3xl">
-              {/* Header */}
-              <div className="flex items-center justify-between gap-3 mb-2">
-                <div>
-                  <h1 className="text-2xl font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>📱 Configurar PWA</h1>
-                  <p className="text-sm text-muted-foreground mt-0.5">Controlá 100% la app instalable en celulares y PC</p>
-                </div>
-                <span className="text-sm font-black px-3 py-1.5 rounded-xl"
-                  style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
-                  Caché v{pf.pwa_cache_version}
-                </span>
-              </div>
+            <div className="space-y-4 pb-10 max-w-3xl mx-auto">
 
-              {/* 1 — Identidad */}
-              <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-                <h2 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>📛 Identidad de la app</h2>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Nombre completo</label>
-                    <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
-                      placeholder="Tu Bingazo" value={pf.pwa_name}
-                      onChange={e => setPwaForm(f => ({ ...f, pwa_name: e.target.value }))} />
-                    <p className="text-xs text-muted-foreground mt-1">Aparece al instalar y en la tienda</p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">
-                      Nombre corto{" "}
-                      <span className={pf.pwa_short_name.length > 12 ? "text-red-500" : "text-muted-foreground"}>
-                        ({pf.pwa_short_name.length}/12)
-                      </span>
-                    </label>
-                    <input className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold bg-background"
-                      maxLength={12} placeholder="Bingazo" value={pf.pwa_short_name}
-                      onChange={e => setPwaForm(f => ({ ...f, pwa_short_name: e.target.value }))} />
-                    <p className="text-xs text-muted-foreground mt-1">Aparece bajo el ícono en el celular</p>
-                  </div>
-                </div>
+              {/* Header + Save */}
+              <div className="flex items-center justify-between gap-3">
                 <div>
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Descripción / Tagline</label>
-                  <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
-                    placeholder="Bingo en Vivo Bolivia" value={pf.pwa_tagline}
-                    onChange={e => setPwaForm(f => ({ ...f, pwa_tagline: e.target.value }))} />
+                  <h1 className="text-xl font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>📱 Configurar PWA</h1>
+                  <p className="text-xs text-muted-foreground mt-0.5">App instalable en celulares y PC</p>
                 </div>
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">URL de inicio</label>
-                  <input className="w-full rounded-xl border px-3 py-2.5 text-sm font-mono bg-background"
-                    placeholder="/" value={pf.pwa_start_url}
-                    onChange={e => setPwaForm(f => ({ ...f, pwa_start_url: e.target.value }))} />
-                  <p className="text-xs text-muted-foreground mt-1">La página que se abre al lanzar la app (normalmente <code>/</code>)</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black px-2.5 py-1 rounded-xl"
+                    style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
+                    caché v{pf.pwa_cache_version}
+                  </span>
+                  <button onClick={savePwaSettings} disabled={savingPwa}
+                    className="btn-primary px-4 py-2 text-sm">
+                    {savingPwa ? "Guardando..." : "💾 Guardar"}
+                  </button>
                 </div>
               </div>
 
-              {/* 2 — Apariencia */}
-              <div className="rounded-2xl p-5 space-y-5" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-                <h2 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>🎨 Apariencia y comportamiento</h2>
+              {/* ROW 1: Identidad + Íconos */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                {/* Display mode */}
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-2">Modo de pantalla</label>
+                {/* Identidad */}
+                <div className="rounded-2xl p-4 space-y-3" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                  <h2 className="font-black text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>📛 Identidad</h2>
                   <div className="grid grid-cols-2 gap-2">
-                    {DISPLAY_MODES.map(m => (
-                      <button key={m.value} onClick={() => setPwaForm(f => ({ ...f, pwa_display_mode: m.value }))}
-                        className="rounded-xl p-3 text-left transition-all border-2"
-                        style={{
-                          borderColor: pf.pwa_display_mode === m.value ? "hsl(var(--primary))" : "hsl(var(--border))",
-                          background: pf.pwa_display_mode === m.value ? "hsl(var(--primary)/0.07)" : "hsl(var(--muted)/0.3)",
-                        }}>
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-base">{m.icon}</span>
-                          <span className="text-sm font-black">{m.label}</span>
-                          {pf.pwa_display_mode === m.value && (
-                            <span className="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full"
-                              style={{ background: "hsl(var(--primary))", color: "white" }}>✓</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground pl-6">{m.desc}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Orientation */}
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-2">Orientación de pantalla</label>
-                  <div className="flex flex-wrap gap-2">
-                    {ORIENTATIONS.map(o => (
-                      <button key={o.value} onClick={() => setPwaForm(f => ({ ...f, pwa_orientation: o.value }))}
-                        className="px-3 py-2 rounded-xl text-sm font-bold transition-all border-2"
-                        style={{
-                          borderColor: pf.pwa_orientation === o.value ? "hsl(var(--primary))" : "hsl(var(--border))",
-                          background: pf.pwa_orientation === o.value ? "hsl(var(--primary)/0.07)" : "transparent",
-                          color: pf.pwa_orientation === o.value ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
-                        }}>
-                        {o.label}
-                      </button>
-                    ))}
-                  </div>
-                  {ORIENTATIONS.find(o => o.value === pf.pwa_orientation) && (
-                    <p className="text-xs text-muted-foreground mt-1.5">
-                      {ORIENTATIONS.find(o => o.value === pf.pwa_orientation)!.desc}
-                    </p>
-                  )}
-                </div>
-
-                {/* Colors */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-2">
-                      Color de tema
-                      <span className="normal-case font-normal ml-1">(barra del navegador)</span>
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <input type="color" value={pf.pwa_theme_color}
-                        onChange={e => setPwaForm(f => ({ ...f, pwa_theme_color: e.target.value }))}
-                        className="w-12 h-12 rounded-xl border cursor-pointer p-1" />
-                      <div>
-                        <p className="text-sm font-mono font-bold">{pf.pwa_theme_color}</p>
-                        <p className="text-xs text-muted-foreground">Barra superior del sistema</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-2">
-                      Color de fondo
-                      <span className="normal-case font-normal ml-1">(pantalla de carga/splash)</span>
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <input type="color" value={pf.pwa_bg_color}
-                        onChange={e => setPwaForm(f => ({ ...f, pwa_bg_color: e.target.value }))}
-                        className="w-12 h-12 rounded-xl border cursor-pointer p-1" />
-                      <div>
-                        <p className="text-sm font-mono font-bold">{pf.pwa_bg_color}</p>
-                        <p className="text-xs text-muted-foreground">Fondo del splash screen</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Color preview strip */}
-                <div className="rounded-xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))" }}>
-                  <div className="h-8 flex items-center px-3 gap-2"
-                    style={{ background: pf.pwa_theme_color }}>
-                    <div className="w-2 h-2 rounded-full bg-white/40" />
-                    <div className="w-2 h-2 rounded-full bg-white/40" />
-                    <div className="w-2 h-2 rounded-full bg-white/40" />
-                    <span className="text-xs text-white/80 ml-auto font-mono">barra del sistema</span>
-                  </div>
-                  <div className="h-20 flex items-center justify-center gap-3"
-                    style={{ background: pf.pwa_bg_color }}>
-                    {pf.pwa_icon_512 && (
-                      <img src={pf.pwa_icon_512} className="w-10 h-10 rounded-xl object-contain" alt="" />
-                    )}
                     <div>
-                      <p className="text-white font-black text-sm">{pf.pwa_name || "Tu App"}</p>
-                      <p className="text-white/50 text-xs">{pf.pwa_tagline || "Tagline"}</p>
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block mb-1">Nombre completo</label>
+                      <input className="w-full rounded-xl border px-3 py-2 text-sm bg-background"
+                        placeholder="Tu Bingazo" value={pf.pwa_name}
+                        onChange={e => setPwaForm(f => ({ ...f, pwa_name: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block mb-1">
+                        Corto{" "}
+                        <span className={pf.pwa_short_name.length > 12 ? "text-red-500" : "text-muted-foreground"}>
+                          ({pf.pwa_short_name.length}/12)
+                        </span>
+                      </label>
+                      <input className="w-full rounded-xl border px-3 py-2 text-sm font-bold bg-background"
+                        maxLength={12} placeholder="Bingazo" value={pf.pwa_short_name}
+                        onChange={e => setPwaForm(f => ({ ...f, pwa_short_name: e.target.value }))} />
                     </div>
                   </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block mb-1">Descripción / Tagline</label>
+                    <input className="w-full rounded-xl border px-3 py-2 text-sm bg-background"
+                      placeholder="Bingo en Vivo Bolivia" value={pf.pwa_tagline}
+                      onChange={e => setPwaForm(f => ({ ...f, pwa_tagline: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block mb-1">URL de inicio</label>
+                    <input className="w-full rounded-xl border px-3 py-2 text-sm font-mono bg-background"
+                      placeholder="/" value={pf.pwa_start_url}
+                      onChange={e => setPwaForm(f => ({ ...f, pwa_start_url: e.target.value }))} />
+                  </div>
                 </div>
-              </div>
 
-              {/* 3 — Íconos */}
-              <div className="rounded-2xl p-5 space-y-5" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-                <div>
-                  <h2 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>🖼️ Íconos de la app</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">PNG con fondo transparente da mejores resultados. El de 512px se usa al instalar.</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  {/* 512px icon */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block">Ícono 512×512 (principal)</label>
-                    <div className="flex flex-col items-center gap-3 rounded-xl p-4"
-                      style={{ background: "hsl(var(--muted)/0.4)", border: "2px dashed hsl(var(--border))" }}>
-                      {pf.pwa_icon_512
-                        ? <img src={pf.pwa_icon_512} alt="512 icon" className="w-24 h-24 rounded-2xl object-contain border" />
-                        : <div className="w-24 h-24 rounded-2xl flex items-center justify-center text-3xl"
-                            style={{ background: pf.pwa_bg_color }}>
-                            {pf.pwa_name?.[0] ?? "A"}
+                {/* Íconos */}
+                <div className="rounded-2xl p-4 space-y-3" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                  <div>
+                    <h2 className="font-black text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>🖼️ Íconos</h2>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">PNG transparente. El 512px se usa al instalar.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(["pwa_icon_512", "pwa_icon_192"] as const).map((field) => {
+                      const size = field === "pwa_icon_512" ? "512" : "192";
+                      const inputId = `upload-${size}`;
+                      return (
+                        <div key={field} className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block">{size}×{size}</label>
+                          <div className="flex flex-col items-center gap-2 rounded-xl p-3"
+                            style={{ background: "hsl(var(--muted)/0.4)", border: "2px dashed hsl(var(--border))" }}>
+                            {pf[field]
+                              ? <img src={pf[field]} alt={`${size} icon`} className="w-16 h-16 rounded-xl object-contain border" />
+                              : <div className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl"
+                                  style={{ background: pf.pwa_bg_color }}>
+                                  {pf.pwa_name?.[0] ?? "A"}
+                                </div>
+                            }
+                            <input id={inputId} type="file" accept="image/*" className="hidden"
+                              onChange={e => pwaImgUpload(field, e)} />
+                            <div className="flex gap-1.5">
+                              <label htmlFor={inputId}
+                                className="px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer"
+                                style={{ background: "hsl(var(--primary))", color: "white" }}>
+                                📁 Subir
+                              </label>
+                              {pf[field] && (
+                                <button onClick={() => setPwaForm(f => ({ ...f, [field]: "" }))}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-red-500 border border-red-200">
+                                  ✕
+                                </button>
+                              )}
+                            </div>
                           </div>
-                      }
-                      <input id="upload-512" type="file" accept="image/*" className="hidden"
-                        onChange={e => pwaImgUpload("pwa_icon_512", e)} />
-                      <div className="flex gap-2">
-                        <label htmlFor="upload-512"
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer"
-                          style={{ background: "hsl(var(--primary))", color: "white" }}>
-                          📁 Subir
-                        </label>
-                        {pf.pwa_icon_512 && (
-                          <button onClick={() => setPwaForm(f => ({ ...f, pwa_icon_512: "" }))}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-500 border border-red-200">
-                            Quitar
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <input className="w-full rounded-xl border px-3 py-2 text-xs font-mono bg-background"
-                      placeholder="https://... o subí arriba"
-                      value={pf.pwa_icon_512}
-                      onChange={e => setPwaForm(f => ({ ...f, pwa_icon_512: e.target.value }))} />
+                          <input className="w-full rounded-lg border px-2 py-1.5 text-[10px] font-mono bg-background"
+                            placeholder="https://..."
+                            value={pf[field]}
+                            onChange={e => setPwaForm(f => ({ ...f, [field]: e.target.value }))} />
+                        </div>
+                      );
+                    })}
                   </div>
+                </div>
+              </div>
 
-                  {/* 192px icon */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block">Ícono 192×192 (Android/notif.)</label>
-                    <div className="flex flex-col items-center gap-3 rounded-xl p-4"
-                      style={{ background: "hsl(var(--muted)/0.4)", border: "2px dashed hsl(var(--border))" }}>
-                      {pf.pwa_icon_192
-                        ? <img src={pf.pwa_icon_192} alt="192 icon" className="w-24 h-24 rounded-2xl object-contain border" />
-                        : <div className="w-24 h-24 rounded-2xl flex items-center justify-center text-3xl"
-                            style={{ background: pf.pwa_bg_color }}>
-                            {pf.pwa_name?.[0] ?? "A"}
+              {/* ROW 2: Apariencia + Categorías & Caché */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                {/* Apariencia */}
+                <div className="rounded-2xl p-4 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                  <h2 className="font-black text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>🎨 Apariencia</h2>
+
+                  {/* Display mode */}
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Modo de pantalla</label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {DISPLAY_MODES.map(m => (
+                        <button key={m.value} onClick={() => setPwaForm(f => ({ ...f, pwa_display_mode: m.value }))}
+                          className="rounded-xl p-2.5 text-left transition-all border-2"
+                          style={{
+                            borderColor: pf.pwa_display_mode === m.value ? "hsl(var(--primary))" : "hsl(var(--border))",
+                            background: pf.pwa_display_mode === m.value ? "hsl(var(--primary)/0.07)" : "hsl(var(--muted)/0.3)",
+                          }}>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm">{m.icon}</span>
+                            <span className="text-xs font-black">{m.label}</span>
+                            {pf.pwa_display_mode === m.value && (
+                              <span className="ml-auto text-[10px] font-bold px-1 py-0.5 rounded-full"
+                                style={{ background: "hsl(var(--primary))", color: "white" }}>✓</span>
+                            )}
                           </div>
-                      }
-                      <input id="upload-192" type="file" accept="image/*" className="hidden"
-                        onChange={e => pwaImgUpload("pwa_icon_192", e)} />
-                      <div className="flex gap-2">
-                        <label htmlFor="upload-192"
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer"
-                          style={{ background: "hsl(var(--primary))", color: "white" }}>
-                          📁 Subir
-                        </label>
-                        {pf.pwa_icon_192 && (
-                          <button onClick={() => setPwaForm(f => ({ ...f, pwa_icon_192: "" }))}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-500 border border-red-200">
-                            Quitar
-                          </button>
-                        )}
-                      </div>
+                        </button>
+                      ))}
                     </div>
-                    <input className="w-full rounded-xl border px-3 py-2 text-xs font-mono bg-background"
-                      placeholder="https://... o subí arriba"
-                      value={pf.pwa_icon_192}
-                      onChange={e => setPwaForm(f => ({ ...f, pwa_icon_192: e.target.value }))} />
                   </div>
-                </div>
-              </div>
 
-              {/* 4 — Categorías */}
-              <div className="rounded-2xl p-5 space-y-3" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-                <div>
-                  <h2 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>🗂️ Categorías de la app</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Usadas al listar la app en tiendas y catálogos del navegador</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {ALL_CATEGORIES.map(cat => {
-                    const active = pf.pwa_categories.split(",").map(c => c.trim()).includes(cat);
-                    return (
-                      <button key={cat}
-                        onClick={() => {
-                          const current = pf.pwa_categories.split(",").map(c => c.trim()).filter(Boolean);
-                          const next = active ? current.filter(c => c !== cat) : [...current, cat];
-                          setPwaForm(f => ({ ...f, pwa_categories: next.join(",") }));
-                        }}
-                        className="px-3 py-1.5 rounded-full text-xs font-bold transition-all border-2"
-                        style={{
-                          borderColor: active ? "hsl(var(--primary))" : "hsl(var(--border))",
-                          background: active ? "hsl(var(--primary))" : "transparent",
-                          color: active ? "white" : "hsl(var(--muted-foreground))",
-                        }}>
-                        {cat}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Seleccionadas: <span className="font-mono font-bold text-foreground">{pf.pwa_categories || "(ninguna)"}</span>
-                </p>
-              </div>
+                  {/* Orientation */}
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Orientación</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ORIENTATIONS.map(o => (
+                        <button key={o.value} onClick={() => setPwaForm(f => ({ ...f, pwa_orientation: o.value }))}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border-2"
+                          style={{
+                            borderColor: pf.pwa_orientation === o.value ? "hsl(var(--primary))" : "hsl(var(--border))",
+                            background: pf.pwa_orientation === o.value ? "hsl(var(--primary)/0.07)" : "transparent",
+                            color: pf.pwa_orientation === o.value ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
+                          }}>
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* 5 — Control de caché */}
-              <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-                <h2 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>🔄 Control de caché y actualizaciones</h2>
-
-                <div className="rounded-xl p-4 space-y-3" style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-black"
-                        style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
-                        v{pf.pwa_cache_version}
+                  {/* Colors + preview strip */}
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block mb-1">Tema</label>
+                        <div className="flex items-center gap-2">
+                          <input type="color" value={pf.pwa_theme_color}
+                            onChange={e => setPwaForm(f => ({ ...f, pwa_theme_color: e.target.value }))}
+                            className="w-10 h-10 rounded-xl border cursor-pointer p-0.5" />
+                          <p className="text-xs font-mono font-bold">{pf.pwa_theme_color}</p>
+                        </div>
                       </div>
                       <div>
-                        <p className="text-sm font-black">Versión de caché actual</p>
-                        <p className="text-xs text-muted-foreground">Los service workers de todos los usuarios usan esta versión</p>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block mb-1">Fondo splash</label>
+                        <div className="flex items-center gap-2">
+                          <input type="color" value={pf.pwa_bg_color}
+                            onChange={e => setPwaForm(f => ({ ...f, pwa_bg_color: e.target.value }))}
+                            className="w-10 h-10 rounded-xl border cursor-pointer p-0.5" />
+                          <p className="text-xs font-mono font-bold">{pf.pwa_bg_color}</p>
+                        </div>
                       </div>
                     </div>
-                    <button onClick={bumpCache}
-                      className="shrink-0 px-4 py-2.5 rounded-xl text-sm font-black transition-all active:scale-95"
-                      style={{ background: "hsl(var(--primary))", color: "white" }}>
-                      ⬆ Forzar v{pf.pwa_cache_version + 1}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">¿Cuándo forzar actualización?</p>
-                  {[
-                    "Después de subir nuevos íconos o cambiar colores",
-                    "Cuando actualizás el nombre o descripción de la app",
-                    "Después de cambios importantes en el frontend",
-                    "Si los usuarios reportan que ven una versión vieja de la app",
-                  ].map((tip, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                      <span className="text-green-500 mt-0.5">✓</span>
-                      <span>{tip}</span>
+                    {/* Preview strip */}
+                    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))" }}>
+                      <div className="h-6 flex items-center px-2 gap-1"
+                        style={{ background: pf.pwa_theme_color }}>
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/40" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/40" />
+                        <span className="text-[9px] text-white/70 ml-auto font-mono">barra sistema</span>
+                      </div>
+                      <div className="h-14 flex items-center justify-center gap-2"
+                        style={{ background: pf.pwa_bg_color }}>
+                        {pf.pwa_icon_512 && (
+                          <img src={pf.pwa_icon_512} className="w-8 h-8 rounded-lg object-contain" alt="" />
+                        )}
+                        <div>
+                          <p className="text-white font-black text-xs">{pf.pwa_name || "Tu App"}</p>
+                          <p className="text-white/50 text-[10px]">{pf.pwa_tagline || "Tagline"}</p>
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                </div>
-
-                <p className="text-xs text-muted-foreground rounded-xl p-3"
-                  style={{ background: "hsl(var(--muted)/0.3)" }}>
-                  💡 Al forzar, el service worker de cada usuario detectará el nuevo número de versión en su próxima visita, borrará el caché viejo e instalará la versión actualizada.
-                </p>
-              </div>
-
-              {/* 6 — Vista previa del manifiesto */}
-              <div className="rounded-2xl p-5 space-y-3" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>👁️ Manifiesto generado (en vivo)</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">Lo que el navegador y los dispositivos leen al instalar la app</p>
                   </div>
-                  <a href="/api/pwa/manifest.json" target="_blank" rel="noopener noreferrer"
-                    className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-                    style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
-                    🔗 Abrir
-                  </a>
                 </div>
-                {pwaManifestPreview && (
-                  <pre className="text-xs font-mono rounded-xl p-3 overflow-auto max-h-72"
-                    style={{ background: "hsl(var(--muted)/0.5)", color: "hsl(var(--foreground))" }}>
-                    {pwaManifestPreview}
-                  </pre>
-                )}
-                {!pwaManifestPreview && (
-                  <p className="text-xs text-muted-foreground">Guardá la configuración para ver el manifiesto actualizado aquí.</p>
+
+                {/* Categorías + Caché stacked */}
+                <div className="space-y-4">
+                  {/* Categorías */}
+                  <div className="rounded-2xl p-4 space-y-2" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                    <h2 className="font-black text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>🗂️ Categorías</h2>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ALL_CATEGORIES.map(cat => {
+                        const active = pf.pwa_categories.split(",").map(c => c.trim()).includes(cat);
+                        return (
+                          <button key={cat}
+                            onClick={() => {
+                              const current = pf.pwa_categories.split(",").map(c => c.trim()).filter(Boolean);
+                              const next = active ? current.filter(c => c !== cat) : [...current, cat];
+                              setPwaForm(f => ({ ...f, pwa_categories: next.join(",") }));
+                            }}
+                            className="px-2.5 py-1 rounded-full text-xs font-bold transition-all border-2"
+                            style={{
+                              borderColor: active ? "hsl(var(--primary))" : "hsl(var(--border))",
+                              background: active ? "hsl(var(--primary))" : "transparent",
+                              color: active ? "white" : "hsl(var(--muted-foreground))",
+                            }}>
+                            {cat}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Caché */}
+                  <div className="rounded-2xl p-4 space-y-3" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                    <h2 className="font-black text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>🔄 Control de caché</h2>
+                    <div className="flex items-center justify-between gap-3 rounded-xl p-3"
+                      style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-base font-black"
+                          style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
+                          v{pf.pwa_cache_version}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black">Versión actual</p>
+                          <p className="text-[10px] text-muted-foreground">Usada por todos los service workers</p>
+                        </div>
+                      </div>
+                      <button onClick={bumpCache}
+                        className="shrink-0 px-3 py-2 rounded-xl text-xs font-black transition-all active:scale-95"
+                        style={{ background: "hsl(var(--primary))", color: "white" }}>
+                        ⬆ v{pf.pwa_cache_version + 1}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground rounded-xl p-2.5"
+                      style={{ background: "hsl(var(--muted)/0.3)" }}>
+                      💡 Forzá la versión después de cambiar íconos, colores o cuando usuarios reporten ver la app vieja.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Manifiesto — colapsable */}
+              <div className="rounded-2xl overflow-hidden" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                <button
+                  onClick={() => setShowManifest(s => !s)}
+                  className="w-full flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">👁️</span>
+                    <span className="text-sm font-black">Manifiesto generado</span>
+                    <span className="text-[10px] text-muted-foreground">(lo que lee el navegador al instalar)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a href="/api/pwa/manifest.json" target="_blank" rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold"
+                      style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
+                      🔗 Abrir
+                    </a>
+                    <span className="text-muted-foreground text-sm">{showManifest ? "▲" : "▼"}</span>
+                  </div>
+                </button>
+                {showManifest && (
+                  <div className="px-4 pb-4">
+                    {pwaManifestPreview
+                      ? <pre className="text-xs font-mono rounded-xl p-3 overflow-auto max-h-64"
+                          style={{ background: "hsl(var(--muted)/0.5)", color: "hsl(var(--foreground))" }}>
+                          {pwaManifestPreview}
+                        </pre>
+                      : <p className="text-xs text-muted-foreground py-2">Guardá la configuración para ver el manifiesto actualizado.</p>
+                    }
+                  </div>
                 )}
               </div>
 
-              <button onClick={savePwaSettings} disabled={savingPwa}
-                className="btn-primary w-full text-base py-4">
-                {savingPwa ? "Guardando..." : "💾 Guardar configuración PWA"}
-              </button>
             </div>
           );
         })()}
