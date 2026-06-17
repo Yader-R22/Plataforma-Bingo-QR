@@ -295,15 +295,6 @@ export default function PlayPage() {
     : { valid: false, winningCells: new Set<string>() };
   const canClaimBingo = bingoResult.valid;
 
-  // Window-expired: bingo was already valid BEFORE the last called number.
-  // If true, the player missed the claim window (matches backend rule).
-  const windowExpired = canClaimBingo && calledNums.length > 1 && card && session?.game_mode
-    ? (() => {
-        const prevNums = calledNums.slice(0, -1);
-        const prevMarked = new Set([0, ...card.marked_numbers.filter(n => prevNums.includes(n))]);
-        return checkBingoPattern(card.numbers, prevMarked, session.game_mode).valid;
-      })()
-    : false;
 
   async function toggleNumber(num: number) {
     if (!card || num === 0) return;
@@ -598,7 +589,7 @@ export default function PlayPage() {
       {/* BINGO button */}
       {card && session?.game_status === "active" && (
         <div className="shrink-0 px-4 pb-6 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-          {canClaimBingo && !windowExpired ? (
+          {canClaimBingo ? (
             <>
               <button className="bingo-btn w-full h-16 rounded-2xl text-2xl"
                 onClick={claimBingo} disabled={claiming}
@@ -612,17 +603,6 @@ export default function PlayPage() {
               </button>
               <p className="text-center text-green-400 text-xs font-bold mt-2">
                 ✅ Tienes un {MODE_LABEL[session?.game_mode ?? ""] ?? "patrón"} válido — ¡presiona ya!
-              </p>
-            </>
-          ) : windowExpired ? (
-            <>
-              <button className="w-full h-16 rounded-2xl text-xl font-black cursor-not-allowed"
-                disabled
-                style={{ background: "hsl(25 85% 40% / 0.25)", border: "2px solid hsl(25 85% 50% / 0.4)", color: "hsl(25 85% 65%)", opacity: 0.8 }}>
-                ⏰ Ventana expirada
-              </button>
-              <p className="text-center text-orange-400/80 text-xs font-bold mt-2">
-                Ya cantaron el siguiente bolillo — debiste gritar BINGO antes
               </p>
             </>
           ) : (
