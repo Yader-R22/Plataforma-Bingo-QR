@@ -25,7 +25,7 @@ const ALL_TABS = [
   { id: "solicitudes",  label: "📋 Solicitudes",  perm: "admin:users" },
   { id: "resets",       label: "🔑 Resets",       perm: "admin:resets" },
   { id: "sitio",        label: "🌐 Sitio Web",   perm: null },
-  { id: "pwa",          label: "📱 PWA",         perm: null },
+  { id: "pwa",          label: "📱 Config. PWA", perm: null },
   { id: "logs",         label: "📋 Auditoría",   perm: "admin:logs" },
 ] as const;
 
@@ -2756,30 +2756,35 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
       </div>
 
       {/* ── TAB NAVIGATION ─────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 flex overflow-x-auto scrollbar-none"
+      <div className="sticky top-0 z-20 relative"
         style={{ background: "hsl(var(--card))", borderBottom: "1px solid hsl(var(--border))" }}>
-        {ALL_TABS.filter(t => !t.perm || hasPermission(user?.admin_permissions ?? [], t.perm)).map(t => (
-          <button key={t.id} onClick={() => handleTab(t.id)}
-            className="shrink-0 px-4 py-3 text-xs font-bold transition-colors whitespace-nowrap relative"
-            style={{
-              color: tab === t.id ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
-              borderBottom: tab === t.id ? "2px solid hsl(var(--primary))" : "2px solid transparent",
-            }}>
-            {t.label}
-            {t.id === "winners" && winners.length > 0 && (
-              <span className="ml-1.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-black text-white"
-                style={{ background: "#16a34a" }}>
-                {winners.length}
-              </span>
-            )}
-            {t.id === "users" && pendingUsers > 0 && (
-              <span className="ml-1.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-black text-white"
-                style={{ background: "hsl(42 98% 40%)" }}>
-                {pendingUsers}
-              </span>
-            )}
-          </button>
-        ))}
+        <div className="flex overflow-x-auto scrollbar-none">
+          {ALL_TABS.filter(t => !t.perm || hasPermission(user?.admin_permissions ?? [], t.perm)).map(t => (
+            <button key={t.id} onClick={() => handleTab(t.id)}
+              className="shrink-0 px-4 py-3 text-xs font-bold transition-colors whitespace-nowrap relative"
+              style={{
+                color: tab === t.id ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
+                borderBottom: tab === t.id ? "2px solid hsl(var(--primary))" : "2px solid transparent",
+              }}>
+              {t.label}
+              {t.id === "winners" && winners.length > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-black text-white"
+                  style={{ background: "#16a34a" }}>
+                  {winners.length}
+                </span>
+              )}
+              {t.id === "users" && pendingUsers > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-black text-white"
+                  style={{ background: "hsl(42 98% 40%)" }}>
+                  {pendingUsers}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        {/* Right-edge fade — signals more tabs to scroll */}
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10"
+          style={{ background: "linear-gradient(to right, transparent, hsl(var(--card)))" }} />
       </div>
 
       {/* Subtle top refresh bar — shown while background-refreshing cached tabs */}
@@ -2829,6 +2834,28 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   <span className="text-xs font-black px-3 py-1.5 rounded-xl text-white shrink-0" style={{ background: "hsl(0 75% 45%)" }}>Pagar →</span>
                 </button>
               )}
+            </div>
+
+            {/* Quick-access shortcuts */}
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => handleTab("sitio")}
+                className="rounded-2xl px-4 py-3 flex items-center gap-3 text-left transition-all active:scale-[0.98]"
+                style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                <span className="text-2xl">🌐</span>
+                <div>
+                  <p className="text-xs font-black">Sitio Web</p>
+                  <p className="text-[10px] text-muted-foreground">SEO, logo, colores</p>
+                </div>
+              </button>
+              <button onClick={() => handleTab("pwa")}
+                className="rounded-2xl px-4 py-3 flex items-center gap-3 text-left transition-all active:scale-[0.98]"
+                style={{ background: "hsl(var(--primary)/0.07)", border: "1px solid hsl(var(--primary)/0.25)" }}>
+                <span className="text-2xl">📱</span>
+                <div>
+                  <p className="text-xs font-black" style={{ color: "hsl(var(--primary))" }}>Config. PWA</p>
+                  <p className="text-[10px] text-muted-foreground">Ícono, colores, caché</p>
+                </div>
+              </button>
             </div>
 
             {/* Active games — live controls */}
