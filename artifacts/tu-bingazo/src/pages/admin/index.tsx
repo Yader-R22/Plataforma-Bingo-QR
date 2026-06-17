@@ -3098,14 +3098,36 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             {filteredUsers.map(u => {
               const sc = statusColor(u.status, u.is_banned);
               return (
-                <div key={u.id} className="bg-card border rounded-2xl p-4">
+                <div key={u.id} className="rounded-2xl p-4"
+                  style={u.is_admin ? {
+                    background: "linear-gradient(135deg, hsl(270 80% 14% / 0.06) 0%, hsl(270 80% 14% / 0.02) 100%)",
+                    border: "1.5px solid hsl(270 80% 55% / 0.45)",
+                  } : {
+                    background: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                  }}>
+                  {u.is_admin && (
+                    <div className="flex items-center gap-1.5 mb-2.5 pb-2"
+                      style={{ borderBottom: "1px solid hsl(270 80% 55% / 0.2)" }}>
+                      <span className="text-[11px] font-black px-2 py-0.5 rounded-full tracking-wide"
+                        style={{ background: "hsl(270 80% 55% / 0.12)", color: "hsl(270 80% 45%)", border: "1px solid hsl(270 80% 55% / 0.3)" }}>
+                        🛡️ ADMINISTRADOR
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                       {u.avatar_url ? (
                         <img src={u.avatar_url} alt="avatar" className="w-10 h-10 rounded-xl object-cover shrink-0" />
                       ) : (
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black shrink-0"
-                          style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}>
+                          style={u.is_admin ? {
+                            background: "hsl(270 80% 55% / 0.15)",
+                            color: "hsl(270 80% 45%)",
+                          } : {
+                            background: "hsl(var(--primary) / 0.1)",
+                            color: "hsl(var(--primary))",
+                          }}>
                           {u.full_name.charAt(0)}
                         </div>
                       )}
@@ -3113,7 +3135,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         <p className="font-bold truncate">{u.full_name}</p>
                         <p className="text-xs text-muted-foreground">CI: {u.ci}</p>
                         <p className="text-xs text-muted-foreground">{u.department} · {u.phone}</p>
-                        <p className="text-xs font-bold mt-0.5" style={{ color: "hsl(var(--primary))" }}>
+                        <p className="text-xs font-bold mt-0.5" style={{ color: u.is_admin ? "hsl(270 80% 45%)" : "hsl(var(--primary))" }}>
                           Bs {parseFloat(u.balance).toFixed(0)}
                         </p>
                         {u.is_banned && u.ban_reason && (
@@ -3140,7 +3162,13 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       {/* Detail button */}
                       <button onClick={() => setSelectedUserId(u.id)}
                         className="text-xs font-bold px-3 py-1 rounded-lg"
-                        style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}>
+                        style={u.is_admin ? {
+                          background: "hsl(270 80% 55% / 0.12)",
+                          color: "hsl(270 80% 45%)",
+                        } : {
+                          background: "hsl(var(--primary) / 0.1)",
+                          color: "hsl(var(--primary))",
+                        }}>
                         Ver detalle →
                       </button>
                     </div>
