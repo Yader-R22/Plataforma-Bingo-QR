@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useGetGame } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
 
@@ -80,23 +81,11 @@ function QRPaymentModal({
 }) {
   const token = useAuthStore(s => s.token);
   const [payStatus, setPayStatus] = useState<"pending" | "completed" | "failed">("pending");
-  const [siteName, setSiteName] = useState("Tu Bingazo");
-  const [siteTagline, setSiteTagline] = useState("Bingo en Vivo Bolivia");
-  const [siteEmoji, setSiteEmoji] = useState("🎱");
-  const [qrBgUrl, setQrBgUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch(`${BASE}/api/site-settings`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (!d) return;
-        if (d.site_name) setSiteName(d.site_name);
-        if (d.site_tagline) setSiteTagline(d.site_tagline);
-        if (d.site_emoji) setSiteEmoji(d.site_emoji);
-        if (d.qr_background_url) setQrBgUrl(d.qr_background_url);
-      })
-      .catch(() => {});
-  }, []);
+  const site = useSiteSettings();
+  const siteName = site.site_name;
+  const siteTagline = site.site_tagline;
+  const siteEmoji = site.site_emoji;
+  const qrBgUrl = site.qr_background_url ?? null;
 
   const poll = useCallback(async () => {
     try {

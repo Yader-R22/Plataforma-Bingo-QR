@@ -13,18 +13,20 @@ export interface SiteSettings {
   seo_description: string;
   seo_keywords: string;
   primary_color: string;
+  qr_background_url: string | null;
 }
 
 const DEFAULTS: SiteSettings = {
-  site_name: "Tu Bingazo",
+  site_name: "",
   site_tagline: "Bingo en Vivo Bolivia",
   site_emoji: "🎱",
   favicon_url: null,
   logo_url: null,
-  seo_title: "Tu Bingazo — Bingo en Vivo Bolivia",
+  seo_title: "Bingo en Vivo Bolivia",
   seo_description: "La plataforma de bingo en vivo más grande de Bolivia.",
   seo_keywords: "bingo, bolivia, bingo en vivo, premios",
   primary_color: "#1a0050",
+  qr_background_url: null,
 };
 
 async function fetchSiteSettings(): Promise<SiteSettings> {
