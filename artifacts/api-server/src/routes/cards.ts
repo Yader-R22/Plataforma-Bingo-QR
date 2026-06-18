@@ -249,6 +249,7 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
           numbers,
           paymentStatus: "paid",
           status: "active",
+          bonusAmountUsed: String(parseFloat((fromBonus / quantity).toFixed(2))),
         }).returning();
         newCards.push(card);
       }

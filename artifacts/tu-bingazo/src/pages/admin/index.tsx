@@ -1646,13 +1646,15 @@ export default function AdminPage() {
     const totalExpenses    = s?.total_expenses ?? 0;
     const committedPrizes  = s?.committed_prizes ?? 0;
     const commissionsTotal = s?.total_commissions_paid ?? 0;
-    const bonusesTotal     = s?.total_bonuses_granted ?? 0;
+    const bonusesGranted   = s?.total_bonuses_granted ?? 0;
+    const bonusesSpent     = s?.bonuses_spent_on_cards ?? 0;
+    const bonusesUnspent   = s?.bonuses_unspent ?? 0;
     const distributable    = s?.distributable_profit ?? netProfit;
     const expensesDetail: any[] = s?.expenses_detail ?? [];
     const committedDetail: any[] = s?.committed_prizes_detail ?? [];
 
     // ── Deductions section ────────────────────────────────────────
-    const hasDeductions = totalExpenses > 0 || committedPrizes > 0 || commissionsTotal > 0 || bonusesTotal > 0;
+    const hasDeductions = totalExpenses > 0 || committedPrizes > 0 || commissionsTotal > 0;
     const expenseRows = expensesDetail.map(e => `
       <tr>
         <td style="padding-left:20px">↳ ${e.name}</td>
@@ -1680,7 +1682,7 @@ export default function AdminPage() {
   <thead><tr><th>Concepto</th><th>Frecuencia / Estado</th><th>Referencia</th><th style="text-align:right">Descuento del período</th></tr></thead>
   <tbody>
     ${commissionsTotal > 0 ? `<tr style="background:#f5f3ff"><td colspan="3" style="font-weight:900;color:#6d28d9">🔗 Comisiones de Activadores</td><td style="text-align:right;font-weight:900;color:#6d28d9">−${fmt(commissionsTotal)}</td></tr><tr><td style="padding-left:20px">↳ ${s?.commissions_count ?? 0} pago${(s?.commissions_count ?? 0) !== 1 ? "s" : ""} de comisión</td><td>—</td><td style="color:#64748b;font-size:10px">Deducido en ganancia neta</td><td style="text-align:right;color:#6d28d9;font-weight:bold">−${fmt(commissionsTotal)}</td></tr>` : ""}
-    ${bonusesTotal > 0 ? `<tr style="background:#fefce8"><td colspan="3" style="font-weight:900;color:#b45309">🎁 Bonos de Bienvenida</td><td style="text-align:right;font-weight:900;color:#b45309">−${fmt(bonusesTotal)}</td></tr><tr><td style="padding-left:20px">↳ ${s?.bonuses_count ?? 0} bono${(s?.bonuses_count ?? 0) !== 1 ? "s" : ""} otorgados</td><td>—</td><td style="color:#64748b;font-size:10px">Deducido en ganancia neta</td><td style="text-align:right;color:#b45309;font-weight:bold">−${fmt(bonusesTotal)}</td></tr>` : ""}
+    ${(s?.bonuses_spent_on_cards ?? bonusesGranted) > 0 ? `<tr style="background:#fefce8"><td colspan="3" style="font-weight:900;color:#b45309">🎁 Bonos de Bienvenida (gastados en cartones)</td><td style="text-align:right;font-weight:900;color:#b45309">ℹ️ Informativo</td></tr><tr><td style="padding-left:20px">↳ Otorgados: ${fmt(bonusesGranted)} · Gastados: ${fmt(s?.bonuses_spent_on_cards ?? 0)} · Pendiente: ${fmt(bonusesUnspent)}</td><td>—</td><td style="color:#64748b;font-size:10px">Ya excluidos de ingresos brutos — no se restan de nuevo</td><td style="text-align:right;color:#b45309;font-weight:bold">—</td></tr>` : ""}
     ${totalExpenses > 0 ? `<tr style="background:#fff1f2"><td colspan="3" style="font-weight:900;color:#dc2626">🏭 Gastos Operativos</td><td style="text-align:right;font-weight:900;color:#dc2626">−${fmt(totalExpenses)}</td></tr>${expenseRows}` : ""}
     ${committedPrizes > 0 ? `<tr style="background:#fffbeb"><td colspan="3" style="font-weight:900;color:#b45309">🔒 Premios Comprometidos (reservados)</td><td style="text-align:right;font-weight:900;color:#b45309">−${fmt(committedPrizes)}</td></tr>${committedRows2}` : ""}
     <tr style="background:${distributable >= 0 ? "#f0fdf4" : "#fef2f2"}">
@@ -2004,7 +2006,7 @@ ${signaturesSection}` : "";
   <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt(s?.gross_revenue ?? 0)}</div><div class="kpi-label">Ingresos brutos</div><div class="kpi-sub">${s?.cards_sold ?? 0} cartones vendidos</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(s?.prizes_paid ?? 0)}</div><div class="kpi-label">Premios pagados</div><div class="kpi-sub">${s?.prizes_count ?? 0} ganadores</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#6d28d9">${fmt(s?.total_commissions_paid ?? 0)}</div><div class="kpi-label">Comisiones activadores</div><div class="kpi-sub">${s?.commissions_count ?? 0} pagos · ${s?.activators_with_commissions ?? 0} activadores</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(s?.total_bonuses_granted ?? 0)}</div><div class="kpi-label">Bonos de bienvenida</div><div class="kpi-sub">${s?.bonuses_count ?? 0} bonos otorgados · costo descontado</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(s?.total_bonuses_granted ?? 0)}</div><div class="kpi-label">Bonos de bienvenida</div><div class="kpi-sub">Otorgados · Gastados: ${fmt(s?.bonuses_spent_on_cards ?? 0)} · Pendiente: ${fmt(s?.bonuses_unspent ?? 0)}</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#7c3aed">${fmt(s?.balance_in_circulation ?? 0)}</div><div class="kpi-label">Saldo pendiente de retiro</div><div class="kpi-sub">${s?.users_with_balance ?? 0} usuarios con saldo</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#64748b">${fmt(s?.cash_out_real ?? s?.withdrawals_paid ?? 0)}</div><div class="kpi-label">Flujo de caja real</div><div class="kpi-sub">${s?.withdrawals_count ?? 0} retiros pagados · solo informativo</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#f59e0b">${fmt(s?.pending_withdrawals ?? 0)}</div><div class="kpi-label">Retiros pendientes</div><div class="kpi-sub">${s?.pending_withdrawals_count ?? 0} solicitudes por pagar</div></div>
@@ -2060,7 +2062,9 @@ ${summarySection}
     const totalExpenses    = Number(s.total_expenses    ?? 0);
     const committedPrizes  = Number(s.committed_prizes  ?? 0);
     const commissionsTotal = Number(s.total_commissions_paid ?? 0);
-    const bonusesTotal     = Number(s.total_bonuses_granted  ?? 0);
+    const bonusesGranted   = Number(s.total_bonuses_granted  ?? 0);
+    const bonusesSpent     = Number(s.bonuses_spent_on_cards ?? 0);
+    const bonusesUnspent   = Number(s.bonuses_unspent ?? 0);
     const distributable    = Number(s.distributable_profit ?? totalPaid);
     const expensesDetail: any[] = s.expenses_detail         ?? [];
     const committedDetail: any[] = s.committed_prizes_detail ?? [];
@@ -2071,7 +2075,7 @@ ${summarySection}
     const deficitAmount = Math.abs(distributable);
 
     // ── Deductions section ─────────────────────────────────────────
-    const hasDeductions = totalExpenses > 0 || committedPrizes > 0 || commissionsTotal > 0 || bonusesTotal > 0;
+    const hasDeductions = totalExpenses > 0 || committedPrizes > 0 || commissionsTotal > 0;
     const expenseRows = expensesDetail.map((e: any) => `
       <tr>
         <td style="padding-left:20px">↳ ${e.name}</td>
@@ -2097,7 +2101,7 @@ ${summarySection}
   <thead><tr><th>Concepto</th><th>Frecuencia / Estado</th><th>Referencia</th><th style="text-align:right">Descuento del período</th></tr></thead>
   <tbody>
     ${commissionsTotal > 0 ? `<tr style="background:#f5f3ff"><td colspan="3" style="font-weight:900;color:#6d28d9">🔗 Comisiones de Activadores</td><td style="text-align:right;font-weight:900;color:#6d28d9">−${fmt(commissionsTotal)}</td></tr><tr><td style="padding-left:20px">↳ ${s?.commissions_count ?? 0} pago${(s?.commissions_count ?? 0) !== 1 ? "s" : ""} de comisión</td><td>—</td><td style="color:#64748b;font-size:10px">Deducido en ganancia neta</td><td style="text-align:right;color:#6d28d9;font-weight:bold">−${fmt(commissionsTotal)}</td></tr>` : ""}
-    ${bonusesTotal > 0 ? `<tr style="background:#fefce8"><td colspan="3" style="font-weight:900;color:#b45309">🎁 Bonos de Bienvenida</td><td style="text-align:right;font-weight:900;color:#b45309">−${fmt(bonusesTotal)}</td></tr><tr><td style="padding-left:20px">↳ ${s?.bonuses_count ?? 0} bono${(s?.bonuses_count ?? 0) !== 1 ? "s" : ""} otorgados</td><td>—</td><td style="color:#64748b;font-size:10px">Deducido en ganancia neta</td><td style="text-align:right;color:#b45309;font-weight:bold">−${fmt(bonusesTotal)}</td></tr>` : ""}
+    ${(s?.bonuses_spent_on_cards ?? bonusesGranted) > 0 ? `<tr style="background:#fefce8"><td colspan="3" style="font-weight:900;color:#b45309">🎁 Bonos de Bienvenida (gastados en cartones)</td><td style="text-align:right;font-weight:900;color:#b45309">ℹ️ Informativo</td></tr><tr><td style="padding-left:20px">↳ Otorgados: ${fmt(bonusesGranted)} · Gastados: ${fmt(s?.bonuses_spent_on_cards ?? 0)} · Pendiente: ${fmt(bonusesUnspent)}</td><td>—</td><td style="color:#64748b;font-size:10px">Ya excluidos de ingresos brutos — no se restan de nuevo</td><td style="text-align:right;color:#b45309;font-weight:bold">—</td></tr>` : ""}
     ${totalExpenses > 0 ? `<tr style="background:#fff1f2"><td colspan="3" style="font-weight:900;color:#dc2626">🏭 Gastos Operativos</td><td style="text-align:right;font-weight:900;color:#dc2626">−${fmt(totalExpenses)}</td></tr>${expenseRows}` : ""}
     ${committedPrizes > 0 ? `<tr style="background:#fffbeb"><td colspan="3" style="font-weight:900;color:#b45309">🔒 Premios Comprometidos (reservados)</td><td style="text-align:right;font-weight:900;color:#b45309">−${fmt(committedPrizes)}</td></tr>${committedRows2}` : ""}
     <tr style="background:${distributable >= 0 ? "#f0fdf4" : "#fef2f2"}">
@@ -2356,7 +2360,7 @@ ${signaturesSection}` : "";
   <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt(grossRev)}</div><div class="kpi-label">Ingresos brutos</div><div class="kpi-sub">${s.cards_sold ?? 0} cartones vendidos</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(Number(s.prizes_paid ?? 0))}</div><div class="kpi-label">Premios pagados</div><div class="kpi-sub">${s.prizes_count ?? 0} ganadores</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#6d28d9">${fmt(Number(s.total_commissions_paid ?? 0))}</div><div class="kpi-label">Comisiones activadores</div><div class="kpi-sub">${s.commissions_count ?? 0} pagos · ${s.activators_with_commissions ?? 0} activadores</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(Number(s.total_bonuses_granted ?? 0))}</div><div class="kpi-label">Bonos de bienvenida</div><div class="kpi-sub">${s.bonuses_count ?? 0} bonos otorgados · costo descontado</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(Number(s.total_bonuses_granted ?? 0))}</div><div class="kpi-label">Bonos de bienvenida</div><div class="kpi-sub">Otorgados · Gastados: ${fmt(Number(s.bonuses_spent_on_cards ?? 0))} · Pendiente: ${fmt(Number(s.bonuses_unspent ?? 0))}</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#7c3aed">${fmt(Number(s.balance_in_circulation ?? 0))}</div><div class="kpi-label">Saldo pendiente de retiro</div><div class="kpi-sub">${s.users_with_balance ?? 0} usuarios con saldo</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#64748b">${fmt(Number(s.cash_out_real ?? s.withdrawals_paid ?? 0))}</div><div class="kpi-label">Flujo de caja real</div><div class="kpi-sub">${s.withdrawals_count ?? 0} retiros pagados · solo informativo</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#f59e0b">${fmt(Number(s.pending_withdrawals ?? 0))}</div><div class="kpi-label">Retiros pendientes</div><div class="kpi-sub">${s.pending_withdrawals_count ?? 0} solicitudes por pagar</div></div>
@@ -4403,7 +4407,11 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         <div className="bg-card border rounded-2xl p-4">
                           <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">🎁 Bonos de bienvenida</p>
                           <p className="text-xl font-black mt-1" style={{ color: "#b45309" }}>{fmt(s.total_bonuses_granted ?? 0)}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{s.bonuses_count ?? 0} bono{(s.bonuses_count ?? 0) !== 1 ? "s" : ""} · costo adicional ya descontado</p>
+                          <div className="text-xs text-muted-foreground mt-0.5 space-y-0.5">
+                            <p>Otorgados: {fmt(s.total_bonuses_granted ?? 0)} ({s.bonuses_count ?? 0} bono{(s.bonuses_count ?? 0) !== 1 ? "s" : ""})</p>
+                            <p>Gastados en cartones: <span className="font-bold" style={{ color: "#dc2626" }}>{fmt(s.bonuses_spent_on_cards ?? 0)}</span></p>
+                            <p>Pendiente sin gastar: <span className="font-bold" style={{ color: "#b45309" }}>{fmt(s.bonuses_unspent ?? 0)}</span></p>
+                          </div>
                         </div>
                         <div className="bg-card border rounded-2xl p-4">
                           <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">👛 Saldo en circulación</p>
@@ -4435,7 +4443,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           style={{ borderColor: s.net_profit >= 0 ? "#86efac" : "#fca5a5", background: s.net_profit >= 0 ? "hsl(142 70% 98%)" : "hsl(0 75% 98%)" }}>
                           <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>📈 Ganancia neta</p>
                           <p className="text-2xl font-black mt-1" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>{fmt(s.net_profit)}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">Ingresos − Premios totales − Bonos bienvenida</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Ingresos reales − Premios totales (bonos ya excluidos de ingresos)</p>
                         </div>
                         <div className="bg-card border rounded-2xl p-4" style={{ borderColor: "hsl(var(--border))", opacity: 0.85 }}>
                           <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">💳 Flujo de caja real</p>
@@ -4834,10 +4842,10 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                             <span style={{ color: "#6d28d9" }}>−{fmt(s.total_commissions_paid ?? 0)}</span>
                           </div>
                         )}
-                        {(s.total_bonuses_granted ?? 0) > 0 && (
+                        {(s.bonuses_spent_on_cards ?? 0) > 0 && (
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">↳ Bonos bienvenida ({s.bonuses_count ?? 0})</span>
-                            <span style={{ color: "#b45309" }}>−{fmt(s.total_bonuses_granted ?? 0)}</span>
+                            <span className="text-muted-foreground">↳ Bonos gastados en cartones (excluidos de ingresos)</span>
+                            <span style={{ color: "#b45309" }}>−{fmt(s.bonuses_spent_on_cards ?? 0)}</span>
                           </div>
                         )}
                         <div className="flex justify-between border-t pt-1 font-bold" style={{ borderColor: "hsl(var(--border))" }}>

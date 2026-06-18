@@ -1051,7 +1051,7 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
   };
 
   const [rev, prizes, wdrs, balances, refTxs] = await Promise.all([
-    db.execute(sql`SELECT coalesce(sum(g.card_price),0)::text as total, count(*)::int as count FROM cards c JOIN games g ON c.game_id=g.id WHERE c.payment_status='paid' ${dateWhere("c.created_at")}`),
+    db.execute(sql`SELECT coalesce(sum(g.card_price - c.bonus_amount_used),0)::text as total, coalesce(sum(c.bonus_amount_used),0)::text as bonus_used, count(*)::int as count FROM cards c JOIN games g ON c.game_id=g.id WHERE c.payment_status='paid' ${dateWhere("c.created_at")}`),
     db.execute(sql`SELECT coalesce(sum(prize_amount),0)::text as total, count(*)::int as count FROM winners WHERE validated=true ${dateWhere("created_at")}`),
     db.execute(sql`SELECT
       coalesce(sum(CASE WHEN status='paid' AND method NOT IN ('admin_credit','admin_debit') THEN amount ELSE 0 END),0)::text as paid_total,
@@ -1073,17 +1073,17 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
   ]);
 
   const grossRevenue     = parseFloat((rev.rows[0] as any)?.total ?? "0");
+  const bonusSpentOnCards = parseFloat((rev.rows[0] as any)?.bonus_used ?? "0");
   const prizesPaid       = parseFloat((prizes.rows[0] as any)?.total ?? "0");
   const withdrawalsPaid  = parseFloat((wdrs.rows[0] as any)?.paid_total ?? "0");
   const adminCreditsTotal = parseFloat((wdrs.rows[0] as any)?.admin_credits_total ?? "0");
   const adminDebitsTotal  = parseFloat((wdrs.rows[0] as any)?.admin_debits_total ?? "0");
   const commissionsTotal = parseFloat((refTxs.rows[0] as any)?.commissions_total ?? "0");
-  const bonusesTotal     = parseFloat((refTxs.rows[0] as any)?.bonuses_total ?? "0");
-  // net_profit uses ACCRUAL basis. Commissions are NOT subtracted separately because they are
-  // a redistribution WITHIN the prize (winner gets prize − commission, activator gets commission,
-  // total platform outflow = prizeAmount). Subtracting commissionsTotal again would double-count.
-  // Welcome bonuses ARE a separate platform cost (not linked to any prize) so they are subtracted.
-  const netProfit        = grossRevenue - prizesPaid - bonusesTotal;
+  const bonusesGranted   = parseFloat((refTxs.rows[0] as any)?.bonuses_total ?? "0");
+  // gross_revenue is REAL money only (card_price - bonus_amount_used), so bonus-paid cards
+  // are already excluded from revenue. No need to subtract bonuses from netProfit separately.
+  // Commissions are a redistribution WITHIN the prize pool, not double-counted.
+  const netProfit        = parseFloat((grossRevenue - prizesPaid).toFixed(2));
 
   const [activeExpenses, committedRows] = await Promise.all([
     db.select().from(operatingExpensesTable).where(eq(operatingExpensesTable.isActive, true)),
@@ -1133,7 +1133,9 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
     total_commissions_paid:       commissionsTotal,
     commissions_count:            Number((refTxs.rows[0] as any)?.commissions_count ?? 0),
     activators_with_commissions:  Number((refTxs.rows[0] as any)?.activators_count ?? 0),
-    total_bonuses_granted:        bonusesTotal,
+    total_bonuses_granted:        bonusesGranted,
+    bonuses_spent_on_cards:       bonusSpentOnCards,
+    bonuses_unspent:              parseFloat(((parseFloat((balances.rows[0] as any)?.total_bonus ?? "0"))).toFixed(2)),
     bonuses_count:                Number((refTxs.rows[0] as any)?.bonuses_count ?? 0),
     cash_out_real:                withdrawalsPaid,
     net_profit:                 netProfit,
@@ -1153,7 +1155,7 @@ router.get("/finance/games", async (req: AuthRequest, res) => {
       g.prize_amount::text AS prize_amount,
       g.draw_date,
       count(c.id) FILTER (WHERE c.payment_status='paid') AS cards_sold,
-      coalesce(sum(g.card_price) FILTER (WHERE c.payment_status='paid'),0)::text AS revenue,
+      coalesce(sum(g.card_price - c.bonus_amount_used) FILTER (WHERE c.payment_status='paid'),0)::text AS revenue,
       coalesce((SELECT sum(prize_amount) FROM winners w WHERE w.game_id=g.id AND w.validated=true),0)::text AS prizes_paid,
       coalesce((SELECT count(*)         FROM winners w WHERE w.game_id=g.id AND w.validated=true),0)::int  AS winners_count
     FROM games g
