@@ -502,22 +502,6 @@ router.post("/winners/:id/validate", async (req: AuthRequest, res) => {
     });
     if (alreadyValidated) { res.status(400).json({ error: "Este ganador ya fue validado" }); return; }
 
-    // ── Post-tx: insert debit record so winner sees deduction in wallet ───────
-    if (activatorId && commAmount > 0) {
-      try {
-        await db.insert(withdrawalsTable).values({
-          userId: winner.userId,
-          amount: String(commAmount),
-          method: "admin_debit",
-          status: "paid",
-          notes: `Comisión ${commPct}% descontada por uso de código de activador referido — Premio bruto: Bs ${prizeTotal.toFixed(2)}`,
-          paidAt: new Date(),
-        });
-      } catch (err) {
-        req.log.error({ err }, "Error inserting referral deduction withdrawal record");
-      }
-    }
-
     // Get user name for feed
     const users = await db.select().from(usersTable).where(eq(usersTable.id, winner.userId)).limit(1);
     const userName = users[0]?.fullName?.split(" ")[0] ?? "Un jugador";
@@ -1095,10 +1079,11 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
   const adminDebitsTotal  = parseFloat((wdrs.rows[0] as any)?.admin_debits_total ?? "0");
   const commissionsTotal = parseFloat((refTxs.rows[0] as any)?.commissions_total ?? "0");
   const bonusesTotal     = parseFloat((refTxs.rows[0] as any)?.bonuses_total ?? "0");
-  // net_profit uses ACCRUAL basis: recognize costs when obligations are created (prize validated,
-  // commission credited, bonus granted). withdrawals_paid is excluded because it is the PAYMENT
-  // of already-recognized liabilities — including it would double-count prizes and commissions.
-  const netProfit        = grossRevenue - prizesPaid - commissionsTotal - bonusesTotal;
+  // net_profit uses ACCRUAL basis. Commissions are NOT subtracted separately because they are
+  // a redistribution WITHIN the prize (winner gets prize − commission, activator gets commission,
+  // total platform outflow = prizeAmount). Subtracting commissionsTotal again would double-count.
+  // Welcome bonuses ARE a separate platform cost (not linked to any prize) so they are subtracted.
+  const netProfit        = grossRevenue - prizesPaid - bonusesTotal;
 
   const [activeExpenses, committedRows] = await Promise.all([
     db.select().from(operatingExpensesTable).where(eq(operatingExpensesTable.isActive, true)),
@@ -1130,6 +1115,7 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
     gross_revenue:              grossRevenue,
     cards_sold:                 Number((rev.rows[0] as any)?.count ?? 0),
     prizes_paid:                prizesPaid,
+    prizes_paid_net:            parseFloat((prizesPaid - commissionsTotal).toFixed(2)),
     prizes_count:               Number((prizes.rows[0] as any)?.count ?? 0),
     withdrawals_paid:           withdrawalsPaid,
     withdrawals_count:          Number((wdrs.rows[0] as any)?.paid_count ?? 0),

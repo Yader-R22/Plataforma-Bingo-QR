@@ -2012,7 +2012,7 @@ ${signaturesSection}` : "";
   <div class="kpi" style="background:${netProfit >= 0 ? "#f0fdf4" : "#fef2f2"};border-color:${netProfit >= 0 ? "#86efac" : "#fca5a5"}">
     <div class="kpi-value" style="color:${netProfit >= 0 ? "#16a34a" : "#dc2626"}">${fmt(netProfit)}</div>
     <div class="kpi-label">Ganancia neta</div>
-    <div class="kpi-sub">Ingresos − Premios − Comisiones − Bonos</div>
+    <div class="kpi-sub">Ingresos − Premios totales − Bonos bienvenida</div>
   </div>
 </div>
 
@@ -2364,7 +2364,7 @@ ${signaturesSection}` : "";
   <div class="kpi" style="background:${netProfit >= 0 ? "#f0fdf4" : "#fef2f2"};border-color:${netProfit >= 0 ? "#86efac" : "#fca5a5"}">
     <div class="kpi-value" style="color:${netProfit >= 0 ? "#16a34a" : "#dc2626"}">${fmt(netProfit)}</div>
     <div class="kpi-label">Ganancia neta</div>
-    <div class="kpi-sub">Ingresos − Premios − Comisiones − Bonos</div>
+    <div class="kpi-sub">Ingresos − Premios totales − Bonos bienvenida</div>
   </div>
 </div>
 
@@ -4398,12 +4398,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         <div className="bg-card border rounded-2xl p-4">
                           <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">🔗 Comisiones activadores</p>
                           <p className="text-xl font-black mt-1" style={{ color: "#6d28d9" }}>{fmt(s.total_commissions_paid ?? 0)}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{s.commissions_count ?? 0} pagos · {(s.activators_with_commissions ?? 0)} activador{(s.activators_with_commissions ?? 0) !== 1 ? "es" : ""}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{s.commissions_count ?? 0} pagos · {(s.activators_with_commissions ?? 0)} activador{(s.activators_with_commissions ?? 0) !== 1 ? "es" : ""} · incluidas en premios</p>
                         </div>
                         <div className="bg-card border rounded-2xl p-4">
                           <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">🎁 Bonos de bienvenida</p>
                           <p className="text-xl font-black mt-1" style={{ color: "#b45309" }}>{fmt(s.total_bonuses_granted ?? 0)}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{s.bonuses_count ?? 0} bono{(s.bonuses_count ?? 0) !== 1 ? "s" : ""} · costo ya descontado</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{s.bonuses_count ?? 0} bono{(s.bonuses_count ?? 0) !== 1 ? "s" : ""} · costo adicional ya descontado</p>
                         </div>
                         <div className="bg-card border rounded-2xl p-4">
                           <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">👛 Saldo en circulación</p>
@@ -4435,7 +4435,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           style={{ borderColor: s.net_profit >= 0 ? "#86efac" : "#fca5a5", background: s.net_profit >= 0 ? "hsl(142 70% 98%)" : "hsl(0 75% 98%)" }}>
                           <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>📈 Ganancia neta</p>
                           <p className="text-2xl font-black mt-1" style={{ color: s.net_profit >= 0 ? "#16a34a" : "#dc2626" }}>{fmt(s.net_profit)}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">Ingresos − Premios − Comisiones − Bonos</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Ingresos − Premios totales − Bonos bienvenida</p>
                         </div>
                         <div className="bg-card border rounded-2xl p-4" style={{ borderColor: "hsl(var(--border))", opacity: 0.85 }}>
                           <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">💳 Flujo de caja real</p>
