@@ -637,7 +637,7 @@ export default function WalletPage() {
                       <button
                         onClick={() => setProofModal(w.payment_proof_url)}
                         className="w-full py-2 rounded-xl text-xs font-bold border-2 transition-all"
-                        style={{ borderColor: "hsl(142 70% 45% / 0.4)", color: "hsl(142 70% 30%)", background: "hsl(142 70% 45% / 0.08)" }}>
+                        style={{ borderColor: "hsl(220 80% 55% / 0.45)", color: "hsl(220 80% 40%)", background: "hsl(220 80% 55% / 0.08)" }}>
                         🧾 Ver comprobante de pago
                       </button>
                     )}
