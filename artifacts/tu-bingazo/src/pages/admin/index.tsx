@@ -755,6 +755,9 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [numberInput, setNumberInput] = useState<Record<number, string>>({});
   const [popupGameId, setPopupGameId] = useState<number | null>(null);
+  const tabScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
   const [userSearch, setUserSearch] = useState("");
   const [userStatusFilter, setUserStatusFilter] = useState<string>("all");
   const [payForm, setPayForm] = useState<Record<number, { proof: string; pin: string; open: boolean }>>({});
@@ -914,6 +917,21 @@ export default function AdminPage() {
     }, 3000);
     return () => clearInterval(iv);
   }, [token, activeGameIdsKey]);
+
+  // Initialize tab-scroll arrow visibility and keep it in sync with resize
+  useEffect(() => {
+    const el = tabScrollRef.current;
+    if (!el) return;
+    const check = () => {
+      setCanScrollLeft(el.scrollLeft > 4);
+      setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    window.addEventListener("resize", check, { passive: true });
+    return () => { ro.disconnect(); window.removeEventListener("resize", check); };
+  }, []);
 
   async function loadStats() {
     try {
@@ -2756,35 +2774,63 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
       </div>
 
       {/* ── TAB NAVIGATION ─────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 relative"
+      <div className="sticky top-0 z-20"
         style={{ background: "hsl(var(--card))", borderBottom: "1px solid hsl(var(--border))" }}>
-        <div className="flex overflow-x-auto scrollbar-none">
-          {ALL_TABS.filter(t => !t.perm || hasPermission(user?.admin_permissions ?? [], t.perm)).map(t => (
-            <button key={t.id} onClick={() => handleTab(t.id)}
-              className="shrink-0 px-4 py-3 text-xs font-bold transition-colors whitespace-nowrap relative"
-              style={{
-                color: tab === t.id ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
-                borderBottom: tab === t.id ? "2px solid hsl(var(--primary))" : "2px solid transparent",
-              }}>
-              {t.label}
-              {t.id === "winners" && winners.length > 0 && (
-                <span className="ml-1.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-black text-white"
-                  style={{ background: "#16a34a" }}>
-                  {winners.length}
-                </span>
-              )}
-              {t.id === "users" && pendingUsers > 0 && (
-                <span className="ml-1.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-black text-white"
-                  style={{ background: "hsl(42 98% 40%)" }}>
-                  {pendingUsers}
-                </span>
-              )}
+        <div className="relative flex items-stretch">
+          {/* Left arrow */}
+          {canScrollLeft && (
+            <button onClick={() => tabScrollRef.current?.scrollBy({ left: -120, behavior: "smooth" })}
+              className="shrink-0 flex items-center justify-center px-2.5 transition-all active:scale-90"
+              style={{ background: "hsl(var(--card))", borderRight: "1px solid hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6"/>
+              </svg>
             </button>
-          ))}
+          )}
+
+          {/* Scrollable tabs */}
+          <div ref={tabScrollRef} className="flex overflow-x-auto scrollbar-none flex-1"
+            onScroll={() => {
+              const el = tabScrollRef.current;
+              if (!el) return;
+              setCanScrollLeft(el.scrollLeft > 4);
+              setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+            }}>
+            {ALL_TABS.filter(t => !t.perm || hasPermission(user?.admin_permissions ?? [], t.perm)).map(t => (
+              <button key={t.id} onClick={() => handleTab(t.id)}
+                className="shrink-0 px-4 py-3 text-xs font-bold transition-colors whitespace-nowrap relative"
+                style={{
+                  color: tab === t.id ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
+                  borderBottom: tab === t.id ? "2px solid hsl(var(--primary))" : "2px solid transparent",
+                }}>
+                {t.label}
+                {t.id === "winners" && winners.length > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-black text-white"
+                    style={{ background: "#16a34a" }}>
+                    {winners.length}
+                  </span>
+                )}
+                {t.id === "users" && pendingUsers > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-black text-white"
+                    style={{ background: "hsl(42 98% 40%)" }}>
+                    {pendingUsers}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Right arrow */}
+          {canScrollRight && (
+            <button onClick={() => tabScrollRef.current?.scrollBy({ left: 120, behavior: "smooth" })}
+              className="shrink-0 flex items-center justify-center px-2.5 transition-all active:scale-90"
+              style={{ background: "hsl(var(--card))", borderLeft: "1px solid hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18l6-6-6-6"/>
+              </svg>
+            </button>
+          )}
         </div>
-        {/* Right-edge fade — signals more tabs to scroll */}
-        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10"
-          style={{ background: "linear-gradient(to right, transparent, hsl(var(--card)))" }} />
       </div>
 
       {/* Subtle top refresh bar — shown while background-refreshing cached tabs */}
