@@ -271,8 +271,9 @@ export default function HomePage() {
       const settings = sr.ok ? await sr.json() : {};
       return { banners, bannerInterval: (settings.banner_interval as number) ?? 5 };
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
+    refetchInterval: 2 * 60 * 1000,
   });
   const heroBanners = bannersData?.banners ?? [];
   const bannerInterval = bannersData?.bannerInterval ?? 5;
