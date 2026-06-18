@@ -1,5 +1,6 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { useListGames, useGetWallet, getGetWalletQueryKey, useListCategories } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
@@ -255,24 +256,26 @@ export default function HomePage() {
   const user = useAuthStore(s => s.user);
   useSetLayoutConfig({ hideTopBar: !!user }, [!!user]);
   const token = useAuthStore(s => s.token);
-  const [feed, setFeed] = useState<FeedItem[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [userStats, setUserStats] = useState<UserStats | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
-  const [heroBanners, setHeroBanners] = useState<{ id: number; image_url: string; media_type: string }[]>([]);
-  const [bannerInterval, setBannerInterval] = useState(5);
   const [activeBanner, setActiveBanner] = useState(0);
 
-  // Fetch banners once on mount
-  useEffect(() => {
-    Promise.all([
-      fetch(`${BASE}/api/banners`),
-      fetch(`${BASE}/api/site-settings`),
-    ]).then(async ([br, sr]) => {
-      if (br.ok) setHeroBanners(await br.json());
-      if (sr.ok) { const s = await sr.json(); if (s.banner_interval) setBannerInterval(s.banner_interval); }
-    }).catch(() => {});
-  }, []);
+  // Banners + banner interval — cached 5 min, survives page transitions
+  const { data: bannersData } = useQuery({
+    queryKey: ["home-banners"],
+    queryFn: async () => {
+      const [br, sr] = await Promise.all([
+        fetch(`${BASE}/api/banners`),
+        fetch(`${BASE}/api/site-settings`),
+      ]);
+      const banners: { id: number; image_url: string; media_type: string }[] = br.ok ? await br.json() : [];
+      const settings = sr.ok ? await sr.json() : {};
+      return { banners, bannerInterval: (settings.banner_interval as number) ?? 5 };
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+  const heroBanners = bannersData?.banners ?? [];
+  const bannerInterval = bannersData?.bannerInterval ?? 5;
 
   // Auto-rotate banners: images/GIFs use bannerInterval; videos advance on onEnded
   useEffect(() => {
@@ -301,26 +304,29 @@ export default function HomePage() {
   });
   const balance = wallet?.balance ?? user?.balance ?? 0;
 
-  useEffect(() => {
-    const noCache = { cache: "no-store" as RequestCache };
-    const load = async () => {
-      try {
-        const fetches: Promise<Response>[] = [
-          fetch(`${BASE}/api/feed/recent`, noCache),
-          fetch(`${BASE}/api/feed/stats`, noCache),
-        ];
-        if (token) fetches.push(fetch(`${BASE}/api/auth/me/stats`, { ...noCache, headers: { Authorization: `Bearer ${token}` } }));
-        const [fr, sr, ur] = await Promise.all(fetches);
-        if (fr.ok) { const d = await fr.json(); setFeed(d.items ?? []); }
-        if (sr.ok) { const d = await sr.json(); setStats(d); }
-        if (ur && ur.ok) { const d = await ur.json(); setUserStats(d); }
-        else if (!token) setUserStats(null);
-      } catch {}
-    };
-    load();
-    const iv = setInterval(load, 5000);
-    return () => clearInterval(iv);
-  }, [token]);
+  // Feed + stats — cached 10s, polls every 5s; shows stale data instantly on revisit
+  const { data: liveData } = useQuery({
+    queryKey: ["home-live", token ?? "anon"],
+    queryFn: async () => {
+      const noCache = { cache: "no-store" as RequestCache };
+      const fetches: Promise<Response>[] = [
+        fetch(`${BASE}/api/feed/recent`, noCache),
+        fetch(`${BASE}/api/feed/stats`, noCache),
+      ];
+      if (token) fetches.push(fetch(`${BASE}/api/auth/me/stats`, { ...noCache, headers: { Authorization: `Bearer ${token}` } }));
+      const [fr, sr, ur] = await Promise.all(fetches);
+      const feed: FeedItem[] = fr.ok ? (await fr.json()).items ?? [] : [];
+      const stats: Stats | null = sr.ok ? await sr.json() : null;
+      const userStats: UserStats | null = (ur && ur.ok) ? await ur.json() : null;
+      return { feed, stats, userStats };
+    },
+    staleTime: 10_000,
+    gcTime: 5 * 60 * 1000,
+    refetchInterval: 5000,
+  });
+  const feed = liveData?.feed ?? [];
+  const stats = liveData?.stats ?? null;
+  const userStats = liveData?.userStats ?? null;
 
   // Persist scroll position across feed refreshes so the ticker never jumps
   const scrollPosRef = useRef(0);
