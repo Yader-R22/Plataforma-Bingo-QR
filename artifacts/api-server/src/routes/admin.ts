@@ -215,7 +215,7 @@ router.post("/withdrawals/:id/mark-paid", async (req: AuthRequest, res) => {
 
   if (withdrawal.status === "paid") { res.status(400).json({ error: "Este retiro ya fue pagado" }); return; }
 
-  const { payment_proof_url, withdrawal_pin } = req.body as { payment_proof_url?: string; withdrawal_pin?: string };
+  const { payment_proof_url, withdrawal_pin, notes } = req.body as { payment_proof_url?: string; withdrawal_pin?: string; notes?: string };
 
   // Atomic: flip pending→paid and debit in ONE transaction. The conditional
   // WHERE status = 'pending' guarantees a repeated or concurrent mark-paid
@@ -229,6 +229,7 @@ router.post("/withdrawals/:id/mark-paid", async (req: AuthRequest, res) => {
         paidAt: new Date(),
         paymentProofUrl: payment_proof_url ?? null,
         withdrawalPin: withdrawal_pin ?? null,
+        notes: notes?.trim() ?? null,
       })
       .where(and(eq(withdrawalsTable.id, p.data.id), eq(withdrawalsTable.status, "pending")))
       .returning();
