@@ -632,18 +632,6 @@ export default function WalletPage() {
                       </div>
                     )}
 
-                    {/* Approval note for paid withdrawals */}
-                    {!isAdmin && w.status === "paid" && w.notes && (
-                      <div className="flex items-start gap-2 rounded-xl px-3 py-2"
-                        style={{ background: "hsl(142 70% 45% / 0.08)", border: "1px solid hsl(142 70% 45% / 0.25)" }}>
-                        <span className="text-sm mt-0.5">📝</span>
-                        <div>
-                          <p className="text-xs font-bold" style={{ color: "hsl(142 70% 30%)" }}>Nota del pago</p>
-                          <p className="text-sm" style={{ color: "hsl(142 70% 25%)" }}>{w.notes}</p>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Paid QR: show proof button */}
                     {w.status === "paid" && isQr && w.payment_proof_url && (
                       <button
@@ -664,6 +652,18 @@ export default function WalletPage() {
                           <p className="font-black text-lg tracking-[0.2em]" style={{ color: "hsl(var(--primary))", fontFamily: "'Poppins', sans-serif" }}>
                             {w.withdrawal_pin}
                           </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Approval note for paid withdrawals — shown below PIN */}
+                    {!isAdmin && w.status === "paid" && w.notes && (
+                      <div className="flex items-start gap-2 rounded-xl px-3 py-2"
+                        style={{ background: "hsl(142 70% 45% / 0.08)", border: "1px solid hsl(142 70% 45% / 0.25)" }}>
+                        <span className="text-sm mt-0.5">📝</span>
+                        <div>
+                          <p className="text-xs font-bold" style={{ color: "hsl(142 70% 30%)" }}>Nota del pago</p>
+                          <p className="text-sm" style={{ color: "hsl(142 70% 25%)" }}>{w.notes}</p>
                         </div>
                       </div>
                     )}
