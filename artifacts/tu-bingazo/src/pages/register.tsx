@@ -224,7 +224,7 @@ export default function RegisterPage() {
               <div className="space-y-3">
                 <div>
                   <label className="text-sm font-bold block mb-1.5">Nombre completo</label>
-                  <input className="input-field" placeholder="Juan Mamani Quispe" value={form.full_name} onChange={e => update("full_name", e.target.value)} required />
+                  <input className="input-field" placeholder="Helen Reyes Guzman" value={form.full_name} onChange={e => update("full_name", e.target.value)} required />
                 </div>
                 <div>
                   <label className="text-sm font-bold block mb-1.5">Carnet de Identidad (CI)</label>
