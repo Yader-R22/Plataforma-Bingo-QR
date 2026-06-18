@@ -608,7 +608,9 @@ export const ListEarningsResponseItem = zod.object({
   "game_type": zod.string(),
   "prize_amount": zod.number(),
   "place": zod.number(),
-  "credited_at": zod.coerce.date()
+  "credited_at": zod.coerce.date(),
+  "commission_deducted": zod.number().nullish(),
+  "commission_pct": zod.number().nullish()
 })
 export const ListEarningsResponse = zod.array(ListEarningsResponseItem)
 

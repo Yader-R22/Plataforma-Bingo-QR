@@ -1494,6 +1494,12 @@ components:
         credited_at:
           type: string
           format: date-time
+        commission_deducted:
+          type: number
+          nullable: true
+        commission_pct:
+          type: number
+          nullable: true
 
     WithdrawalInput:
       type: object

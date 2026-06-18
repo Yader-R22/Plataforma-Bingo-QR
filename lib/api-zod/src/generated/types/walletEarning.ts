@@ -14,4 +14,6 @@ export interface WalletEarning {
   prize_amount: number;
   place: number;
   credited_at: Date;
+  commission_deducted?: number | null;
+  commission_pct?: number | null;
 }

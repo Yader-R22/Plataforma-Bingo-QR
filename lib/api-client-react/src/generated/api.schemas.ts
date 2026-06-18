@@ -590,6 +590,8 @@ export interface WalletEarning {
   prize_amount: number;
   place: number;
   credited_at: string;
+  commission_deducted?: number | null;
+  commission_pct?: number | null;
 }
 
 export type WithdrawalInputMethod = typeof WithdrawalInputMethod[keyof typeof WithdrawalInputMethod];

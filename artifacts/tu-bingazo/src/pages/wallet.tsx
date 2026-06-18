@@ -488,21 +488,45 @@ export default function WalletPage() {
               <div className="space-y-2">
                 {shown.map((e: any) => {
                   const typeLabel: Record<string, string> = { daily: "Bingo Diario", weekly: "Bingo Semanal", monthly: "Bingo Mensual" };
+                  const commDeducted: number | null = e.commission_deducted ?? null;
+                  const commPct: number | null = e.commission_pct ?? null;
+                  const netAmount = commDeducted ? e.prize_amount - commDeducted : e.prize_amount;
                   return (
-                    <div key={e.id} className="bg-card border rounded-2xl p-4 flex items-center justify-between">
-                      <div>
-                        <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(142 70% 30%)" }}>
-                          +Bs {parseFloat(e.prize_amount).toLocaleString("es-BO", { maximumFractionDigits: 0 })}
-                        </p>
-                        <p className="text-sm font-medium mt-0.5">{e.game_title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {typeLabel[e.game_type] ?? e.game_type} · {new Date(e.credited_at).toLocaleDateString("es-BO")}
-                        </p>
+                    <div key={e.id} className="bg-card border rounded-2xl p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(142 70% 30%)" }}>
+                            +Bs {parseFloat(e.prize_amount).toLocaleString("es-BO", { maximumFractionDigits: 2, minimumFractionDigits: 0 })}
+                          </p>
+                          <p className="text-sm font-medium mt-0.5">{e.game_title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {typeLabel[e.game_type] ?? e.game_type} · {new Date(e.credited_at).toLocaleDateString("es-BO")}
+                          </p>
+                        </div>
+                        <div className="text-xs font-bold px-3 py-1.5 rounded-full"
+                          style={{ background: "hsl(142 70% 45% / 0.12)", border: "1px solid hsl(142 70% 45% / 0.3)", color: "hsl(142 70% 30%)" }}>
+                          ✓ Acreditado
+                        </div>
                       </div>
-                      <div className="text-xs font-bold px-3 py-1.5 rounded-full"
-                        style={{ background: "hsl(142 70% 45% / 0.12)", border: "1px solid hsl(142 70% 45% / 0.3)", color: "hsl(142 70% 30%)" }}>
-                        ✓ Acreditado
-                      </div>
+                      {commDeducted != null && commDeducted > 0 && (
+                        <div className="rounded-xl px-3 py-2 space-y-1"
+                          style={{ background: "hsl(0 75% 52% / 0.07)", border: "1px solid hsl(0 75% 52% / 0.2)" }}>
+                          <div className="flex items-center justify-between text-xs">
+                            <span style={{ color: "hsl(0 75% 40%)" }}>
+                              🔗 Comisión activador ({commPct}%)
+                            </span>
+                            <span className="font-bold" style={{ color: "hsl(0 75% 40%)" }}>
+                              −Bs {commDeducted.toLocaleString("es-BO", { maximumFractionDigits: 2, minimumFractionDigits: 0 })}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs border-t pt-1" style={{ borderColor: "hsl(0 75% 52% / 0.15)" }}>
+                            <span className="font-bold text-muted-foreground">Neto acreditado</span>
+                            <span className="font-black" style={{ color: "hsl(142 70% 30%)", fontFamily: "'Poppins', sans-serif" }}>
+                              Bs {netAmount.toLocaleString("es-BO", { maximumFractionDigits: 2, minimumFractionDigits: 0 })}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

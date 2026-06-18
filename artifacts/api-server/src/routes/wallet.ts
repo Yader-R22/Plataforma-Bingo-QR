@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, withdrawalsTable, usersTable, feedItemsTable, winnersTable, gamesTable } from "@workspace/db";
-import { eq, and, sum, sql, notInArray, desc } from "drizzle-orm";
+import { db, withdrawalsTable, usersTable, feedItemsTable, winnersTable, gamesTable, referralTransactionsTable } from "@workspace/db";
+import { eq, and, sum, sql, notInArray, desc, inArray } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { RequestWithdrawalBody } from "@workspace/api-zod";
 
@@ -77,10 +77,32 @@ router.get("/earnings", requireAuth, async (req: AuthRequest, res) => {
     .where(and(eq(winnersTable.userId, req.userId!), eq(winnersTable.validated, true)))
     .orderBy(desc(winnersTable.createdAt));
 
-  res.json(rows.map(r => ({
-    ...r,
-    prize_amount: parseFloat(r.prize_amount),
-  })));
+  // Fetch any activator commissions deducted from these winnings
+  const winnerIds = rows.map(r => r.id);
+  const commissions = winnerIds.length
+    ? await db.select({
+        winnerId: referralTransactionsTable.winnerId,
+        amount: referralTransactionsTable.amount,
+        commissionPercentage: referralTransactionsTable.commissionPercentage,
+      })
+      .from(referralTransactionsTable)
+      .where(and(
+        eq(referralTransactionsTable.type, "commission"),
+        inArray(referralTransactionsTable.winnerId, winnerIds as number[]),
+      ))
+    : [];
+
+  const commMap = new Map(commissions.map(c => [c.winnerId, c]));
+
+  res.json(rows.map(r => {
+    const comm = commMap.get(r.id);
+    return {
+      ...r,
+      prize_amount: parseFloat(r.prize_amount),
+      commission_deducted: comm ? parseFloat(comm.amount) : null,
+      commission_pct: comm ? parseFloat(comm.commissionPercentage ?? "0") : null,
+    };
+  }));
 });
 
 router.get("/withdrawals", requireAuth, async (req: AuthRequest, res) => {

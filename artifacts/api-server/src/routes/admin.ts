@@ -402,51 +402,40 @@ router.post("/winners/:id/validate", async (req: AuthRequest, res) => {
   const winner = winners[0];
 
   if (parsed.data.approved) {
-    // Idempotent + atomic: flip validated false→true and credit in ONE
-    // transaction. The conditional WHERE validated = false ensures a repeated
-    // or concurrent approval credits the prize exactly once (no double-pay).
-    let alreadyValidated = false;
-    await db.transaction(async (tx) => {
-      const flipped = await tx.update(winnersTable)
-        .set({ validated: true, adminNotes: parsed.data.notes ?? null })
-        .where(and(eq(winnersTable.id, p.data.id), eq(winnersTable.validated, false)))
-        .returning();
-      if (!flipped.length) { alreadyValidated = true; return; }
-      await tx.execute(
-        sql`UPDATE users SET balance = balance + ${parseFloat(winner.prizeAmount)} WHERE id = ${winner.userId}`
-      );
-    });
-    if (alreadyValidated) { res.status(400).json({ error: "Este ganador ya fue validado" }); return; }
+    // ── Pre-fetch commission data (before transaction) ────────────────────────
+    let commAmount = 0;
+    let commPct = 0;
+    let activatorId: number | null = null;
 
-    // ── Activator commission: credit activator if referred user wins ──────────
     try {
       const winnerUser = await db.select({ referredByCode: usersTable.referredByCode })
         .from(usersTable).where(eq(usersTable.id, winner.userId)).limit(1);
       const refCode = winnerUser[0]?.referredByCode;
+
       if (refCode) {
         const codeRow = await db.select({ userId: referralCodesTable.userId })
           .from(referralCodesTable)
           .where(and(eq(referralCodesTable.code, refCode), eq(referralCodesTable.isActive, true)))
           .limit(1);
+
         if (codeRow.length) {
           const settings = await db.select().from(activatorSettingsTable)
             .where(eq(activatorSettingsTable.id, 1)).limit(1);
-          const commPct = parseFloat(settings[0]?.commissionPercentage ?? "5");
+          const pct = parseFloat(settings[0]?.commissionPercentage ?? "5");
           const duration = settings[0]?.commissionDuration ?? "indefinite";
           const durationMonths = settings[0]?.commissionDurationMonths ?? null;
-          const activatorId = codeRow[0].userId;
+          const candId = codeRow[0].userId;
 
-          // Check if commission duration still applies
           let applyCommission = true;
           if (duration === "once") {
-            const prevCommissions = await db.select({ id: referralTransactionsTable.id })
+            const prev = await db.select({ id: referralTransactionsTable.id })
               .from(referralTransactionsTable)
               .where(and(
                 eq(referralTransactionsTable.type, "commission"),
-                eq(referralTransactionsTable.activatorId, activatorId),
+                eq(referralTransactionsTable.activatorId, candId),
                 eq(referralTransactionsTable.referredUserId, winner.userId),
               )).limit(1);
-            if (prevCommissions.length) applyCommission = false;
+            if (prev.length) applyCommission = false;
           } else if (duration === "monthly" && durationMonths) {
             const refTxRow = await db.select({ createdAt: referralTransactionsTable.createdAt })
               .from(referralTransactionsTable)
@@ -460,32 +449,74 @@ router.post("/winners/:id/validate", async (req: AuthRequest, res) => {
             }
           }
 
-          if (applyCommission && commPct > 0) {
-            const commAmount = parseFloat((parseFloat(winner.prizeAmount) * commPct / 100).toFixed(2));
-            if (commAmount > 0) {
-              await db.execute(
-                sql`UPDATE users SET balance = balance + ${commAmount} WHERE id = ${activatorId}`
-              );
-              const activatorRow = await db.select({ fullName: usersTable.fullName })
-                .from(usersTable).where(eq(usersTable.id, activatorId)).limit(1);
-              const activatorName = activatorRow[0]?.fullName?.trim().split(/\s+/).slice(0, 2).join(" ") ?? "Activador";
-              const winnerUserName = (await db.select({ fullName: usersTable.fullName })
-                .from(usersTable).where(eq(usersTable.id, winner.userId)).limit(1))[0]?.fullName?.trim().split(/\s+/).slice(0, 2).join(" ") ?? "Usuario";
-              await db.insert(referralTransactionsTable).values({
-                type: "commission",
-                activatorId,
-                referredUserId: winner.userId,
-                gameId: winner.gameId,
-                winnerId: winner.id,
-                amount: String(commAmount),
-                commissionPercentage: String(commPct),
-                description: `Comisión ${commPct}% por ganancia de ${winnerUserName} — Bs ${parseFloat(winner.prizeAmount).toFixed(2)}`,
-              });
+          if (applyCommission && pct > 0) {
+            const candidate = parseFloat((parseFloat(winner.prizeAmount) * pct / 100).toFixed(2));
+            if (candidate > 0) {
+              commAmount = candidate;
+              commPct = pct;
+              activatorId = candId;
             }
           }
         }
       }
-    } catch { /* commission errors must not block winner validation */ }
+    } catch (err) {
+      req.log.error({ err }, "Error computing referral commission, defaulting to 0");
+    }
+
+    const prizeTotal = parseFloat(winner.prizeAmount);
+    const netPrize = parseFloat((prizeTotal - commAmount).toFixed(2));
+
+    // ── Atomic transaction: validate + credit winner (net) + credit activator ─
+    let alreadyValidated = false;
+    await db.transaction(async (tx) => {
+      const flipped = await tx.update(winnersTable)
+        .set({ validated: true, adminNotes: parsed.data.notes ?? null })
+        .where(and(eq(winnersTable.id, p.data.id), eq(winnersTable.validated, false)))
+        .returning();
+      if (!flipped.length) { alreadyValidated = true; return; }
+
+      // Credit net prize to winner (full prize minus activator commission)
+      await tx.execute(
+        sql`UPDATE users SET balance = balance + ${netPrize} WHERE id = ${winner.userId}`
+      );
+
+      // Credit commission to activator and record the transaction
+      if (activatorId && commAmount > 0) {
+        await tx.execute(
+          sql`UPDATE users SET balance = balance + ${commAmount} WHERE id = ${activatorId}`
+        );
+        const winnerUserName = (await tx.select({ fullName: usersTable.fullName })
+          .from(usersTable).where(eq(usersTable.id, winner.userId)).limit(1))[0]
+          ?.fullName?.trim().split(/\s+/).slice(0, 2).join(" ") ?? "Usuario";
+        await tx.insert(referralTransactionsTable).values({
+          type: "commission",
+          activatorId,
+          referredUserId: winner.userId,
+          gameId: winner.gameId,
+          winnerId: winner.id,
+          amount: String(commAmount),
+          commissionPercentage: String(commPct),
+          description: `Comisión ${commPct}% por ganancia de ${winnerUserName} — Premio: Bs ${prizeTotal.toFixed(2)}`,
+        });
+      }
+    });
+    if (alreadyValidated) { res.status(400).json({ error: "Este ganador ya fue validado" }); return; }
+
+    // ── Post-tx: insert debit record so winner sees deduction in wallet ───────
+    if (activatorId && commAmount > 0) {
+      try {
+        await db.insert(withdrawalsTable).values({
+          userId: winner.userId,
+          amount: String(commAmount),
+          method: "admin_debit",
+          status: "paid",
+          notes: `Comisión ${commPct}% descontada por uso de código de activador referido — Premio bruto: Bs ${prizeTotal.toFixed(2)}`,
+          paidAt: new Date(),
+        });
+      } catch (err) {
+        req.log.error({ err }, "Error inserting referral deduction withdrawal record");
+      }
+    }
 
     // Get user name for feed
     const users = await db.select().from(usersTable).where(eq(usersTable.id, winner.userId)).limit(1);
@@ -494,7 +525,7 @@ router.post("/winners/:id/validate", async (req: AuthRequest, res) => {
     // Add to public feed
     await db.insert(feedItemsTable).values({
       type: "winner",
-      message: `¡${userName} ganó Bs ${parseFloat(winner.prizeAmount).toFixed(2)}!`,
+      message: `¡${userName} ganó Bs ${prizeTotal.toFixed(2)}!`,
       amount: winner.prizeAmount,
       userDisplayName: userName,
     });
