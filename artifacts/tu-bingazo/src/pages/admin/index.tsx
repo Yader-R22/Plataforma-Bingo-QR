@@ -3001,12 +3001,22 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                     )}
                                   </div>
                                   {roundWinnersForHistory.length > 0 && (
-                                    <div className="flex flex-wrap gap-1">
+                                    <div className="space-y-1 mt-1">
                                       {roundWinnersForHistory.map((w: any) => (
-                                        <span key={w.id} className="text-[10px] px-2 py-0.5 rounded-full font-bold"
-                                          style={{ background: "hsl(42 98% 52% / 0.2)", color: "hsl(42 98% 60%)" }}>
-                                          🏆 {w.user_name ?? `#${w.user_id}`}
-                                        </span>
+                                        <div key={w.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5"
+                                          style={{ background: "hsl(42 98% 52% / 0.12)", border: "1px solid hsl(42 98% 52% / 0.2)" }}>
+                                          <div className="min-w-0">
+                                            <p className="text-[11px] font-black leading-tight truncate" style={{ color: "hsl(42 98% 65%)" }}>
+                                              🏆 {w.user_name ?? `#${w.user_id}`}
+                                            </p>
+                                            <p className="text-[10px] text-white/45 leading-tight">
+                                              📍 {w.user_department ?? "Bolivia"}
+                                            </p>
+                                          </div>
+                                          <span className="shrink-0 text-[12px] font-black" style={{ color: "hsl(42 98% 60%)" }}>
+                                            Bs {parseFloat(w.prize_amount ?? 0).toFixed(0)}
+                                          </span>
+                                        </div>
                                       ))}
                                     </div>
                                   )}
@@ -3449,12 +3459,22 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                 )}
                               </div>
                               {roundWinnersForHistory.length > 0 && (
-                                <div className="flex flex-wrap gap-1">
+                                <div className="space-y-1 mt-1">
                                   {roundWinnersForHistory.map((w: any) => (
-                                    <span key={w.id} className="text-[10px] px-2 py-0.5 rounded-full font-bold"
-                                      style={{ background: "hsl(42 98% 52% / 0.2)", color: "hsl(42 98% 60%)" }}>
-                                      🏆 {w.user_name ?? `#${w.user_id}`}
-                                    </span>
+                                    <div key={w.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5"
+                                      style={{ background: "hsl(42 98% 52% / 0.12)", border: "1px solid hsl(42 98% 52% / 0.2)" }}>
+                                      <div className="min-w-0">
+                                        <p className="text-[11px] font-black leading-tight truncate" style={{ color: "hsl(42 98% 65%)" }}>
+                                          🏆 {w.user_name ?? `#${w.user_id}`}
+                                        </p>
+                                        <p className="text-[10px] text-white/45 leading-tight">
+                                          📍 {w.user_department ?? "Bolivia"}
+                                        </p>
+                                      </div>
+                                      <span className="shrink-0 text-[12px] font-black" style={{ color: "hsl(42 98% 60%)" }}>
+                                        Bs {parseFloat(w.prize_amount ?? 0).toFixed(0)}
+                                      </span>
+                                    </div>
                                   ))}
                                 </div>
                               )}
