@@ -517,10 +517,9 @@ export default function WalletPage() {
                   }
                   // prize entry
                   const typeLabel: Record<string, string> = { daily: "Bingo Diario", weekly: "Bingo Semanal", monthly: "Bingo Mensual" };
-                  const wasDeducted: boolean = item.commission_deducted_from_prize === true;
-                  const commDeducted: number | null = wasDeducted ? (item.commission_deducted ?? null) : null;
-                  const commPct: number | null = wasDeducted ? (item.commission_pct ?? null) : null;
-                  const netAmount = commDeducted != null ? item.prize_amount - commDeducted : item.prize_amount;
+                  const commDeducted: number | null = item.commission_deducted ?? null;
+                  const commPct: number | null = item.commission_pct ?? null;
+                  const netAmount = commDeducted ? item.prize_amount - commDeducted : item.prize_amount;
                   return (
                     <div key={`p-${item.id}`} className="bg-card border rounded-2xl p-4 space-y-2">
                       <div className="flex items-center justify-between">

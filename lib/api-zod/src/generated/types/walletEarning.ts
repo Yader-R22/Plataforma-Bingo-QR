@@ -16,5 +16,4 @@ export interface WalletEarning {
   credited_at: Date;
   commission_deducted?: number | null;
   commission_pct?: number | null;
-  commission_deducted_from_prize?: boolean | null;
 }

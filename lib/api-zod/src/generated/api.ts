@@ -610,8 +610,7 @@ export const ListEarningsResponseItem = zod.object({
   "place": zod.number(),
   "credited_at": zod.coerce.date(),
   "commission_deducted": zod.number().nullish(),
-  "commission_pct": zod.number().nullish(),
-  "commission_deducted_from_prize": zod.boolean().nullish()
+  "commission_pct": zod.number().nullish()
 })
 export const ListEarningsResponse = zod.array(ListEarningsResponseItem)
 

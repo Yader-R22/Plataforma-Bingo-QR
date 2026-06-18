@@ -5,7 +5,6 @@ import {
   numeric,
   text,
   timestamp,
-  boolean,
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 import { gamesTable } from "./games";
@@ -21,7 +20,6 @@ export const referralTransactionsTable = pgTable("referral_transactions", {
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
   commissionPercentage: numeric("commission_percentage", { precision: 5, scale: 2 }),
   description: text("description").notNull(),
-  deductedFromPrize: boolean("deducted_from_prize").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

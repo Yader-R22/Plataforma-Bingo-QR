@@ -37,38 +37,27 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
       notInArray(withdrawalsTable.method, ["admin_credit", "admin_debit"] as any[]),
     ));
 
-  // Total prizes won (net: full prize minus any commissions actually deducted from prize)
-  const [totalWonRaw, totalDeducted, totalWithdrawnRaw] = await Promise.all([
-    db.select({ total: sql<string>`coalesce(sum(${winnersTable.prizeAmount}), 0)` })
-      .from(winnersTable)
-      .where(and(eq(winnersTable.userId, req.userId!), eq(winnersTable.validated, true))),
-    db.select({ total: sql<string>`coalesce(sum(${referralTransactionsTable.amount}), 0)` })
-      .from(referralTransactionsTable)
-      .where(and(
-        eq(referralTransactionsTable.referredUserId, req.userId!),
-        eq(referralTransactionsTable.type, "commission"),
-        eq(referralTransactionsTable.deductedFromPrize, true),
-      )),
-    db.select({ total: sql<string>`coalesce(sum(${withdrawalsTable.amount}), 0)` })
-      .from(withdrawalsTable)
-      .where(and(
-        eq(withdrawalsTable.userId, req.userId!),
-        eq(withdrawalsTable.status, "paid"),
-        notInArray(withdrawalsTable.method, ["admin_credit", "admin_debit"] as any[]),
-      )),
-  ]);
+  // Total prizes won in games (from winners table, validated only)
+  const totalWon = await db.select({ total: sql<string>`coalesce(sum(${winnersTable.prizeAmount}), 0)` })
+    .from(winnersTable)
+    .where(and(eq(winnersTable.userId, req.userId!), eq(winnersTable.validated, true)));
 
-  const totalWonNet = parseFloat((
-    parseFloat(totalWonRaw[0]?.total ?? "0") - parseFloat(totalDeducted[0]?.total ?? "0")
-  ).toFixed(2));
+  // Total actually withdrawn (paid user-initiated withdrawals only, not admin adjustments)
+  const totalWithdrawn = await db.select({ total: sql<string>`coalesce(sum(${withdrawalsTable.amount}), 0)` })
+    .from(withdrawalsTable)
+    .where(and(
+      eq(withdrawalsTable.userId, req.userId!),
+      eq(withdrawalsTable.status, "paid"),
+      notInArray(withdrawalsTable.method, ["admin_credit", "admin_debit"] as any[]),
+    ));
 
   res.json({
     balance: parseFloat(user.balance),
     bonus_balance: parseFloat(user.bonusBalance),
     bonus_expires_at: user.bonusExpiresAt ?? null,
     pending_withdrawals: parseFloat(pending[0]?.total ?? "0"),
-    total_won: totalWonNet,
-    total_withdrawn: parseFloat(totalWithdrawnRaw[0]?.total ?? "0"),
+    total_won: parseFloat(totalWon[0]?.total ?? "0"),
+    total_withdrawn: parseFloat(totalWithdrawn[0]?.total ?? "0"),
   });
 });
 
@@ -95,7 +84,6 @@ router.get("/earnings", requireAuth, async (req: AuthRequest, res) => {
         winnerId: referralTransactionsTable.winnerId,
         amount: referralTransactionsTable.amount,
         commissionPercentage: referralTransactionsTable.commissionPercentage,
-        deductedFromPrize: referralTransactionsTable.deductedFromPrize,
       })
       .from(referralTransactionsTable)
       .where(and(
@@ -113,7 +101,6 @@ router.get("/earnings", requireAuth, async (req: AuthRequest, res) => {
       prize_amount: parseFloat(r.prize_amount),
       commission_deducted: comm ? parseFloat(comm.amount) : null,
       commission_pct: comm ? parseFloat(comm.commissionPercentage ?? "0") : null,
-      commission_deducted_from_prize: comm ? (comm.deductedFromPrize ?? false) : null,
     };
   }));
 });
