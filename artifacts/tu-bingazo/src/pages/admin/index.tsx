@@ -754,6 +754,7 @@ export default function AdminPage() {
   const [savingCat, setSavingCat] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [numberInput, setNumberInput] = useState<Record<number, string>>({});
+  const [popupGameId, setPopupGameId] = useState<number | null>(null);
   const [userSearch, setUserSearch] = useState("");
   const [userStatusFilter, setUserStatusFilter] = useState<string>("all");
   const [payForm, setPayForm] = useState<Record<number, { proof: string; pin: string; open: boolean }>>({});
@@ -2866,7 +2867,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     style={{ background: "linear-gradient(135deg, #1a0050 0%, #3b00b8 100%)", border: "1px solid rgba(255,255,255,0.1)" }}>
                     <div className="px-4 pt-4 pb-3">
                       <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
                           <div className="live-badge"><div className="live-dot" />EN VIVO</div>
                           <span className="text-white font-bold text-sm">{g.title}</span>
                           {g.is_featured && <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: "hsl(42 98% 52% / 0.15)", color: "hsl(42 98% 35%)" }}>⭐ Destacado</span>}
@@ -2890,7 +2891,17 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                             </span>
                           )}
                         </div>
-                        <span className="text-white/60 text-xs shrink-0">Bs {g.prize_amount} premio</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-white/60 text-xs">Bs {g.prize_amount} premio</span>
+                          <button onClick={() => setPopupGameId(g.id)} title="Ver en ventana completa"
+                            className="w-7 h-7 rounded-lg flex items-center justify-center transition-all active:scale-90"
+                            style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+                              <path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="shrink-0 w-12 h-10 rounded-xl flex flex-col items-center justify-center font-black leading-none transition-all"
@@ -6854,6 +6865,216 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           );
         })()}
       </div>
+
+      {/* ── Popup modal tarjeta en vivo ── */}
+      {popupGameId !== null && (() => {
+        const g = games.find(x => x.id === popupGameId);
+        if (!g) return null;
+        const modeLabel: Record<string, string> = {
+          full_card: "🃏 Cartón completo", horizontal: "➡ Línea horizontal",
+          vertical: "⬇ Línea vertical", diagonal: "↗ Diagonal", quina: "📏 Quina",
+          esquinas: "🔲 Esquinas", cruz: "✝ Cruz", x_doble: "✖ X doble",
+        };
+        const curWinners = gameWinners[g.id]?.[g.current_round ?? 1] ?? [];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3"
+            style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
+            onClick={e => { if (e.target === e.currentTarget) setPopupGameId(null); }}>
+            <div className="w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl"
+              style={{ background: "linear-gradient(135deg, #1a0050 0%, #3b00b8 100%)", border: "1px solid rgba(255,255,255,0.15)", maxHeight: "90vh", overflowY: "auto" }}>
+
+              {/* Header */}
+              <div className="px-5 pt-5 pb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+                    <div className="live-badge"><div className="live-dot" />EN VIVO</div>
+                    <span className="text-white font-bold text-sm">{g.title}</span>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                      style={{ background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.9)" }}>
+                      {modeLabel[g.game_mode as string] ?? g.game_mode}
+                    </span>
+                    {(g.total_rounds ?? 1) > 1 && (
+                      <span className="text-[11px] font-black px-2 py-0.5 rounded-full"
+                        style={{ background: "hsl(42 98% 52% / 0.2)", color: "hsl(42 98% 60%)" }}>
+                        Ronda {g.current_round ?? 1}/{g.total_rounds}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-white/60 text-xs">Bs {g.prize_amount} premio</span>
+                    <button onClick={() => setPopupGameId(null)} title="Cerrar"
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all active:scale-90"
+                      style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)" }}>
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                {/* Input cantar número */}
+                <div className="flex items-center gap-2">
+                  <div className="shrink-0 w-12 h-10 rounded-xl flex flex-col items-center justify-center font-black leading-none"
+                    style={{
+                      background: numberInput[g.id] && parseInt(numberInput[g.id]) >= 1 && parseInt(numberInput[g.id]) <= 75
+                        ? BINGO_COL_COLORS[bingoLetter(parseInt(numberInput[g.id]))]
+                        : "rgba(255,255,255,0.1)",
+                    }}>
+                    <span className="text-white text-[11px] font-black">
+                      {numberInput[g.id] && parseInt(numberInput[g.id]) >= 1 && parseInt(numberInput[g.id]) <= 75
+                        ? bingoLetter(parseInt(numberInput[g.id])) : "?"}
+                    </span>
+                    <span className="text-white/70 text-[10px]">
+                      {numberInput[g.id] && parseInt(numberInput[g.id]) >= 1 && parseInt(numberInput[g.id]) <= 75
+                        ? parseInt(numberInput[g.id]) : "—"}
+                    </span>
+                  </div>
+                  <input type="number" min="1" max="75" placeholder="Número 1–75"
+                    className="flex-1 bg-white/10 text-white placeholder-white/30 rounded-xl px-3 py-2.5 text-sm font-bold border border-white/15 outline-none focus:border-white/40 transition-colors"
+                    value={numberInput[g.id] ?? ""}
+                    onChange={e => setNumberInput(prev => ({ ...prev, [g.id]: e.target.value }))}
+                    onKeyDown={e => e.key === "Enter" && callNumber(g.id)} />
+                  <button onClick={() => callNumber(g.id)}
+                    className="shrink-0 px-5 py-2.5 rounded-xl font-black text-sm transition-all active:scale-95"
+                    style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>
+                    🎱 Cantar
+                  </button>
+                </div>
+              </div>
+
+              {/* Números cantados */}
+              {(g.called_numbers?.length ?? 0) > 0 && (
+                <div className="px-5 pb-4" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                  <div className="flex items-center gap-3 pt-4">
+                    <div className="shrink-0 text-center">
+                      <p className="text-white/40 text-[10px] mb-1">Último</p>
+                      {(() => {
+                        const last = g.called_numbers[g.called_numbers.length - 1];
+                        return (
+                          <div className="w-12 h-12 rounded-full flex flex-col items-center justify-center font-black leading-none"
+                            style={{ background: BINGO_COL_COLORS[bingoLetter(last)], boxShadow: `0 0 12px ${BINGO_COL_COLORS[bingoLetter(last)]}80` }}>
+                            <span className="text-white text-[10px] font-black">{bingoLetter(last)}</span>
+                            <span className="text-white text-base font-black leading-tight">{last}</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white/40 text-[10px] mb-1.5">Cantados ({g.called_numbers.length}/75)</p>
+                      <div className="flex flex-wrap gap-1">
+                        {[...g.called_numbers].reverse().slice(0, 25).map((n, i) => (
+                          <span key={n} className="h-6 px-1.5 rounded-full flex items-center text-[11px] font-black"
+                            style={{
+                              background: i === 0 ? BINGO_COL_COLORS[bingoLetter(n)] : "rgba(255,255,255,0.12)",
+                              color: "rgba(255,255,255,0.9)", minWidth: 32, justifyContent: "center",
+                            }}>
+                            {bingoLabel(n)}
+                          </span>
+                        ))}
+                        {g.called_numbers.length > 25 && (
+                          <span className="h-6 px-1.5 rounded-full flex items-center text-[11px] text-white/40"
+                            style={{ background: "rgba(255,255,255,0.07)" }}>
+                            +{g.called_numbers.length - 25}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Historial de rondas anteriores */}
+              {(g.round_history?.length ?? 0) > 0 && (
+                <div className="px-5 pb-4" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                  <p className="text-white/40 text-[10px] pt-4 mb-2 font-bold uppercase tracking-widest">Historial de rondas</p>
+                  <div className="space-y-2">
+                    {g.round_history.map((rh: any) => {
+                      const roundCfg = g.rounds?.[rh.round - 1] as any;
+                      const rw = gameWinners[g.id]?.[rh.round] ?? [];
+                      return (
+                        <div key={rh.round} className="rounded-xl p-2.5" style={{ background: "rgba(255,255,255,0.05)" }}>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-white/80 text-[11px] font-black">
+                              Ronda {rh.round}{roundCfg?.game_mode ? ` · ${modeLabel[roundCfg.game_mode] ?? roundCfg.game_mode}` : ""}
+                            </span>
+                            <span className="text-white/40 text-[10px]">{rh.called_numbers.length} bolillos</span>
+                          </div>
+                          {rw.length > 0 && (
+                            <div className="space-y-1 mt-1">
+                              {rw.map((w: any) => (
+                                <div key={w.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5"
+                                  style={{ background: "hsl(42 98% 52% / 0.12)", border: "1px solid hsl(42 98% 52% / 0.2)" }}>
+                                  <div className="min-w-0">
+                                    <p className="text-[11px] font-black leading-tight truncate" style={{ color: "hsl(42 98% 65%)" }}>
+                                      🏆 {w.user_name ?? `#${w.user_id}`}
+                                    </p>
+                                    <p className="text-[10px] text-white/45 leading-tight">📍 {w.user_department ?? "Bolivia"}</p>
+                                  </div>
+                                  <span className="shrink-0 text-[12px] font-black" style={{ color: "hsl(42 98% 60%)" }}>
+                                    Bs {parseFloat(w.prize_amount ?? 0).toFixed(0)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Ganadores ronda actual */}
+              {curWinners.length > 0 && (
+                <div className="px-5 pb-4" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                  <p className="text-white/40 text-[10px] pt-4 mb-2 font-bold uppercase tracking-widest">🏆 Ganadores ronda {g.current_round ?? 1}</p>
+                  <div className="space-y-1.5">
+                    {curWinners.map((w: any) => (
+                      <div key={w.id} className="flex items-center justify-between gap-3 rounded-xl px-3 py-2"
+                        style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.25)" }}>
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-black leading-tight truncate" style={{ color: "hsl(42 98% 70%)" }}>
+                            🏆 {w.user_name ?? `#${w.user_id}`}
+                          </p>
+                          <p className="text-[10px] text-white/50 mt-0.5">
+                            {w.user_department ?? "Bolivia"} · Puesto #{w.place}
+                          </p>
+                        </div>
+                        <p className="shrink-0 text-[13px] font-black" style={{ color: "hsl(42 98% 60%)" }}>
+                          Bs {parseFloat(w.prize_amount).toFixed(0)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Footer acciones */}
+              <div className="px-5 py-3 flex items-center justify-between"
+                style={{ background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                <span className="text-white/50 text-xs">{g.called_numbers?.length ?? 0} números · {g.participant_count} jugadores</span>
+                <div className="flex items-center gap-3">
+                  {(g.total_rounds ?? 1) > 1 && (g.current_round ?? 1) < (g.total_rounds ?? 1) ? (
+                    <>
+                      <button onClick={() => nextRound(g.id)}
+                        className="text-sm font-black px-4 py-1.5 rounded-xl transition-all active:scale-95"
+                        style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>
+                        🏁 Completar Ronda {g.current_round ?? 1} →
+                      </button>
+                      <button onClick={() => finishGame(g.id)} title="Finalizar de emergencia"
+                        className="text-[11px] font-bold text-red-400/60 hover:text-red-300 transition-colors">⏹</button>
+                    </>
+                  ) : (
+                    <button onClick={() => finishGame(g.id)}
+                      className="text-sm font-black px-4 py-1.5 rounded-xl transition-all active:scale-95"
+                      style={{ background: "hsl(0 75% 50% / 0.2)", color: "hsl(0 75% 70%)", border: "1px solid hsl(0 75% 50% / 0.3)" }}>
+                      ⏹ Finalizar Juego
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }
