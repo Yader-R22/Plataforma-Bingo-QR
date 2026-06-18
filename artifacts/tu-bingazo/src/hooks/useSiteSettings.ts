@@ -39,7 +39,7 @@ export function useSiteSettings() {
   const { data } = useQuery<SiteSettings>({
     queryKey: ["site-settings"],
     queryFn: fetchSiteSettings,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 1 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
