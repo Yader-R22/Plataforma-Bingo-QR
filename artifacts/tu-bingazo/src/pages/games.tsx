@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useSearch, useLocation } from "wouter";
 import { useListGames } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
-import AppLayout from "@/components/AppLayout";
+import { useSetLayoutConfig } from "@/components/AppLayout";
 
 const ALL_TYPE_FILTERS = [
   { value: "all", label: "Todos" },
@@ -70,6 +70,7 @@ export default function GamesPage() {
   }, [search]);
 
   const user = useAuthStore(s => s.user);
+  useSetLayoutConfig({ hideTopBar: true });
   const { data: allGames, isLoading, refetch: refetchGames } = useListGames();
 
   // Poll game list every 8s so status changes from admin are reflected immediately
@@ -87,7 +88,7 @@ export default function GamesPage() {
   const typeTitle = filter === "daily" ? "Bingos Diarios" : filter === "weekly" ? "Bingos Semanales" : filter === "monthly" ? "Bingos Mensuales" : "Juegos Disponibles";
 
   return (
-    <AppLayout hideTopBar>
+    <>
       {/* Header */}
       <div className="hero-bg px-4 py-5 text-white">
         <h1 className="text-2xl font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>
@@ -225,6 +226,6 @@ export default function GamesPage() {
           </div>
         )}
       </div>
-    </AppLayout>
+    </>
   );
 }

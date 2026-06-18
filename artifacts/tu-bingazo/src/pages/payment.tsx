@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import AppLayout from "@/components/AppLayout";
+import { useSetLayoutConfig } from "@/components/AppLayout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export default function PaymentPage() {
+  useSetLayoutConfig({});
   const [, params] = useRoute("/pago/:checkoutId");
   const [, navigate] = useLocation();
   const token = useAuthStore(s => s.token);
@@ -57,7 +58,7 @@ export default function PaymentPage() {
   }, [checkoutId, token]);
 
   return (
-    <AppLayout>
+    <>
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="max-w-sm w-full text-center">
           {status === "pending" && (
@@ -115,6 +116,6 @@ export default function PaymentPage() {
           )}
         </div>
       </div>
-    </AppLayout>
+    </>
   );
 }

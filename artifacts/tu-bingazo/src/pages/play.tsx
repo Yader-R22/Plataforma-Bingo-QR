@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import AppLayout from "@/components/AppLayout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const LETTERS = ["B", "I", "N", "G", "O"];

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useAuthStore, type AuthUser } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
-import AppLayout from "@/components/AppLayout";
+import { useSetLayoutConfig } from "@/components/AppLayout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -18,6 +18,7 @@ function statusConfig(status: string) {
 }
 
 export default function ProfilePage() {
+  useSetLayoutConfig({ hideTopBar: true });
   const site = useSiteSettings();
   const { user, setUser, logout, token } = useAuthStore();
   const [editPhone, setEditPhone] = useState(false);
@@ -273,7 +274,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <AppLayout hideTopBar>
+    <>
       {/* Hero banner */}
       <div className="hero-bg px-4 py-6 text-white">
         <div className="flex items-center gap-4">
@@ -777,6 +778,6 @@ export default function ProfilePage() {
           Cerrar Sesión
         </button>
       </div>
-    </AppLayout>
+    </>
   );
 }

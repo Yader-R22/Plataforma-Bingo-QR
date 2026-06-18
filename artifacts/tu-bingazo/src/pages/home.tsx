@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useListGames, useGetWallet, getGetWalletQueryKey, useListCategories } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
-import AppLayout from "@/components/AppLayout";
+import { useSetLayoutConfig } from "@/components/AppLayout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -253,6 +253,7 @@ export default function HomePage() {
   const [, navigate] = useLocation();
   const site = useSiteSettings();
   const user = useAuthStore(s => s.user);
+  useSetLayoutConfig({ hideTopBar: !!user }, [!!user]);
   const token = useAuthStore(s => s.token);
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -342,7 +343,7 @@ export default function HomePage() {
   const featuredGame = gamesList.find((g: any) => g.is_featured && g.status !== "finished");
 
   return (
-    <AppLayout hideTopBar={!!user}>
+    <>
       {/* Hero */}
       <div className="hero-bg px-4 pt-5 pb-0 text-white relative overflow-hidden">
         {/* Banner images — rotate behind all content */}
@@ -485,6 +486,6 @@ export default function HomePage() {
           ))}
         </div>
       </div>
-    </AppLayout>
+    </>
   );
 }

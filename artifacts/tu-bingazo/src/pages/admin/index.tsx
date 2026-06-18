@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
-import AppLayout from "@/components/AppLayout";
+import { useSetLayoutConfig } from "@/components/AppLayout";
 import { ADMIN_PERMS } from "./perms";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -732,6 +732,7 @@ window.onload=function(){
 
 // ── Main Admin Page ───────────────────────────────────────────────────────────
 export default function AdminPage() {
+  useSetLayoutConfig({});
   const [, navigate] = useLocation();
   const site = useSiteSettings();
   const token = useAuthStore(s => s.token);
@@ -2483,13 +2484,11 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
 
   if (!user?.is_admin) {
     return (
-      <AppLayout>
-        <div className="p-4 text-center py-20">
-          <p className="text-5xl mb-3">🔒</p>
-          <p className="font-bold text-xl">Acceso denegado</p>
-          <button className="btn-primary mt-6 max-w-xs mx-auto" onClick={() => navigate("/juegos")}>Volver</button>
-        </div>
-      </AppLayout>
+      <div className="p-4 text-center py-20">
+        <p className="text-5xl mb-3">🔒</p>
+        <p className="font-bold text-xl">Acceso denegado</p>
+        <button className="btn-primary mt-6 max-w-xs mx-auto" onClick={() => navigate("/juegos")}>Volver</button>
+      </div>
     );
   }
 
@@ -2548,7 +2547,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
   };
 
   return (
-    <AppLayout>
+    <>
       {selectedUserId !== null && (
         <UserDetailModal
           userId={selectedUserId}
@@ -6835,6 +6834,6 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           );
         })()}
       </div>
-    </AppLayout>
+    </>
   );
 }

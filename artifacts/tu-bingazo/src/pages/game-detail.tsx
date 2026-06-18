@@ -4,7 +4,7 @@ import { useGetGame } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
-import AppLayout from "@/components/AppLayout";
+import { useSetLayoutConfig } from "@/components/AppLayout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -395,6 +395,7 @@ export default function GameDetailPage() {
 
   const gameId = parseInt(params?.id ?? "0");
   const { data: game, isLoading, refetch: refetchGame } = useGetGame(gameId);
+  useSetLayoutConfig({ showBack: true, title: (game as any)?.title ?? '' }, [(game as any)?.title]);
 
   // Poll game data every 8s so any admin change (reset, start, finish) is reflected immediately
   useEffect(() => {
@@ -470,25 +471,21 @@ export default function GameDetailPage() {
 
   if (isLoading) {
     return (
-      <AppLayout>
-        <div className="p-4 space-y-3">
-          <div className="h-48 rounded-3xl bg-muted animate-pulse" />
-          <div className="grid grid-cols-2 gap-3">
-            {[1,2,3,4].map(i => <div key={i} className="h-20 rounded-2xl bg-muted animate-pulse" />)}
-          </div>
+      <div className="p-4 space-y-3">
+        <div className="h-48 rounded-3xl bg-muted animate-pulse" />
+        <div className="grid grid-cols-2 gap-3">
+          {[1,2,3,4].map(i => <div key={i} className="h-20 rounded-2xl bg-muted animate-pulse" />)}
         </div>
-      </AppLayout>
+      </div>
     );
   }
 
   if (!game) {
     return (
-      <AppLayout>
-        <div className="text-center py-24 text-muted-foreground">
-          <p className="text-5xl">😕</p>
-          <p className="mt-3 font-bold">Juego no encontrado</p>
-        </div>
-      </AppLayout>
+      <div className="text-center py-24 text-muted-foreground">
+        <p className="text-5xl">😕</p>
+        <p className="mt-3 font-bold">Juego no encontrado</p>
+      </div>
     );
   }
 
@@ -505,7 +502,6 @@ export default function GameDetailPage() {
 
   return (
     <>
-      <AppLayout showBack title={game.title}>
         <div className="max-w-xl mx-auto">
           {/* Hero banner */}
           {(() => {
@@ -756,8 +752,6 @@ export default function GameDetailPage() {
             )}
           </div>
         </div>
-      </AppLayout>
-
       {/* QR Payment modal */}
       {qrData && (
         <QRPaymentModal

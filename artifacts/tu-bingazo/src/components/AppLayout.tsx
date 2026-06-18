@@ -1,10 +1,30 @@
-import { type ReactNode, useEffect, useRef, useState, useCallback } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useContext, createContext, useRef, useState, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
 
 const BASE = "";
+
+export interface LayoutConfig {
+  hideTopBar?: boolean;
+  hideNav?: boolean;
+  hideLogo?: boolean;
+  title?: string;
+  showBack?: boolean;
+  onBack?: (() => void) | null;
+}
+
+export const LayoutConfigContext = createContext<(c: LayoutConfig) => void>(() => {});
+
+export function useSetLayoutConfig(config: LayoutConfig, deps: unknown[] = []) {
+  const set = useContext(LayoutConfigContext);
+  useLayoutEffect(() => {
+    set(config);
+    return () => set({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+}
 
 function PhotoCapture({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -342,12 +362,7 @@ function PendingReviewScreen() {
 
 interface AppLayoutProps {
   children: ReactNode;
-  hideNav?: boolean;
-  hideLogo?: boolean;
-  hideTopBar?: boolean;
-  title?: string;
-  showBack?: boolean;
-  onBack?: () => void;
+  config: LayoutConfig;
 }
 
 /* ---- Festive bingo-themed nav icons ---- */
@@ -453,7 +468,8 @@ function IconRegister({ active }: { active: boolean }) {
   );
 }
 
-export default function AppLayout({ children, hideNav, hideLogo, hideTopBar, title, showBack, onBack }: AppLayoutProps) {
+export default function AppLayout({ children, config }: AppLayoutProps) {
+  const { hideTopBar, hideNav, hideLogo, title, showBack, onBack } = config;
   const [location] = useLocation();
   const user = useAuthStore(s => s.user);
   const token = useAuthStore(s => s.token);

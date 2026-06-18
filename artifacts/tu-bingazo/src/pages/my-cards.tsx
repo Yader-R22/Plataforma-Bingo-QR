@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useListMyCards, useListGames } from "@workspace/api-client-react";
-import AppLayout from "@/components/AppLayout";
+import { useSetLayoutConfig } from "@/components/AppLayout";
 
 const TYPE_EMOJI: Record<string, string> = {
   daily: "📅",
@@ -26,6 +26,7 @@ function gameStatusConfig(status: string) {
 
 export default function MyCardsPage() {
   const [, navigate] = useLocation();
+  useSetLayoutConfig({ hideTopBar: true });
   const { data: rawCards, isLoading, refetch: refetchCards } = useListMyCards();
   const { data: games = [], refetch: refetchGames } = useListGames();
 
@@ -58,7 +59,7 @@ export default function MyCardsPage() {
   const groups = Array.from(groupsMap.values());
 
   return (
-    <AppLayout hideTopBar>
+    <>
       {/* Header */}
       <div className="hero-bg px-4 py-5 text-white">
         <h1 className="text-2xl font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>🃏 Mis Cartones</h1>
@@ -150,6 +151,6 @@ export default function MyCardsPage() {
           </div>
         )}
       </div>
-    </AppLayout>
+    </>
   );
 }

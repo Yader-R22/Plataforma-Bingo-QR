@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
+import { useSetLayoutConfig } from "@/components/AppLayout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -69,6 +70,7 @@ function PhotoCapture({
 }
 
 export default function RegisterPage() {
+  useSetLayoutConfig({ hideNav: true, hideTopBar: true });
   const site = useSiteSettings();
   const [step, setStep] = useState(1); // 1=personal, 2=docs, 3=location
   const [form, setForm] = useState({

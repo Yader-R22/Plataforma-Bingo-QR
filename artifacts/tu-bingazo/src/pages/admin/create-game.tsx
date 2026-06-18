@@ -8,7 +8,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import AppLayout from "@/components/AppLayout";
+import { useSetLayoutConfig } from "@/components/AppLayout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -30,6 +30,7 @@ const MODE_OPTIONS = [
 ];
 
 export default function CreateGamePage() {
+  useSetLayoutConfig({});
   const [, navigate] = useLocation();
   const [matchEdit, editParams] = useRoute("/admin/editar-juego/:id");
   const editId = matchEdit ? editParams?.id : undefined;
@@ -159,7 +160,7 @@ export default function CreateGamePage() {
   if (!user?.is_admin) return null;
 
   return (
-    <AppLayout>
+    <>
       <div className="p-4 max-w-lg mx-auto">
         <div className="mb-4">
           <button onClick={() => navigate("/admin")} className="text-sm text-muted-foreground hover:text-foreground">
@@ -350,6 +351,6 @@ export default function CreateGamePage() {
         </form>
         )}
       </div>
-    </AppLayout>
+    </>
   );
 }

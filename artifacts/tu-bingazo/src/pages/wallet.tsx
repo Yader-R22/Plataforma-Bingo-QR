@@ -2,7 +2,7 @@ import { useState, useRef, useMemo, useEffect } from "react";
 import { useGetWallet, useListWithdrawals, useListEarnings } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import AppLayout from "@/components/AppLayout";
+import { useSetLayoutConfig } from "@/components/AppLayout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const BANKS = ["Banco BNB", "Banco Económico", "Banco Unión", "Banco Mercantil", "Banco BISA"];
@@ -14,6 +14,7 @@ function statusConfig(status: string) {
 }
 
 export default function WalletPage() {
+  useSetLayoutConfig({ hideTopBar: true });
   const token = useAuthStore(s => s.token);
   const user = useAuthStore(s => s.user);
   const [step, setStep] = useState<"idle" | "amount" | "method" | "qr-upload" | "bank-form">("idle");
@@ -134,7 +135,7 @@ export default function WalletPage() {
   const numAmount = parseFloat(amount) || 0;
 
   return (
-    <AppLayout hideTopBar>
+    <>
       {proofModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}
           onClick={() => setProofModal(null)}>
@@ -691,6 +692,6 @@ export default function WalletPage() {
           </>)}
         </div>
       </div>
-    </AppLayout>
+    </>
   );
 }
