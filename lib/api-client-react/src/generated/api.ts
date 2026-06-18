@@ -60,6 +60,7 @@ import type {
   ValidateWinnerInput,
   VerifyUserInput,
   Wallet,
+  WalletCommission,
   WalletEarning,
   Winner,
   Withdrawal,
@@ -2132,6 +2133,83 @@ export function useListEarnings<TData = Awaited<ReturnType<typeof listEarnings>>
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListEarningsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getListCommissionsUrl = () => {
+
+
+
+
+  return `/api/wallet/commissions`
+}
+
+/**
+ * @summary Comisiones ganadas como activador por referidos
+ */
+export const listCommissions = async ( options?: RequestInit): Promise<WalletCommission[]> => {
+
+  return customFetch<WalletCommission[]>(getListCommissionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCommissionsQueryKey = () => {
+    return [
+    `/api/wallet/commissions`
+    ] as const;
+    }
+
+
+export const getListCommissionsQueryOptions = <TData = Awaited<ReturnType<typeof listCommissions>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCommissions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCommissionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCommissions>>> = ({ signal }) => listCommissions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCommissions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCommissionsQueryResult = NonNullable<Awaited<ReturnType<typeof listCommissions>>>
+export type ListCommissionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Comisiones ganadas como activador por referidos
+ */
+
+export function useListCommissions<TData = Awaited<ReturnType<typeof listCommissions>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCommissions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCommissionsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

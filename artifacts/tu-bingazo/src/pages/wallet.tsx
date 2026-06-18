@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useEffect } from "react";
-import { useGetWallet, useListWithdrawals, useListEarnings } from "@workspace/api-client-react";
+import { useGetWallet, useListWithdrawals, useListEarnings, useListCommissions } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useSetLayoutConfig } from "@/components/AppLayout";
@@ -40,6 +40,7 @@ export default function WalletPage() {
   const { data: wallet, refetch: refetchWallet } = useGetWallet();
   const { data: withdrawals, refetch: refetchWithdrawals } = useListWithdrawals();
   const { data: earnings } = useListEarnings();
+  const { data: commissions } = useListCommissions();
 
   // Auto-poll balance + withdrawals every 6s so the user sees paid/rejected changes in real time
   useEffect(() => {
@@ -474,9 +475,13 @@ export default function WalletPage() {
             ))}
           </div>
 
-          {/* Earnings panel */}
+          {/* Earnings panel — game prizes + activator commissions merged */}
           {histTab === "earnings" && (() => {
-            const list = (earnings as any[]) ?? [];
+            const prizes = ((earnings as any[]) ?? []).map((e: any) => ({ ...e, _kind: "prize" as const }));
+            const comms  = ((commissions as any[]) ?? []).map((c: any) => ({ ...c, _kind: "commission" as const }));
+            const list = [...prizes, ...comms].sort(
+              (a, b) => new Date(b.credited_at).getTime() - new Date(a.credited_at).getTime()
+            );
             const shown = list.slice(0, showAll ? undefined : PAGE);
             return list.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
@@ -486,24 +491,48 @@ export default function WalletPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {shown.map((e: any) => {
+                {shown.map((item: any) => {
+                  if (item._kind === "commission") {
+                    return (
+                      <div key={`c-${item.id}`} className="bg-card border rounded-2xl p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(217 91% 40%)" }}>
+                              +Bs {item.amount.toLocaleString("es-BO", { maximumFractionDigits: 2, minimumFractionDigits: 0 })}
+                            </p>
+                            <p className="text-sm font-medium mt-0.5">
+                              🔗 Comisión por referido · {item.referred_user_name}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {item.game_title ?? "Bingo"} · {new Date(item.credited_at).toLocaleDateString("es-BO")}
+                            </p>
+                          </div>
+                          <div className="text-xs font-bold px-3 py-1.5 rounded-full shrink-0"
+                            style={{ background: "hsl(217 91% 50% / 0.12)", border: "1px solid hsl(217 91% 50% / 0.3)", color: "hsl(217 91% 35%)" }}>
+                            {item.commission_pct}% comisión
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  // prize entry
                   const typeLabel: Record<string, string> = { daily: "Bingo Diario", weekly: "Bingo Semanal", monthly: "Bingo Mensual" };
-                  const commDeducted: number | null = e.commission_deducted ?? null;
-                  const commPct: number | null = e.commission_pct ?? null;
-                  const netAmount = commDeducted ? e.prize_amount - commDeducted : e.prize_amount;
+                  const commDeducted: number | null = item.commission_deducted ?? null;
+                  const commPct: number | null = item.commission_pct ?? null;
+                  const netAmount = commDeducted ? item.prize_amount - commDeducted : item.prize_amount;
                   return (
-                    <div key={e.id} className="bg-card border rounded-2xl p-4 space-y-2">
+                    <div key={`p-${item.id}`} className="bg-card border rounded-2xl p-4 space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(142 70% 30%)" }}>
-                            +Bs {parseFloat(e.prize_amount).toLocaleString("es-BO", { maximumFractionDigits: 2, minimumFractionDigits: 0 })}
+                            +Bs {parseFloat(item.prize_amount).toLocaleString("es-BO", { maximumFractionDigits: 2, minimumFractionDigits: 0 })}
                           </p>
-                          <p className="text-sm font-medium mt-0.5">{e.game_title}</p>
+                          <p className="text-sm font-medium mt-0.5">{item.game_title}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {typeLabel[e.game_type] ?? e.game_type} · {new Date(e.credited_at).toLocaleDateString("es-BO")}
+                            {typeLabel[item.game_type] ?? item.game_type} · {new Date(item.credited_at).toLocaleDateString("es-BO")}
                           </p>
                         </div>
-                        <div className="text-xs font-bold px-3 py-1.5 rounded-full"
+                        <div className="text-xs font-bold px-3 py-1.5 rounded-full shrink-0"
                           style={{ background: "hsl(142 70% 45% / 0.12)", border: "1px solid hsl(142 70% 45% / 0.3)", color: "hsl(142 70% 30%)" }}>
                           ✓ Acreditado
                         </div>
@@ -512,9 +541,7 @@ export default function WalletPage() {
                         <div className="rounded-xl px-3 py-2 space-y-1"
                           style={{ background: "hsl(0 75% 52% / 0.07)", border: "1px solid hsl(0 75% 52% / 0.2)" }}>
                           <div className="flex items-center justify-between text-xs">
-                            <span style={{ color: "hsl(0 75% 40%)" }}>
-                              🔗 Comisión activador ({commPct}%)
-                            </span>
+                            <span style={{ color: "hsl(0 75% 40%)" }}>🔗 Comisión activador ({commPct}%)</span>
                             <span className="font-bold" style={{ color: "hsl(0 75% 40%)" }}>
                               −Bs {commDeducted.toLocaleString("es-BO", { maximumFractionDigits: 2, minimumFractionDigits: 0 })}
                             </span>

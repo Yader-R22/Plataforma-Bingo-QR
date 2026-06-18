@@ -616,6 +616,21 @@ export const ListEarningsResponse = zod.array(ListEarningsResponseItem)
 
 
 /**
+ * @summary Comisiones ganadas como activador por referidos
+ */
+export const ListCommissionsResponseItem = zod.object({
+  "id": zod.number(),
+  "amount": zod.number(),
+  "commission_pct": zod.number(),
+  "description": zod.string(),
+  "referred_user_name": zod.string(),
+  "game_title": zod.string().nullable(),
+  "credited_at": zod.coerce.date()
+})
+export const ListCommissionsResponse = zod.array(ListCommissionsResponseItem)
+
+
+/**
  * @summary Historial de retiros del usuario
  */
 export const ListWithdrawalsResponseItem = zod.object({

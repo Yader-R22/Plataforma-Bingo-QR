@@ -594,6 +594,16 @@ export interface WalletEarning {
   commission_pct?: number | null;
 }
 
+export interface WalletCommission {
+  id: number;
+  amount: number;
+  commission_pct: number;
+  description: string;
+  referred_user_name: string;
+  game_title: string | null;
+  credited_at: string;
+}
+
 export type WithdrawalInputMethod = typeof WithdrawalInputMethod[keyof typeof WithdrawalInputMethod];
 
 

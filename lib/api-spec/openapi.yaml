@@ -559,6 +559,21 @@ paths:
                 items:
                   $ref: "#/components/schemas/WalletEarning"
 
+  /wallet/commissions:
+    get:
+      operationId: listCommissions
+      tags: [wallet]
+      summary: Comisiones ganadas como activador por referidos
+      responses:
+        "200":
+          description: Lista de comisiones acreditadas como activador
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WalletCommission"
+
   /wallet/withdrawals:
     get:
       operationId: listWithdrawals
@@ -1500,6 +1515,27 @@ components:
         commission_pct:
           type: number
           nullable: true
+
+    WalletCommission:
+      type: object
+      required: [id, amount, commission_pct, description, referred_user_name, game_title, credited_at]
+      properties:
+        id:
+          type: integer
+        amount:
+          type: number
+        commission_pct:
+          type: number
+        description:
+          type: string
+        referred_user_name:
+          type: string
+        game_title:
+          type: string
+          nullable: true
+        credited_at:
+          type: string
+          format: date-time
 
     WithdrawalInput:
       type: object

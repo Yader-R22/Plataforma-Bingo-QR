@@ -105,6 +105,37 @@ router.get("/earnings", requireAuth, async (req: AuthRequest, res) => {
   }));
 });
 
+router.get("/commissions", requireAuth, async (req: AuthRequest, res) => {
+  const rows = await db
+    .select({
+      id: referralTransactionsTable.id,
+      amount: referralTransactionsTable.amount,
+      commissionPercentage: referralTransactionsTable.commissionPercentage,
+      description: referralTransactionsTable.description,
+      referredUserName: usersTable.fullName,
+      gameTitle: gamesTable.title,
+      creditedAt: referralTransactionsTable.createdAt,
+    })
+    .from(referralTransactionsTable)
+    .innerJoin(usersTable, eq(usersTable.id, referralTransactionsTable.referredUserId))
+    .leftJoin(gamesTable, eq(gamesTable.id, referralTransactionsTable.gameId))
+    .where(and(
+      eq(referralTransactionsTable.activatorId, req.userId!),
+      eq(referralTransactionsTable.type, "commission"),
+    ))
+    .orderBy(desc(referralTransactionsTable.createdAt));
+
+  res.json(rows.map(r => ({
+    id: r.id,
+    amount: parseFloat(r.amount),
+    commission_pct: parseFloat(r.commissionPercentage ?? "0"),
+    description: r.description,
+    referred_user_name: r.referredUserName.trim().split(/\s+/).slice(0, 2).join(" "),
+    game_title: r.gameTitle ?? null,
+    credited_at: r.creditedAt,
+  })));
+});
+
 router.get("/withdrawals", requireAuth, async (req: AuthRequest, res) => {
   const withdrawals = await db.select().from(withdrawalsTable)
     .where(eq(withdrawalsTable.userId, req.userId!))
