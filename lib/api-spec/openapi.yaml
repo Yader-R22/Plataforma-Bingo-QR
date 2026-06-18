@@ -1515,6 +1515,9 @@ components:
         commission_pct:
           type: number
           nullable: true
+        commission_deducted_from_prize:
+          type: boolean
+          nullable: true
 
     WalletCommission:
       type: object

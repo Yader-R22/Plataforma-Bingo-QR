@@ -497,6 +497,7 @@ router.post("/winners/:id/validate", async (req: AuthRequest, res) => {
           amount: String(commAmount),
           commissionPercentage: String(commPct),
           description: `Comisión ${commPct}% por ganancia de ${winnerUserName} — Premio: Bs ${prizeTotal.toFixed(2)}`,
+          deductedFromPrize: true,
         });
       }
     });
