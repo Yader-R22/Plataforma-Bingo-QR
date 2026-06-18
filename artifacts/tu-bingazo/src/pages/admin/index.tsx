@@ -5639,8 +5639,8 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   {[
                     { label: "Activadores activos", value: referralStats.active_activators, icon: "🔗" },
                     { label: "Usuarios referidos", value: referralStats.total_referred_users, icon: "👥" },
-                    { label: "Comisiones pagadas", value: `Bs ${(referralStats.total_commissions_paid ?? 0).toFixed(0)}`, icon: "💰" },
-                    { label: "Bonos otorgados", value: `Bs ${(referralStats.total_bonuses_granted ?? 0).toFixed(0)}`, icon: "🎁" },
+                    { label: "Comisiones pagadas", value: `Bs ${Number(referralStats.total_commissions_paid ?? 0).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`, icon: "💰" },
+                    { label: "Bonos otorgados", value: `Bs ${Number(referralStats.total_bonuses_granted ?? 0).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`, icon: "🎁" },
                   ].map(item => (
                     <div key={item.label} className="bg-card border rounded-2xl p-4">
                       <p className="text-xl">{item.icon}</p>
@@ -5950,7 +5950,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           </p>
                           <p className="text-[11px] text-muted-foreground">Activador: {tx.activator_name?.split(" ").slice(0,2).join(" ")} · Referido: {tx.referred_name?.split(" ").slice(0,2).join(" ")}</p>
                         </div>
-                        <p className="font-black text-sm shrink-0" style={{ color: "hsl(142 70% 35%)" }}>+Bs {Number(tx.amount).toFixed(0)}</p>
+                        <p className="font-black text-sm shrink-0" style={{ color: "hsl(142 70% 35%)" }}>+Bs {Number(tx.amount).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</p>
                       </div>
                     ))}
                   </div>
