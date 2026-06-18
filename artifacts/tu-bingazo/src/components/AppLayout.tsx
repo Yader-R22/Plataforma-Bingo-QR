@@ -1,8 +1,9 @@
-import { type ReactNode, useEffect, useLayoutEffect, useContext, createContext, useRef, useState, useCallback } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useCallback, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
+import { create } from "zustand";
 
 const BASE = "";
 
@@ -15,10 +16,18 @@ export interface LayoutConfig {
   onBack?: (() => void) | null;
 }
 
-export const LayoutConfigContext = createContext<(c: LayoutConfig) => void>(() => {});
+interface LayoutConfigStore {
+  config: LayoutConfig;
+  set: (c: LayoutConfig) => void;
+}
+
+const useLayoutConfigStore = create<LayoutConfigStore>((set) => ({
+  config: {},
+  set: (config) => set({ config }),
+}));
 
 export function useSetLayoutConfig(config: LayoutConfig, deps: unknown[] = []) {
-  const set = useContext(LayoutConfigContext);
+  const set = useLayoutConfigStore.getState().set;
   useLayoutEffect(() => {
     set(config);
     return () => set({});
@@ -362,7 +371,6 @@ function PendingReviewScreen() {
 
 interface AppLayoutProps {
   children: ReactNode;
-  config: LayoutConfig;
 }
 
 /* ---- Festive bingo-themed nav icons ---- */
@@ -468,8 +476,8 @@ function IconRegister({ active }: { active: boolean }) {
   );
 }
 
-export default function AppLayout({ children, config }: AppLayoutProps) {
-  const { hideTopBar, hideNav, hideLogo, title, showBack, onBack } = config;
+export default function AppLayout({ children }: AppLayoutProps) {
+  const { hideTopBar, hideNav, hideLogo, title, showBack, onBack } = useLayoutConfigStore(s => s.config);
   const [location] = useLocation();
   const user = useAuthStore(s => s.user);
   const token = useAuthStore(s => s.token);

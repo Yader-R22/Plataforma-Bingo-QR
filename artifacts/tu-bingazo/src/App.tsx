@@ -1,9 +1,9 @@
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { useAuthStore, authStore } from "@/hooks/useAuth";
-import AppLayout, { LayoutConfigContext, type LayoutConfig } from "@/components/AppLayout";
+import AppLayout from "@/components/AppLayout";
 import HomePage from "@/pages/home";
 import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
@@ -84,16 +84,12 @@ function Router() {
 }
 
 function App() {
-  const [layoutConfig, setLayoutConfig] = useState<LayoutConfig>({});
-
   return (
     <QueryClientProvider client={queryClient}>
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-        <LayoutConfigContext.Provider value={setLayoutConfig}>
-          <AppLayout config={layoutConfig}>
-            <Router />
-          </AppLayout>
-        </LayoutConfigContext.Provider>
+        <AppLayout>
+          <Router />
+        </AppLayout>
       </WouterRouter>
       <Toaster position="top-center" richColors closeButton />
       <PWAInstallBanner />
