@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore, type AuthUser } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
@@ -61,7 +62,18 @@ export default function ProfilePage() {
   const [changingPwd, setChangingPwd] = useState(false);
 
   // Activator / referral
-  const [activatorStatus, setActivatorStatus] = useState<any>(null);
+  const queryClient = useQueryClient();
+  const { data: activatorStatus = null } = useQuery({
+    queryKey: ["activator-status", token],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/referrals/status`, { headers: { Authorization: `Bearer ${token}` } });
+      return r.ok ? r.json() : null;
+    },
+    enabled: !!token,
+    staleTime: 30 * 1000,
+    refetchInterval: 30 * 1000,
+    refetchOnWindowFocus: false,
+  });
   const [requestingActivator, setRequestingActivator] = useState(false);
   const [referralHistory, setReferralHistory] = useState<any>(null);
   const [showReferralHistory, setShowReferralHistory] = useState(false);
@@ -73,19 +85,6 @@ export default function ProfilePage() {
     }
   }, [user?.must_change_password]);
 
-  useEffect(() => {
-    if (!token) return;
-    let cancelled = false;
-    function fetchStatus() {
-      fetch(`${BASE}/api/referrals/status`, { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.ok ? r.json() : null)
-        .then(d => { if (d && !cancelled) setActivatorStatus(d); })
-        .catch(() => {});
-    }
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 5000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [token]);
 
   // Poll requests status every 10s
   useEffect(() => {
@@ -125,7 +124,7 @@ export default function ProfilePage() {
       });
       const d = await r.json();
       if (!r.ok) { toast.error(d.error || "Error al enviar solicitud"); return; }
-      setActivatorStatus({ has_request: true, status: "pending", code: null, link: null, created_at: new Date() });
+      queryClient.invalidateQueries({ queryKey: ["activator-status", token] });
       toast.success("✅ Solicitud enviada. El admin la revisará pronto.");
     } catch { toast.error("Error de conexión"); }
     finally { setRequestingActivator(false); }
