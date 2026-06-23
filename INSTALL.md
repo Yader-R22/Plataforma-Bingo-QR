@@ -22,7 +22,7 @@
  /api/*          /*
  (proxy)      (estático)
      │             │
-     ▼             └─ /var/www/tubingazo/artifacts/tu-bingazo/dist/
+     ▼             └─ /var/www/tubingazo/artifacts/tu-bingazo/dist/public/
 [ API Node.js :8080 ]            ← Express 5, JWT, lógica de negocio
            │
            ▼
@@ -353,7 +353,7 @@ pnpm --filter @workspace/api-server run build
 ```bash
 BASE_PATH=/ PORT=8080 pnpm --filter @workspace/tu-bingazo run build
 ```
-> Genera archivos estáticos en `artifacts/tu-bingazo/dist/`
+> Genera archivos estáticos en `artifacts/tu-bingazo/dist/public/`
 >
 > `BASE_PATH` y `PORT` son requeridos por la configuración de Vite del proyecto.
 
@@ -363,7 +363,7 @@ BASE_PATH=/ PORT=8080 pnpm --filter @workspace/tu-bingazo run build
 ls artifacts/api-server/dist/
 # Debe mostrar: index.mjs
 
-ls artifacts/tu-bingazo/dist/
+ls artifacts/tu-bingazo/dist/public/
 # Debe mostrar: index.html  assets/
 ```
 
@@ -528,7 +528,7 @@ server {
 
     # ── Sitio web — archivos estáticos ───────────────────────────────────
     location / {
-        root /var/www/tubingazo/artifacts/tu-bingazo/dist;
+        root /var/www/tubingazo/artifacts/tu-bingazo/dist/public;
         index index.html;
 
         # SPA: todas las rutas no encontradas sirven index.html
@@ -925,9 +925,12 @@ Creadas automáticamente con `pnpm --filter @workspace/db run push`:
 | `partners` | Socios inversores con porcentaje de participación en ganancias |
 | `banners` | Imágenes y anuncios promocionales |
 | `site_settings` | Configuración general (nombre del sitio, logo, colores) |
-| `name_change_requests` | Solicitudes de cambio de nombre/CI de jugadores |
+| `name_change_requests` | Solicitudes de cambio de nombre de jugadores |
+| `ci_change_requests` | Solicitudes de cambio de CI (foto + revisión admin) |
 | `audit_logs` | Registro inmutable de todas las acciones importantes |
 | `feed_items` | Actividad en tiempo real visible a los jugadores |
+| `activator_requests` | Solicitudes para convertirse en activador del sistema |
+| `activator_settings` | Configuración del programa de activadores (bonus, comisiones) |
 
 ---
 
@@ -983,7 +986,7 @@ cd /var/www/tubingazo && \
 
 1. `pm2 status` — verificar que `tubingazo-api` está `online`
 2. `nginx -t` — verificar configuración de Nginx
-3. Verificar que el frontend está compilado: `ls /var/www/tubingazo/artifacts/tu-bingazo/dist/index.html`
+3. Verificar que el frontend está compilado: `ls /var/www/tubingazo/artifacts/tu-bingazo/dist/public/index.html`
 4. Si falta el `index.html`: repetir el Paso 9 (compilar frontend)
 5. Revisar logs de Nginx: `tail -50 /var/log/nginx/error.log`
 
@@ -1048,7 +1051,7 @@ Verificar que no hay espacios alrededor del `=` en el `.env`.
 | Webmin | `https://TU_IP:10000` |
 | Puerto API (interno) | `8080` |
 | Logs del backend | `pm2 logs tubingazo-api` |
-| Frontend compilado | `/var/www/tubingazo/artifacts/tu-bingazo/dist/` |
+| Frontend compilado | `/var/www/tubingazo/artifacts/tu-bingazo/dist/public/` |
 | Archivo de configuración | `/var/www/tubingazo/.env` |
 | Logs de errores Nginx | `/var/log/nginx/error.log` |
 | Logs de errores API | `/var/log/tubingazo-api-error.log` |
