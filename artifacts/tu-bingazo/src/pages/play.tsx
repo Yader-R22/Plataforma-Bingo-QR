@@ -350,7 +350,8 @@ export default function PlayPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "#0d0028" }}>
+    <div className="min-h-screen flex justify-center" style={{ background: "#0d0028" }}>
+    <div className="w-full max-w-lg flex flex-col min-h-screen">
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 shrink-0"
         style={{ background: "rgba(255,255,255,0.05)", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
@@ -622,6 +623,7 @@ export default function PlayPage() {
           )}
         </div>
       )}
+    </div>
     </div>
   );
 }
