@@ -253,6 +253,9 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
         }).returning();
         newCards.push(card);
       }
+      await tx.execute(
+        sql`UPDATE games SET participant_count = participant_count + ${newCards.length} WHERE id = ${game_id}`
+      );
       await tx.insert(auditLogsTable).values({
         action: "card_purchase_wallet",
         userId: req.userId,
