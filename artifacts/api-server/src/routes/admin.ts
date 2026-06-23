@@ -1192,8 +1192,13 @@ router.get("/finance/transactions", async (req: AuthRequest, res) => {
   const rows = await db.execute(sql`
     SELECT * FROM (
       SELECT 'ingreso'::text AS type, c.created_at AS date, u.full_name AS user_name,
-             g.title AS game_title, g.card_price::text AS amount,
-             ('Compra cartón #' || c.id)::text AS description
+             g.title AS game_title,
+             (g.card_price - c.bonus_amount_used)::text AS amount,
+             ('Compra cartón #' || c.id ||
+               CASE WHEN c.bonus_amount_used > 0
+                 THEN ' (bono: Bs ' || c.bonus_amount_used::text || ')'
+                 ELSE ''
+               END)::text AS description
       FROM cards c JOIN users u ON c.user_id=u.id JOIN games g ON c.game_id=g.id
       WHERE c.payment_status='paid' ${dw("c.created_at")}
       UNION ALL

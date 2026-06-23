@@ -1906,7 +1906,14 @@ ${signaturesSection}` : "";
       </tr>`).join("");
 
     // ── Financial health summary ──────────────────────────────────
-    const totalObligations = (s?.balance_in_circulation ?? 0) + (s?.pending_withdrawals ?? 0) + committedPrizes;
+    // IMPORTANT: balance_in_circulation already INCLUDES pending withdrawal amounts
+    // (users.balance is NOT decremented when a withdrawal is created — only when it's marked paid).
+    // Therefore pending_withdrawals is a SUBSET of balance_in_circulation, NOT an additional obligation.
+    const totalObligations = (s?.balance_in_circulation ?? 0) + committedPrizes;
+    const cashOutReal1 = s?.cash_out_real ?? s?.withdrawals_paid ?? 0;
+    const netCashFlow1 = parseFloat(((s?.gross_revenue ?? 0) - cashOutReal1).toFixed(2));
+    const excedente1 = parseFloat((netCashFlow1 - totalObligations).toFixed(2));
+    const adminAdjNet1 = (s?.admin_credits_total ?? 0) - (s?.admin_debits_total ?? 0);
     const grossRev = s?.gross_revenue ?? 0;
     const marginPct = grossRev > 0 ? ((netProfit / grossRev) * 100).toFixed(1) : "N/A";
     const marginNum = grossRev > 0 ? (netProfit / grossRev) * 100 : null;
@@ -1989,10 +1996,57 @@ ${signaturesSection}` : "";
   <div style="padding:12px;background:white;border-radius:8px;border-left:4px solid ${healthStatus.color}">
     <p style="font-size:10px;font-weight:900;color:#374151;margin-bottom:6px">Obligaciones de la plataforma al cierre del período:</p>
     <table style="width:100%;font-size:10px;border-collapse:collapse">
-      <tr><td style="padding:2px 0;color:#64748b">Saldo acumulado de usuarios (billeteras)</td><td style="text-align:right;font-weight:bold">${fmt(s?.balance_in_circulation ?? 0)}</td></tr>
-      <tr><td style="padding:2px 0;color:#64748b">Solicitudes de retiro pendientes de pago</td><td style="text-align:right;font-weight:bold;color:#f59e0b">${fmt(s?.pending_withdrawals ?? 0)} <span style="font-weight:normal">(${s?.pending_withdrawals_count ?? 0} solicitudes)</span></td></tr>
-      <tr><td style="padding:2px 0;color:#64748b">Premios en custodia (sorteos sin ganador validado)</td><td style="text-align:right;font-weight:bold;color:#b45309">${fmt(committedPrizes)}</td></tr>
-      <tr style="border-top:1px solid #e2e8f0"><td style="padding:4px 0 0;font-weight:900">Total obligaciones</td><td style="text-align:right;font-weight:900;padding:4px 0 0">${fmt(totalObligations)}</td></tr>
+      <tr>
+        <td style="padding:3px 0;color:#374151;font-weight:bold">Saldo en billeteras de usuarios</td>
+        <td style="text-align:right;font-weight:bold">${fmt(s?.balance_in_circulation ?? 0)}</td>
+      </tr>
+      ${(s?.pending_withdrawals ?? 0) > 0 ? `<tr>
+        <td style="padding:1px 0 1px 14px;color:#f59e0b;font-size:9px">↳ De los cuales en trámite de retiro (${s?.pending_withdrawals_count ?? 0} solicitud${(s?.pending_withdrawals_count ?? 0) !== 1 ? "es" : ""}) — ya incluido arriba</td>
+        <td style="text-align:right;color:#f59e0b;font-size:9px">${fmt(s?.pending_withdrawals ?? 0)}</td>
+      </tr>` : ""}
+      <tr>
+        <td style="padding:3px 0;color:#374151;font-weight:bold">Premios en custodia (sorteos sin ganador validado)</td>
+        <td style="text-align:right;font-weight:bold;color:#b45309">${fmt(committedPrizes)}</td>
+      </tr>
+      <tr style="border-top:2px solid #e2e8f0;background:#f8f7ff">
+        <td style="padding:4px 0 0;font-weight:900">Total obligaciones con usuarios</td>
+        <td style="text-align:right;font-weight:900;padding:4px 0 0">${fmt(totalObligations)}</td>
+      </tr>
+    </table>
+  </div>
+
+  <div style="margin-top:12px;padding:12px;background:#f0f9ff;border-radius:8px;border:1px solid #bae6fd">
+    <p style="font-size:10px;font-weight:900;color:#0369a1;margin-bottom:8px">🔍 Verificación de cuadre — Balance operativo de caja</p>
+    <p style="font-size:9px;color:#64748b;margin-bottom:8px;font-style:italic">Confirma que el efectivo cobrado es suficiente para cubrir todas las obligaciones actuales con usuarios.</p>
+    <table style="width:100%;font-size:10px;border-collapse:collapse">
+      <tr>
+        <td style="padding:3px 0;color:#374151">Ingresos cobrados de usuarios (dinero real)</td>
+        <td style="text-align:right;font-weight:bold;color:#16a34a">+${fmt(grossRev)}</td>
+      </tr>
+      <tr>
+        <td style="padding:3px 0;color:#374151">Retiros ya pagados (dinero real entregado)</td>
+        <td style="text-align:right;font-weight:bold;color:#dc2626">−${fmt(cashOutReal1)}</td>
+      </tr>
+      <tr style="border-top:1px solid #bae6fd">
+        <td style="padding:3px 0;font-weight:bold">= Efectivo neto de operación</td>
+        <td style="text-align:right;font-weight:900;color:${netCashFlow1 >= 0 ? "#16a34a" : "#dc2626"}">${fmt(netCashFlow1)}</td>
+      </tr>
+      <tr>
+        <td style="padding:3px 0;color:#374151">Obligaciones con usuarios (billeteras + premios en custodia)</td>
+        <td style="text-align:right;font-weight:bold;color:#b45309">−${fmt(totalObligations)}</td>
+      </tr>
+      <tr style="background:${excedente1 >= 0 ? "#f0fdf4" : "#fef2f2"};border-top:2px solid ${excedente1 >= 0 ? "#86efac" : "#fca5a5"}">
+        <td style="padding:5px 0 3px;font-weight:900;font-size:11px">= Margen de solvencia</td>
+        <td style="text-align:right;font-weight:900;font-size:12px;color:${excedente1 >= 0 ? "#16a34a" : "#dc2626"}">${fmt(excedente1)}</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="font-size:9px;color:${excedente1 >= 0 ? "#15803d" : "#b91c1c"};padding:3px 0 0;font-style:italic">
+          ${excedente1 >= 0
+            ? `✅ La plataforma puede cubrir todas las obligaciones. Margen de seguridad: Bs ${excedente1.toFixed(2)}.`
+            : `⚠️ Las obligaciones superan el efectivo neto por Bs ${Math.abs(excedente1).toFixed(2)}. Revisar flujo de caja antes de distribuir dividendos.`}
+        </td>
+      </tr>
+      ${adminAdjNet1 !== 0 ? `<tr><td colspan="2" style="font-size:9px;color:#7c3aed;padding:2px 0;font-style:italic">Nota: Ajustes manuales de saldo neto en el período: ${adminAdjNet1 >= 0 ? "+" : ""}${fmt(adminAdjNet1)} (no afectan la ganancia neta pero sí el saldo en billeteras).</td></tr>` : ""}
     </table>
   </div>
 
@@ -2297,7 +2351,13 @@ ${signaturesSection}` : "";
       </tr>`).join("");
 
     // ── Financial health summary ───────────────────────────────────
-    const totalObligations = (Number(s.balance_in_circulation ?? 0)) + (Number(s.pending_withdrawals ?? 0)) + committedPrizes;
+    // IMPORTANT: balance_in_circulation already INCLUDES pending withdrawal amounts.
+    // DO NOT add pending_withdrawals again — it would double-count.
+    const totalObligations = (Number(s.balance_in_circulation ?? 0)) + committedPrizes;
+    const cashOutReal2 = Number(s.cash_out_real ?? s.withdrawals_paid ?? 0);
+    const netCashFlow2 = parseFloat((grossRev - cashOutReal2).toFixed(2));
+    const excedente2 = parseFloat((netCashFlow2 - totalObligations).toFixed(2));
+    const adminAdjNet2 = Number(s.admin_credits_total ?? 0) - Number(s.admin_debits_total ?? 0);
     const marginNum = grossRev > 0 ? (netProfit / grossRev) * 100 : null;
     const healthStatus = (() => {
       if (distributable > 0 && netProfit > 0 && (marginNum === null || marginNum >= 10))
@@ -2361,10 +2421,57 @@ ${signaturesSection}` : "";
   <div style="padding:12px;background:white;border-radius:8px;border-left:4px solid ${healthStatus.color}">
     <p style="font-size:10px;font-weight:900;color:#374151;margin-bottom:6px">Obligaciones de la plataforma al cierre del período:</p>
     <table style="width:100%;font-size:10px;border-collapse:collapse">
-      <tr><td style="padding:2px 0;color:#64748b">Saldo acumulado de usuarios (billeteras)</td><td style="text-align:right;font-weight:bold">${fmt(Number(s.balance_in_circulation ?? 0))}</td></tr>
-      <tr><td style="padding:2px 0;color:#64748b">Solicitudes de retiro pendientes de pago</td><td style="text-align:right;font-weight:bold;color:#f59e0b">${fmt(Number(s.pending_withdrawals ?? 0))} <span style="font-weight:normal">(${s.pending_withdrawals_count ?? 0} solicitudes)</span></td></tr>
-      <tr><td style="padding:2px 0;color:#64748b">Premios en custodia (sorteos sin ganador validado)</td><td style="text-align:right;font-weight:bold;color:#b45309">${fmt(committedPrizes)}</td></tr>
-      <tr style="border-top:1px solid #e2e8f0"><td style="padding:4px 0 0;font-weight:900">Total obligaciones</td><td style="text-align:right;font-weight:900;padding:4px 0 0">${fmt(totalObligations)}</td></tr>
+      <tr>
+        <td style="padding:3px 0;color:#374151;font-weight:bold">Saldo en billeteras de usuarios</td>
+        <td style="text-align:right;font-weight:bold">${fmt(Number(s.balance_in_circulation ?? 0))}</td>
+      </tr>
+      ${Number(s.pending_withdrawals ?? 0) > 0 ? `<tr>
+        <td style="padding:1px 0 1px 14px;color:#f59e0b;font-size:9px">↳ De los cuales en trámite de retiro (${s.pending_withdrawals_count ?? 0} solicitud${Number(s.pending_withdrawals_count ?? 0) !== 1 ? "es" : ""}) — ya incluido arriba</td>
+        <td style="text-align:right;color:#f59e0b;font-size:9px">${fmt(Number(s.pending_withdrawals ?? 0))}</td>
+      </tr>` : ""}
+      <tr>
+        <td style="padding:3px 0;color:#374151;font-weight:bold">Premios en custodia (sorteos sin ganador validado)</td>
+        <td style="text-align:right;font-weight:bold;color:#b45309">${fmt(committedPrizes)}</td>
+      </tr>
+      <tr style="border-top:2px solid #e2e8f0;background:#f8f7ff">
+        <td style="padding:4px 0 0;font-weight:900">Total obligaciones con usuarios</td>
+        <td style="text-align:right;font-weight:900;padding:4px 0 0">${fmt(totalObligations)}</td>
+      </tr>
+    </table>
+  </div>
+
+  <div style="margin-top:12px;padding:12px;background:#f0f9ff;border-radius:8px;border:1px solid #bae6fd">
+    <p style="font-size:10px;font-weight:900;color:#0369a1;margin-bottom:8px">🔍 Verificación de cuadre — Balance operativo de caja</p>
+    <p style="font-size:9px;color:#64748b;margin-bottom:8px;font-style:italic">Confirma que el efectivo cobrado es suficiente para cubrir todas las obligaciones actuales con usuarios.</p>
+    <table style="width:100%;font-size:10px;border-collapse:collapse">
+      <tr>
+        <td style="padding:3px 0;color:#374151">Ingresos cobrados de usuarios (dinero real)</td>
+        <td style="text-align:right;font-weight:bold;color:#16a34a">+${fmt(grossRev)}</td>
+      </tr>
+      <tr>
+        <td style="padding:3px 0;color:#374151">Retiros ya pagados (dinero real entregado)</td>
+        <td style="text-align:right;font-weight:bold;color:#dc2626">−${fmt(cashOutReal2)}</td>
+      </tr>
+      <tr style="border-top:1px solid #bae6fd">
+        <td style="padding:3px 0;font-weight:bold">= Efectivo neto de operación</td>
+        <td style="text-align:right;font-weight:900;color:${netCashFlow2 >= 0 ? "#16a34a" : "#dc2626"}">${fmt(netCashFlow2)}</td>
+      </tr>
+      <tr>
+        <td style="padding:3px 0;color:#374151">Obligaciones con usuarios (billeteras + premios en custodia)</td>
+        <td style="text-align:right;font-weight:bold;color:#b45309">−${fmt(totalObligations)}</td>
+      </tr>
+      <tr style="background:${excedente2 >= 0 ? "#f0fdf4" : "#fef2f2"};border-top:2px solid ${excedente2 >= 0 ? "#86efac" : "#fca5a5"}">
+        <td style="padding:5px 0 3px;font-weight:900;font-size:11px">= Margen de solvencia</td>
+        <td style="text-align:right;font-weight:900;font-size:12px;color:${excedente2 >= 0 ? "#16a34a" : "#dc2626"}">${fmt(excedente2)}</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="font-size:9px;color:${excedente2 >= 0 ? "#15803d" : "#b91c1c"};padding:3px 0 0;font-style:italic">
+          ${excedente2 >= 0
+            ? `✅ La plataforma puede cubrir todas las obligaciones. Margen de seguridad: Bs ${excedente2.toFixed(2)}.`
+            : `⚠️ Las obligaciones superan el efectivo neto por Bs ${Math.abs(excedente2).toFixed(2)}. Revisar flujo de caja antes de distribuir dividendos.`}
+        </td>
+      </tr>
+      ${adminAdjNet2 !== 0 ? `<tr><td colspan="2" style="font-size:9px;color:#7c3aed;padding:2px 0;font-style:italic">Nota: Ajustes manuales de saldo neto en el período: ${adminAdjNet2 >= 0 ? "+" : ""}${fmt(adminAdjNet2)} (no afectan la ganancia neta pero sí el saldo en billeteras).</td></tr>` : ""}
     </table>
   </div>
 </div>`;
