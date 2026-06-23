@@ -403,11 +403,16 @@ export default function PlayPage() {
         </div>
       )}
 
-      {/* New number alert banner */}
+      {/* New number alert banner — fixed overlay, no layout shift */}
       {newNumberAlert && !roundTransition && (
         <div className="text-center py-2.5 text-sm font-black"
-          style={{ background: "linear-gradient(90deg, hsl(42 98% 52%), hsl(38 98% 48%))", color: "#1a0050", animation: "feed-slide 0.3s ease-out" }}>
-          🎱 ¡Nuevo bolillo: <span className="text-xl font-black">{newNumberAlert ? bingoLabel(newNumberAlert) : ""}</span> — marcado automáticamente!
+          style={{
+            position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
+            background: "linear-gradient(90deg, hsl(42 98% 52%), hsl(38 98% 48%))",
+            color: "#1a0050",
+            animation: "feed-slide 0.3s ease-out",
+          }}>
+          🎱 ¡Nuevo bolillo: <span className="text-xl font-black">{bingoLabel(newNumberAlert)}</span>{autoMark ? " — marcado automáticamente!" : ""}
         </div>
       )}
 
