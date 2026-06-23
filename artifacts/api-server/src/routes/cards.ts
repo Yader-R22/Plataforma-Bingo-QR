@@ -239,39 +239,48 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
     const currentBalance = parseFloat(user.balance as unknown as string);
     const bonusExpired = user.bonusExpiresAt != null && new Date(user.bonusExpiresAt) < new Date();
     const currentBonus = bonusExpired ? 0 : parseFloat(user.bonusBalance as unknown as string);
+    const currentAdminCredit = parseFloat(user.adminCreditBalance as unknown as string);
     const pendingRows = await db.execute(
       sql`SELECT COALESCE(SUM(amount), 0) AS total FROM withdrawals WHERE user_id = ${req.userId!} AND status = 'pending'`
     );
     const pendingAmount = parseFloat((pendingRows.rows[0]?.total as string | undefined) ?? "0");
-    // bonus_balance is not withdrawable so pending withdrawals only reduce regular balance
+    // bonus_balance and admin_credit_balance are not withdrawable so pending withdrawals only reduce regular balance
     const availableBalance = currentBalance - pendingAmount;
-    const totalAvailable = availableBalance + currentBonus;
+    const totalAvailable = availableBalance + currentBonus + currentAdminCredit;
     if (totalAvailable < totalAmount) {
-      res.status(400).json({ error: `Saldo insuficiente. Disponible: Bs ${totalAvailable.toFixed(2)} (saldo Bs ${currentBalance.toFixed(2)} + bono Bs ${currentBonus.toFixed(2)} menos retiros pendientes Bs ${pendingAmount.toFixed(2)})` });
+      res.status(400).json({ error: `Saldo insuficiente. Disponible: Bs ${totalAvailable.toFixed(2)} (saldo Bs ${currentBalance.toFixed(2)} + bono Bs ${currentBonus.toFixed(2)} + crédito Bs ${currentAdminCredit.toFixed(2)} menos retiros pendientes Bs ${pendingAmount.toFixed(2)})` });
       return;
     }
-    // Lock row, re-read both balances under lock, deduct bonus first then regular balance.
+    // Lock row, re-read all balances under lock, deduct: bonus → admin_credit → real balance.
     const newCards: (typeof cardsTable.$inferSelect)[] = [];
     let insufficient = false;
     await db.transaction(async (tx) => {
       const locked = await tx.execute(
-        sql`SELECT balance, bonus_balance, bonus_expires_at FROM users WHERE id = ${req.userId!} FOR UPDATE`
+        sql`SELECT balance, bonus_balance, bonus_expires_at, admin_credit_balance FROM users WHERE id = ${req.userId!} FOR UPDATE`
       );
       const lockedBalance = parseFloat((locked.rows[0]?.balance as string | undefined) ?? "0");
       const lockedBonusExpiresAt = locked.rows[0]?.bonus_expires_at as Date | string | null | undefined;
       const lockedBonusExpired = lockedBonusExpiresAt != null && new Date(lockedBonusExpiresAt) < new Date();
       const lockedBonus = lockedBonusExpired ? 0 : parseFloat((locked.rows[0]?.bonus_balance as string | undefined) ?? "0");
+      const lockedAdminCredit = parseFloat((locked.rows[0]?.admin_credit_balance as string | undefined) ?? "0");
       const pend = await tx.execute(
         sql`SELECT COALESCE(SUM(amount), 0) AS total FROM withdrawals WHERE user_id = ${req.userId!} AND status = 'pending'`
       );
       const lockedPending = parseFloat((pend.rows[0]?.total as string | undefined) ?? "0");
-      if (lockedBalance - lockedPending + lockedBonus < totalAmount) { insufficient = true; return; }
-      // Use bonus first, then regular balance
+      if (lockedBalance - lockedPending + lockedBonus + lockedAdminCredit < totalAmount) { insufficient = true; return; }
+      // Use bonus first, then admin_credit, then real balance
       const fromBonus = Math.min(lockedBonus, totalAmount);
-      const fromBalance = totalAmount - fromBonus;
+      const remaining1 = totalAmount - fromBonus;
+      const fromAdminCredit = Math.min(lockedAdminCredit, remaining1);
+      const fromBalance = remaining1 - fromAdminCredit;
       if (fromBonus > 0) {
         await tx.execute(
           sql`UPDATE users SET bonus_balance = bonus_balance - ${fromBonus} WHERE id = ${req.userId!}`
+        );
+      }
+      if (fromAdminCredit > 0) {
+        await tx.execute(
+          sql`UPDATE users SET admin_credit_balance = admin_credit_balance - ${fromAdminCredit} WHERE id = ${req.userId!}`
         );
       }
       if (fromBalance > 0) {
@@ -288,6 +297,7 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
           paymentStatus: "paid",
           status: "active",
           bonusAmountUsed: String(parseFloat((fromBonus / quantity).toFixed(2))),
+          adminCreditAmountUsed: String(parseFloat((fromAdminCredit / quantity).toFixed(2))),
         }).returning();
         newCards.push(card);
       }
@@ -298,7 +308,7 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
         action: "card_purchase_wallet",
         userId: req.userId,
         gameId: game_id,
-        details: { card_ids: newCards.map(c => c.id), amount: totalAmount, from_bonus: fromBonus, from_balance: fromBalance, method: fromBonus > 0 ? "wallet+bonus" : "wallet" },
+        details: { card_ids: newCards.map(c => c.id), amount: totalAmount, from_bonus: fromBonus, from_admin_credit: fromAdminCredit, from_balance: fromBalance, method: fromBonus > 0 || fromAdminCredit > 0 ? "wallet+promo" : "wallet" },
         ipAddress: req.ip,
       });
     });

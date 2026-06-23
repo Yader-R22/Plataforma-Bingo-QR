@@ -822,12 +822,22 @@ router.post("/users/:id/adjust-balance", async (req: AuthRequest, res) => {
   let newBalance = 0;
   let insufficient = false;
   await db.transaction(async (tx) => {
-    const locked = await tx.execute(sql`SELECT balance FROM users WHERE id = ${id} FOR UPDATE`);
+    const locked = await tx.execute(sql`SELECT balance, admin_credit_balance FROM users WHERE id = ${id} FOR UPDATE`);
     const balance = parseFloat((locked.rows[0]?.balance as string | undefined) ?? "0");
-    if (type === "debit" && balance < amount) { insufficient = true; return; }
-    const delta = type === "credit" ? amount : -amount;
-    await tx.execute(sql`UPDATE users SET balance = balance + ${delta} WHERE id = ${id}`);
-    newBalance = balance + delta;
+    const adminCredit = parseFloat((locked.rows[0]?.admin_credit_balance as string | undefined) ?? "0");
+    if (type === "credit") {
+      // Credits go exclusively to admin_credit_balance — not counted as real revenue when spent
+      await tx.execute(sql`UPDATE users SET admin_credit_balance = admin_credit_balance + ${amount} WHERE id = ${id}`);
+      newBalance = balance + adminCredit + amount;
+    } else {
+      // Debits: consume admin_credit_balance first, then real balance
+      const fromAdminCredit = Math.min(adminCredit, amount);
+      const fromBalance = amount - fromAdminCredit;
+      if (fromBalance > balance) { insufficient = true; return; }
+      if (fromAdminCredit > 0) await tx.execute(sql`UPDATE users SET admin_credit_balance = admin_credit_balance - ${fromAdminCredit} WHERE id = ${id}`);
+      if (fromBalance > 0) await tx.execute(sql`UPDATE users SET balance = balance - ${fromBalance} WHERE id = ${id}`);
+      newBalance = balance - fromBalance + adminCredit - fromAdminCredit;
+    }
     await tx.insert(withdrawalsTable).values({
       userId: id,
       amount: String(amount),
@@ -1055,7 +1065,7 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
   };
 
   const [rev, prizes, wdrs, balances, refTxs] = await Promise.all([
-    db.execute(sql`SELECT coalesce(sum(g.card_price - c.bonus_amount_used),0)::text as total, coalesce(sum(c.bonus_amount_used),0)::text as bonus_used, count(*)::int as count FROM cards c JOIN games g ON c.game_id=g.id WHERE c.payment_status='paid' ${dateWhere("c.created_at")}`),
+    db.execute(sql`SELECT coalesce(sum(g.card_price - c.bonus_amount_used - c.admin_credit_amount_used),0)::text as total, coalesce(sum(c.bonus_amount_used),0)::text as bonus_used, coalesce(sum(c.admin_credit_amount_used),0)::text as admin_credit_used, count(*)::int as count FROM cards c JOIN games g ON c.game_id=g.id WHERE c.payment_status='paid' ${dateWhere("c.created_at")}`),
     db.execute(sql`SELECT coalesce(sum(prize_amount),0)::text as total, count(*)::int as count FROM winners WHERE validated=true ${dateWhere("created_at")}`),
     db.execute(sql`SELECT
       coalesce(sum(CASE WHEN status='paid' AND method NOT IN ('admin_credit','admin_debit') THEN amount ELSE 0 END),0)::text as paid_total,
@@ -1071,21 +1081,24 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
       coalesce(sum(balance),0)::text as total,
       count(*) FILTER (WHERE balance > 0) as user_count,
       coalesce(sum(bonus_balance),0)::text as total_bonus,
-      count(*) FILTER (WHERE bonus_balance > 0) as bonus_user_count
+      count(*) FILTER (WHERE bonus_balance > 0) as bonus_user_count,
+      coalesce(sum(admin_credit_balance),0)::text as total_admin_credit,
+      count(*) FILTER (WHERE admin_credit_balance > 0) as admin_credit_user_count
     FROM users WHERE is_admin=false`),
     db.execute(sql`SELECT coalesce(sum(CASE WHEN type='commission' THEN amount ELSE 0 END),0)::text as commissions_total, coalesce(sum(CASE WHEN type='welcome_bonus' THEN amount ELSE 0 END),0)::text as bonuses_total, count(*) FILTER (WHERE type='commission') as commissions_count, count(*) FILTER (WHERE type='welcome_bonus') as bonuses_count, count(DISTINCT activator_id) FILTER (WHERE type='commission') as activators_count FROM referral_transactions WHERE true ${dateWhere("created_at")}`),
   ]);
 
   const grossRevenue     = parseFloat((rev.rows[0] as any)?.total ?? "0");
   const bonusSpentOnCards = parseFloat((rev.rows[0] as any)?.bonus_used ?? "0");
+  const adminCreditSpentOnCards = parseFloat((rev.rows[0] as any)?.admin_credit_used ?? "0");
   const prizesPaid       = parseFloat((prizes.rows[0] as any)?.total ?? "0");
   const withdrawalsPaid  = parseFloat((wdrs.rows[0] as any)?.paid_total ?? "0");
   const adminCreditsTotal = parseFloat((wdrs.rows[0] as any)?.admin_credits_total ?? "0");
   const adminDebitsTotal  = parseFloat((wdrs.rows[0] as any)?.admin_debits_total ?? "0");
   const commissionsTotal = parseFloat((refTxs.rows[0] as any)?.commissions_total ?? "0");
   const bonusesGranted   = parseFloat((refTxs.rows[0] as any)?.bonuses_total ?? "0");
-  // gross_revenue is REAL money only (card_price - bonus_amount_used), so bonus-paid cards
-  // are already excluded from revenue. No need to subtract bonuses from netProfit separately.
+  // gross_revenue is REAL money only: card_price - bonus_amount_used - admin_credit_amount_used.
+  // Admin-credited funds injected by the admin and bonus referral credits are already excluded.
   // Commissions are a redistribution WITHIN the prize pool, not double-counted.
   const netProfit        = parseFloat((grossRevenue - prizesPaid).toFixed(2));
 
@@ -1134,6 +1147,9 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
     users_with_balance:         Number((balances.rows[0] as any)?.user_count ?? 0),
     bonus_balance_in_circulation: parseFloat((balances.rows[0] as any)?.total_bonus ?? "0"),
     bonus_users_count:          Number((balances.rows[0] as any)?.bonus_user_count ?? 0),
+    admin_credit_balance_in_circulation: parseFloat((balances.rows[0] as any)?.total_admin_credit ?? "0"),
+    admin_credit_users_count:   Number((balances.rows[0] as any)?.admin_credit_user_count ?? 0),
+    admin_credit_spent_on_cards: adminCreditSpentOnCards,
     total_commissions_paid:       commissionsTotal,
     commissions_count:            Number((refTxs.rows[0] as any)?.commissions_count ?? 0),
     activators_with_commissions:  Number((refTxs.rows[0] as any)?.activators_count ?? 0),

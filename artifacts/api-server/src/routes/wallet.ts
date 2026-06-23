@@ -60,7 +60,9 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
     ));
 
   res.json({
-    balance: parseFloat(user.balance),
+    balance: parseFloat(user.balance) + parseFloat(user.adminCreditBalance),
+    real_balance: parseFloat(user.balance),
+    admin_credit_balance: parseFloat(user.adminCreditBalance),
     bonus_balance: parseFloat(user.bonusBalance),
     bonus_expires_at: user.bonusExpiresAt ?? null,
     pending_withdrawals: parseFloat(pending[0]?.total ?? "0"),

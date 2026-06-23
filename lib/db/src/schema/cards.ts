@@ -25,6 +25,7 @@ export const cardsTable = pgTable("cards", {
   }).notNull().default("pending"),
   checkoutId: text("checkout_id"),
   bonusAmountUsed: numeric("bonus_amount_used", { precision: 10, scale: 2 }).notNull().default("0"),
+  adminCreditAmountUsed: numeric("admin_credit_amount_used", { precision: 10, scale: 2 }).notNull().default("0"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
