@@ -7,6 +7,12 @@ import { useSetLayoutConfig } from "@/components/AppLayout";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const BANKS = ["Banco BNB", "Banco Económico", "Banco Unión", "Banco Mercantil", "Banco BISA"];
 
+function fmtCompact(n: number): string {
+  if (n >= 1_000_000) { const v = n / 1_000_000; return `${v % 1 === 0 ? v.toFixed(0) : v.toFixed(1)}M`; }
+  if (n >= 1_000)     { const v = n / 1_000;     return `${v % 1 === 0 ? v.toFixed(0) : v.toFixed(1)}K`; }
+  return n.toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
 function statusConfig(status: string) {
   if (status === "pending") return { label: "⏳ Pendiente", bg: "hsl(42 98% 52% / 0.12)", border: "hsl(42 98% 52% / 0.3)", color: "hsl(42 98% 35%)" };
   if (status === "paid") return { label: "✓ Pagado", bg: "hsl(142 70% 45% / 0.12)", border: "hsl(142 70% 45% / 0.3)", color: "hsl(142 70% 30%)" };
@@ -175,7 +181,7 @@ export default function WalletPage() {
               ].map(item => (
                 <div key={item.label}>
                   <p className="text-white/50 text-xs">{item.label}</p>
-                  <p className="font-bold text-sm mt-0.5">Bs {item.value.toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</p>
+                  <p className="font-bold text-sm mt-0.5">Bs {fmtCompact(item.value)}</p>
                 </div>
               ))}
             </div>
