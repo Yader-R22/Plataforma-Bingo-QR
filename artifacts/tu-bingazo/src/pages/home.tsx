@@ -445,7 +445,7 @@ export default function HomePage() {
             {[
               { value: fmtCompact(stats.active_players), label: "Jugadores" },
               {
-                value: `Bs ${(user && userStats ? userStats.total_won : stats.total_prizes_paid).toLocaleString("es-BO", { maximumFractionDigits: 0 })}`,
+                value: `Bs ${fmtCompact(Math.round(user && userStats ? userStats.total_won : stats.total_prizes_paid))}`,
                 label: user && userStats ? "Mis premios" : "En premios",
               },
               { value: fmtCompact(stats.total_winners), label: "Ganadores" },
