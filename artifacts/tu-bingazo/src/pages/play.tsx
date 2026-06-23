@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
+import { useSetLayoutConfig } from "@/components/AppLayout";
 import { toast } from "sonner";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -175,6 +176,7 @@ interface LiveWinner {
 }
 
 export default function PlayPage() {
+  useSetLayoutConfig({ hideTopBar: true, hideNav: true });
   const [, params] = useRoute("/juegos/:id/jugar");
   const [, navigate] = useLocation();
   const token = useAuthStore(s => s.token);
