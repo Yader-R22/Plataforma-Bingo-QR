@@ -1638,8 +1638,8 @@ export default function AdminPage() {
     const PERIOD_LABELS: Record<string, string> = { today: "Hoy", week: "Últimos 7 días", month: "Últimos 30 días", year: "Último año", all: "Todo el tiempo", custom: `${financeFrom || "—"} al ${financeTo || "hoy"}` };
     const fmt = (v: number) => `Bs ${v.toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
     const fmtDate = (d: string) => new Date(d).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-    const typeColor: Record<string, string> = { ingreso: "#16a34a", premio: "#b45309", retiro: "#dc2626" };
-    const typeLabel: Record<string, string> = { ingreso: "Ingreso", premio: "Premio", retiro: "Retiro", admin_credit: "✅ Crédito admin", admin_debit: "➖ Débito admin" };
+    const typeColor: Record<string, string> = { ingreso: "#16a34a", premio: "#b45309", retiro: "#dc2626", comision: "#7c3aed" };
+    const typeLabel: Record<string, string> = { ingreso: "Ingreso", premio: "Premio", retiro: "Retiro", admin_credit: "✅ Crédito admin", admin_debit: "➖ Débito admin", comision: "🔗 Comisión activador" };
     const statusLabel: Record<string, string> = { upcoming: "Próximo", active: "Activo", finished: "Finalizado" };
     const typeGameLabel: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual" };
     const freqLabel: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual", yearly: "Anual", one_time: "Pago único" };
@@ -1655,8 +1655,26 @@ export default function AdminPage() {
     const expensesDetail: any[] = s?.expenses_detail ?? [];
     const committedDetail: any[] = s?.committed_prizes_detail ?? [];
 
-    // ── Deductions section ────────────────────────────────────────
-    const hasDeductions = totalExpenses > 0 || committedPrizes > 0 || commissionsTotal > 0;
+    // ── Prize distribution info (commissions are NOT a platform expense — they are a
+    //    redistribution within the prize: winner receives net, activator receives their share.
+    //    prizes_paid already includes commissions. net_profit = revenue - prizes_paid. Correct. ──
+    const prizeDistributionSection = commissionsTotal > 0 ? `
+<div style="margin:16px 0;padding:14px;background:#f5f3ff;border:1px solid #e9d5ff;border-radius:8px">
+  <p style="font-size:11px;font-weight:900;color:#6d28d9;margin:0 0 6px">🔗 Distribución interna de premios (informativo — no afecta ganancia neta)</p>
+  <p style="font-size:10px;color:#64748b;line-height:1.5;margin:0 0 8px">
+    Las comisiones a activadores provienen del mismo monto del premio — el ganador recibe el neto y el activador recibe su porcentaje.
+    La plataforma paga exactamente el monto del premio <b>${fmt(s?.prizes_paid ?? 0)}</b> en total. No representan ningún gasto adicional de la plataforma.
+  </p>
+  <table style="width:100%;font-size:10px;border-collapse:collapse">
+    <tr><td style="padding:3px 0;color:#374151;font-weight:bold">Total premios pagados</td><td style="text-align:right;font-weight:900;color:#b45309">${fmt(s?.prizes_paid ?? 0)}</td></tr>
+    <tr><td style="padding:3px 0 3px 16px;color:#64748b">↳ A ganadores (neto, ya acreditado en sus billeteras)</td><td style="text-align:right;color:#374151">${fmt((s?.prizes_paid ?? 0) - commissionsTotal)}</td></tr>
+    <tr><td style="padding:3px 0 3px 16px;color:#6d28d9;font-weight:bold">↳ A activadores como comisión (${s?.commissions_count ?? 0} pago${(s?.commissions_count ?? 0) !== 1 ? "s" : ""})</td><td style="text-align:right;color:#6d28d9;font-weight:bold">${fmt(commissionsTotal)}</td></tr>
+    <tr><td colspan="2" style="padding:4px 0 0;font-size:9px;color:#94a3b8;font-style:italic">⚠️ Comisiones ya incluidas dentro de "Premios pagados" — NO se descuentan de la ganancia neta de forma adicional.</td></tr>
+  </table>
+</div>` : "";
+
+    // ── Deductions section (only real deductions that affect distributable_profit) ──────────
+    const hasDeductions = totalExpenses > 0 || committedPrizes > 0;
     const expenseRows = expensesDetail.map(e => `
       <tr>
         <td style="padding-left:20px">↳ ${e.name}</td>
@@ -1679,11 +1697,11 @@ export default function AdminPage() {
   Estos montos se descuentan de la ganancia neta antes de calcular los dividendos a socios.
   Los gastos operativos se prorratean según la duración del período seleccionado.
   Los premios comprometidos corresponden a sorteos activos o próximos sin ganador validado aún — ese dinero debe permanecer reservado.
+  Las comisiones a activadores NO aparecen aquí porque ya están incluidas en los premios pagados.
 </p>
 <table>
   <thead><tr><th>Concepto</th><th>Frecuencia / Estado</th><th>Referencia</th><th style="text-align:right">Descuento del período</th></tr></thead>
   <tbody>
-    ${commissionsTotal > 0 ? `<tr style="background:#f5f3ff"><td colspan="3" style="font-weight:900;color:#6d28d9">🔗 Comisiones de Activadores</td><td style="text-align:right;font-weight:900;color:#6d28d9">−${fmt(commissionsTotal)}</td></tr><tr><td style="padding-left:20px">↳ ${s?.commissions_count ?? 0} pago${(s?.commissions_count ?? 0) !== 1 ? "s" : ""} de comisión</td><td>—</td><td style="color:#64748b;font-size:10px">Deducido en ganancia neta</td><td style="text-align:right;color:#6d28d9;font-weight:bold">−${fmt(commissionsTotal)}</td></tr>` : ""}
     ${(s?.bonuses_spent_on_cards ?? bonusesGranted) > 0 ? `<tr style="background:#fefce8"><td colspan="3" style="font-weight:900;color:#b45309">🎁 Bonos de Bienvenida (gastados en cartones)</td><td style="text-align:right;font-weight:900;color:#b45309">ℹ️ Informativo</td></tr><tr><td style="padding-left:20px">↳ Otorgados: ${fmt(bonusesGranted)} · Gastados: ${fmt(s?.bonuses_spent_on_cards ?? 0)} · Pendiente: ${fmt(bonusesUnspent)}</td><td>—</td><td style="color:#64748b;font-size:10px">Ya excluidos de ingresos brutos — no se restan de nuevo</td><td style="text-align:right;color:#b45309;font-weight:bold">—</td></tr>` : ""}
     ${totalExpenses > 0 ? `<tr style="background:#fff1f2"><td colspan="3" style="font-weight:900;color:#dc2626">🏭 Gastos Operativos</td><td style="text-align:right;font-weight:900;color:#dc2626">−${fmt(totalExpenses)}</td></tr>${expenseRows}` : ""}
     ${committedPrizes > 0 ? `<tr style="background:#fffbeb"><td colspan="3" style="font-weight:900;color:#b45309">🔒 Premios Comprometidos (reservados)</td><td style="text-align:right;font-weight:900;color:#b45309">−${fmt(committedPrizes)}</td></tr>${committedRows2}` : ""}
@@ -1918,7 +1936,7 @@ ${signaturesSection}` : "";
       return {
         label: "🔴 Estado: Déficit — Sin distribución este período",
         color: "#dc2626", bg: "#fef2f2", border: "#fca5a5",
-        desc: `La ganancia neta del período es negativa (${fmt(netProfit)}), lo que indica que los egresos totales (premios + comisiones + bonos) superaron los ingresos por ventas de cartones. El déficit distribuible asciende a ${fmt(deficitAmount)}.`,
+        desc: `La ganancia neta del período es negativa (${fmt(netProfit)}), lo que indica que los premios pagados (que incluyen las comisiones a activadores como redistribución interna) y bonos superaron los ingresos por ventas de cartones. El déficit distribuible asciende a ${fmt(deficitAmount)}.`,
         advice: `No corresponde pagar dividendos en este período. Se recomienda revisar la estructura de precios de los cartones, el monto de los premios y el volumen de sorteos programados para los próximos períodos. ${grossRev === 0 ? "No se registraron ingresos en el período seleccionado — verificar que el período sea correcto." : `Los ingresos del período fueron ${fmt(grossRev)}, insuficientes para cubrir los egresos.`}`
       };
     })();
@@ -2020,6 +2038,7 @@ ${signaturesSection}` : "";
   </div>
 </div>
 
+${prizeDistributionSection}
 ${deductionsSection}
 ${partnersSection}
 
@@ -2077,7 +2096,23 @@ ${summarySection}
     const deficitAmount = Math.abs(distributable);
 
     // ── Deductions section ─────────────────────────────────────────
-    const hasDeductions = totalExpenses > 0 || committedPrizes > 0 || commissionsTotal > 0;
+    // ── Prize distribution info (commissions NOT a platform expense — redistribution within prize) ──
+    const prizeDistributionSection2 = commissionsTotal > 0 ? `
+<div style="margin:16px 0;padding:14px;background:#f5f3ff;border:1px solid #e9d5ff;border-radius:8px">
+  <p style="font-size:11px;font-weight:900;color:#6d28d9;margin:0 0 6px">🔗 Distribución interna de premios (informativo — no afecta ganancia neta)</p>
+  <p style="font-size:10px;color:#64748b;line-height:1.5;margin:0 0 8px">
+    Las comisiones a activadores provienen del mismo monto del premio — el ganador recibe el neto y el activador recibe su porcentaje.
+    La plataforma paga exactamente el monto del premio <b>${fmt(Number(s.prizes_paid ?? 0))}</b> en total. No representan ningún gasto adicional de la plataforma.
+  </p>
+  <table style="width:100%;font-size:10px;border-collapse:collapse">
+    <tr><td style="padding:3px 0;color:#374151;font-weight:bold">Total premios pagados</td><td style="text-align:right;font-weight:900;color:#b45309">${fmt(Number(s.prizes_paid ?? 0))}</td></tr>
+    <tr><td style="padding:3px 0 3px 16px;color:#64748b">↳ A ganadores (neto, ya acreditado en sus billeteras)</td><td style="text-align:right;color:#374151">${fmt(Number(s.prizes_paid ?? 0) - commissionsTotal)}</td></tr>
+    <tr><td style="padding:3px 0 3px 16px;color:#6d28d9;font-weight:bold">↳ A activadores como comisión (${s?.commissions_count ?? 0} pago${(s?.commissions_count ?? 0) !== 1 ? "s" : ""})</td><td style="text-align:right;color:#6d28d9;font-weight:bold">${fmt(commissionsTotal)}</td></tr>
+    <tr><td colspan="2" style="padding:4px 0 0;font-size:9px;color:#94a3b8;font-style:italic">⚠️ Comisiones ya incluidas dentro de "Premios pagados" — NO se descuentan de la ganancia neta de forma adicional.</td></tr>
+  </table>
+</div>` : "";
+
+    const hasDeductions = totalExpenses > 0 || committedPrizes > 0;
     const expenseRows = expensesDetail.map((e: any) => `
       <tr>
         <td style="padding-left:20px">↳ ${e.name}</td>
@@ -2098,11 +2133,11 @@ ${summarySection}
   Estos montos se descuentan de la ganancia neta antes de calcular los dividendos a socios.
   Los gastos operativos se prorratean según la duración del período seleccionado.
   Los premios comprometidos corresponden a sorteos activos o próximos sin ganador validado aún — ese dinero debe permanecer reservado.
+  Las comisiones a activadores NO aparecen aquí porque ya están incluidas en los premios pagados (ver sección informativa arriba).
 </p>
 <table>
   <thead><tr><th>Concepto</th><th>Frecuencia / Estado</th><th>Referencia</th><th style="text-align:right">Descuento del período</th></tr></thead>
   <tbody>
-    ${commissionsTotal > 0 ? `<tr style="background:#f5f3ff"><td colspan="3" style="font-weight:900;color:#6d28d9">🔗 Comisiones de Activadores</td><td style="text-align:right;font-weight:900;color:#6d28d9">−${fmt(commissionsTotal)}</td></tr><tr><td style="padding-left:20px">↳ ${s?.commissions_count ?? 0} pago${(s?.commissions_count ?? 0) !== 1 ? "s" : ""} de comisión</td><td>—</td><td style="color:#64748b;font-size:10px">Deducido en ganancia neta</td><td style="text-align:right;color:#6d28d9;font-weight:bold">−${fmt(commissionsTotal)}</td></tr>` : ""}
     ${(s?.bonuses_spent_on_cards ?? bonusesGranted) > 0 ? `<tr style="background:#fefce8"><td colspan="3" style="font-weight:900;color:#b45309">🎁 Bonos de Bienvenida (gastados en cartones)</td><td style="text-align:right;font-weight:900;color:#b45309">ℹ️ Informativo</td></tr><tr><td style="padding-left:20px">↳ Otorgados: ${fmt(bonusesGranted)} · Gastados: ${fmt(s?.bonuses_spent_on_cards ?? 0)} · Pendiente: ${fmt(bonusesUnspent)}</td><td>—</td><td style="color:#64748b;font-size:10px">Ya excluidos de ingresos brutos — no se restan de nuevo</td><td style="text-align:right;color:#b45309;font-weight:bold">—</td></tr>` : ""}
     ${totalExpenses > 0 ? `<tr style="background:#fff1f2"><td colspan="3" style="font-weight:900;color:#dc2626">🏭 Gastos Operativos</td><td style="text-align:right;font-weight:900;color:#dc2626">−${fmt(totalExpenses)}</td></tr>${expenseRows}` : ""}
     ${committedPrizes > 0 ? `<tr style="background:#fffbeb"><td colspan="3" style="font-weight:900;color:#b45309">🔒 Premios Comprometidos (reservados)</td><td style="text-align:right;font-weight:900;color:#b45309">−${fmt(committedPrizes)}</td></tr>${committedRows2}` : ""}
@@ -2278,7 +2313,7 @@ ${signaturesSection}` : "";
           desc: `La ganancia neta del período es positiva (${fmt(netProfit)}), pero los compromisos pendientes superan el excedente disponible, generando un déficit distribuible de ${fmt(deficitAmount)}.`,
           advice: "No corresponde pagar dividendos en este período. El déficit es de naturaleza temporal." };
       return { label: "🔴 Estado: Déficit — Sin distribución este período", color: "#dc2626", bg: "#fef2f2", border: "#fca5a5",
-        desc: `La ganancia neta del período es negativa (${fmt(netProfit)}), lo que indica que los egresos totales (premios + comisiones + bonos) superaron los ingresos. El déficit distribuible asciende a ${fmt(deficitAmount)}.`,
+        desc: `La ganancia neta del período es negativa (${fmt(netProfit)}), lo que indica que los premios pagados (que incluyen las comisiones a activadores como redistribución interna) y bonos superaron los ingresos. El déficit distribuible asciende a ${fmt(deficitAmount)}.`,
         advice: `No corresponde pagar dividendos en este período. Se recomienda revisar la estructura de precios de los cartones y el volumen de sorteos programados.` };
     })();
 
@@ -2374,6 +2409,7 @@ ${signaturesSection}` : "";
   </div>
 </div>
 
+${prizeDistributionSection2}
 ${deductionsSection}
 ${partnersSection}
 
@@ -4269,8 +4305,8 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             { id: "year",  label: "1 año" },
             { id: "all",   label: "Todo" },
           ];
-          const typeLabel: Record<string, string> = { ingreso: "Ingreso", premio: "Premio", retiro: "Retiro", admin_credit: "✅ Crédito admin", admin_debit: "➖ Débito admin" };
-          const typeStyle: Record<string, string> = { ingreso: "#16a34a", premio: "#b45309", retiro: "#dc2626", admin_credit: "#7c3aed", admin_debit: "#b45309" };
+          const typeLabel: Record<string, string> = { ingreso: "Ingreso", premio: "Premio", retiro: "Retiro", admin_credit: "✅ Crédito admin", admin_debit: "➖ Débito admin", comision: "🔗 Comisión" };
+          const typeStyle: Record<string, string> = { ingreso: "#16a34a", premio: "#b45309", retiro: "#dc2626", admin_credit: "#7c3aed", admin_debit: "#b45309", comision: "#7c3aed" };
           const statusLabel: Record<string, string> = { upcoming: "Próximo", active: "Activo", finished: "Finalizado" };
           const typeGameLabel: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual" };
 
@@ -4839,9 +4875,9 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           <span style={{ color: "#dc2626" }}>−{fmt(s.prizes_paid)}</span>
                         </div>
                         {(s.total_commissions_paid ?? 0) > 0 && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">↳ Comisiones activadores ({s.commissions_count ?? 0} · {s.activators_with_commissions ?? 0} act.)</span>
-                            <span style={{ color: "#6d28d9" }}>−{fmt(s.total_commissions_paid ?? 0)}</span>
+                          <div className="flex justify-between pl-3">
+                            <span className="text-muted-foreground text-[10px] italic">↳ incl. comisiones a activadores ({s.commissions_count ?? 0} pagos · redistribución interna del premio)</span>
+                            <span className="text-[10px] italic" style={{ color: "#7c3aed" }}>{fmt(s.total_commissions_paid ?? 0)} ⊂</span>
                           </div>
                         )}
                         {(s.bonuses_spent_on_cards ?? 0) > 0 && (

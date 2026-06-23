@@ -1216,6 +1216,13 @@ router.get("/finance/transactions", async (req: AuthRequest, res) => {
              wd.amount::text, ('Débito admin' || COALESCE(': ' || wd.notes, ''))::text
       FROM withdrawals wd JOIN users u ON wd.user_id=u.id
       WHERE wd.status='paid' AND wd.method='admin_debit' ${dw("wd.created_at")}
+      UNION ALL
+      SELECT 'comision'::text, rt.created_at, u_act.full_name, g.title,
+             rt.amount::text, rt.description
+      FROM referral_transactions rt
+      JOIN users u_act ON rt.activator_id = u_act.id
+      LEFT JOIN games g ON rt.game_id = g.id
+      WHERE rt.type = 'commission' ${dw("rt.created_at")}
     ) t
     ORDER BY t.date DESC
     LIMIT ${limit}`);
