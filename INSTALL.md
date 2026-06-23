@@ -1,6 +1,6 @@
-# Tu Bingazo — Guía de Instalación en VPS con Webmin
+# Tu Bingazo — Guía de Instalación en VPS
 
-> **Para quién es esta guía:** Personas sin experiencia en servidores Linux que van a instalar Tu Bingazo en un VPS que ya tiene **Webmin** como gestor de archivos y panel de administración.
+> **Para quién es esta guía:** Personas sin experiencia en servidores Linux que van a instalar Tu Bingazo en un VPS con **Webmin** como panel de administración.
 >
 > **Tiempo estimado:** 60–90 minutos siguiendo los pasos en orden.
 >
@@ -8,30 +8,70 @@
 
 ---
 
+## Diagrama de arquitectura
+
+```
+  Internet (jugadores y administradores)
+           │
+           ▼
+      [ Nginx :80/:443 ]        ← Proxy inverso, HTTPS, compresión
+           │
+     ┌─────┴──────┐
+     │             │
+     ▼             ▼
+ /api/*          /*
+ (proxy)      (estático)
+     │             │
+     ▼             └─ /var/www/tubingazo/artifacts/tu-bingazo/dist/
+[ API Node.js :8080 ]            ← Express 5, JWT, lógica de negocio
+           │
+           ▼
+     [ PostgreSQL ]              ← Base de datos (solo acceso local)
+```
+
+Los puertos `8080` y `5432` **nunca se exponen a internet** — solo Nginx y la API se comunican internamente con ellos.
+
+---
+
+## Tabla de puertos
+
+| Puerto | Servicio | ¿Público? | Notas |
+|--------|----------|-----------|-------|
+| `22` | SSH | ✅ Público | Para acceso remoto al servidor |
+| `80` | HTTP (Nginx) | ✅ Público | Redirige automáticamente a HTTPS tras instalar Certbot |
+| `443` | HTTPS (Nginx) | ✅ Público | Sitio web y API bajo un solo dominio |
+| `10000` | Webmin | ✅ Público | Panel de administración del servidor |
+| `8080` | API (Node.js) | ❌ Solo interno | Nginx le hace proxy. Nunca abrirlo al exterior |
+| `5432` | PostgreSQL | ❌ Solo interno | Solo la API accede a la base de datos |
+
+---
+
 ## Índice
 
-1. [Requisitos antes de empezar](#parte-1--requisitos-antes-de-empezar)
-2. [Acceder al Terminal de Webmin](#parte-2--acceder-al-terminal-de-webmin)
-3. [Memoria SWAP (solo si tenés 1 GB de RAM)](#parte-3--configurar-memoria-swap-solo-servidores-con-1-gb-de-ram)
-4. [Instalar Node.js, Git y herramientas](#parte-4--instalar-nodejs-git-y-herramientas-necesarias)
-5. [Instalar y configurar PostgreSQL](#parte-5--instalar-y-configurar-postgresql-base-de-datos)
-6. [Subir el código del proyecto](#parte-6--subir-el-código-del-proyecto)
-7. [Crear el archivo de configuración (.env)](#parte-7--crear-el-archivo-de-configuración-env)
-8. [Crear las tablas e inicializar la base de datos](#parte-8--crear-las-tablas-e-inicializar-la-base-de-datos)
-9. [Compilar el proyecto para producción](#parte-9--compilar-el-proyecto-para-producción)
-10. [Crear el usuario administrador](#parte-10--crear-el-usuario-administrador)
-11. [Iniciar el servidor con PM2](#parte-11--iniciar-el-servidor-con-pm2)
-12. [Configurar Nginx](#parte-12--configurar-nginx-para-conectar-tu-dominio)
+1. [Requisitos](#parte-1--requisitos-antes-de-empezar)
+2. [Acceder al terminal de Webmin](#parte-2--acceder-al-terminal-de-webmin)
+3. [Memoria SWAP](#parte-3--configurar-memoria-swap-solo-servidores-con-1-gb-de-ram)
+4. [Instalar Node.js y herramientas](#parte-4--instalar-nodejs-git-y-herramientas-necesarias)
+5. [Instalar PostgreSQL](#parte-5--instalar-y-configurar-postgresql-base-de-datos)
+6. [Subir el código](#parte-6--subir-el-código-del-proyecto)
+7. [Archivo de configuración (.env)](#parte-7--crear-el-archivo-de-configuración-env)
+8. [Crear las tablas](#parte-8--crear-las-tablas-e-inicializar-la-base-de-datos)
+9. [Compilar para producción](#parte-9--compilar-el-proyecto-para-producción)
+10. [Crear el administrador](#parte-10--crear-el-usuario-administrador)
+11. [Iniciar con PM2](#parte-11--iniciar-el-servidor-con-pm2)
+12. [Configurar Nginx](#parte-12--configurar-nginx)
 13. [Activar HTTPS](#parte-13--activar-https-candado-de-seguridad-gratis)
 14. [Configurar el Firewall](#parte-14--configurar-el-firewall-ufw)
-15. [Primer ingreso al panel de administración](#parte-15--primer-ingreso-al-panel-de-administración)
-16. [Cómo actualizar el sistema](#parte-16--cómo-actualizar-el-sistema)
-17. [Backups de la base de datos](#parte-17--backups-de-la-base-de-datos)
-18. [Referencia de variables de entorno](#variables-de-entorno--referencia-completa)
-19. [Tablas de la base de datos](#tablas-de-la-base-de-datos)
-20. [Comandos de emergencia](#comandos-de-emergencia)
-21. [Solución de problemas frecuentes](#solución-de-problemas-frecuentes)
-22. [Referencia rápida de accesos](#referencia-rápida-de-accesos)
+15. [Primer ingreso al admin](#parte-15--primer-ingreso-al-panel-de-administración)
+16. [Cómo actualizar](#parte-16--cómo-actualizar-el-sistema)
+17. [Backups](#parte-17--backups-completos-base-de-datos-y-archivos)
+18. [Checklist final](#parte-18--checklist-final-de-verificación)
+19. [Desinstalación](#parte-19--desinstalar-completamente-la-aplicación)
+20. [Variables de entorno](#variables-de-entorno--referencia-completa)
+21. [Tablas de la base de datos](#tablas-de-la-base-de-datos)
+22. [Comandos de emergencia](#comandos-de-emergencia)
+23. [Solución de problemas](#solución-de-problemas-frecuentes)
+24. [Referencia rápida](#referencia-rápida-de-accesos)
 
 ---
 
@@ -39,41 +79,35 @@
 
 Verificá que tu servidor tenga:
 
-- ✅ **Ubuntu 22.04 o 24.04 LTS** como sistema operativo (o Debian 12)
-- ✅ **Webmin** instalado y accesible desde el navegador
-- ✅ Mínimo **2 GB de RAM** recomendado (1 GB funciona con SWAP configurado — ver Parte 3)
+- ✅ **Ubuntu 22.04 o 24.04 LTS** (o Debian 12)
+- ✅ **Webmin** instalado y accesible
+- ✅ Mínimo **2 GB de RAM** (1 GB funciona con SWAP — ver Parte 3)
 - ✅ Mínimo **20 GB de espacio en disco**
 - ✅ Un **dominio apuntando a la IP del servidor** (ej: `tubingazo.com`)
-- ✅ Las **credenciales de Enlazo** (pasarela de pago QR boliviana)
+- ✅ Credenciales de **Enlazo Business** (pasarela de pago QR boliviana)
 
-> ⚠️ **Importante:** El dominio debe apuntar a la IP del servidor **antes** de llegar al Paso 13 (HTTPS). Podés verificarlo con: `ping TU_DOMINIO.COM` — debe responder con la IP de tu VPS.
+> ⚠️ El dominio debe apuntar a la IP del servidor **antes** de instalar HTTPS (Parte 13). Verificá con: `ping TU_DOMINIO.COM`
 
 ---
 
 ## PARTE 2 — Acceder al Terminal de Webmin
 
-Todo el trabajo técnico se hace desde el terminal integrado en Webmin:
+1. Abrí `https://TU_IP:10000` en el navegador
+   > Si aparece aviso de "sitio no seguro" → clic en **Avanzado → Continuar** — es normal.
+2. Ingresá con usuario `root` y tu contraseña del servidor
+3. Menú izquierdo → **"Tools"** → **"Terminal"**
+4. Se abre una ventana negra — desde ahí ejecutarás todos los comandos
 
-1. Abrí tu navegador y entrá a Webmin: `https://TU_IP:10000`
-   > ⚠️ Si aparece aviso de "sitio no seguro", hacé clic en **Avanzado → Continuar de todas formas** — es normal con el certificado autofirmado de Webmin.
-2. Ingresá con tu usuario y contraseña de administrador del servidor (generalmente `root`)
-3. En el menú izquierdo buscá **"Tools"** (Herramientas)
-4. Hacé clic en **"Terminal"**
-5. Se abre una ventana negra — desde ahí ejecutarás todos los comandos
-
-> 💡 **Tips para el terminal:**
-> - Podés pegar comandos con **clic derecho → Pegar** o **Ctrl+Shift+V**
-> - Si el terminal de Webmin se cierra, abrí SSH directamente: `ssh root@TU_IP`
-> - Para saber dónde estás: `pwd`
-> - Para ver archivos en la carpeta actual: `ls -la`
+> 💡 **Tips:**
+> - Pegar con **clic derecho → Pegar** o **Ctrl+Shift+V**
+> - Si el terminal se cierra: `ssh root@TU_IP`
+> - Ver dónde estás: `pwd` · Ver archivos: `ls -la`
 
 ---
 
 ## PARTE 3 — Configurar memoria SWAP (solo servidores con 1 GB de RAM)
 
-> Si tu servidor tiene **2 GB o más de RAM**, saltá esta parte y continuá con la Parte 4.
-
-El compilado del proyecto requiere memoria. Con 1 GB de RAM puede fallar. La SWAP es memoria de disco que actúa como RAM extra:
+> Si tenés **2 GB o más de RAM**, saltá a la Parte 4.
 
 ```bash
 # Verificar RAM disponible
@@ -88,51 +122,54 @@ swapon /swapfile
 # Hacer la SWAP permanente (sobrevive reinicios)
 echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
 
-# Verificar que quedó activa
+# Verificar — debe aparecer "Swap: 2.0Gi"
 free -h
 ```
-> Debe aparecer una fila `Swap: 2.0Gi` ✅
 
 ---
 
 ## PARTE 4 — Instalar Node.js, Git y herramientas necesarias
 
-Ejecutá estos comandos en el terminal, **uno por uno**, esperando que cada uno termine:
+### Paso 4.1: Instalar dependencias base del sistema
 
-### Paso 4.1: Actualizar el sistema
+Antes de agregar el repositorio de Node.js, instalá las herramientas que Ubuntu mínimo puede no traer:
 
 ```bash
-apt update && apt upgrade -y
+apt update
+apt install -y curl ca-certificates gnupg git
 ```
-> Puede tardar 2–5 minutos. Esperá que termine antes de continuar.
 
-### Paso 4.2: Instalar Node.js 24 (versión requerida por el proyecto)
+> Estos tres paquetes son necesarios para descargar e instalar Node.js correctamente. Sin `ca-certificates`, la descarga del repositorio de NodeSource puede fallar con errores de SSL.
+
+### Paso 4.2: Instalar Node.js 24
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
 apt install -y nodejs
 ```
 
-### Paso 4.3: Verificar que Node.js 24 se instaló correctamente
+### Paso 4.3: Verificar Node.js 24
 
 ```bash
 node --version
 ```
-> Debe mostrar `v24.x.x`. Si muestra otra versión o "command not found", repetí el Paso 4.2.
+> Debe mostrar `v24.x.x`. Si muestra otra versión, repetí el paso anterior.
 
-### Paso 4.4: Instalar Git, pnpm y PM2
+### Paso 4.4: Instalar pnpm y PM2
 
 ```bash
-apt install -y git
 npm install -g pnpm@latest pm2
 ```
 
-### Paso 4.5: Verificar todas las instalaciones
+> **¿Por qué `npm install -g` y no Corepack?**
+> Corepack es el método oficial del equipo de pnpm, pero en Ubuntu 22/24 con el usuario `root` a veces no agrega el binario al `PATH` global sin pasos extra. `npm install -g pnpm` funciona de forma consistente en todos los entornos de VPS. Si preferís Corepack: `corepack enable && corepack prepare pnpm@latest --activate`.
+
+### Paso 4.5: Verificar todo
 
 ```bash
 node --version && pnpm --version && pm2 --version && git --version
 ```
-> Cada herramienta debe mostrar un número de versión. Si alguna dice "command not found", repetí el paso correspondiente.
+> Cada herramienta debe mostrar un número de versión.
 
 ---
 
@@ -142,26 +179,18 @@ node --version && pnpm --version && pm2 --version && git --version
 
 ```bash
 apt install -y postgresql postgresql-contrib
-```
-
-### Paso 5.2: Iniciar el servicio y habilitarlo al arranque
-
-```bash
 systemctl start postgresql
 systemctl enable postgresql
 systemctl status postgresql
 ```
-> La última línea debe mostrar `active (running)` en verde ✅
+> Debe mostrar `active (running)` ✅
 
-### Paso 5.3: Crear la base de datos del proyecto
+### Paso 5.2: Crear la base de datos
 
-Entrá al administrador de base de datos:
 ```bash
 sudo -u postgres psql
 ```
-> El indicador cambia a `postgres=#` — ahora estás dentro de PostgreSQL.
-
-Ejecutá estos comandos (**reemplazá `TU_CONTRASEÑA_SEGURA` por una contraseña que recuerdes — anótala**):
+> El indicador cambia a `postgres=#`
 
 ```sql
 CREATE DATABASE tubingazo;
@@ -170,14 +199,16 @@ GRANT ALL PRIVILEGES ON DATABASE tubingazo TO tubingazo_user;
 ALTER DATABASE tubingazo OWNER TO tubingazo_user;
 \q
 ```
-> El `\q` es para salir de PostgreSQL y volver al terminal normal.
 
-### Paso 5.4: Probar que la conexión funciona
+> ⚠️ **Anotá esa contraseña** — la necesitarás en el archivo `.env`.
+
+### Paso 5.3: Verificar la conexión
 
 ```bash
-psql postgresql://tubingazo_user:TU_CONTRASEÑA_SEGURA@localhost:5432/tubingazo -c "SELECT 'conexión exitosa' AS resultado"
+psql postgresql://tubingazo_user:TU_CONTRASEÑA_SEGURA@localhost:5432/tubingazo \
+  -c "SELECT 'conexión exitosa' AS resultado"
 ```
-> Si muestra `conexión exitosa` todo está bien ✅. Si hay error, verificá la contraseña.
+> Debe mostrar `conexión exitosa` ✅
 
 ---
 
@@ -190,52 +221,55 @@ mkdir -p /var/www
 git clone https://github.com/Yader-R22/Plataforma-Bingo-QR.git /var/www/tubingazo
 ```
 
-### Opción B: Subir archivos comprimidos desde Webmin
+### Opción B: Subir archivos desde Webmin
 
-1. En Webmin, andá a **"Tools" → "File Manager"**
-2. Navegá hasta `/var/www/`
-3. Creá la carpeta `tubingazo` si no existe (botón "New Directory")
-4. Usá el botón **Upload** para subir el archivo `.zip` del proyecto
-5. Hacé clic derecho sobre el `.zip` → **Extract** para descomprimirlo
-6. Asegurate de que los archivos queden directamente en `/var/www/tubingazo/` (no en una subcarpeta extra)
+1. Webmin → **"Tools" → "File Manager"**
+2. Navegá a `/var/www/` → Crear carpeta `tubingazo`
+3. **Upload** → subir el `.zip` del proyecto
+4. Clic derecho sobre el `.zip` → **Extract**
+5. Verificar que los archivos queden en `/var/www/tubingazo/`
 
-### Paso 6.1: Verificar que los archivos quedaron bien
+### Verificar y entrar al proyecto
 
 ```bash
 ls /var/www/tubingazo
-```
-> Debe mostrar carpetas como `artifacts/`, `lib/`, `scripts/`, y archivos como `package.json`, `pnpm-workspace.yaml`.
-
-### Paso 6.2: Entrar a la carpeta del proyecto
-
-```bash
+# Debe mostrar: artifacts/ lib/ scripts/ package.json pnpm-workspace.yaml
 cd /var/www/tubingazo
 ```
-> ⚠️ **Importante:** Cada vez que abras el terminal, ejecutá este comando antes de cualquier otro relacionado con el proyecto.
 
-### Paso 6.3: Instalar las dependencias del proyecto
+### Instalar dependencias
 
 ```bash
 pnpm install
 ```
-> Puede tardar 3–8 minutos. Es normal que descargue cientos de paquetes. Esperá el mensaje `Done` o `packages installed`.
+> Puede tardar 3–8 minutos. Esperá el mensaje `Done` o `packages installed`.
 
 ---
 
 ## PARTE 7 — Crear el archivo de configuración (.env)
 
-El archivo `.env` contiene las contraseñas y claves privadas del sistema. **Nunca lo compartas ni lo subas a GitHub.**
+### Reglas importantes para el archivo .env
+
+Antes de crear el archivo, leé estas reglas — son la causa más frecuente de errores:
+
+| ✅ Correcto | ❌ Incorrecto | Problema |
+|------------|--------------|---------|
+| `DATABASE_URL=postgresql://...` | `DATABASE_URL = postgresql://...` | Espacios alrededor del `=` |
+| `SESSION_SECRET=abc123XYZ` | `SESSION_SECRET="abc123XYZ"` | Comillas innecesarias |
+| `PORT=8080` | `PORT=8080 ` | Espacio al final de la línea |
+| Cada variable en su propia línea | Dos variables en la misma línea | Error de lectura |
+| `NOMBRE=Juan Pérez` | (sin comillas si hay espacios) | Funciona sin comillas en este sistema |
+
+> 💡 Si una variable contiene caracteres especiales como `+`, `/`, `=` (frecuente en `SESSION_SECRET`), no hace falta envolverla en comillas — el sistema la lee correctamente tal cual.
 
 ### Paso 7.1: Generar un SESSION_SECRET seguro
-
-Ejecutá este comando y copiá el resultado — lo necesitarás en el siguiente paso:
 
 ```bash
 openssl rand -base64 48
 ```
-> Guarda ese texto largo en un lugar seguro (ej: bloc de notas).
+> Copiá el resultado completo — lo usarás en el siguiente paso.
 
-### Paso 7.2: Abrir el editor de texto
+### Paso 7.2: Crear el archivo
 
 ```bash
 nano /var/www/tubingazo/.env
@@ -243,19 +277,14 @@ nano /var/www/tubingazo/.env
 
 ### Paso 7.3: Pegar y completar la configuración
 
-Copiá el bloque completo, pegalo en el editor, y **reemplazá todos los valores entre `< >`**:
-
 ```env
 # ── BASE DE DATOS ──────────────────────────────────────────────
-# Reemplazá TU_CONTRASEÑA_SEGURA con la contraseña del Paso 5.3
 DATABASE_URL=postgresql://tubingazo_user:TU_CONTRASEÑA_SEGURA@localhost:5432/tubingazo
 
 # ── SEGURIDAD JWT ──────────────────────────────────────────────
-# Pegá el resultado del comando openssl del Paso 7.1
 SESSION_SECRET=PEGAR_AQUI_EL_RESULTADO_DE_OPENSSL
 
 # ── PASARELA DE PAGO ENLAZO ────────────────────────────────────
-# Credenciales de tu cuenta Enlazo Business (pagos QR bolivianos)
 PAYMENT_API_KEY=tu_api_key_de_enlazo
 
 # ── SERVIDOR ───────────────────────────────────────────────────
@@ -263,134 +292,118 @@ PORT=8080
 NODE_ENV=production
 ```
 
-> 💡 **¿Dónde obtener las credenciales de Enlazo?**
-> Registrá tu negocio en [enlazo.com.bo](https://enlazo.com.bo), activá tu cuenta Business, y encontrarás las claves en el panel de desarrollador bajo "API Keys".
+Guardá: **Ctrl+X → Y → Enter**
 
-### Paso 7.4: Guardar el archivo
-
-1. Presioná **Ctrl + X**
-2. Presioná **Y** (confirmar guardar)
-3. Presioná **Enter**
-
-### Paso 7.5: Verificar que el archivo se guardó correctamente
-
-```bash
-grep -c "=" /var/www/tubingazo/.env
-```
-> Debe mostrar un número mayor a 4. Si muestra 0, el archivo está vacío — repetí los pasos anteriores.
-
-### Paso 7.6: Proteger el archivo de configuración
+### Paso 7.4: Proteger el archivo
 
 ```bash
 chmod 600 /var/www/tubingazo/.env
 ```
-> Solo el propietario podrá leerlo.
+
+### Paso 7.5: Verificar contenido
+
+```bash
+cat /var/www/tubingazo/.env
+```
+
+### Nota: carga segura de variables de entorno
+
+Para cargar el `.env` en el terminal (necesario en los pasos siguientes), usá este método que maneja correctamente caracteres especiales:
+
+```bash
+set -a
+source /var/www/tubingazo/.env
+set +a
+```
+
+> **¿Por qué no `export $(grep ... | xargs)`?** Ese método popular falla cuando una variable contiene espacios, saltos de línea o caracteres como `+` y `=`, que son comunes en claves generadas con `openssl`. El método `source` lee el archivo nativo de bash sin esos problemas.
 
 ---
 
 ## PARTE 8 — Crear las tablas e inicializar la base de datos
 
-### Paso 8.1: Estar en la carpeta correcta
-
 ```bash
 cd /var/www/tubingazo
-```
-
-### Paso 8.2: Cargar las variables de entorno y crear todas las tablas
-
-```bash
-export $(grep -v '^#' .env | xargs)
+set -a && source .env && set +a
 pnpm --filter @workspace/db run push
 ```
-> Crea automáticamente todas las tablas del sistema. Esperá el mensaje `Changes applied` ✅
->
-> Si aparece error de conexión, verificá que `DATABASE_URL` en el `.env` tiene la contraseña correcta.
+> Esperá el mensaje `Changes applied` ✅
 
-### Paso 8.3: Verificar que las tablas se crearon
+### Verificar tablas creadas
 
 ```bash
 psql $DATABASE_URL -c "\dt"
 ```
-> Debe listar todas las tablas: `users`, `games`, `cards`, `winners`, `withdrawals`, etc.
+> Debe listar: `users`, `games`, `cards`, `winners`, `withdrawals`, y más.
 
 ---
 
 ## PARTE 9 — Compilar el proyecto para producción
 
-### Paso 9.1: Compilar el backend (API)
+### Compilar el backend (API)
 
 ```bash
 cd /var/www/tubingazo
 pnpm --filter @workspace/api-server run build
 ```
-> Genera el archivo `artifacts/api-server/dist/index.mjs`. No debe haber errores en rojo.
+> Genera `artifacts/api-server/dist/index.mjs`
 
-### Paso 9.2: Compilar el frontend (sitio web)
-
-El frontend necesita saber en qué ruta y puerto va a servirse:
+### Compilar el frontend (sitio web)
 
 ```bash
 BASE_PATH=/ PORT=8080 pnpm --filter @workspace/tu-bingazo run build
 ```
-> Genera los archivos estáticos en `artifacts/tu-bingazo/dist/`. Tarda 1–3 minutos.
+> Genera archivos estáticos en `artifacts/tu-bingazo/dist/`
+>
+> `BASE_PATH` y `PORT` son requeridos por la configuración de Vite del proyecto.
 
-### Paso 9.3: Verificar que los archivos compilados existen
+### Verificar los archivos compilados
 
 ```bash
 ls artifacts/api-server/dist/
+# Debe mostrar: index.mjs
+
 ls artifacts/tu-bingazo/dist/
+# Debe mostrar: index.html  assets/
 ```
-> El primero debe tener `index.mjs`. El segundo debe tener `index.html` y una carpeta `assets/`.
 
 ---
 
 ## PARTE 10 — Crear el usuario administrador
 
-### Paso 10.1: Entrar a la base de datos
+En lugar de usar una contraseña conocida públicamente, el proyecto incluye un script interactivo que pedirá los datos del administrador y generará el hash de la contraseña en el momento:
 
 ```bash
-sudo -u postgres psql -d tubingazo
+cd /var/www/tubingazo
+set -a && source .env && set +a
+node create-admin.mjs
 ```
 
-### Paso 10.2: Crear el administrador con contraseña segura
+El script te pedirá:
+- **Nombre completo** del administrador
+- **CI** (cédula de identidad boliviana)
+- **Teléfono**
+- **Departamento** (lista numerada de los 9 departamentos)
+- **Contraseña** (ingresada de forma oculta, se pide dos veces para confirmar)
 
-Copiá y ejecutá este bloque SQL completo. **El hash corresponde a la contraseña `password` — la cambiarás inmediatamente después de entrar.**
+Al finalizar mostrará un resumen de confirmación ✅
 
-```sql
-INSERT INTO users (
-  full_name, ci, phone, password_hash, department,
-  status, is_admin, balance, bonus_balance, admin_credit_balance
-) VALUES (
-  'Administrador Principal',
-  '1000001',
-  '70000000',
-  '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
-  'La Paz',
-  'active',
-  true,
-  0,
-  0,
-  0
-);
-\q
-```
+> ⚠️ **Guardá la contraseña que elegiste** — no hay forma de recuperarla si la olvidás (tendría que resetearse desde la base de datos).
 
-> ⚠️ **Contraseña inicial:** `password` — **Cambiarla de inmediato** desde el panel de perfil después del primer ingreso.
-
-### Paso 10.3: Verificar que el usuario se creó
+### Verificar que el administrador fue creado
 
 ```bash
 psql $DATABASE_URL -c "SELECT id, full_name, ci, is_admin, status FROM users;"
 ```
-> Debe aparecer una fila con `is_admin = t` y `status = active`.
+> Debe aparecer el usuario con `is_admin = t` y `status = active`.
 
 ---
 
 ## PARTE 11 — Iniciar el servidor con PM2
 
-PM2 mantiene el backend siempre activo, incluso después de reinicios del VPS.
+PM2 mantiene el backend activo y lo reinicia automáticamente si falla.
 
-### Paso 11.1: Crear el archivo de configuración de PM2
+### Crear el archivo de configuración de PM2
 
 ```bash
 cat > /var/www/tubingazo/ecosystem.config.cjs << 'EOF'
@@ -418,78 +431,87 @@ module.exports = {
 EOF
 ```
 
-### Paso 11.2: Iniciar el backend
+### Iniciar el backend
 
 ```bash
 cd /var/www/tubingazo
 pm2 start ecosystem.config.cjs
 ```
 
-### Paso 11.3: Verificar que está activo
+### Verificar estado
 
 ```bash
 pm2 status
 ```
 > La fila `tubingazo-api` debe mostrar `online` en verde ✅
->
-> Si dice `errored`, revisá los logs: `pm2 logs tubingazo-api --lines 30`
+> Si dice `errored`: `pm2 logs tubingazo-api --lines 30`
 
-### Paso 11.4: Configurar inicio automático al reiniciar el servidor
+### Probar que el backend responde
+
+```bash
+curl -s http://localhost:8080/api/healthz
+```
+> Debe responder `{"status":"ok"}` ✅
+
+### Configurar inicio automático al reiniciar el servidor
 
 ```bash
 pm2 save
 pm2 startup
 ```
-> PM2 mostrará un comando que empieza con `sudo env PATH=...` — **copialo y ejecutalo** para completar la configuración de arranque automático.
 
-### Paso 11.5: Probar que el backend responde
-
-```bash
-curl -s http://localhost:8080/api/healthz
-```
-> Debe responder con `{"status":"ok"}` ✅. Si no responde, revisá los logs con `pm2 logs tubingazo-api`.
+> **¿Por qué estos dos pasos son importantes?**
+> - `pm2 save` guarda la lista de procesos activos en un archivo en disco.
+> - `pm2 startup` genera un servicio del sistema operativo que arranca PM2 automáticamente cuando el servidor se reinicia.
+> - Sin estos pasos, la aplicación **no volvería a estar activa** después de un reinicio del VPS — los usuarios verían el sitio caído hasta que un administrador lo iniciara manualmente.
+>
+> PM2 mostrará un comando largo (empieza con `sudo env PATH=...`). **Copialo y ejecutalo** para completar la configuración.
 
 ---
 
-## PARTE 12 — Configurar Nginx (para conectar tu dominio)
+## PARTE 12 — Configurar Nginx
 
-Nginx actúa como intermediario entre internet y tus servidores. El frontend se sirve como archivos estáticos (más eficiente que un proceso Node.js separado).
-
-### Paso 12.1: Instalar Nginx
+### Instalar Nginx
 
 ```bash
 apt install -y nginx
 systemctl enable nginx
-```
-
-### Paso 12.2: Eliminar la configuración por defecto
-
-```bash
 rm -f /etc/nginx/sites-enabled/default
 ```
 
-### Paso 12.3: Crear la configuración del sitio
+### Crear la configuración del sitio
 
 ```bash
 nano /etc/nginx/sites-available/tubingazo
 ```
 
-Pegá exactamente esto (**reemplazá `TU_DOMINIO.COM` con tu dominio real en los 3 lugares donde aparece**):
+Pegá exactamente esto (**reemplazá `TU_DOMINIO.COM` en los 2 lugares donde aparece**):
 
 ```nginx
+# ── Compresión gzip ──────────────────────────────────────────────────────
+gzip on;
+gzip_vary on;
+gzip_proxied any;
+gzip_comp_level 6;
+gzip_types text/plain text/css text/xml application/json application/javascript
+           application/rss+xml application/atom+xml image/svg+xml
+           application/x-font-ttf font/opentype;
+
 server {
     listen 80;
     server_name TU_DOMINIO.COM www.TU_DOMINIO.COM;
 
-    # Seguridad básica
-    add_header X-Frame-Options "SAMEORIGIN";
-    add_header X-Content-Type-Options "nosniff";
-    add_header X-XSS-Protection "1; mode=block";
+    # ── Cabeceras de seguridad ───────────────────────────────────────────
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
 
-    # Tamaño máximo de archivos subidos (fotos de CI, etc.)
+    # ── Límites ──────────────────────────────────────────────────────────
     client_max_body_size 10M;
 
-    # API del backend — redirige a Node.js
+    # ── API del backend ──────────────────────────────────────────────────
     location /api {
         proxy_pass http://localhost:8080;
         proxy_http_version 1.1;
@@ -501,379 +523,519 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
         proxy_read_timeout 60s;
+        proxy_connect_timeout 10s;
     }
 
-    # Sitio web (frontend) — archivos estáticos compilados
+    # ── Sitio web — archivos estáticos ───────────────────────────────────
     location / {
         root /var/www/tubingazo/artifacts/tu-bingazo/dist;
         index index.html;
+
+        # SPA: todas las rutas no encontradas sirven index.html
         try_files $uri $uri/ /index.html;
 
-        # Cache para assets con hash (JS, CSS, imágenes)
-        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        # Assets con hash (JS, CSS): cache de 1 año, inmutables
+        location ~* \.(js|css)$ {
             expires 1y;
             add_header Cache-Control "public, immutable";
+        }
+
+        # Imágenes, fuentes: cache de 30 días
+        location ~* \.(png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|webp)$ {
+            expires 30d;
+            add_header Cache-Control "public";
         }
     }
 }
 ```
 
-Guardá con **Ctrl + X → Y → Enter**.
+Guardá: **Ctrl+X → Y → Enter**
 
-### Paso 12.4: Activar y aplicar la configuración
+### Activar y aplicar
 
 ```bash
 ln -s /etc/nginx/sites-available/tubingazo /etc/nginx/sites-enabled/
 nginx -t
 systemctl reload nginx
 ```
-> El comando `nginx -t` debe decir `syntax is ok` y `test is successful`. Si hay error, revisá que copiaste bien el bloque anterior y que reemplazaste el dominio.
+> `nginx -t` debe decir `syntax is ok`. Si hay error, revisá que copiaste bien el bloque y reemplazaste el dominio.
 
-### Paso 12.5: Probar el sitio
+### Probar el sitio
 
-Abrí `http://TU_DOMINIO.COM` en el navegador — deberías ver Tu Bingazo ✅
+Abrí `http://TU_DOMINIO.COM` — deberías ver Tu Bingazo ✅
 
 ---
 
 ## PARTE 13 — Activar HTTPS (candado de seguridad, gratis)
 
-> ⚠️ **Solo hacé este paso si el dominio ya apunta correctamente a la IP del servidor.** Para verificarlo:
+> ⚠️ Solo si el dominio ya apunta a la IP del servidor:
 > ```bash
 > dig +short TU_DOMINIO.COM
 > ```
-> Debe mostrar la IP de tu VPS. Si acabás de cambiar los DNS, esperá hasta 24 horas.
+> Debe mostrar la IP de tu VPS.
 
 ```bash
 apt install -y certbot python3-certbot-nginx
 certbot --nginx -d TU_DOMINIO.COM -d www.TU_DOMINIO.COM
 ```
 
-Cuando certbot pregunte:
-- Tu email de contacto → escribilo y Enter
-- Aceptar términos de servicio → `A` y Enter
-- Compartir email con EFF → `N` y Enter
+Cuando pregunte:
+- Email → escribilo y Enter
+- Aceptar términos → `A` Enter
+- Compartir email con EFF → `N` Enter
 
-Al terminar, el sitio estará disponible con HTTPS ✅
+### Verificar que el certificado está activo
 
-### Verificar renovación automática del certificado
+```bash
+# Comprobar fecha de vencimiento
+openssl s_client -connect TU_DOMINIO.COM:443 -servername TU_DOMINIO.COM \
+  </dev/null 2>/dev/null | openssl x509 -noout -dates
+```
+> Debe mostrar `notAfter=` con una fecha futura.
 
-Los certificados duran 90 días. Certbot renueva automáticamente. Verificá que funciona:
+### Verificar renovación automática
 
 ```bash
 certbot renew --dry-run
 ```
-> Debe mostrar `Congratulations, all simulated renewals succeeded` ✅
+> Debe mostrar `All simulated renewals succeeded` ✅
+
+Certbot programa la renovación automáticamente cada 90 días — no necesitás hacer nada más.
 
 ---
 
 ## PARTE 14 — Configurar el Firewall (UFW)
 
-El firewall bloquea accesos no autorizados al servidor.
-
 ```bash
-# Instalar UFW si no está
 apt install -y ufw
 
-# Permitir SSH (para no perder acceso al servidor)
+# SSH — SIEMPRE primero para no perder acceso
 ufw allow 22/tcp
 
-# Permitir HTTP y HTTPS (el sitio web)
+# HTTP y HTTPS — el sitio web
 ufw allow 80/tcp
 ufw allow 443/tcp
 
-# Permitir Webmin
+# Webmin
 ufw allow 10000/tcp
 
-# Activar el firewall
+# Activar
 ufw --force enable
 
-# Verificar estado
+# Verificar
 ufw status
 ```
 
-> ⚠️ **Importante:** Asegurate de ejecutar `ufw allow 22` ANTES de `ufw enable`, de lo contrario podrías perder acceso SSH al servidor.
+### ¿Por qué los puertos 8080 y 5432 no se abren?
 
-Los puertos internos del backend (8080) y frontend (24958 en dev) **NO** se exponen al exterior — Nginx actúa como intermediario.
+UFW bloquea por defecto todo puerto que no se abra explícitamente. Eso significa que el puerto `8080` (API backend) y `5432` (PostgreSQL) **ya están bloqueados** para cualquier conexión proveniente de internet.
+
+Solo Nginx (que corre en el mismo servidor) puede acceder internamente a `localhost:8080`. Esto es importante porque:
+- Evita que usuarios externos accedan directamente a la API sin pasar por Nginx
+- Evita intentos de conexión directa a PostgreSQL desde el exterior
+- Reduce significativamente la superficie de ataque del servidor
 
 ---
 
 ## PARTE 15 — Primer ingreso al panel de administración
 
-1. Abrí `https://TU_DOMINIO.COM` en el navegador
+1. Abrí `https://TU_DOMINIO.COM`
 2. Hacé clic en **"Entrar"**
-3. **CI:** `1000001` / **Contraseña:** `password`
-4. Andá inmediatamente al menú de perfil → **Cambiar contraseña**
-5. Elegí una contraseña segura (mínimo 12 caracteres, con números y símbolos)
+3. Ingresá la **CI** y **contraseña** que elegiste en el Paso 10
+4. Verificar que funciona → vas al inicio como administrador
 
-Para acceder al panel de administración: `https://TU_DOMINIO.COM/admin`
+Para acceder al panel admin: `https://TU_DOMINIO.COM/admin`
 
-### Configuración inicial recomendada desde el admin
+### Configuración inicial recomendada
 
-Una vez dentro del panel, hacé estas configuraciones en orden:
+En orden desde el panel admin:
 
-1. **Perfil del sitio** → Completá nombre del sitio, logo, colores
-2. **Juegos** → Creá tu primer juego de bingo (tipo: diario, precio del cartón, premio)
-3. **Usuarios** → Verificá y activá las cuentas de los jugadores que se registren
-4. **Gastos operativos** → Registrá tus gastos fijos (hosting, internet, etc.) para que el reporte financiero sea preciso
+1. **Perfil del sitio** → Nombre del sitio, logo, colores
+2. **Juegos** → Crear el primer juego (tipo, precio del cartón, premio)
+3. **Gastos operativos** → Registrar costos fijos (hosting, etc.) para reportes financieros precisos
+4. **Usuarios** → Verificar y activar las cuentas de los primeros jugadores
 
 ---
 
 ## PARTE 16 — Cómo actualizar el sistema
 
-Cuando haya una nueva versión del código:
-
 ```bash
 cd /var/www/tubingazo
 
-# 1. Descargar cambios
+# 1. Descargar cambios del repositorio
 git pull
 
 # 2. Actualizar dependencias
 pnpm install
 
-# 3. Aplicar cambios de base de datos (si los hay)
-export $(grep -v '^#' .env | xargs)
+# 3. Aplicar cambios de base de datos
+set -a && source .env && set +a
 pnpm --filter @workspace/db run push
 
 # 4. Recompilar
 pnpm --filter @workspace/api-server run build
 BASE_PATH=/ PORT=8080 pnpm --filter @workspace/tu-bingazo run build
 
-# 5. Reiniciar el backend
+# 5. Reiniciar el backend y recargar frontend
 pm2 restart tubingazo-api
-
-# 6. Recargar Nginx (para aplicar cambios del frontend)
 systemctl reload nginx
 ```
 
-> 💡 **Tip:** Creá un script de actualización para hacerlo en un solo comando:
-> ```bash
-> nano /var/www/tubingazo/update.sh
-> ```
-> Pegá todos los comandos de arriba, guardá, y hacelo ejecutable: `chmod +x /var/www/tubingazo/update.sh`
-> Luego actualizar es tan simple como: `cd /var/www/tubingazo && ./update.sh`
+### Script de actualización rápida
+
+```bash
+cat > /var/www/tubingazo/update.sh << 'EOF'
+#!/bin/bash
+set -e
+cd /var/www/tubingazo
+echo "▶ Descargando cambios..."
+git pull
+echo "▶ Actualizando dependencias..."
+pnpm install
+echo "▶ Aplicando cambios de base de datos..."
+set -a && source .env && set +a
+pnpm --filter @workspace/db run push
+echo "▶ Compilando backend..."
+pnpm --filter @workspace/api-server run build
+echo "▶ Compilando frontend..."
+BASE_PATH=/ PORT=8080 pnpm --filter @workspace/tu-bingazo run build
+echo "▶ Reiniciando servicios..."
+pm2 restart tubingazo-api
+systemctl reload nginx
+echo "✅ Actualización completada."
+EOF
+chmod +x /var/www/tubingazo/update.sh
+```
+
+Próximas actualizaciones: `cd /var/www/tubingazo && ./update.sh`
 
 ---
 
-## PARTE 17 — Backups de la base de datos
+## PARTE 17 — Backups completos (base de datos y archivos)
 
-### Backup manual
+Un backup completo del sistema incluye **dos partes**: la base de datos y los archivos que los usuarios subieron (fotos de CI, logos, banners, configuración). Sin ambas partes, la restauración estaría incompleta.
+
+### Backup de la base de datos
 
 ```bash
-# Crear una copia de seguridad con fecha y hora
-pg_dump postgresql://tubingazo_user:TU_CONTRASEÑA_SEGURA@localhost:5432/tubingazo \
-  > /root/backup-tubingazo-$(date +%Y%m%d-%H%M).sql
+# Backup manual con fecha
+pg_dump $DATABASE_URL > /root/backup-db-$(date +%Y%m%d-%H%M).sql
 
-# Verificar que el archivo se creó
-ls -lh /root/backup-tubingazo-*.sql
+# Verificar tamaño del backup
+ls -lh /root/backup-db-*.sql
+```
+
+### Backup de archivos del sistema
+
+```bash
+# Backup manual completo (DB + archivos críticos)
+FECHA=$(date +%Y%m%d-%H%M)
+BACKUP=/root/backups/$FECHA
+mkdir -p $BACKUP
+
+# Base de datos
+pg_dump $DATABASE_URL > $BACKUP/database.sql
+
+# Archivos de configuración
+cp /var/www/tubingazo/.env $BACKUP/env.bak
+
+# Imágenes subidas por usuarios (fotos de CI, avatares)
+if [ -d /var/www/tubingazo/uploads ]; then
+  cp -r /var/www/tubingazo/uploads $BACKUP/uploads
+fi
+
+# Certificados SSL (opcional — Certbot los renueva automáticamente)
+cp -r /etc/letsencrypt $BACKUP/letsencrypt 2>/dev/null || true
+
+echo "✅ Backup guardado en $BACKUP"
+ls -lh $BACKUP
 ```
 
 ### Backup automático diario
 
 ```bash
-# Crear script de backup
-cat > /root/backup-tubingazo.sh << 'EOF'
+cat > /root/backup-tubingazo.sh << 'BEOF'
 #!/bin/bash
+set -a
+source /var/www/tubingazo/.env
+set +a
+
 BACKUP_DIR=/root/backups/tubingazo
 mkdir -p $BACKUP_DIR
-pg_dump postgresql://tubingazo_user:TU_CONTRASEÑA_SEGURA@localhost:5432/tubingazo \
-  > $BACKUP_DIR/backup-$(date +%Y%m%d-%H%M).sql
-# Eliminar backups de más de 30 días
+FECHA=$(date +%Y%m%d-%H%M)
+
+# Base de datos
+pg_dump $DATABASE_URL > $BACKUP_DIR/db-$FECHA.sql
+
+# Archivos críticos
+tar -czf $BACKUP_DIR/files-$FECHA.tar.gz \
+  /var/www/tubingazo/.env \
+  /var/www/tubingazo/uploads 2>/dev/null || true
+
+# Limpiar backups de más de 30 días
 find $BACKUP_DIR -name "*.sql" -mtime +30 -delete
-EOF
+find $BACKUP_DIR -name "*.tar.gz" -mtime +30 -delete
+BEOF
 
 chmod +x /root/backup-tubingazo.sh
 
-# Programar backup diario a las 3 AM
+# Ejecutar todos los días a las 3 AM
 (crontab -l 2>/dev/null; echo "0 3 * * * /root/backup-tubingazo.sh") | crontab -
+echo "✅ Backup automático configurado para las 3 AM diariamente"
 ```
 
-### Restaurar un backup
+### Restaurar un backup completo
 
 ```bash
-# En caso de emergencia, para restaurar:
-psql postgresql://tubingazo_user:TU_CONTRASEÑA_SEGURA@localhost:5432/tubingazo \
-  < /root/backup-tubingazo-FECHA.sql
+# 1. Restaurar la base de datos
+psql $DATABASE_URL < /root/backups/tubingazo/db-FECHA.sql
+
+# 2. Restaurar archivos
+tar -xzf /root/backups/tubingazo/files-FECHA.tar.gz -C /
+
+# 3. Reiniciar la aplicación
+pm2 restart tubingazo-api
+```
+
+---
+
+## PARTE 18 — Checklist final de verificación
+
+Antes de abrir el sistema al público, verificá cada punto:
+
+```bash
+# ── Infraestructura ───────────────────────────────────────────────────────
+node --version              # Debe mostrar v24.x.x
+pnpm --version              # Debe mostrar la versión instalada
+pm2 status                  # tubingazo-api debe estar "online"
+systemctl status nginx      # Debe mostrar "active (running)"
+systemctl status postgresql # Debe mostrar "active (running)"
+
+# ── Conectividad ─────────────────────────────────────────────────────────
+curl -s http://localhost:8080/api/healthz
+# Esperado: {"status":"ok"}
+
+curl -s -o /dev/null -w "%{http_code}" http://TU_DOMINIO.COM
+# Esperado: 200 o 301 (redirección a HTTPS)
+
+curl -s -o /dev/null -w "%{http_code}" https://TU_DOMINIO.COM
+# Esperado: 200
+
+# ── Base de datos ────────────────────────────────────────────────────────
+psql $DATABASE_URL -c "SELECT COUNT(*) FROM users WHERE is_admin=true;"
+# Esperado: 1 (el administrador que creaste)
+
+# ── Certificado SSL ──────────────────────────────────────────────────────
+openssl s_client -connect TU_DOMINIO.COM:443 -servername TU_DOMINIO.COM \
+  </dev/null 2>/dev/null | openssl x509 -noout -dates
+# notAfter debe ser una fecha futura
+
+# ── Firewall ─────────────────────────────────────────────────────────────
+ufw status
+# Puertos abiertos: 22, 80, 443, 10000
+# Puertos 8080 y 5432 NO deben aparecer en la lista
+```
+
+### Lista de verificación manual en el navegador
+
+Abrí `https://TU_DOMINIO.COM` y confirmá:
+
+- [ ] El sitio carga con el candado HTTPS ✅
+- [ ] La página de inicio muestra los juegos disponibles
+- [ ] El formulario de registro funciona
+- [ ] El inicio de sesión con el administrador funciona
+- [ ] El panel de administración (`/admin`) es accesible
+- [ ] Se puede crear un juego de prueba desde el admin
+- [ ] El flujo de compra de cartón genera el QR de Enlazo
+- [ ] Los números se pueden cantar manualmente desde el admin
+- [ ] El reporte financiero (`/admin` → Finanzas) carga correctamente
+- [ ] El sistema de retiros es accesible desde la billetera del usuario
+
+---
+
+## PARTE 19 — Desinstalar completamente la aplicación
+
+> ⚠️ Estos pasos son **irreversibles**. Hacé un backup antes si necesitás conservar los datos.
+
+```bash
+# 1. Detener y eliminar PM2
+pm2 stop tubingazo-api
+pm2 delete tubingazo-api
+pm2 save
+
+# 2. Eliminar archivos de la aplicación
+rm -rf /var/www/tubingazo
+
+# 3. Eliminar configuración de Nginx
+rm -f /etc/nginx/sites-enabled/tubingazo
+rm -f /etc/nginx/sites-available/tubingazo
+nginx -t && systemctl reload nginx
+
+# 4. Eliminar la base de datos y el usuario (si no los necesitás más)
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS tubingazo;"
+sudo -u postgres psql -c "DROP USER IF EXISTS tubingazo_user;"
+
+# 5. Eliminar certificados SSL (opcional)
+certbot delete --cert-name TU_DOMINIO.COM
+
+# 6. Eliminar backups (opcional)
+rm -rf /root/backups/tubingazo
+
+# 7. Eliminar logs de PM2
+rm -f /var/log/tubingazo-api-*.log
+
+# 8. Desinstalar PostgreSQL (solo si no lo usás para otra cosa)
+# apt remove --purge -y postgresql postgresql-contrib
+# rm -rf /etc/postgresql /var/lib/postgresql
+
+# 9. Desinstalar Node.js (solo si no lo usás para otra cosa)
+# apt remove --purge -y nodejs
+# rm -rf /usr/lib/node_modules
 ```
 
 ---
 
 ## Variables de entorno — referencia completa
 
-| Variable | Descripción | Ejemplo |
-|----------|-------------|---------|
-| `DATABASE_URL` | Cadena de conexión completa a PostgreSQL | `postgresql://user:pass@localhost:5432/tubingazo` |
-| `SESSION_SECRET` | Clave secreta para firmar tokens JWT (mínimo 32 caracteres) | Resultado de `openssl rand -base64 48` |
-| `PAYMENT_API_KEY` | API Key de Enlazo Business | `enlz_live_xxxx...` |
-| `PORT` | Puerto del servidor API backend | `8080` |
-| `NODE_ENV` | Entorno de ejecución | `production` |
-
-> 💡 Si en el futuro se agregan más variables, siempre deberán estar tanto en `.env` como en la sección `env` del archivo `ecosystem.config.cjs` de PM2.
+| Variable | Descripción | Requerida |
+|----------|-------------|-----------|
+| `DATABASE_URL` | Cadena de conexión PostgreSQL completa | ✅ Sí |
+| `SESSION_SECRET` | Clave para firmar tokens JWT (mínimo 32 caracteres) | ✅ Sí |
+| `PAYMENT_API_KEY` | API Key de Enlazo Business | ✅ Sí |
+| `PORT` | Puerto del servidor API (dejar en `8080`) | ✅ Sí |
+| `NODE_ENV` | Entorno (`production` en VPS) | ✅ Sí |
 
 ---
 
 ## Tablas de la base de datos
 
-Se crean automáticamente con `pnpm --filter @workspace/db run push`:
+Creadas automáticamente con `pnpm --filter @workspace/db run push`:
 
 | Tabla | ¿Para qué sirve? |
 |-------|-----------------|
-| `users` | Jugadores y administradores. Columnas clave: `balance` (saldo real de pagos QR), `bonus_balance` (bonos de referidos), `admin_credit_balance` (crédito inyectado por el admin — no cuenta como ingreso) |
-| `games` | Partidas de bingo (diarias, semanales, mensuales) con precio del cartón, premio y estado |
-| `cards` | Cartones comprados. `bonus_amount_used` y `admin_credit_amount_used` separan qué parte no cuenta como ingreso real |
-| `winners` | Ganadores validados con el monto del premio y comisiones a activadores |
-| `withdrawals` | Historial de retiros de saldo. `method='admin_credit'` o `'admin_debit'` identifica ajustes manuales del admin |
+| `users` | Jugadores y administradores. Columnas clave: `balance` (pagos QR reales), `bonus_balance` (bonos de referidos), `admin_credit_balance` (crédito del admin — no cuenta como ingreso) |
+| `games` | Partidas de bingo con precio del cartón, premio y estado |
+| `cards` | Cartones comprados. `bonus_amount_used` y `admin_credit_amount_used` separan los montos que no son ingreso real |
+| `winners` | Ganadores validados con monto de premio y comisiones |
+| `withdrawals` | Retiros de saldo. `method='admin_credit'/'admin_debit'` identifica ajustes manuales |
 | `referral_codes` | Códigos de referido de los activadores |
-| `referral_transactions` | Bonos de bienvenida y comisiones generadas por el programa de referidos |
-| `operating_expenses` | Gastos operativos fijos (hosting, internet, etc.) configurables desde el admin |
-| `game_categories` | Categorías visuales de juegos en la página de inicio |
-| `partners` | Socios inversores con su porcentaje de participación en las ganancias |
-| `banners` | Imágenes y anuncios promocionales visibles en el sitio |
-| `site_settings` | Configuración general del sitio (nombre, logo, colores, etc.) |
-| `name_change_requests` | Solicitudes de cambio de nombre/CI de los jugadores |
-| `audit_logs` | Registro inmutable de todas las acciones importantes (compras, retiros, ajustes de admin) |
-| `feed_items` | Actividad en tiempo real visible a todos los jugadores (ganadores, compras recientes) |
+| `referral_transactions` | Bonos de bienvenida y comisiones del programa de referidos |
+| `operating_expenses` | Gastos operativos fijos configurables desde el admin |
+| `game_categories` | Categorías de juegos en la página de inicio |
+| `partners` | Socios inversores con porcentaje de participación en ganancias |
+| `banners` | Imágenes y anuncios promocionales |
+| `site_settings` | Configuración general (nombre del sitio, logo, colores) |
+| `name_change_requests` | Solicitudes de cambio de nombre/CI de jugadores |
+| `audit_logs` | Registro inmutable de todas las acciones importantes |
+| `feed_items` | Actividad en tiempo real visible a los jugadores |
 
 ---
 
 ## Comandos de emergencia
 
 ```bash
-# ── PM2 ─────────────────────────────────────────────────────────
-# Ver estado de todos los procesos
-pm2 status
+# ── PM2 ──────────────────────────────────────────────────────────────────
+pm2 status                              # Estado de todos los procesos
+pm2 logs tubingazo-api                  # Logs en tiempo real
+pm2 logs tubingazo-api --lines 100      # Últimas 100 líneas
+pm2 restart tubingazo-api               # Reiniciar el backend
+pm2 stop tubingazo-api                  # Detener el backend
+pm2 resurrect                           # Restaurar procesos guardados tras reinicio
 
-# Ver logs del backend en tiempo real
-pm2 logs tubingazo-api
+# ── Nginx ────────────────────────────────────────────────────────────────
+systemctl status nginx                  # Estado
+nginx -t                                # Verificar configuración
+systemctl reload nginx                  # Recargar sin downtime
+systemctl restart nginx                 # Reinicio completo
 
-# Ver las últimas 100 líneas de logs
-pm2 logs tubingazo-api --lines 100
+# ── PostgreSQL ───────────────────────────────────────────────────────────
+systemctl status postgresql             # Estado
+systemctl restart postgresql            # Reiniciar
+psql $DATABASE_URL                      # Conectarse
+psql $DATABASE_URL -c "\dt"             # Ver todas las tablas
+psql $DATABASE_URL -c "SELECT COUNT(*) FROM users;" # Contar usuarios
 
-# Reiniciar el backend
-pm2 restart tubingazo-api
+# ── Sistema ──────────────────────────────────────────────────────────────
+ss -tlnp | grep -E "80|443|8080|5432"  # Ver puertos escuchando
+df -h                                   # Espacio en disco
+free -h                                 # RAM y SWAP
+htop                                    # CPU y procesos (salir con Q)
+journalctl -xe --no-pager | tail -50    # Logs del sistema operativo
 
-# Detener el backend
-pm2 stop tubingazo-api
-
-# Recompilar y reiniciar (después de actualizar el código)
-cd /var/www/tubingazo && pnpm --filter @workspace/api-server run build && pm2 restart tubingazo-api
-
-# ── NGINX ────────────────────────────────────────────────────────
-# Estado de Nginx
-systemctl status nginx
-
-# Verificar configuración
-nginx -t
-
-# Recargar configuración (sin downtime)
-systemctl reload nginx
-
-# Reiniciar Nginx
-systemctl restart nginx
-
-# ── BASE DE DATOS ────────────────────────────────────────────────
-# Estado de PostgreSQL
-systemctl status postgresql
-
-# Reiniciar PostgreSQL
-systemctl restart postgresql
-
-# Conectarse a la base de datos
-psql $DATABASE_URL
-
-# Ver todas las tablas
-psql $DATABASE_URL -c "\dt"
-
-# Contar usuarios registrados
-psql $DATABASE_URL -c "SELECT COUNT(*) FROM users WHERE is_admin=false;"
-
-# ── SISTEMA ──────────────────────────────────────────────────────
-# Ver si los puertos están escuchando
-ss -tlnp | grep -E "80|443|8080|5432"
-
-# Espacio en disco
-df -h
-
-# Uso de memoria RAM y SWAP
-free -h
-
-# Uso de CPU y procesos (salir con Q)
-htop
-
-# Ver los últimos logs del sistema
-journalctl -xe --no-pager | tail -50
+# ── Recompilar y reiniciar rápido ─────────────────────────────────────────
+cd /var/www/tubingazo && \
+  pnpm --filter @workspace/api-server run build && \
+  pm2 restart tubingazo-api
 ```
 
 ---
 
 ## Solución de problemas frecuentes
 
-### ❌ Error: "Cannot connect to database" al aplicar migraciones
+### ❌ "Cannot connect to database" al aplicar migraciones
 
-1. Verificar que PostgreSQL está activo: `systemctl status postgresql`
-2. La contraseña en `.env` debe ser exactamente igual a la del Paso 5.3
-3. Probar conexión directa: `psql $DATABASE_URL -c "SELECT 1"`
-4. Si dice "role does not exist": `sudo -u postgres psql -c "CREATE USER tubingazo_user WITH PASSWORD 'TU_CONTRASEÑA';"`
+1. `systemctl status postgresql` — verificar que está activo
+2. La contraseña en `.env` debe ser exactamente igual a la del Paso 5.2 (sin espacios)
+3. `psql $DATABASE_URL -c "SELECT 1"` — probar conexión directa
+4. Si dice "role does not exist": repetir el Paso 5.2
 
 ### ❌ El sitio no carga / pantalla en blanco
 
-1. `systemctl status nginx` — verificar que Nginx está activo
-2. `pm2 status` — verificar que `tubingazo-api` está `online`
-3. `nginx -t` — verificar que la configuración de Nginx no tiene errores
-4. Verificar que los archivos compilados existen: `ls /var/www/tubingazo/artifacts/tu-bingazo/dist/index.html`
-5. Si falta el `index.html`: repetir el Paso 9.2 para compilar el frontend
+1. `pm2 status` — verificar que `tubingazo-api` está `online`
+2. `nginx -t` — verificar configuración de Nginx
+3. Verificar que el frontend está compilado: `ls /var/www/tubingazo/artifacts/tu-bingazo/dist/index.html`
+4. Si falta el `index.html`: repetir el Paso 9 (compilar frontend)
+5. Revisar logs de Nginx: `tail -50 /var/log/nginx/error.log`
 
 ### ❌ Error 502 Bad Gateway
 
-El backend no está respondiendo. Pasos:
-1. `pm2 status` — ver si `tubingazo-api` está `online` o `errored`
-2. Si está `errored`: `pm2 logs tubingazo-api --lines 50` — leer el error
-3. Error común: variables de entorno faltantes → revisar el `.env` y el `ecosystem.config.cjs`
+El backend no está respondiendo:
+1. `pm2 status` — ver si está `online` o `errored`
+2. `pm2 logs tubingazo-api --lines 50` — leer el error exacto
+3. Error frecuente: `.env` mal formateado → revisar reglas de la Parte 7
 4. Reintentar: `pm2 restart tubingazo-api`
 
-### ❌ Error 404 en rutas del frontend (ej: `/admin`, `/wallet`)
+### ❌ Error 404 en rutas del frontend (`/admin`, `/wallet`, etc.)
 
-La aplicación es un SPA (Single Page App). Verificá que la configuración de Nginx incluye `try_files $uri $uri/ /index.html;` en la sección `location /`.
+La app es un SPA. Verificar que Nginx tiene `try_files $uri $uri/ /index.html;` en `location /`.
 
-### ❌ No recibe pagos QR / Error de pagos
+### ❌ El script `create-admin.mjs` falla con "Cannot find module"
 
-1. Verificar que `PAYMENT_API_KEY` en `.env` es correcta y está activa en el panel de Enlazo
-2. Verificar que el sitio usa HTTPS (Enlazo requiere HTTPS para webhooks)
-3. Revisar logs del backend: `pm2 logs tubingazo-api | grep -i payment`
-
-### ❌ El compilado falla con "out of memory"
-
-El servidor tiene poca RAM. Solución:
-1. Configurar SWAP (ver Parte 3)
-2. O compilar con memoria limitada: `NODE_OPTIONS=--max-old-space-size=512 pnpm run build`
-
-### ❌ Error después de actualizar el código
-
-Siempre ejecutar en orden completo:
 ```bash
 cd /var/www/tubingazo
 pnpm install
-export $(grep -v '^#' .env | xargs)
-pnpm --filter @workspace/db run push
-pnpm --filter @workspace/api-server run build
-BASE_PATH=/ PORT=8080 pnpm --filter @workspace/tu-bingazo run build
-pm2 restart tubingazo-api
-systemctl reload nginx
+node create-admin.mjs
 ```
+
+### ❌ No recibe pagos QR / Error de Enlazo
+
+1. Verificar que `PAYMENT_API_KEY` es correcta y activa en el panel de Enlazo
+2. El sitio debe usar HTTPS (requerido por Enlazo para webhooks)
+3. Revisar logs: `pm2 logs tubingazo-api | grep -i payment`
+
+### ❌ El compilado falla con "JavaScript heap out of memory"
+
+```bash
+NODE_OPTIONS=--max-old-space-size=512 pnpm --filter @workspace/api-server run build
+NODE_OPTIONS=--max-old-space-size=512 BASE_PATH=/ PORT=8080 pnpm --filter @workspace/tu-bingazo run build
+```
+O bien configurar SWAP (Parte 3).
 
 ### ❌ PM2 no arranca después de reiniciar el servidor
 
 ```bash
-# Restaurar la lista de procesos guardados
 pm2 resurrect
-
-# Si no funciona, iniciar de nuevo
+# Si no funciona:
 cd /var/www/tubingazo && pm2 start ecosystem.config.cjs && pm2 save
 ```
 
-### ❌ Perdí acceso SSH / Webmin no responde
+### ❌ Variables de entorno no cargadas correctamente
 
-Accedé desde la consola de rescate de tu proveedor de VPS (KVM/VNC console). Desde ahí podés revisar el firewall: `ufw status` y abrir el puerto si está bloqueado.
+Si un comando falla porque no encuentra las variables:
+```bash
+set -a && source /var/www/tubingazo/.env && set +a
+```
+Verificar que no hay espacios alrededor del `=` en el `.env`.
 
 ---
 
@@ -881,14 +1043,15 @@ Accedé desde la consola de rescate de tu proveedor de VPS (KVM/VNC console). De
 
 | Qué | Dónde |
 |-----|-------|
-| Sitio web para jugadores | `https://TU_DOMINIO.COM` |
-| Panel de administración | `https://TU_DOMINIO.COM/admin` |
-| Webmin (gestión del servidor) | `https://TU_IP:10000` |
-| CI del admin inicial | `1000001` |
-| Contraseña inicial del admin | `password` — **cambiarla de inmediato** |
-| Puerto del backend API | `8080` (interno, no expuesto) |
+| Sitio web | `https://TU_DOMINIO.COM` |
+| Panel admin | `https://TU_DOMINIO.COM/admin` |
+| Webmin | `https://TU_IP:10000` |
+| Puerto API (interno) | `8080` |
 | Logs del backend | `pm2 logs tubingazo-api` |
-| Archivos compilados del frontend | `/var/www/tubingazo/artifacts/tu-bingazo/dist/` |
+| Frontend compilado | `/var/www/tubingazo/artifacts/tu-bingazo/dist/` |
 | Archivo de configuración | `/var/www/tubingazo/.env` |
-| Logs de Nginx | `/var/log/nginx/error.log` |
-| Logs de la API | `/var/log/tubingazo-api-error.log` |
+| Logs de errores Nginx | `/var/log/nginx/error.log` |
+| Logs de errores API | `/var/log/tubingazo-api-error.log` |
+| Script de actualización | `/var/www/tubingazo/update.sh` |
+| Script de crear admin | `/var/www/tubingazo/create-admin.mjs` |
+| Backups automáticos | `/root/backups/tubingazo/` |
