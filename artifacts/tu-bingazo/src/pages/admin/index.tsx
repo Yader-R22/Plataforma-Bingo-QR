@@ -920,6 +920,25 @@ export default function AdminPage() {
     return () => clearInterval(iv);
   }, [token, activeGameIdsKey]);
 
+  // Poll participant_count every 5s for upcoming/active games — updates when new players buy cards.
+  const liveGameIdsKey = games.filter(g => g.status === "upcoming" || g.status === "active").map(g => g.id).join(",");
+  useEffect(() => {
+    if (!token || !liveGameIdsKey) return;
+    const iv = setInterval(async () => {
+      try {
+        const r = await fetch(`${BASE}/api/games`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+        if (!r.ok) return;
+        const fresh: any[] = await r.json();
+        setGames(gs => gs.map(g => {
+          const upd = fresh.find(f => f.id === g.id);
+          if (!upd) return g;
+          return { ...g, participant_count: upd.participant_count };
+        }));
+      } catch {}
+    }, 5000);
+    return () => clearInterval(iv);
+  }, [token, liveGameIdsKey]);
+
   // Initialize tab-scroll arrow visibility and keep it in sync with resize
   useEffect(() => {
     const el = tabScrollRef.current;
