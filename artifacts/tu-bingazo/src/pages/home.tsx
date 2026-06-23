@@ -387,7 +387,7 @@ export default function HomePage() {
               <div className="mt-3 inline-flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2">
                 <span className="text-xs text-white/70">Saldo disponible</span>
                 <span className="font-black text-lg" style={{ color: "hsl(42 98% 60%)" }}>
-                  Bs {balance.toLocaleString("es-BO", { maximumFractionDigits: 0 })}
+                  Bs {balance.toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                 </span>
               </div>
             )}
