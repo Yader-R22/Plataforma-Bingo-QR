@@ -350,8 +350,8 @@ export default function PlayPage() {
   }
 
   return (
-    <div className="flex justify-center overflow-hidden" style={{ background: "#0d0028", height: "100dvh" }}>
-    <div className="w-full max-w-lg flex flex-col h-full">
+    <div className="min-h-screen flex justify-center" style={{ background: "#0d0028" }}>
+    <div className="w-full max-w-lg flex flex-col min-h-screen">
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 shrink-0"
         style={{ background: "rgba(255,255,255,0.05)", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
@@ -593,7 +593,7 @@ export default function PlayPage() {
 
       {/* BINGO button */}
       {card && session?.game_status === "active" && (
-        <div className="shrink-0 px-4 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+        <div className="shrink-0 px-4 pb-6 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
           {canClaimBingo ? (
             <>
               <button className="bingo-btn w-full h-16 rounded-2xl text-2xl"
