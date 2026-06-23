@@ -1,139 +1,275 @@
-# Tu Bingazo — Guía de Instalación en Hostinger / VPS
+# Tu Bingazo — Guía de Instalación Paso a Paso con Webmin
 
-> Plataforma boliviana de bingo en vivo con pagos QR (PagosYa), panel de administración completo, billetera digital, sistema de referidos y reportes financieros.
-
----
-
-## Requisitos del Hosting
-
-Tu plan de hosting debe soportar:
-- **Node.js v24 o superior** (Hostinger VPS recomendado)
-- **PostgreSQL 14+** (VPS local) **O** Supabase/Neon gratis (ver Opción B)
-- **Acceso SSH** al servidor
-- **pnpm v9+** como gestor de paquetes
+> **Para quién es esta guía:** Personas sin experiencia en servidores Linux que van a instalar Tu Bingazo en un VPS usando la interfaz visual **Webmin**.
+>
+> **Tiempo estimado:** 45–60 minutos si seguís los pasos en orden.
 
 ---
 
-## OPCIÓN A — Hostinger VPS (recomendado, control total)
+## ¿Qué es Webmin?
 
-### Paso 1: Contratar el hosting
-- Plan mínimo recomendado: **Hostinger KVM 1** (~$5/mes)
-- Sistema operativo: **Ubuntu 22.04**
+Webmin es un **panel de control visual** para administrar tu servidor Linux desde el navegador, sin necesidad de saber comandos complejos. Muchos proveedores de VPS (como Hostinger, Contabo, DigitalOcean) te permiten instalarlo con un clic.
 
-### Paso 2: Conectarse al servidor por SSH
+---
+
+## PARTE 1 — Requisitos antes de empezar
+
+Necesitás tener:
+
+- ✅ Un **VPS con Ubuntu 22.04** (mínimo 1GB RAM, 1 CPU — plan ~$5/mes)
+- ✅ **Webmin instalado** en el servidor (ver sección A si no lo tenés)
+- ✅ Un **dominio apuntando a la IP del servidor** (ej: `tubingazo.com`)
+- ✅ Las **claves de PagosYa** (pública y secreta) de tu cuenta
+
+---
+
+## SECCIÓN A — Instalar Webmin (si todavía no lo tenés)
+
+> Si ya tenés Webmin andando, saltá directo a la **PARTE 2**.
+
+### Paso A1: Conectarse al servidor por primera vez
+
+1. Abrí **PuTTY** (Windows) o la **Terminal** (Mac/Linux)
+2. Escribí este comando cambiando `TU_IP` por la IP de tu servidor:
+   ```
+   ssh root@TU_IP
+   ```
+3. Te va a pedir la contraseña que te dio el proveedor de hosting — escribila y presioná Enter
+   > ⚠️ Cuando escribís la contraseña no se ven los caracteres, es normal.
+
+### Paso A2: Instalar Webmin
+
+Copiá y pegá estos comandos uno por uno, presionando Enter después de cada uno:
+
 ```bash
-ssh root@TU_IP_DEL_SERVIDOR
+apt update && apt upgrade -y
+```
+```bash
+curl -fsSL https://download.webmin.com/jcameron-key.asc | gpg --dearmor -o /usr/share/keyrings/webmin.gpg
+echo "deb [signed-by=/usr/share/keyrings/webmin.gpg] https://download.webmin.com/download/repository sarge contrib" > /etc/apt/sources.list.d/webmin.list
+apt update
+apt install -y webmin
 ```
 
-### Paso 3: Instalar dependencias del sistema
+### Paso A3: Acceder a Webmin
+
+1. Abrí tu navegador
+2. Escribí: `https://TU_IP:10000`
+   > ⚠️ Va a aparecer un aviso de "sitio no seguro" — hacé clic en **Avanzado → Continuar de todas formas** (es normal en la primera visita)
+3. Usuario: `root`
+4. Contraseña: la misma que usaste para conectarte por SSH
+
+---
+
+## PARTE 2 — Abrir el Terminal de Webmin
+
+Todo el trabajo técnico se hace desde el terminal. En Webmin es muy fácil abrirlo:
+
+1. En el menú izquierdo de Webmin, buscá **"Tools"** (Herramientas)
+2. Hacé clic en **"Terminal"**
+3. Se abre una ventana negra — ahí escribirás todos los comandos que siguen
+
+> 💡 **Tip:** Podés copiar cualquier comando de esta guía y pegarlo en el terminal con **clic derecho → Pegar** o **Ctrl+Shift+V**
+
+---
+
+## PARTE 3 — Instalar Node.js, Git y herramientas necesarias
+
+En el terminal de Webmin, ejecutá estos comandos en orden:
+
+### Paso 3.1: Actualizar el sistema
+```bash
+apt update && apt upgrade -y
+```
+> Puede tardar 1–2 minutos. Esperá que termine.
+
+### Paso 3.2: Instalar Node.js v22
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-apt install -y nodejs postgresql postgresql-contrib git
+apt install -y nodejs
+```
+
+### Paso 3.3: Verificar que Node.js se instaló bien
+```bash
+node --version
+```
+> Debería mostrar algo como `v22.x.x`. Si no aparece, repetí el paso 3.2.
+
+### Paso 3.4: Instalar Git, pnpm y PM2
+```bash
+apt install -y git
 npm install -g pnpm@latest pm2
 ```
 
-### Paso 4: Crear la base de datos
+### Paso 3.5: Verificar instalaciones
+```bash
+pnpm --version
+pm2 --version
+git --version
+```
+> Cada comando debe mostrar un número de versión. Si alguno dice "command not found", repetí el paso anterior.
+
+---
+
+## PARTE 4 — Instalar y configurar PostgreSQL (base de datos)
+
+### Paso 4.1: Instalar PostgreSQL
+```bash
+apt install -y postgresql postgresql-contrib
+```
+
+### Paso 4.2: Iniciar el servicio de base de datos
+```bash
+systemctl start postgresql
+systemctl enable postgresql
+```
+
+### Paso 4.3: Crear la base de datos del proyecto
+
+Primero entrá al administrador de PostgreSQL:
 ```bash
 sudo -u postgres psql
 ```
-Dentro de PostgreSQL:
+> El indicador cambia a `postgres=#` — ahora estás dentro de PostgreSQL.
+
+Copiá y pegá **exactamente** estos comandos (cambiá `UNA_CONTRASEÑA_SEGURA` por una contraseña real que recuerdes):
 ```sql
 CREATE DATABASE tubingazo;
-CREATE USER tubingazo_user WITH PASSWORD 'TU_CONTRASEÑA_SEGURA';
+CREATE USER tubingazo_user WITH PASSWORD 'UNA_CONTRASEÑA_SEGURA';
 GRANT ALL PRIVILEGES ON DATABASE tubingazo TO tubingazo_user;
 \q
 ```
+> El `\q` es para salir de PostgreSQL. Después de ejecutarlo volvés al terminal normal.
 
-### Paso 5: Subir los archivos del proyecto
-Desde tu computadora, clonar el repositorio o subir el `.zip`:
+### Paso 4.4: Probar que la base de datos funciona
+
+Reemplazá `UNA_CONTRASEÑA_SEGURA` con la contraseña que pusiste antes:
 ```bash
-# Con Git (recomendado)
-git clone https://github.com/Yader-R22/Plataforma-Bingo-QR.git /var/www/tubingazo
+psql postgresql://tubingazo_user:UNA_CONTRASEÑA_SEGURA@localhost:5432/tubingazo -c "SELECT 1"
+```
+> Si responde `1` significa que todo está bien ✅
 
-# O bien, subir el zip por SCP
-scp -r tu-bingazo/ root@TU_IP:/var/www/tubingazo
+---
+
+## PARTE 5 — Descargar el código del proyecto
+
+### Paso 5.1: Crear la carpeta donde va a vivir el proyecto
+```bash
+mkdir -p /var/www/tubingazo
 ```
 
-### Paso 6: Instalar dependencias del proyecto
+### Paso 5.2: Descargar el código desde GitHub
+```bash
+git clone https://github.com/Yader-R22/Plataforma-Bingo-QR.git /var/www/tubingazo
+```
+> Esto descarga todos los archivos del proyecto al servidor. Puede tardar 1–2 minutos.
+
+### Paso 5.3: Entrar a la carpeta del proyecto
 ```bash
 cd /var/www/tubingazo
+```
+> A partir de acá, **todos los comandos se ejecutan estando en esta carpeta**. Si cerrás el terminal y volvés a abrirlo, acordate de escribir `cd /var/www/tubingazo` antes de cualquier otro comando.
+
+### Paso 5.4: Instalar las dependencias del proyecto
+```bash
 pnpm install
 ```
+> Esto puede tardar 2–5 minutos. Es normal que descargue muchos paquetes.
 
-### Paso 7: Configurar variables de entorno
+---
+
+## PARTE 6 — Crear el archivo de configuración (.env)
+
+El archivo `.env` contiene las contraseñas y configuraciones privadas del sistema. **Nunca lo compartas con nadie.**
+
+### Paso 6.1: Crear el archivo
+
+En el terminal:
 ```bash
-cp .env.example .env
-nano .env
+nano /var/www/tubingazo/.env
 ```
-Llenar todos los valores (ver sección **Variables de entorno** más abajo).
+> Se abre un editor de texto en el terminal.
 
-### Paso 8: Construir el proyecto y aplicar la base de datos
+### Paso 6.2: Pegar la configuración
+
+Copiá el siguiente bloque **completo** y pegalo en el editor (clic derecho en el terminal):
+
+```env
+# ── BASE DE DATOS ──────────────────────────────────────────────
+# Reemplazá UNA_CONTRASEÑA_SEGURA con la contraseña que usaste en el Paso 4.3
+DATABASE_URL=postgresql://tubingazo_user:UNA_CONTRASEÑA_SEGURA@localhost:5432/tubingazo
+
+# ── SEGURIDAD ──────────────────────────────────────────────────
+# Copiá y pegá exactamente esta línea — genera una clave aleatoria segura
+SESSION_SECRET=mi_clave_super_secreta_de_bingo_2025_cambiar_por_algo_muy_largo_y_unico
+
+# ── PAGOSYA ────────────────────────────────────────────────────
+# Obtené estas claves desde tu cuenta de PagosYa Bolivia
+PAGOSYA_PUBLIC_KEY=tu_clave_publica_de_pagosya
+PAGOSYA_SECRET_KEY=tu_clave_secreta_de_pagosya
+PAGOSYA_BASE_URL=https://api.pagosya.com
+
+# ── PUERTO ─────────────────────────────────────────────────────
+PORT=8080
+```
+
+### Paso 6.3: Guardar el archivo
+
+1. Presioná **Ctrl + X** (para salir)
+2. Te pregunta si querés guardar — presioná **Y** (yes)
+3. Presioná **Enter** para confirmar el nombre del archivo
+
+### Paso 6.4: Verificar que el archivo se creó bien
+```bash
+cat /var/www/tubingazo/.env
+```
+> Deberías ver el contenido que acabás de escribir.
+
+> ⚠️ **Importante:** El valor `SESSION_SECRET` debe ser una cadena larga y única. Podés generar una escribiendo este comando y copiando el resultado:
+> ```bash
+> openssl rand -base64 48
+> ```
+
+---
+
+## PARTE 7 — Crear las tablas en la base de datos y construir el proyecto
+
+### Paso 7.1: Asegurarte de estar en la carpeta correcta
+```bash
+cd /var/www/tubingazo
+```
+
+### Paso 7.2: Crear todas las tablas automáticamente
 ```bash
 pnpm --filter @workspace/db run push
+```
+> Esto crea **todas las tablas de la base de datos** automáticamente:
+> usuarios, juegos, cartones, ganadores, retiros, bonos, comisiones, auditoría, etc.
+> Esperá que aparezca el mensaje `Changes applied` ✅
+
+### Paso 7.3: Construir el proyecto
+```bash
 pnpm run build
 ```
+> Esto prepara el código para producción. Puede tardar 2–4 minutos.
+> Al finalizar debe aparecer algo como `Build complete` sin errores en rojo.
 
-> ⚠️ El comando `push` crea **todas las tablas automáticamente**, incluyendo las nuevas columnas del sistema de bonos y las tablas de finanzas.
+---
 
-### Paso 9: Iniciar el servidor con PM2
-```bash
-pm2 start "pnpm --filter @workspace/api-server run start" --name tubingazo-api
-pm2 start "pnpm --filter @workspace/tu-bingazo run preview" --name tubingazo-web
-pm2 save
-pm2 startup
-```
+## PARTE 8 — Crear el usuario administrador
 
-### Paso 10: Configurar Nginx (proxy para el dominio)
-```bash
-apt install -y nginx
-nano /etc/nginx/sites-available/tubingazo
-```
-Pegar esta configuración:
-```nginx
-server {
-    listen 80;
-    server_name TU_DOMINIO.COM www.TU_DOMINIO.COM;
-
-    location /api {
-        proxy_pass http://localhost:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    location / {
-        proxy_pass http://localhost:24958;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-```
-Activar:
-```bash
-ln -s /etc/nginx/sites-available/tubingazo /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
-```
-
-### Paso 11: Activar HTTPS (SSL gratuito)
-```bash
-apt install -y certbot python3-certbot-nginx
-certbot --nginx -d TU_DOMINIO.COM -d www.TU_DOMINIO.COM
-```
-
-### Paso 12: Crear usuario administrador
+### Paso 8.1: Entrar a la base de datos
 ```bash
 sudo -u postgres psql -d tubingazo
 ```
+
+### Paso 8.2: Insertar el usuario administrador
+
+Copiá y pegá este bloque **exactamente como está**:
 ```sql
 INSERT INTO users (full_name, ci, phone, password_hash, department, status, is_admin, balance, bonus_balance)
 VALUES (
-  'Administrador',
+  'Administrador Principal',
   '1000001',
   '70000000',
   '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
@@ -145,195 +281,292 @@ VALUES (
 );
 \q
 ```
-> Contraseña inicial: `password`  
-> ⚠️ **Cambiar la contraseña inmediatamente** desde el panel de administración.
+> La contraseña inicial es `password` (en inglés). Vas a cambiarla en el Paso 11.
 
 ---
 
-## OPCIÓN B — Hostinger Premium/Business + Supabase (base de datos gratuita en la nube)
+## PARTE 9 — Iniciar los servidores con PM2
 
-Usar esta opción si el plan de Hostinger no incluye VPS.
+PM2 es un programa que mantiene el servidor andando siempre, incluso si se reinicia el VPS.
 
-### Paso 1: Crear base de datos gratuita en Supabase
-1. Ir a https://supabase.com y crear una cuenta gratuita
-2. Crear un nuevo proyecto
-3. Copiar la **Connection String** desde: Settings → Database → Connection string → URI  
-   Ejemplo: `postgresql://postgres:[PASSWORD]@db.xxxx.supabase.co:5432/postgres`
-
-### Paso 2: Habilitar Node.js en Hostinger
-1. Entrar al hPanel de Hostinger
-2. Ir a **Sitios web → Administrar → Node.js**
-3. Seleccionar Node.js versión 22 o 24
-4. Establecer el directorio raíz del proyecto
-
-### Paso 3: Subir archivos
-- Comprimir y subir la carpeta del proyecto via Administrador de archivos de Hostinger o FTP
-- Descomprimir en el directorio configurado
-
-### Paso 4: Instalar dependencias desde el terminal SSH de Hostinger
+### Paso 9.1: Asegurarte de estar en la carpeta correcta
 ```bash
-npm install -g pnpm
-pnpm install
+cd /var/www/tubingazo
 ```
 
-### Paso 5: Configurar variables de entorno
-Crear el archivo `.env` con los datos de Supabase como `DATABASE_URL`.
-
-### Paso 6: Aplicar base de datos y construir
+### Paso 9.2: Iniciar el servidor de la API (backend)
 ```bash
-pnpm --filter @workspace/db run push
-pnpm run build
+pm2 start "pnpm --filter @workspace/api-server run start" --name tubingazo-api
 ```
 
-### Paso 7: Configurar el punto de entrada en hPanel
-- En la sección Node.js de hPanel, definir el archivo de entrada como:  
-  `artifacts/api-server/dist/index.js`
-
----
-
-## Variables de Entorno (archivo `.env`)
-
-Crear un archivo `.env` en la raíz del proyecto:
-
-```env
-# Base de datos (reemplazar con tus datos reales)
-DATABASE_URL=postgresql://tubingazo_user:TU_CONTRASEÑA@localhost:5432/tubingazo
-
-# Seguridad — generar una cadena aleatoria larga (mínimo 64 caracteres)
-SESSION_SECRET=cambia_esto_por_una_cadena_muy_larga_y_segura_de_al_menos_64_caracteres
-
-# PagosYa — obtener desde tu cuenta de PagosYa Bolivia
-PAGOSYA_PUBLIC_KEY=tu_clave_publica_de_pagosya
-PAGOSYA_SECRET_KEY=tu_clave_secreta_de_pagosya
-PAGOSYA_BASE_URL=https://api.pagosya.com
-
-# Puerto del servidor API (dejar en 8080 salvo que tu hosting requiera otro)
-PORT=8080
+### Paso 9.3: Iniciar el servidor del sitio web (frontend)
+```bash
+pm2 start "pnpm --filter @workspace/tu-bingazo run preview" --name tubingazo-web
 ```
 
----
-
-## Estructura de tablas en la base de datos
-
-El comando `pnpm --filter @workspace/db run push` crea automáticamente todas las tablas. A continuación el listado completo:
-
-| Tabla | Descripción |
-|-------|-------------|
-| `users` | Jugadores y administradores. Campos: `ci`, `phone`, `balance`, `bonus_balance`, `referral_code`, `referred_by`, `is_admin`, `status`, `department` |
-| `games` | Partidas de bingo. Campos: `title`, `card_price`, `prize_amount`, `status` (upcoming/active/finished), `game_type` (daily/weekly/monthly), `called_numbers` |
-| `cards` | Cartones comprados. Campos: `numbers` (matriz 5×5), `payment_status`, `marked_numbers`, `bonus_amount_used` (monto pagado con bono por cartón) |
-| `winners` | Ganadores validados. Campos: `prize_amount`, `commission_amount`, `activator_id`, `validated` |
-| `withdrawals` | Solicitudes de retiro. Campos: `amount`, `method`, `status`, `qr_alias` |
-| `referral_transactions` | Comisiones y bonos de bienvenida. Campos: `type` (commission/welcome_bonus), `amount`, `activator_id` |
-| `operating_expenses` | Gastos operativos fijos o recurrentes. Campos: `name`, `amount`, `frequency`, `is_active` |
-| `game_categories` | Categorías visibles en el inicio (bingo diario, semanal, etc.) |
-| `name_change_requests` | Solicitudes de cambio de nombre verificadas por el admin |
-| `audit_logs` | Log de todas las acciones críticas del sistema |
-| `feed_items` | Feed de actividad en tiempo real (compras, ganadores, etc.) |
-
----
-
-## Panel de Administración
-
-Acceder en: `https://TU_DOMINIO.COM/admin`
-
-Funcionalidades disponibles:
-
-### Gestión de juegos
-- Crear juegos diarios, semanales y mensuales
-- Cantar números manualmente durante el sorteo en vivo
-- Ver cartones vendidos por juego
-- Activar / finalizar juegos
-- Eliminar juegos sin cartones pagados
-
-### Gestión de usuarios
-- Listar y filtrar jugadores
-- Verificar identidad (CI boliviano)
-- Activar / suspender cuentas
-- Ajustar saldo manualmente (crédito o débito)
-- Ver historial de cartones y retiros por usuario
-- Aprobar solicitudes de cambio de nombre
-
-### Procesamiento de retiros
-- Ver todas las solicitudes pendientes
-- Marcar retiros como pagados (descuenta el saldo del usuario en ese momento)
-- Historial completo de retiros
-
-### Panel financiero
-- **Ingresos reales**: suma de `card_price − bonus_amount_used` — los cartones pagados con bono no inflan los ingresos
-- **Premios pagados**: total de premios validados
-- **Ganancia neta**: `Ingresos reales − Premios pagados`
-- **Bonos de bienvenida**: desglose de otorgados / gastados en cartones / pendiente sin gastar
-- **Comisiones de activadores**: redistribución interna del premio, informativo
-- **Gastos operativos**: gastos fijos configurables que se descuentan del monto distribuible a socios
-- **Monto distribuible a socios**: ganancia neta menos gastos operativos y premios comprometidos
-- Filtros por período: hoy, semana, mes, año, personalizado
-- Exportar PDF financiero completo
-- Exportar PDF de pago a socios
-- Compartir resumen financiero por WhatsApp
-
-### Registros de auditoría
-- Log completo de todas las acciones críticas: compras, reclamos de bingo, retiros, ajustes de saldo, etc.
-
----
-
-## Sistema de Referidos
-
-- Cada usuario tiene un `referral_code` único
-- Al registrarse con código de un activador:
-  - El nuevo usuario recibe un **bono de bienvenida** en `bonus_balance`
-  - El activador recibe una **comisión** al momento en que el referido gana un premio
-- Los bonos se usan automáticamente al comprar cartones (primero se consume `bonus_balance`, luego `balance`)
-- Los bonos usados en cartones quedan registrados en `bonus_amount_used` por cartón para excluirlos de los ingresos reales
-
----
-
-## Flujo de Pagos (PagosYa)
-
-1. El jugador selecciona cartones y hace clic en "Pagar"
-2. El sistema genera un checkout en PagosYa y redirige al QR
-3. PagosYa notifica al servidor via webhook `POST /api/payments/webhook`
-4. El servidor activa los cartones y acredita el saldo si corresponde
-5. Los cartones solo se activan con `payment_status = 'paid'`
-
----
-
-## Credenciales de administrador por defecto
-
-Después de la instalación:
-- **CI:** `1000001`
-- **Contraseña inicial:** `password`
-
-⚠️ **Cambiar la contraseña inmediatamente desde el panel de administración.**
-
----
-
-## Comandos útiles en producción
-
+### Paso 9.4: Verificar que ambos están corriendo
 ```bash
-# Ver logs del servidor API
-pm2 logs tubingazo-api
-
-# Reiniciar servicios
-pm2 restart all
-
-# Aplicar cambios de base de datos después de actualizar el código
-pnpm --filter @workspace/db run push
-
-# Reconstruir el proyecto después de actualizar el código
-pnpm install && pnpm run build && pm2 restart all
-
-# Ver estado de los servicios
 pm2 status
 ```
+> Debería mostrar dos filas con estado `online` en verde ✅
+>
+> Si alguno dice `errored` en rojo, revisá los logs con: `pm2 logs tubingazo-api`
+
+### Paso 9.5: Guardar la configuración de PM2 para que arranque solo
+```bash
+pm2 save
+pm2 startup
+```
+> PM2 te va a mostrar un comando largo para copiar y pegar — hacelo.  
+> Eso asegura que el servidor arranque solo si el VPS se reinicia.
 
 ---
 
-## Soporte y diagnóstico
+## PARTE 10 — Configurar Nginx (para acceder con tu dominio)
 
-Si hay problemas durante la instalación, verificar:
-1. Que Node.js v22+ esté instalado: `node --version`
-2. Que la base de datos esté accesible: `psql $DATABASE_URL -c "SELECT 1"`
-3. Que todos los valores del `.env` estén correctamente configurados
-4. Los logs del servidor: `pm2 logs tubingazo-api`
-5. Que la columna `bonus_amount_used` exista en la tabla `cards`: si se actualizó el código sin correr `push`, ejecutar `pnpm --filter @workspace/db run push` nuevamente
+Nginx es el programa que conecta tu dominio con el servidor del proyecto.
+
+### Paso 10.1: Instalar Nginx
+```bash
+apt install -y nginx
+```
+
+### Paso 10.2: Crear la configuración del sitio
+
+```bash
+nano /etc/nginx/sites-available/tubingazo
+```
+
+Pegá **exactamente** este contenido (reemplazá `TU_DOMINIO.COM` con tu dominio real, ej: `tubingazo.com`):
+
+```nginx
+server {
+    listen 80;
+    server_name TU_DOMINIO.COM www.TU_DOMINIO.COM;
+
+    # Seguridad básica
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+
+    # API del backend (puerto 8080)
+    location /api {
+        proxy_pass http://localhost:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Sitio web del frontend (puerto 24958)
+    location / {
+        proxy_pass http://localhost:24958;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+Guardá con **Ctrl + X → Y → Enter**.
+
+### Paso 10.3: Activar la configuración
+```bash
+ln -s /etc/nginx/sites-available/tubingazo /etc/nginx/sites-enabled/
+```
+
+### Paso 10.4: Verificar que la configuración está bien escrita
+```bash
+nginx -t
+```
+> Debe decir `syntax is ok` y `test is successful`. Si hay errores, revisá que copiaste bien el bloque del paso anterior.
+
+### Paso 10.5: Aplicar la configuración
+```bash
+systemctl reload nginx
+```
+
+### Paso 10.6: Probar que el sitio carga
+
+Abrí tu navegador y escribí `http://TU_DOMINIO.COM`. Deberías ver el inicio de Tu Bingazo ✅
+
+---
+
+## PARTE 11 — Activar HTTPS (candado de seguridad, gratis)
+
+> ⚠️ Este paso solo funciona si el dominio ya apunta a la IP del servidor. Si acabás de cambiar los DNS, esperá hasta 24 horas antes de hacer este paso.
+
+### Paso 11.1: Instalar Certbot
+```bash
+apt install -y certbot python3-certbot-nginx
+```
+
+### Paso 11.2: Obtener el certificado SSL gratuito
+
+Reemplazá `TU_DOMINIO.COM` con tu dominio:
+```bash
+certbot --nginx -d TU_DOMINIO.COM -d www.TU_DOMINIO.COM
+```
+
+Te va a preguntar:
+- Tu email — escribilo y presioná Enter
+- Aceptar términos — escribí `A` y Enter
+- Si querés compartir tu email con EFF — escribí `N` y Enter
+
+Al finalizar, el sitio va a estar disponible con HTTPS (candado verde) ✅
+
+### Paso 11.3: Renovación automática (para que no venza nunca)
+```bash
+certbot renew --dry-run
+```
+> Si no da error, la renovación automática está configurada.
+
+---
+
+## PARTE 12 — Primer ingreso al panel de administración
+
+1. Abrí `https://TU_DOMINIO.COM` en el navegador
+2. Hacé clic en **"Entrar"** o **"Iniciar Sesión"**
+3. Ingresá:
+   - **CI:** `1000001`
+   - **Contraseña:** `password`
+4. Una vez adentro, **cambiá la contraseña inmediatamente:**
+   - Andá al menú de perfil
+   - Buscá la opción "Cambiar contraseña"
+   - Poné una contraseña segura que solo vos conozcas
+
+---
+
+## PARTE 13 — Cómo actualizar el sistema cuando haya cambios
+
+Cuando descargues una nueva versión del código, seguí estos pasos:
+
+```bash
+# 1. Entrar a la carpeta del proyecto
+cd /var/www/tubingazo
+
+# 2. Descargar los cambios nuevos
+git pull
+
+# 3. Instalar dependencias nuevas (si las hay)
+pnpm install
+
+# 4. Actualizar la base de datos (por si hay columnas nuevas)
+pnpm --filter @workspace/db run push
+
+# 5. Reconstruir el proyecto
+pnpm run build
+
+# 6. Reiniciar los servidores
+pm2 restart all
+```
+
+---
+
+## Variables de entorno — referencia completa
+
+| Variable | Descripción | Ejemplo |
+|----------|-------------|---------|
+| `DATABASE_URL` | Dirección de la base de datos | `postgresql://tubingazo_user:PASS@localhost:5432/tubingazo` |
+| `SESSION_SECRET` | Clave secreta para los tokens JWT (mín. 32 caracteres) | Cadena aleatoria larga |
+| `PAGOSYA_PUBLIC_KEY` | Clave pública de tu cuenta PagosYa | `pk_live_xxxx` |
+| `PAGOSYA_SECRET_KEY` | Clave secreta de tu cuenta PagosYa | `sk_live_xxxx` |
+| `PAGOSYA_BASE_URL` | URL de la API de PagosYa | `https://api.pagosya.com` |
+| `PORT` | Puerto del servidor API | `8080` |
+
+---
+
+## Tablas de la base de datos
+
+Se crean **automáticamente** con `pnpm --filter @workspace/db run push`:
+
+| Tabla | ¿Para qué sirve? |
+|-------|-----------------|
+| `users` | Jugadores y administradores con su saldo y saldo de bono |
+| `games` | Partidas de bingo (diarias, semanales, mensuales) |
+| `cards` | Cartones comprados — incluye `bonus_amount_used` para excluir bonos de los ingresos |
+| `winners` | Ganadores validados con sus premios y comisiones |
+| `withdrawals` | Solicitudes de retiro de saldo |
+| `referral_transactions` | Bonos de bienvenida y comisiones por referidos |
+| `operating_expenses` | Gastos operativos del negocio (configurables desde el admin) |
+| `game_categories` | Categorías de juegos visibles en la página de inicio |
+| `name_change_requests` | Solicitudes de cambio de nombre a verificar |
+| `audit_logs` | Registro de todas las acciones importantes del sistema |
+| `feed_items` | Feed de actividad en tiempo real |
+
+---
+
+## Comandos de emergencia
+
+```bash
+# Ver qué está pasando en el servidor ahora mismo
+pm2 logs tubingazo-api --lines 50
+
+# El servidor no responde — reiniciarlo
+pm2 restart all
+
+# Ver si los puertos están escuchando
+ss -tlnp | grep -E "8080|24958"
+
+# Ver el estado de la base de datos
+systemctl status postgresql
+
+# Reiniciar la base de datos si no responde
+systemctl restart postgresql
+
+# Ver el espacio disponible en disco
+df -h
+
+# Ver el uso de memoria
+free -h
+```
+
+---
+
+## Solución de problemas comunes
+
+### ❌ "Cannot connect to database"
+1. Verificá que PostgreSQL esté corriendo: `systemctl status postgresql`
+2. Verificá que la contraseña en `.env` sea la misma que pusiste en el Paso 4.3
+3. Probá la conexión manualmente: `psql $DATABASE_URL -c "SELECT 1"`
+
+### ❌ El sitio no carga en el navegador
+1. Verificá que Nginx esté corriendo: `systemctl status nginx`
+2. Verificá que PM2 esté corriendo: `pm2 status`
+3. Revisá que el dominio apunte a la IP del servidor
+
+### ❌ "pm2: command not found"
+```bash
+npm install -g pm2
+```
+
+### ❌ La API responde pero el frontend no carga
+1. Revisá que el proceso `tubingazo-web` esté `online` en `pm2 status`
+2. Reinicialo: `pm2 restart tubingazo-web`
+
+### ❌ Error después de actualizar el código
+Siempre corré estos pasos en orden después de un `git pull`:
+```bash
+pnpm install
+pnpm --filter @workspace/db run push
+pnpm run build
+pm2 restart all
+```
+
+---
+
+## Datos importantes de acceso
+
+| Dato | Valor |
+|------|-------|
+| Panel de administración | `https://TU_DOMINIO.COM/admin` |
+| CI del admin inicial | `1000001` |
+| Contraseña inicial | `password` (¡cambiala ya!) |
+| Webmin | `https://TU_IP:10000` |
+| Puerto API | `8080` |
+| Puerto frontend | `24958` |
