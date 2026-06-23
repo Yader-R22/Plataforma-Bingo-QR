@@ -15,6 +15,7 @@ export default function PaymentPage() {
   const checkoutId = params?.checkoutId ?? "";
   const [status, setStatus] = useState<"pending" | "completed" | "failed">("pending");
   const [polling, setPolling] = useState(true);
+  const [countdown, setCountdown] = useState(5);
 
   useEffect(() => {
     if (!checkoutId || !token) return;
@@ -57,6 +58,14 @@ export default function PaymentPage() {
     return () => clearInterval(interval);
   }, [checkoutId, token]);
 
+  // Auto-redirect to my cards after payment confirmed
+  useEffect(() => {
+    if (status !== "completed") return;
+    if (countdown <= 0) { navigate("/mis-cartones"); return; }
+    const t = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [status, countdown]);
+
   return (
     <>
       <div className="min-h-screen flex items-center justify-center p-4">
@@ -91,8 +100,11 @@ export default function PaymentPage() {
             <div className="bg-card border rounded-3xl p-8 shadow-lg">
               <div className="text-6xl mb-4">🎉</div>
               <h2 className="text-2xl font-black mb-2 text-green-600">¡Pago confirmado!</h2>
-              <p className="text-muted-foreground text-sm mb-6">
+              <p className="text-muted-foreground text-sm mb-4">
                 Tus cartones están activos. ¡Buena suerte en el juego!
+              </p>
+              <p className="text-xs text-muted-foreground mb-6">
+                Redirigiendo a tus cartones en <span className="font-black text-primary">{countdown}</span>s...
               </p>
               <Button className="w-full" onClick={() => navigate("/mis-cartones")}>
                 Ver mis cartones 🎱
