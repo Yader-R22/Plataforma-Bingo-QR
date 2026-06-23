@@ -932,7 +932,7 @@ export default function AdminPage() {
         setGames(gs => gs.map(g => {
           const upd = fresh.find(f => f.id === g.id);
           if (!upd) return g;
-          return { ...g, participant_count: upd.participant_count };
+          return { ...g, participant_count: upd.participant_count, unique_participants: upd.unique_participants, online_count: upd.online_count };
         }));
       } catch {}
     }, 5000);
