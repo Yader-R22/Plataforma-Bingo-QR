@@ -15,6 +15,7 @@ export interface SiteSettings {
   primary_color: string;
   qr_background_url: string | null;
   support_whatsapp: string | null;
+  terms_and_conditions: string | null;
 }
 
 const DEFAULTS: SiteSettings = {
@@ -29,6 +30,7 @@ const DEFAULTS: SiteSettings = {
   primary_color: "#1a0050",
   qr_background_url: null,
   support_whatsapp: null,
+  terms_and_conditions: null,
 };
 
 async function fetchSiteSettings(): Promise<SiteSettings> {

@@ -852,6 +852,7 @@ export default function AdminPage() {
     pwa_short_name: "Bingazo",
     pwa_icon_url: "",
     pwa_cache_version: 1,
+    terms_and_conditions: "",
   });
   const [savingSite, setSavingSite] = useState(false);
   const [banners, setBanners] = useState<{ id: number; image_url: string; media_type: string; display_order: number; is_active: boolean }[]>([]);
@@ -1073,6 +1074,7 @@ export default function AdminPage() {
             pwa_short_name: s.pwa_short_name ?? "Bingazo",
             pwa_icon_url: s.pwa_icon_url ?? "",
             pwa_cache_version: s.pwa_cache_version ?? 1,
+            terms_and_conditions: s.terms_and_conditions ?? "",
           });
         }
         if (br.ok) { setBanners(await br.json()); }
@@ -6320,6 +6322,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 pwa_short_name: siteForm.pwa_short_name,
                 pwa_icon_url: siteForm.pwa_icon_url || null,
                 ...(siteForm.payment_api_key && { payment_api_key: siteForm.payment_api_key }),
+                terms_and_conditions: siteForm.terms_and_conditions || null,
               };
               const r = await fetch(`${BASE}/api/site-settings`, {
                 method: "PUT",
@@ -6486,6 +6489,33 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       </button>
                     )}
                   </div>
+                </div>
+              </div>
+
+              {/* Términos y Condiciones */}
+              <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                <div>
+                  <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>📋 Términos y Condiciones</h2>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Este texto se muestra a los usuarios al momento de registrarse. Deben aceptarlo obligatoriamente para crear su cuenta. Si está vacío, el checkbox de aceptación no aparece en el formulario.
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">
+                    Contenido de los Términos y Condiciones
+                  </label>
+                  <textarea
+                    className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background resize-y"
+                    rows={12}
+                    placeholder={"Escribe aquí los términos y condiciones de tu plataforma...\n\nEjemplo:\n1. Elegibilidad: Solo mayores de 18 años residentes en Bolivia.\n2. Uso del servicio: Los cartones comprados no son reembolsables.\n3. Premios: Los premios se acreditan en la billetera digital..."}
+                    value={sf.terms_and_conditions}
+                    onChange={e => setSiteForm(f => ({ ...f, terms_and_conditions: e.target.value }))}
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {sf.terms_and_conditions.length > 0
+                      ? `${sf.terms_and_conditions.length} caracteres — el checkbox de T&C aparecerá en el registro`
+                      : "Sin contenido — el checkbox de T&C no aparecerá en el registro"}
+                  </p>
                 </div>
               </div>
 

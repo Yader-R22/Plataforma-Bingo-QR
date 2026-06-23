@@ -42,6 +42,7 @@ router.get("/", async (_req, res) => {
     pwa_bg_color: s.pwaBgColor,
     pwa_start_url: s.pwaStartUrl,
     pwa_categories: s.pwaCategories,
+    terms_and_conditions: s.termsAndConditions ?? null,
   });
 });
 
@@ -62,6 +63,7 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
     payment_api_key,
     pwa_short_name,
     pwa_icon_url,
+    terms_and_conditions,
   } = req.body as Record<string, string | null | undefined>;
 
   await ensureSettings();
@@ -84,6 +86,7 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
       ...(payment_api_key !== undefined && payment_api_key !== null && payment_api_key !== "" && { paymentApiKey: payment_api_key }),
       ...(pwa_short_name !== undefined && { pwaShortName: pwa_short_name ?? undefined }),
       ...(pwa_icon_url !== undefined && { pwaIconUrl: pwa_icon_url }),
+      ...(terms_and_conditions !== undefined && { termsAndConditions: terms_and_conditions }),
       updatedAt: new Date(),
       updatedById: req.userId!,
     })
@@ -119,6 +122,7 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
     pwa_bg_color: s.pwaBgColor,
     pwa_start_url: s.pwaStartUrl,
     pwa_categories: s.pwaCategories,
+    terms_and_conditions: s.termsAndConditions ?? null,
   });
 });
 

@@ -80,6 +80,9 @@ export default function RegisterPage() {
   });
   const [loading, setLoading] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const hasTerms = !!(site.terms_and_conditions?.trim());
   const { setAuth } = useAuthStore();
   const [, navigate] = useLocation();
 
@@ -393,6 +396,45 @@ export default function RegisterPage() {
                 </div>
               )}
 
+              {/* T&C checkbox — solo aparece si el admin definió los términos */}
+              {hasTerms && (
+                <div
+                  className="rounded-2xl p-3 flex items-start gap-3 cursor-pointer select-none"
+                  style={{
+                    background: termsAccepted ? "hsl(var(--primary) / 0.08)" : "hsl(var(--muted))",
+                    border: `1.5px solid ${termsAccepted ? "hsl(var(--primary))" : "hsl(var(--border))"}`,
+                    transition: "all 0.2s",
+                  }}
+                  onClick={() => setTermsAccepted(v => !v)}
+                >
+                  <div
+                    className="w-5 h-5 rounded-md shrink-0 flex items-center justify-center mt-0.5"
+                    style={{
+                      background: termsAccepted ? "hsl(var(--primary))" : "transparent",
+                      border: `2px solid ${termsAccepted ? "hsl(var(--primary))" : "hsl(var(--border))"}`,
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {termsAccepted && (
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                  <p className="text-sm leading-snug flex-1">
+                    He leído y acepto los{" "}
+                    <button
+                      type="button"
+                      className="font-black underline"
+                      style={{ color: "hsl(var(--primary))" }}
+                      onClick={e => { e.stopPropagation(); setShowTermsModal(true); }}
+                    >
+                      Términos y Condiciones
+                    </button>
+                  </p>
+                </div>
+              )}
+
               <div className="flex gap-2 pt-2">
                 <button type="button" className="flex-1 font-bold rounded-[14px] border-2 py-3" style={{ borderColor: "hsl(var(--border))" }} onClick={() => setStep(2)}>
                   ← Volver
@@ -401,7 +443,7 @@ export default function RegisterPage() {
                   type="submit"
                   className="btn-primary flex-1"
                   style={{ width: "auto" }}
-                  disabled={loading || !form.department}
+                  disabled={loading || !form.department || (hasTerms && !termsAccepted)}
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -422,6 +464,68 @@ export default function RegisterPage() {
           </p>
         )}
       </div>
+
+      {/* Modal de Términos y Condiciones */}
+      {showTermsModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4"
+          style={{ background: "rgba(0,0,0,0.7)" }}
+          onClick={() => setShowTermsModal(false)}
+        >
+          <div
+            className="w-full sm:max-w-lg bg-background rounded-t-[28px] sm:rounded-2xl flex flex-col"
+            style={{ maxHeight: "85vh" }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0" style={{ borderBottom: "1px solid hsl(var(--border))" }}>
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📋</span>
+                <h2 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                  Términos y Condiciones
+                </h2>
+              </div>
+              <button
+                onClick={() => setShowTermsModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: "hsl(var(--muted))" }}
+                aria-label="Cerrar"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M1 1l12 12M13 1L1 13"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Contenido scrollable */}
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
+                {site.terms_and_conditions}
+              </p>
+            </div>
+
+            {/* Botones de acción */}
+            <div className="px-5 pb-6 pt-3 flex gap-2 shrink-0" style={{ borderTop: "1px solid hsl(var(--border))" }}>
+              <button
+                type="button"
+                className="flex-1 font-bold rounded-[14px] border-2 py-3 text-sm"
+                style={{ borderColor: "hsl(var(--border))" }}
+                onClick={() => setShowTermsModal(false)}
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                className="btn-primary flex-1"
+                style={{ width: "auto" }}
+                onClick={() => { setTermsAccepted(true); setShowTermsModal(false); }}
+              >
+                ✓ Acepto los términos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
