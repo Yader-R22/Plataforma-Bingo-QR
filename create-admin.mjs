@@ -60,10 +60,9 @@ try {
 // ── Cargar bcryptjs ───────────────────────────────────────────────────────
 let bcrypt;
 const bcryptPaths = [
-  "./node_modules/.pnpm/bcryptjs@3.0.2/node_modules/bcryptjs/dist/cjs/bcryptjs.cjs",
   "./artifacts/api-server/node_modules/bcryptjs",
 ];
-// Try the pnpm store first, then fall back to api-server local install
+// Cargar desde la instalación local del api-server
 for (const p of bcryptPaths) {
   try {
     bcrypt = require(p);

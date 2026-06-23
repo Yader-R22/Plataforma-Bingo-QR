@@ -923,6 +923,7 @@ Creadas automáticamente con `pnpm --filter @workspace/db run push`:
 | `operating_expenses` | Gastos operativos fijos configurables desde el admin |
 | `game_categories` | Categorías de juegos en la página de inicio |
 | `partners` | Socios inversores con porcentaje de participación en ganancias |
+| `partner_payments` | Historial de pagos realizados a los socios por período |
 | `banners` | Imágenes y anuncios promocionales |
 | `site_settings` | Configuración general (nombre del sitio, logo, colores) |
 | `name_change_requests` | Solicitudes de cambio de nombre de jugadores |
