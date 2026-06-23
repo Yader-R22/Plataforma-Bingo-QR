@@ -195,6 +195,8 @@ export default function PlayPage() {
   const prevCalledRef = useRef<number[]>([]);
   const prevRoundRef = useRef<number>(1);
   const [roundTransition, setRoundTransition] = useState<number | null>(null);
+  const [autoMark, setAutoMark] = useState(false);
+  const autoMarkRef = useRef(false);
   const authHeader = { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" };
 
   async function autoMarkOnCards(newNums: number[], currentCards: BingoCard[]) {
@@ -246,7 +248,7 @@ export default function PlayPage() {
           if (newNums.length > 0) {
             setNewNumberAlert(data.last_called_number);
             setTimeout(() => setNewNumberAlert(null), 4000);
-            autoMarkOnCards(newNums, cardsRef.current);
+            if (autoMarkRef.current) autoMarkOnCards(newNums, cardsRef.current);
           }
           prevCalledRef.current = data.called_numbers;
           return data;
@@ -505,10 +507,23 @@ export default function PlayPage() {
           );
         })()}
 
-        {/* Auto-mark info */}
-        <div className="flex items-center gap-2 px-1">
-          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          <p className="text-white/40 text-xs">Los números se marcan automáticamente en tu cartón</p>
+        {/* Auto-mark toggle */}
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${autoMark ? "bg-green-400 animate-pulse" : "bg-white/20"}`} />
+            <p className="text-white/40 text-xs">Marcado automático</p>
+          </div>
+          <button
+            onClick={() => { const next = !autoMark; setAutoMark(next); autoMarkRef.current = next; }}
+            className="relative flex items-center transition-all"
+            style={{ width: 40, height: 22 }}
+            aria-label="Activar marcado automático"
+          >
+            <span className="block w-full h-full rounded-full transition-colors duration-200"
+              style={{ background: autoMark ? "hsl(142 70% 45%)" : "rgba(255,255,255,0.15)" }} />
+            <span className="absolute top-1 transition-all duration-200 w-4 h-4 rounded-full bg-white shadow"
+              style={{ left: autoMark ? 20 : 4 }} />
+          </button>
         </div>
 
         {/* Card selector */}
@@ -587,7 +602,7 @@ export default function PlayPage() {
               ))}
             </div>
             <p className="text-center text-white/40 text-xs">
-              Marcado automático activado · {markedSet.size - 1} marcados de {session?.called_numbers?.length ?? 0} cantados
+              {autoMark ? "Marcado automático activado · " : "Marcado manual · "}{markedSet.size - 1} marcados de {session?.called_numbers?.length ?? 0} cantados
             </p>
           </>
         ) : null}
