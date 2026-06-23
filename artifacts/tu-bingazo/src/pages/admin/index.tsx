@@ -1672,6 +1672,7 @@ export default function AdminPage() {
     const bonusesGranted   = s?.total_bonuses_granted ?? 0;
     const bonusesSpent     = s?.bonuses_spent_on_cards ?? 0;
     const bonusesUnspent   = s?.bonuses_unspent ?? 0;
+    const adminCreditSpent = s?.admin_credit_spent_on_cards ?? 0;
     const distributable    = s?.distributable_profit ?? netProfit;
     const expensesDetail: any[] = s?.expenses_detail ?? [];
     const committedDetail: any[] = s?.committed_prizes_detail ?? [];
@@ -1724,6 +1725,7 @@ export default function AdminPage() {
   <thead><tr><th>Concepto</th><th>Frecuencia / Estado</th><th>Referencia</th><th style="text-align:right">Descuento del período</th></tr></thead>
   <tbody>
     ${(s?.bonuses_spent_on_cards ?? bonusesGranted) > 0 ? `<tr style="background:#fefce8"><td colspan="3" style="font-weight:900;color:#b45309">🎁 Bonos de Bienvenida (gastados en cartones)</td><td style="text-align:right;font-weight:900;color:#b45309">ℹ️ Informativo</td></tr><tr><td style="padding-left:20px">↳ Otorgados: ${fmt(bonusesGranted)} · Gastados: ${fmt(s?.bonuses_spent_on_cards ?? 0)} · Pendiente: ${fmt(bonusesUnspent)}</td><td>—</td><td style="color:#64748b;font-size:10px">Ya excluidos de ingresos brutos — no se restan de nuevo</td><td style="text-align:right;color:#b45309;font-weight:bold">—</td></tr>` : ""}
+    ${adminCreditSpent > 0 ? `<tr style="background:#f0f9ff"><td colspan="3" style="font-weight:900;color:#0369a1">🏦 Créditos Admin gastados en cartones</td><td style="text-align:right;font-weight:900;color:#0369a1">ℹ️ Informativo</td></tr><tr><td style="padding-left:20px">↳ Gastados: ${fmt(adminCreditSpent)}</td><td>—</td><td style="color:#64748b;font-size:10px">Dinero inyectado por el admin — ya excluido de ingresos brutos</td><td style="text-align:right;color:#0369a1;font-weight:bold">—</td></tr>` : ""}
     ${totalExpenses > 0 ? `<tr style="background:#fff1f2"><td colspan="3" style="font-weight:900;color:#dc2626">🏭 Gastos Operativos</td><td style="text-align:right;font-weight:900;color:#dc2626">−${fmt(totalExpenses)}</td></tr>${expenseRows}` : ""}
     ${committedPrizes > 0 ? `<tr style="background:#fffbeb"><td colspan="3" style="font-weight:900;color:#b45309">🔒 Premios Comprometidos (reservados)</td><td style="text-align:right;font-weight:900;color:#b45309">−${fmt(committedPrizes)}</td></tr>${committedRows2}` : ""}
     <tr style="background:${distributable >= 0 ? "#f0fdf4" : "#fef2f2"}">
@@ -2109,7 +2111,7 @@ ${signaturesSection}` : "";
   <div class="kpi" style="background:${netProfit >= 0 ? "#f0fdf4" : "#fef2f2"};border-color:${netProfit >= 0 ? "#86efac" : "#fca5a5"}">
     <div class="kpi-value" style="color:${netProfit >= 0 ? "#16a34a" : "#dc2626"}">${fmt(netProfit)}</div>
     <div class="kpi-label">Ganancia neta</div>
-    <div class="kpi-sub">Ingresos − Premios totales − Bonos bienvenida</div>
+    <div class="kpi-sub">Ingresos reales − Premios totales</div>
   </div>
 </div>
 
@@ -2161,6 +2163,7 @@ ${summarySection}
     const bonusesGranted   = Number(s.total_bonuses_granted  ?? 0);
     const bonusesSpent     = Number(s.bonuses_spent_on_cards ?? 0);
     const bonusesUnspent   = Number(s.bonuses_unspent ?? 0);
+    const adminCreditSpent2 = Number(s.admin_credit_spent_on_cards ?? 0);
     const distributable    = Number(s.distributable_profit ?? totalPaid);
     const expensesDetail: any[] = s.expenses_detail         ?? [];
     const committedDetail: any[] = s.committed_prizes_detail ?? [];
@@ -2214,6 +2217,7 @@ ${summarySection}
   <thead><tr><th>Concepto</th><th>Frecuencia / Estado</th><th>Referencia</th><th style="text-align:right">Descuento del período</th></tr></thead>
   <tbody>
     ${(s?.bonuses_spent_on_cards ?? bonusesGranted) > 0 ? `<tr style="background:#fefce8"><td colspan="3" style="font-weight:900;color:#b45309">🎁 Bonos de Bienvenida (gastados en cartones)</td><td style="text-align:right;font-weight:900;color:#b45309">ℹ️ Informativo</td></tr><tr><td style="padding-left:20px">↳ Otorgados: ${fmt(bonusesGranted)} · Gastados: ${fmt(s?.bonuses_spent_on_cards ?? 0)} · Pendiente: ${fmt(bonusesUnspent)}</td><td>—</td><td style="color:#64748b;font-size:10px">Ya excluidos de ingresos brutos — no se restan de nuevo</td><td style="text-align:right;color:#b45309;font-weight:bold">—</td></tr>` : ""}
+    ${adminCreditSpent2 > 0 ? `<tr style="background:#f0f9ff"><td colspan="3" style="font-weight:900;color:#0369a1">🏦 Créditos Admin gastados en cartones</td><td style="text-align:right;font-weight:900;color:#0369a1">ℹ️ Informativo</td></tr><tr><td style="padding-left:20px">↳ Gastados: ${fmt(adminCreditSpent2)}</td><td>—</td><td style="color:#64748b;font-size:10px">Dinero inyectado por el admin — ya excluido de ingresos brutos</td><td style="text-align:right;color:#0369a1;font-weight:bold">—</td></tr>` : ""}
     ${totalExpenses > 0 ? `<tr style="background:#fff1f2"><td colspan="3" style="font-weight:900;color:#dc2626">🏭 Gastos Operativos</td><td style="text-align:right;font-weight:900;color:#dc2626">−${fmt(totalExpenses)}</td></tr>${expenseRows}` : ""}
     ${committedPrizes > 0 ? `<tr style="background:#fffbeb"><td colspan="3" style="font-weight:900;color:#b45309">🔒 Premios Comprometidos (reservados)</td><td style="text-align:right;font-weight:900;color:#b45309">−${fmt(committedPrizes)}</td></tr>${committedRows2}` : ""}
     <tr style="background:${distributable >= 0 ? "#f0fdf4" : "#fef2f2"}">
@@ -2533,7 +2537,7 @@ ${signaturesSection}` : "";
   <div class="kpi" style="background:${netProfit >= 0 ? "#f0fdf4" : "#fef2f2"};border-color:${netProfit >= 0 ? "#86efac" : "#fca5a5"}">
     <div class="kpi-value" style="color:${netProfit >= 0 ? "#16a34a" : "#dc2626"}">${fmt(netProfit)}</div>
     <div class="kpi-label">Ganancia neta</div>
-    <div class="kpi-sub">Ingresos − Premios totales − Bonos bienvenida</div>
+    <div class="kpi-sub">Ingresos reales − Premios totales</div>
   </div>
 </div>
 
