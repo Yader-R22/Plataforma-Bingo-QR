@@ -440,6 +440,55 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
     }
   }
 
+  // ── Pre-compute referral commission BEFORE entering the serializable tx ─────
+  // We look up settings outside the tx to keep the critical section short.
+  let preCommPct = 0;
+  let preActivatorId: number | null = null;
+  let preApplyCommission = false;
+  try {
+    const winnerUserRow = await db.select({ referredByCode: usersTable.referredByCode })
+      .from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
+    const refCode = winnerUserRow[0]?.referredByCode;
+    if (refCode) {
+      const codeRow = await db.select({ userId: referralCodesTable.userId })
+        .from(referralCodesTable)
+        .where(and(eq(referralCodesTable.code, refCode), eq(referralCodesTable.isActive, true)))
+        .limit(1);
+      if (codeRow.length) {
+        const settings = await db.select().from(activatorSettingsTable)
+          .where(eq(activatorSettingsTable.id, 1)).limit(1);
+        const pct = parseFloat(settings[0]?.commissionPercentage ?? "5");
+        const duration = settings[0]?.commissionDuration ?? "indefinite";
+        const durationMonths = settings[0]?.commissionDurationMonths ?? null;
+        preActivatorId = codeRow[0].userId;
+        preCommPct = pct;
+        preApplyCommission = true;
+
+        if (duration === "once") {
+          const prev = await db.select({ id: referralTransactionsTable.id })
+            .from(referralTransactionsTable)
+            .where(and(
+              eq(referralTransactionsTable.type, "commission"),
+              eq(referralTransactionsTable.activatorId, preActivatorId),
+              eq(referralTransactionsTable.referredUserId, req.userId!),
+            )).limit(1);
+          if (prev.length) preApplyCommission = false;
+        } else if (duration === "monthly" && durationMonths) {
+          const refTxRow = await db.select({ createdAt: referralTransactionsTable.createdAt })
+            .from(referralTransactionsTable)
+            .where(and(
+              eq(referralTransactionsTable.type, "welcome_bonus"),
+              eq(referralTransactionsTable.referredUserId, req.userId!),
+            )).limit(1);
+          if (refTxRow.length) {
+            const monthsElapsed = (Date.now() - refTxRow[0].createdAt.getTime()) / (1000 * 60 * 60 * 24 * 30);
+            if (monthsElapsed > durationMonths) preApplyCommission = false;
+          }
+        }
+      }
+    }
+  } catch { /* commission lookup errors must not block the claim */ }
+
   // Dedupe, max-winners cap, place assignment, winner insert and audit all run
   // inside ONE transaction that locks the game row (SELECT ... FOR UPDATE).
   // This serializes concurrent valid claims so two players cannot both pass the
@@ -489,9 +538,15 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
         validated: true,
       }).returning();
 
-      // Auto-credit prize to winner's balance in the same transaction
+      // Deduct commission from prize — winner receives net amount, activator gets the rest
+      const commAmountTx = (preApplyCommission && preCommPct > 0)
+        ? parseFloat((parseFloat(String(prizeAmount)) * preCommPct / 100).toFixed(2))
+        : 0;
+      const netPrize = parseFloat((parseFloat(String(prizeAmount)) - commAmountTx).toFixed(2));
+
+      // Credit net prize (full prize minus activator commission) to winner
       await tx.execute(
-        sql`UPDATE users SET balance = balance + ${parseFloat(String(prizeAmount))} WHERE id = ${req.userId!}`
+        sql`UPDATE users SET balance = balance + ${netPrize} WHERE id = ${req.userId!}`
       );
 
       await tx.insert(auditLogsTable).values({
@@ -506,6 +561,9 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
           marked_numbers: b.data.marked_numbers,
           called_numbers: calledNumbers,
           prize_amount: prizeAmount,
+          net_prize: netPrize,
+          commission_amount: commAmountTx,
+          commission_pct: preCommPct,
           place: nextPlace,
         },
         ipAddress: req.ip,
@@ -534,68 +592,28 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
   const users = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
   const userName = users[0]?.fullName?.split(" ")[0] ?? "Un jugador";
 
-  // ── Activator commission: credit activator if referred user wins ──────────
-  try {
-    const winnerUser = await db.select({ referredByCode: usersTable.referredByCode })
-      .from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
-    const refCode = winnerUser[0]?.referredByCode;
-    if (refCode) {
-      const codeRow = await db.select({ userId: referralCodesTable.userId })
-        .from(referralCodesTable)
-        .where(and(eq(referralCodesTable.code, refCode), eq(referralCodesTable.isActive, true)))
-        .limit(1);
-      if (codeRow.length) {
-        const settings = await db.select().from(activatorSettingsTable)
-          .where(eq(activatorSettingsTable.id, 1)).limit(1);
-        const commPct = parseFloat(settings[0]?.commissionPercentage ?? "5");
-        const duration = settings[0]?.commissionDuration ?? "indefinite";
-        const durationMonths = settings[0]?.commissionDurationMonths ?? null;
-        const activatorId = codeRow[0].userId;
-
-        let applyCommission = true;
-        if (duration === "once") {
-          const prevCommissions = await db.select({ id: referralTransactionsTable.id })
-            .from(referralTransactionsTable)
-            .where(and(
-              eq(referralTransactionsTable.type, "commission"),
-              eq(referralTransactionsTable.activatorId, activatorId),
-              eq(referralTransactionsTable.referredUserId, req.userId!),
-            )).limit(1);
-          if (prevCommissions.length) applyCommission = false;
-        } else if (duration === "monthly" && durationMonths) {
-          const refTxRow = await db.select({ createdAt: referralTransactionsTable.createdAt })
-            .from(referralTransactionsTable)
-            .where(and(
-              eq(referralTransactionsTable.type, "welcome_bonus"),
-              eq(referralTransactionsTable.referredUserId, req.userId!),
-            )).limit(1);
-          if (refTxRow.length) {
-            const monthsElapsed = (Date.now() - refTxRow[0].createdAt.getTime()) / (1000 * 60 * 60 * 24 * 30);
-            if (monthsElapsed > durationMonths) applyCommission = false;
-          }
-        }
-
-        if (applyCommission && commPct > 0) {
-          const commAmount = parseFloat((parseFloat(String(winner.prizeAmount)) * commPct / 100).toFixed(2));
-          if (commAmount > 0) {
-            await db.execute(
-              sql`UPDATE users SET balance = balance + ${commAmount} WHERE id = ${activatorId}`
-            );
-            await db.insert(referralTransactionsTable).values({
-              type: "commission",
-              activatorId,
-              referredUserId: req.userId!,
-              gameId: game.id,
-              winnerId: winner.id,
-              amount: String(commAmount),
-              commissionPercentage: String(commPct),
-              description: `Comisión ${commPct}% por ganancia de ${userName} — Bs ${parseFloat(String(winner.prizeAmount)).toFixed(2)}`,
-            });
-          }
-        }
+  // ── Activator commission: credit activator with the amount already deducted from winner ──
+  // preApplyCommission/preCommPct/preActivatorId were resolved before the tx above.
+  if (preApplyCommission && preActivatorId && preCommPct > 0) {
+    try {
+      const commAmount = parseFloat((parseFloat(String(winner.prizeAmount)) * preCommPct / 100).toFixed(2));
+      if (commAmount > 0) {
+        await db.execute(
+          sql`UPDATE users SET balance = balance + ${commAmount} WHERE id = ${preActivatorId}`
+        );
+        await db.insert(referralTransactionsTable).values({
+          type: "commission",
+          activatorId: preActivatorId,
+          referredUserId: req.userId!,
+          gameId: game.id,
+          winnerId: winner.id,
+          amount: String(commAmount),
+          commissionPercentage: String(preCommPct),
+          description: `Comisión ${preCommPct}% por ganancia de ${userName} — Premio: Bs ${parseFloat(String(winner.prizeAmount)).toFixed(2)}`,
+        });
       }
-    }
-  } catch { /* commission errors must not block winner registration */ }
+    } catch { /* commission errors must not block winner registration */ }
+  }
 
   // ── Add to public feed ────────────────────────────────────────────────────
   try {
