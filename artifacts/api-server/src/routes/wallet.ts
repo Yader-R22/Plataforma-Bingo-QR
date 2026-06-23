@@ -38,9 +38,17 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
     ));
 
   // Total prizes won in games (from winners table, validated only)
-  const totalWon = await db.select({ total: sql<string>`coalesce(sum(${winnersTable.prizeAmount}), 0)` })
+  const totalBingoWon = await db.select({ total: sql<string>`coalesce(sum(${winnersTable.prizeAmount}), 0)` })
     .from(winnersTable)
     .where(and(eq(winnersTable.userId, req.userId!), eq(winnersTable.validated, true)));
+
+  // Total commissions earned as activator from referral program
+  const totalCommissions = await db.select({ total: sql<string>`coalesce(sum(${referralTransactionsTable.amount}), 0)` })
+    .from(referralTransactionsTable)
+    .where(and(
+      eq(referralTransactionsTable.activatorId, req.userId!),
+      eq(referralTransactionsTable.type, "commission"),
+    ));
 
   // Total actually withdrawn (paid user-initiated withdrawals only, not admin adjustments)
   const totalWithdrawn = await db.select({ total: sql<string>`coalesce(sum(${withdrawalsTable.amount}), 0)` })
@@ -56,7 +64,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
     bonus_balance: parseFloat(user.bonusBalance),
     bonus_expires_at: user.bonusExpiresAt ?? null,
     pending_withdrawals: parseFloat(pending[0]?.total ?? "0"),
-    total_won: parseFloat(totalWon[0]?.total ?? "0"),
+    total_won: parseFloat(totalBingoWon[0]?.total ?? "0") + parseFloat(totalCommissions[0]?.total ?? "0"),
     total_withdrawn: parseFloat(totalWithdrawn[0]?.total ?? "0"),
   });
 });
