@@ -85,6 +85,44 @@ function formatCard(card: typeof cardsTable.$inferSelect) {
 // NOT trusted for validity — a card wins if and only if the winning pattern's
 // cells all hold numbers that were called (this is the real bingo rule and is
 // immune to client tampering or polling lag).
+// Cuenta cuántas líneas ganadoras independientes tiene el cartón con los números dados.
+// Usado para el chequeo de pisado: si el último bolillo aumentó el conteo, el jugador
+// formó una línea nueva y el reclamo es válido aunque ya tuviera otra línea antes.
+function countValidLines(card: typeof cardsTable.$inferSelect, gameMode: string, calledNumbers: number[]): number {
+  const matrix = card.numbers as number[][];
+  const calledSet = new Set(calledNumbers);
+  const isHit = (row: number, col: number) => {
+    const n = matrix[row][col];
+    return n === 0 || calledSet.has(n);
+  };
+  let count = 0;
+  if (gameMode === "horizontal") {
+    for (let r = 0; r < 5; r++) {
+      if ([0, 1, 2, 3, 4].every(c => isHit(r, c))) count++;
+    }
+  } else if (gameMode === "vertical") {
+    for (let c = 0; c < 5; c++) {
+      if ([0, 1, 2, 3, 4].every(r => isHit(r, c))) count++;
+    }
+  } else if (gameMode === "diagonal") {
+    if ([0, 1, 2, 3, 4].every(i => isHit(i, i))) count++;
+    if ([0, 1, 2, 3, 4].every(i => isHit(i, 4 - i))) count++;
+  } else if (gameMode === "quina") {
+    for (let r = 0; r < 5; r++) {
+      if ([0, 1, 2, 3, 4].every(c => isHit(r, c))) count++;
+    }
+    for (let c = 0; c < 5; c++) {
+      if ([0, 1, 2, 3, 4].every(r => isHit(r, c))) count++;
+    }
+    if ([0, 1, 2, 3, 4].every(i => isHit(i, i))) count++;
+    if ([0, 1, 2, 3, 4].every(i => isHit(i, 4 - i))) count++;
+  } else {
+    // Modos de resultado único (full_card, esquinas, cruz, x_doble): 0 o 1
+    count = validateBingo(card, gameMode, calledNumbers) ? 1 : 0;
+  }
+  return count;
+}
+
 function validateBingo(card: typeof cardsTable.$inferSelect, gameMode: string, calledNumbers: number[]): boolean {
   const matrix = card.numbers as number[][];
   const calledSet = new Set(calledNumbers);
@@ -428,18 +466,23 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
     return;
   }
 
-  // ── Número pisado: el bingo ya era válido ANTES del último bolillo cantado.
-  // El jugador debió reclamar en el número anterior — este reclamo llega tarde.
+  // ── Número pisado: el bingo ya era válido ANTES del último bolillo cantado
+  // Y el último bolillo no formó ninguna línea nueva e independiente.
+  // Si el jugador ya tenía una línea pero el último bolillo completó una línea
+  // distinta, el reclamo es válido (nueva oportunidad ganadora).
   if (calledNumbers.length > 1) {
     const prevNumbers = calledNumbers.slice(0, -1);
-    const alreadyHadBingo = validateBingo(card, roundCfg.game_mode, prevNumbers);
-    if (alreadyHadBingo) {
-      res.json({
-        valid: false,
-        pisado: true,
-        message: "¡Número pisado! Ya tenías bingo antes del último bolillo. Debías reclamar en cuanto se cantó tu número ganador.",
-      });
-      return;
+    const linesBefore = countValidLines(card, roundCfg.game_mode, prevNumbers);
+    if (linesBefore > 0) {
+      const linesNow = countValidLines(card, roundCfg.game_mode, calledNumbers);
+      if (linesNow <= linesBefore) {
+        res.json({
+          valid: false,
+          pisado: true,
+          message: "¡Número pisado! Ya tenías bingo antes del último bolillo. Debías reclamar en cuanto se cantó tu número ganador.",
+        });
+        return;
+      }
     }
   }
 
