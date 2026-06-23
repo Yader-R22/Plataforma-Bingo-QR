@@ -50,6 +50,7 @@ export default function ProfilePage() {
   const [nameReq, setNameReq] = useState<NameReq | null>(null);
   const [ciReq, setCiReq] = useState<CiReq | null>(null);
   const [reqStatusLoaded, setReqStatusLoaded] = useState(false);
+  const [showChangeRequests, setShowChangeRequests] = useState(false);
   const RESOLUTION_VISIBLE_MS = 60 * 60 * 1000; // 1 hora
   function isRecentlyResolved(req: ReqStatus | null): boolean {
     if (!req || req.status === "pending" || !req.resolved_at) return false;
@@ -112,6 +113,14 @@ export default function ProfilePage() {
     const interval = setInterval(fetchReqStatus, 5000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [token]);
+
+  // Auto-expand change requests card if there's a pending request
+  useEffect(() => {
+    if (!reqStatusLoaded) return;
+    if (nameReq?.status === "pending" || ciReq?.status === "pending") {
+      setShowChangeRequests(true);
+    }
+  }, [reqStatusLoaded, nameReq?.status, ciReq?.status]);
 
   if (!user) return null;
 
@@ -625,9 +634,32 @@ export default function ProfilePage() {
         </div>
 
         {/* Solicitudes de cambio */}
-        <div className="bg-card border rounded-2xl p-5 space-y-4">
-          <h3 className="font-black">Solicitudes de Cambio</h3>
-          <p className="text-xs text-muted-foreground -mt-2">El nombre y CI requieren aprobación del administrador con verificación de identidad.</p>
+        <div className="bg-card border rounded-2xl overflow-hidden">
+          {/* Header — siempre visible, clickeable */}
+          <button
+            className="w-full flex items-center justify-between px-5 py-4 text-left"
+            onClick={() => setShowChangeRequests(v => !v)}
+          >
+            <div className="flex items-center gap-2">
+              <span className="font-black text-sm">✏️ Solicitudes de Cambio</span>
+              {(nameReq?.status === "pending" || ciReq?.status === "pending") && (
+                <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: "hsl(42 98% 48%)" }} />
+              )}
+            </div>
+            <svg
+              width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              className="text-muted-foreground shrink-0 transition-transform duration-200"
+              style={{ transform: showChangeRequests ? "rotate(180deg)" : "rotate(0deg)" }}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+
+          {/* Contenido colapsable */}
+          {showChangeRequests && (
+            <div className="px-5 pb-5 space-y-4 border-t" style={{ borderColor: "hsl(var(--border))" }}>
+              <p className="text-xs text-muted-foreground pt-3">El nombre y CI requieren aprobación del administrador con verificación de identidad.</p>
 
           {/* ── Nombre ── */}
           <div className="space-y-3">
@@ -784,6 +816,8 @@ export default function ProfilePage() {
               </button>
             )}
           </div>
+            </div>
+          )}
         </div>
 
         {user.is_admin && (
