@@ -14,6 +14,7 @@ export interface SiteSettings {
   seo_keywords: string;
   primary_color: string;
   qr_background_url: string | null;
+  support_whatsapp: string | null;
 }
 
 const DEFAULTS: SiteSettings = {
@@ -27,6 +28,7 @@ const DEFAULTS: SiteSettings = {
   seo_keywords: "bingo, bolivia, bingo en vivo, premios",
   primary_color: "#1a0050",
   qr_background_url: null,
+  support_whatsapp: null,
 };
 
 async function fetchSiteSettings(): Promise<SiteSettings> {

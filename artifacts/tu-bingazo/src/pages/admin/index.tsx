@@ -846,6 +846,7 @@ export default function AdminPage() {
     primary_color: "#1a0050",
     qr_background_url: "",
     banner_interval: 5,
+    support_whatsapp: "",
     payment_api_key: "",
     payment_api_key_configured: false,
     pwa_short_name: "Bingazo",
@@ -1062,6 +1063,7 @@ export default function AdminPage() {
             logo_url: s.logo_url ?? "",
             qr_background_url: s.qr_background_url ?? "",
             banner_interval: s.banner_interval ?? 5,
+            support_whatsapp: s.support_whatsapp ?? "",
             seo_title: s.seo_title,
             seo_description: s.seo_description,
             seo_keywords: s.seo_keywords,
@@ -6171,6 +6173,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 primary_color: siteForm.primary_color,
                 qr_background_url: siteForm.qr_background_url || null,
                 banner_interval: siteForm.banner_interval,
+                support_whatsapp: siteForm.support_whatsapp || null,
                 pwa_short_name: siteForm.pwa_short_name,
                 pwa_icon_url: siteForm.pwa_icon_url || null,
                 ...(siteForm.payment_api_key && { payment_api_key: siteForm.payment_api_key }),
@@ -6486,6 +6489,22 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   <p className="text-xs text-muted-foreground mt-1.5">
                     Esta llave se usa para generar los códigos QR de pago. No la compartas públicamente.
                   </p>
+                </div>
+              </div>
+
+              {/* WhatsApp soporte */}
+              <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>💬 Soporte WhatsApp</h2>
+                <p className="text-xs text-muted-foreground">Número que verán los jugadores al presionar "Contactar soporte" en su perfil. Incluye el código de país sin +, ej: <span className="font-mono">59170000000</span>.</p>
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Número WhatsApp</label>
+                  <input
+                    type="tel"
+                    className="w-full rounded-xl border px-3 py-2.5 text-sm font-mono bg-background"
+                    placeholder="59170000000"
+                    value={siteForm.support_whatsapp}
+                    onChange={e => setSiteForm(f => ({ ...f, support_whatsapp: e.target.value.replace(/\s/g, "") }))}
+                  />
                 </div>
               </div>
 
