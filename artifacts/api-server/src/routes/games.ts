@@ -103,7 +103,7 @@ router.get("/", async (req: AuthRequest, res) => {
 
   // Unique participants per game (one query for all games)
   const uniqueRows = await db.execute(
-    sql`SELECT game_id, COUNT(DISTINCT user_id)::int AS cnt FROM cards WHERE payment_status = 'paid' GROUP BY game_id`
+    sql`SELECT game_id, COUNT(DISTINCT user_id)::int AS cnt FROM cards WHERE payment_status = 'paid' AND status = 'active' GROUP BY game_id`
   );
   const uniqueMap = new Map<number, number>();
   for (const row of uniqueRows.rows) uniqueMap.set(row.game_id as number, row.cnt as number);
@@ -149,7 +149,7 @@ router.get("/:id", async (req: AuthRequest, res) => {
   const games = await db.select().from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
   if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
   const uniq = await db.execute(
-    sql`SELECT COUNT(DISTINCT user_id)::int AS cnt FROM cards WHERE game_id = ${p.data.id} AND payment_status = 'paid'`
+    sql`SELECT COUNT(DISTINCT user_id)::int AS cnt FROM cards WHERE game_id = ${p.data.id} AND payment_status = 'paid' AND status = 'active'`
   );
   const uniqueParticipants = (uniq.rows[0]?.cnt as number) ?? 0;
   res.json(formatGame(games[0], { uniqueParticipants, onlineCount: getOnlineCount(p.data.id) }));
