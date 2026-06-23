@@ -258,6 +258,7 @@ export default function HomePage() {
   const token = useAuthStore(s => s.token);
   const feedRef = useRef<HTMLDivElement>(null);
   const [activeBanner, setActiveBanner] = useState(0);
+  const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
 
   // Banners + banner interval — cached 5 min, survives page transitions
   const { data: bannersData } = useQuery({
@@ -286,6 +287,16 @@ export default function HomePage() {
     const t = setTimeout(() => setActiveBanner(i => (i + 1) % heroBanners.length), bannerInterval * 1000);
     return () => clearTimeout(t);
   }, [activeBanner, heroBanners, bannerInterval]);
+
+  // Restart video from the beginning every time its slide becomes active
+  useEffect(() => {
+    const current = heroBanners[activeBanner];
+    if (current?.media_type !== "video") return;
+    const vid = videoRefs.current.get(current.id);
+    if (!vid) return;
+    vid.currentTime = 0;
+    void vid.play();
+  }, [activeBanner, heroBanners]);
 
   const { data: games = [], refetch: refetchGames } = useListGames();
 
@@ -359,7 +370,9 @@ export default function HomePage() {
             className="absolute inset-0 transition-opacity duration-700"
             style={{ opacity: i === activeBanner ? 1 : 0, zIndex: 0 }}>
             {b.media_type === "video"
-              ? <video src={b.image_url} className="w-full h-full object-cover" autoPlay muted playsInline style={{ display: "block" }}
+              ? <video
+                  ref={el => { if (el) videoRefs.current.set(b.id, el); else videoRefs.current.delete(b.id); }}
+                  src={b.image_url} className="w-full h-full object-cover" autoPlay muted playsInline style={{ display: "block" }}
                   onEnded={() => heroBanners.length > 1 && setActiveBanner(idx => (idx + 1) % heroBanners.length)} />
               : <img src={b.image_url} alt="" className="w-full h-full object-cover" style={{ display: "block" }} />}
             <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.45)" }} />
