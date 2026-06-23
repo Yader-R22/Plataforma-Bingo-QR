@@ -21,6 +21,19 @@ import {
 
 const router = Router();
 
+// In-memory presence: gameId → userId → lastSeen ms
+const presenceMap = new Map<number, Map<number, number>>();
+const PRESENCE_TTL_MS = 30_000;
+
+function getOnlineCount(gameId: number): number {
+  const m = presenceMap.get(gameId);
+  if (!m) return 0;
+  const now = Date.now();
+  let count = 0;
+  for (const [, ts] of m) { if (now - ts < PRESENCE_TTL_MS) count++; }
+  return count;
+}
+
 function getCurrentRoundConfig(game: typeof gamesTable.$inferSelect) {
   const rounds = game.rounds as RoundConfig[] | null | undefined;
   if (rounds?.length) {
@@ -40,7 +53,10 @@ function getCurrentRoundConfig(game: typeof gamesTable.$inferSelect) {
   };
 }
 
-function formatGame(game: typeof gamesTable.$inferSelect) {
+function formatGame(
+  game: typeof gamesTable.$inferSelect,
+  extras: { uniqueParticipants?: number; onlineCount?: number } = {}
+) {
   const rounds = game.rounds as RoundConfig[] | null | undefined;
   const totalRounds = rounds?.length ?? 1;
   const currentRound = game.currentRound ?? 1;
@@ -55,6 +71,8 @@ function formatGame(game: typeof gamesTable.$inferSelect) {
     card_price: parseFloat(game.cardPrice),
     draw_date: game.drawDate,
     participant_count: game.participantCount,
+    unique_participants: extras.uniqueParticipants ?? game.participantCount,
+    online_count: extras.onlineCount ?? 0,
     stream_url_youtube: game.streamUrlYoutube ?? null,
     stream_url_tiktok: game.streamUrlTiktok ?? null,
     stream_url_facebook: game.streamUrlFacebook ?? null,
@@ -82,7 +100,18 @@ router.get("/", async (req: AuthRequest, res) => {
   const games = conditions.length
     ? await db.select().from(gamesTable).where(and(...conditions)).orderBy(desc(gamesTable.drawDate))
     : await db.select().from(gamesTable).orderBy(desc(gamesTable.drawDate));
-  res.json(games.map(formatGame));
+
+  // Unique participants per game (one query for all games)
+  const uniqueRows = await db.execute(
+    sql`SELECT game_id, COUNT(DISTINCT user_id)::int AS cnt FROM cards WHERE payment_status = 'paid' GROUP BY game_id`
+  );
+  const uniqueMap = new Map<number, number>();
+  for (const row of uniqueRows.rows) uniqueMap.set(row.game_id as number, row.cnt as number);
+
+  res.json(games.map(g => formatGame(g, {
+    uniqueParticipants: uniqueMap.get(g.id) ?? 0,
+    onlineCount: getOnlineCount(g.id),
+  })));
 });
 
 router.post("/", requireAdmin, async (req: AuthRequest, res) => {
@@ -119,7 +148,11 @@ router.get("/:id", async (req: AuthRequest, res) => {
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
   const games = await db.select().from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
   if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
-  res.json(formatGame(games[0]));
+  const uniq = await db.execute(
+    sql`SELECT COUNT(DISTINCT user_id)::int AS cnt FROM cards WHERE game_id = ${p.data.id} AND payment_status = 'paid'`
+  );
+  const uniqueParticipants = (uniq.rows[0]?.cnt as number) ?? 0;
+  res.json(formatGame(games[0], { uniqueParticipants, onlineCount: getOnlineCount(p.data.id) }));
 });
 
 router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
@@ -156,6 +189,14 @@ router.get("/:id/session", requireAuth, async (req: AuthRequest, res) => {
   const games = await db.select().from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
   if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
   const game = games[0];
+
+  // Record presence
+  if (req.userId) {
+    let gm = presenceMap.get(p.data.id);
+    if (!gm) { gm = new Map(); presenceMap.set(p.data.id, gm); }
+    gm.set(req.userId, Date.now());
+  }
+
   const called = game.status === "active" ? (game.calledNumbers ?? []) : [];
   const rounds = game.rounds as RoundConfig[] | null | undefined;
   const totalRounds = rounds?.length ?? 1;

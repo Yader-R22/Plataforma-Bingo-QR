@@ -3287,7 +3287,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     {/* Footer bar */}
                     <div className="px-4 py-2.5 flex items-center justify-between"
                       style={{ background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-                      <span className="text-white/50 text-xs">{g.called_numbers?.length ?? 0} números · {g.participant_count} jugadores</span>
+                      <span className="text-white/50 text-xs">{g.called_numbers?.length ?? 0} números · {g.online_count ?? 0} jugadores en línea</span>
                       <div className="flex items-center gap-3">
                         {(g.total_rounds ?? 1) > 1 && (g.current_round ?? 1) < (g.total_rounds ?? 1) ? (
                           <>
@@ -3532,7 +3532,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       )}
                     </div>
                     <p className={`text-xs ${g.status === "active" ? "text-white/60" : "text-muted-foreground"}`}>
-                      Bs {g.prize_amount} premio · {g.participant_count} participantes · {new Date(g.draw_date).toLocaleDateString("es-BO")}
+                      Bs {g.prize_amount} premio · {g.unique_participants ?? g.participant_count} participantes · {new Date(g.draw_date).toLocaleDateString("es-BO")}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5 shrink-0">
@@ -3746,7 +3746,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 {g.status === "active" && (
                   <div className="px-4 py-2.5 flex items-center justify-between"
                     style={{ background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-                    <span className="text-white/50 text-xs">{g.called_numbers?.length ?? 0} números · {g.participant_count} jugadores</span>
+                    <span className="text-white/50 text-xs">{g.called_numbers?.length ?? 0} números · {g.online_count ?? 0} jugadores en línea</span>
                     <div className="flex items-center gap-3">
                       {(g.total_rounds ?? 1) > 1 && (g.current_round ?? 1) < (g.total_rounds ?? 1) ? (
                         <>
@@ -7315,7 +7315,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               {/* Footer acciones */}
               <div className="px-5 py-3 flex items-center justify-between"
                 style={{ background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-                <span className="text-white/50 text-xs">{g.called_numbers?.length ?? 0} números · {g.participant_count} jugadores</span>
+                <span className="text-white/50 text-xs">{g.called_numbers?.length ?? 0} números · {g.online_count ?? 0} jugadores en línea</span>
                 <div className="flex items-center gap-3">
                   {(g.total_rounds ?? 1) > 1 && (g.current_round ?? 1) < (g.total_rounds ?? 1) ? (
                     <>
