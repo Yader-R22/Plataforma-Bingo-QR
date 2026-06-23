@@ -504,7 +504,11 @@ router.post("/winners/:id/validate", async (req: AuthRequest, res) => {
 
     // Get user name for feed
     const users = await db.select().from(usersTable).where(eq(usersTable.id, winner.userId)).limit(1);
-    const userName = users[0]?.fullName?.split(" ")[0] ?? "Un jugador";
+    const _uW = users[0];
+    const _wParts = _uW?.fullName?.trim().split(/\s+/) ?? [];
+    const _wShort = _wParts.length >= 2 ? `${_wParts[0]} ${_wParts[1]}` : (_wParts[0] ?? "Un jugador");
+    const _wDept = _uW?.department ?? "";
+    const userName = `${_wShort}${_wDept ? ` de ${_wDept}` : ""}`;
 
     // Add to public feed
     await db.insert(feedItemsTable).values({

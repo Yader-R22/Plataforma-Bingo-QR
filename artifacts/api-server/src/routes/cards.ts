@@ -636,7 +636,11 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
   if (!winner) { res.status(500).json({ error: "No se pudo registrar el reclamo" }); return; }
 
   const users = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
-  const userName = users[0]?.fullName?.split(" ")[0] ?? "Un jugador";
+  const _uWinner = users[0];
+  const _wParts = _uWinner?.fullName?.trim().split(/\s+/) ?? [];
+  const _wShort = _wParts.length >= 2 ? `${_wParts[0]} ${_wParts[1]}` : (_wParts[0] ?? "Un jugador");
+  const _wDept = _uWinner?.department ?? "";
+  const userName = `${_wShort}${_wDept ? ` de ${_wDept}` : ""}`;
 
   // ── Activator commission: credit activator with the amount already deducted from winner ──
   // preApplyCommission/preCommPct/preActivatorId were resolved before the tx above.
