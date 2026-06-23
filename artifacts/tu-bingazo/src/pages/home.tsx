@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { useListGames, useGetWallet, getGetWalletQueryKey, useListCategories } from "@workspace/api-client-react";
+import { useListGames, getListGamesQueryKey, useGetWallet, getGetWalletQueryKey, useListCategories, getListCategoriesQueryKey } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { useSetLayoutConfig } from "@/components/AppLayout";
@@ -298,14 +298,18 @@ export default function HomePage() {
     void vid.play();
   }, [activeBanner, heroBanners]);
 
-  const { data: games = [], refetch: refetchGames } = useListGames();
+  const { data: games = [], refetch: refetchGames } = useListGames(undefined, {
+    query: { queryKey: getListGamesQueryKey(), staleTime: 30_000, gcTime: 10 * 60 * 1000 },
+  });
 
   // Poll game list every 8s so any admin change is immediately visible on home
   useEffect(() => {
     const iv = setInterval(() => { void refetchGames(); }, 8000);
     return () => clearInterval(iv);
   }, []);
-  const { data: categories = [] } = useListCategories();
+  const { data: categories = [] } = useListCategories({
+    query: { queryKey: getListCategoriesQueryKey(), staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 },
+  });
   const { data: wallet } = useGetWallet({
     query: {
       queryKey: getGetWalletQueryKey(),
