@@ -1,6 +1,6 @@
 # Tu Bingazo
 
-Plataforma boliviana de bingo en vivo — los jugadores compran cartones con pagos QR (PagosYa), marcan números durante el sorteo en vivo, reclaman premios y retiran a su billetera digital.
+Plataforma boliviana de bingo en vivo — los jugadores compran cartones con pagos QR (Enlazo), marcan números durante el sorteo en vivo, reclaman premios y retiran a su billetera digital.
 
 ## Run & Operate
 
@@ -10,7 +10,7 @@ Plataforma boliviana de bingo en vivo — los jugadores compran cartones con pag
 - `pnpm run build` — typecheck + build
 - `pnpm --filter @workspace/api-spec run codegen` — regenerar hooks y schemas Zod desde OpenAPI
 - `pnpm --filter @workspace/db run push` — aplicar cambios de schema a la DB (solo dev)
-- Variables env requeridas: `DATABASE_URL`, `SESSION_SECRET`, `PAGOSYA_PUBLIC_KEY`, `PAGOSYA_SECRET_KEY`, `PAGOSYA_BASE_URL`
+- Variables env requeridas: `DATABASE_URL`, `SESSION_SECRET`, `PAYMENT_API_KEY`
 
 ## Stack
 
@@ -19,7 +19,7 @@ Plataforma boliviana de bingo en vivo — los jugadores compran cartones con pag
 - API: Express 5 + pino logging
 - DB: PostgreSQL + Drizzle ORM
 - Auth: JWT (via `SESSION_SECRET`), bcryptjs, almacenado en localStorage como `token`
-- Pagos: PagosYa API (checkout externo QR)
+- Pagos: Enlazo API (generación QR + verificación de pago vía Supabase Functions)
 - Validación: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (desde OpenAPI spec)
 - Build: esbuild (CJS bundle)
@@ -42,12 +42,12 @@ Plataforma boliviana de bingo en vivo — los jugadores compran cartones con pag
 - **JWT sin sesión server-side**: token 30 días en localStorage, middleware re-lee usuario de DB en cada request para detectar cambios de estado.
 - **Cartón bingo**: matriz 5×5, columnas B(1-15)/I(16-30)/N(31-45)/G(46-60)/O(61-75), casilla central [2][2]=0 (espacio libre).
 - **Validación de bingo en servidor**: el reclamo de bingo es verificado en el backend contra los números cantados (`calledNumbers`), nunca solo en el cliente.
-- **Pagos async via webhook**: PagosYa notifica via POST `/api/payments/webhook` cuando el pago completa; los cartones se activan solo entonces.
+- **Pagos async via polling**: el frontend consulta `GET /api/payments/:checkoutId/status` cada pocos segundos; cuando Enlazo confirma el pago, el servidor activa los cartones automáticamente.
 - **Retiros manuales**: el admin marca manualmente los retiros como pagados; el sistema descuenta el saldo del usuario en ese momento.
 
 ## Product
 
-- **Jugadores**: registrarse con CI boliviano, comprar cartones de bingo con QR/PagosYa, jugar en vivo marcando números con auto-polling cada 3s, reclamar BINGO, ver su billetera y retirar saldo.
+- **Jugadores**: registrarse con CI boliviano, comprar cartones de bingo con QR (Enlazo), jugar en vivo marcando números con auto-polling cada 3s, reclamar BINGO, ver su billetera y retirar saldo.
 - **Admin**: crear y gestionar juegos (diarios/semanales/mensuales), verificar identidades de usuarios, cantar números manualmente, validar ganadores, procesar retiros, ver logs de auditoría.
 
 ## User preferences

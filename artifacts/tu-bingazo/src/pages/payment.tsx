@@ -66,7 +66,7 @@ export default function PaymentPage() {
               <div className="text-6xl mb-4 animate-bounce">⏳</div>
               <h2 className="text-xl font-black mb-2">Esperando tu pago</h2>
               <p className="text-muted-foreground text-sm mb-6">
-                Completa el pago en la ventana de PagosYa que se abrió. Tus cartones se activarán automáticamente.
+                Escanea el código QR con tu app bancaria o billetera digital para completar el pago. Tus cartones se activarán automáticamente.
               </p>
               <div className="flex justify-center mb-4">
                 <div className="flex gap-1">
