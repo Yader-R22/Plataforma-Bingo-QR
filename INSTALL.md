@@ -89,7 +89,7 @@ Verificá que tu servidor tenga:
 - ✅ Un **dominio apuntando a la IP del servidor** (ej: `tubingazo.com`)
 - ✅ Credenciales de **Enlazo Business** (pasarela de pago QR boliviana)
 
-> ⚠️ El dominio debe apuntar a la IP del servidor **antes** de instalar HTTPS (Parte 13). Verificá con: `ping elbingote.com`
+> ⚠️ El dominio debe apuntar a la IP del servidor **antes** de instalar HTTPS (Parte 13). Verificá con: `ping tubingazo.com`
 
 ---
 
@@ -97,13 +97,13 @@ Verificá que tu servidor tenga:
 
 1. Abrí `https://TU_IP:10000` en el navegador
    > Si aparece aviso de "sitio no seguro" → clic en **Avanzado → Continuar** — es normal.
-2. Ingresá con usuario `root` y tu contraseña del servidor
+2. Ingresá con tu usuario y contraseña del servidor
 3. Menú izquierdo → **"Tools"** → **"Terminal"**
 4. Se abre una ventana negra — desde ahí ejecutarás todos los comandos
 
 > 💡 **Tips:**
 > - Pegar con **clic derecho → Pegar** o **Ctrl+Shift+V**
-> - Si el terminal se cierra: `ssh root@TU_IP`
+> - Si el terminal se cierra: reconectate a Webmin y volvé a Tools → Terminal
 > - Ver dónde estás: `pwd` · Ver archivos: `ls -la`
 
 ---
@@ -142,7 +142,7 @@ sudo apt update
 sudo apt install -y curl ca-certificates gnupg git
 ```
 
-> Estos tres paquetes son necesarios para descargar e instalar Node.js correctamente. Sin `ca-certificates`, la descarga del repositorio de NodeSource puede fallar con errores de SSL.
+> Estos paquetes son necesarios para descargar e instalar Node.js correctamente. Sin `ca-certificates`, la descarga del repositorio de NodeSource puede fallar con errores de SSL.
 
 ### Paso 4.2: Instalar Node.js 24
 
@@ -186,7 +186,9 @@ sudo systemctl start postgresql
 sudo systemctl enable postgresql
 sudo systemctl status postgresql
 ```
-> Debe mostrar `active (running)` ✅
+> Debe mostrar `active` ✅
+> 
+> Nota: PostgreSQL puede mostrar `active (exited)` en el servicio principal — eso es normal. Los procesos reales de la base de datos son procesos hijos que arrancan automáticamente.
 
 ### Paso 5.2: Crear la base de datos
 
@@ -224,6 +226,8 @@ sudo mkdir -p /var/www
 sudo chown $USER:$USER /var/www
 git clone https://github.com/Yader-R22/Plataforma-Bingo-QR.git /var/www/tubingazo
 ```
+
+> El `chown` es importante: da permisos a tu usuario sobre `/var/www` para que el `git clone` funcione sin `sudo`. Sin este paso, aparece un error de permisos.
 
 ### Opción B: Subir archivos desde Webmin
 
@@ -269,7 +273,6 @@ Antes de crear el archivo, leé estas reglas — son la causa más frecuente de 
 | `SESSION_SECRET=abc123XYZ` | `SESSION_SECRET="abc123XYZ"` | Comillas innecesarias |
 | `PORT=8080` | `PORT=8080 ` | Espacio al final de la línea |
 | Cada variable en su propia línea | Dos variables en la misma línea | Error de lectura |
-| `NOMBRE=Juan Pérez` | (sin comillas si hay espacios) | Funciona sin comillas en este sistema |
 
 > 💡 Si una variable contiene caracteres especiales como `+`, `/`, `=` (frecuente en `SESSION_SECRET`), no hace falta envolverla en comillas — el sistema la lee correctamente tal cual.
 
@@ -325,9 +328,7 @@ cat /var/www/tubingazo/.env
 Para cargar el `.env` en el terminal (necesario en los pasos siguientes), usá este método que maneja correctamente caracteres especiales:
 
 ```bash
-set -a
-source /var/www/tubingazo/.env
-set +a
+set -a && source /var/www/tubingazo/.env && set +a
 ```
 
 > **¿Por qué no `export $(grep ... | xargs)`?** Ese método popular falla cuando una variable contiene espacios, saltos de línea o caracteres como `+` y `=`, que son comunes en claves generadas con `openssl`. El método `source` lee el archivo nativo de bash sin esos problemas.
@@ -417,72 +418,92 @@ psql $DATABASE_URL -c "SELECT id, full_name, ci, is_admin, status FROM users;"
 
 PM2 mantiene el backend activo y lo reinicia automáticamente si falla.
 
-### Crear el archivo de configuración de PM2
+### Por qué la configuración de PM2 importa
 
-```bash
-cat > /var/www/tubingazo/ecosystem.config.cjs << 'EOF'
+El servidor compilado usa el formato ESM (archivos `.mjs`). PM2 tiene dos modos de ejecución:
+- **`cluster`** (por defecto): incompatible con ESM — el proceso arranca y se cae inmediatamente.
+- **`fork`**: compatible con ESM — funciona correctamente.
+
+Además, las variables de entorno deben estar **dentro del archivo de configuración** en la sección `env`. La opción `env_file` de PM2 es poco confiable en producción: puede no funcionar cuando PM2 reinicia un proceso automáticamente tras una caída.
+
+### Paso 11.1: Crear el archivo de configuración de PM2
+
+Abrí el editor de archivos de Webmin (**Tools → File Manager** → navegá a `/var/www/tubingazo/` → creá o editá `ecosystem.config.cjs`) y pegá exactamente este contenido, reemplazando los valores de las tres variables con los tuyos:
+
+```js
 module.exports = {
   apps: [
     {
-      name: "elbingote-api",
+      name: "tubingazo-api",
       script: "./artifacts/api-server/dist/index.mjs",
       cwd: "/var/www/tubingazo",
-      env_file: "/var/www/tubingazo/.env",
+      exec_mode: "fork",
+      instances: 1,
       env: {
         NODE_ENV: "production",
-        PORT: "8080"
+        PORT: "8080",
+        DATABASE_URL: "postgresql://tubingazo_user:TU_CONTRASEÑA_SEGURA@localhost:5432/tubingazo",
+        SESSION_SECRET: "TU_SESSION_SECRET",
+        PAYMENT_API_KEY: "TU_API_KEY_DE_ENLAZO"
       },
-      instances: 1,
       autorestart: true,
       watch: false,
       max_memory_restart: "400M",
-      error_file: "/var/log/elbingote-api-error.log",
-      out_file: "/var/log/elbingote-api-out.log",
+      error_file: "/home/TU_USUARIO/tubingazo-api-error.log",
+      out_file: "/home/TU_USUARIO/tubingazo-api-out.log",
       log_date_format: "YYYY-MM-DD HH:mm:ss"
     }
   ]
 };
-EOF
 ```
 
-### Iniciar el backend
+> ⚠️ **Puntos clave del archivo:**
+> - `exec_mode: "fork"` — **obligatorio** para archivos `.mjs`. Sin esto el proceso arranca y se cae al instante.
+> - `env` contiene **todas** las variables — no se usa `env_file` porque PM2 no la aplica al reiniciar automáticamente.
+> - Los logs van a `/home/TU_USUARIO/` porque `/var/log/` requiere permisos de root. Reemplazá `TU_USUARIO` con tu nombre de usuario del sistema (el mismo con que entrás al VPS).
+> - Guardá el archivo con permisos restringidos: `chmod 600 /var/www/tubingazo/ecosystem.config.cjs`
 
-> ⚠️ **Importante:** Antes de iniciar PM2, cargá las variables de entorno del `.env`. Sin este paso, el servidor arranca sin configuración y entra en estado `errored`.
+### Paso 11.2: Iniciar el backend
 
 ```bash
-cd /var/www/tubingazo
-set -a && source /var/www/tubingazo/.env && set +a
-pm2 start ecosystem.config.cjs
+pm2 start /var/www/tubingazo/ecosystem.config.cjs
 ```
 
-### Verificar estado
+### Paso 11.3: Verificar estado
 
 ```bash
 pm2 status
 ```
-> La fila `elbingote-api` debe mostrar `online` ✅
-> Si dice `errored`: revisá los logs con `pm2 logs elbingote-api --lines 30 --nostream`
+> La fila `tubingazo-api` debe mostrar `online` y el modo `fork` ✅
+>
+> Si dice `errored`: revisá los logs con `pm2 logs tubingazo-api --lines 30 --nostream`
 
-### Probar que el backend responde
+### Paso 11.4: Probar que el backend responde
 
 ```bash
 curl -s http://localhost:8080/api/healthz
 ```
 > Debe responder `{"status":"ok"}` ✅
 
-### Configurar inicio automático al reiniciar el servidor
+### Paso 11.5: Configurar inicio automático al reiniciar el servidor
 
 ```bash
 pm2 save
 pm2 startup
 ```
 
-> **¿Por qué estos dos pasos son importantes?**
-> - `pm2 save` guarda la lista de procesos activos en un archivo en disco.
-> - `pm2 startup` genera un servicio del sistema operativo que arranca PM2 automáticamente cuando el servidor se reinicia.
-> - Sin estos pasos, la aplicación **no volvería a estar activa** después de un reinicio del VPS — los usuarios verían el sitio caído hasta que un administrador lo iniciara manualmente.
->
-> PM2 mostrará un comando largo (empieza con `sudo env PATH=...`). **Copialo y ejecutalo** para completar la configuración.
+`pm2 startup` mostrará un comando largo que empieza con `sudo env PATH=...`. **Copialo y ejecutalo exactamente como aparece.** Cuando termine, verás el mensaje `[PM2] Command successfully executed.`
+
+Después de ejecutar ese comando, guardá el estado nuevamente:
+
+```bash
+pm2 save
+```
+
+> **¿Por qué estos pasos son importantes?**
+> - `pm2 save` guarda la lista de procesos activos en disco (`~/.pm2/dump.pm2`).
+> - `pm2 startup` crea un servicio de systemd (`pm2-TU_USUARIO`) que arranca PM2 automáticamente cuando el servidor se reinicia.
+> - El `pm2 save` final, ejecutado **después** del comando de startup, es el que queda registrado en el servicio. Sin él, tras un reinicio del VPS el proceso no volvería a levantarse.
 
 ---
 
@@ -501,6 +522,7 @@ sudo rm -f /etc/nginx/sites-enabled/default
 > sudo systemctl stop apache2
 > sudo systemctl disable apache2
 > ```
+> Luego verificá que el puerto 80 quedó libre: `sudo ss -tlnp | grep ':80'` — no debe aparecer nada.
 
 ### Crear la configuración del sitio
 
@@ -508,21 +530,12 @@ sudo rm -f /etc/nginx/sites-enabled/default
 sudo nano /etc/nginx/sites-available/tubingazo
 ```
 
-Pegá exactamente esto (**reemplazá `elbingote.com` en los 2 lugares donde aparece**):
+Pegá exactamente esto (**reemplazá `tubingazo.com` en los 2 lugares donde aparece con tu dominio real**):
 
 ```nginx
-# ── Compresión gzip ──────────────────────────────────────────────────────
-gzip on;
-gzip_vary on;
-gzip_proxied any;
-gzip_comp_level 6;
-gzip_types text/plain text/css text/xml application/json application/javascript
-           application/rss+xml application/atom+xml image/svg+xml
-           application/x-font-ttf font/opentype;
-
 server {
     listen 80;
-    server_name elbingote.com www.elbingote.com;
+    server_name tubingazo.com www.tubingazo.com;
 
     # ── Cabeceras de seguridad ───────────────────────────────────────────
     add_header X-Frame-Options "SAMEORIGIN" always;
@@ -574,6 +587,8 @@ server {
 
 Guardá: **Ctrl+X → Y → Enter**
 
+> ⚠️ **No incluyas un bloque `gzip` en este archivo.** Nginx ya tiene compresión gzip habilitada en su configuración global (`/etc/nginx/nginx.conf`). Repetirla en el sitio causa el error `nginx: [warn] duplicate "gzip" directive` y puede impedir que Nginx inicie.
+
 ### Activar y aplicar
 
 ```bash
@@ -581,11 +596,11 @@ sudo ln -s /etc/nginx/sites-available/tubingazo /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
-> `nginx -t` debe decir `syntax is ok`. Si hay error, revisá que copiaste bien el bloque y reemplazaste el dominio.
+> `nginx -t` debe decir `syntax is ok` y `test is successful`. Si hay error, revisá que copiaste bien el bloque y reemplazaste el dominio.
 
 ### Probar el sitio
 
-Abrí `http://elbingote.com` — deberías ver Tu Bingazo ✅
+Abrí `http://tubingazo.com` — deberías ver Tu Bingazo ✅
 
 ---
 
@@ -593,13 +608,13 @@ Abrí `http://elbingote.com` — deberías ver Tu Bingazo ✅
 
 > ⚠️ Solo si el dominio ya apunta a la IP del servidor:
 > ```bash
-> dig +short elbingote.com
+> dig +short tubingazo.com
 > ```
 > Debe mostrar la IP de tu VPS.
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d elbingote.com -d www.elbingote.com
+sudo certbot --nginx -d tubingazo.com -d www.tubingazo.com
 ```
 
 Cuando pregunte:
@@ -610,8 +625,7 @@ Cuando pregunte:
 ### Verificar que el certificado está activo
 
 ```bash
-# Comprobar fecha de vencimiento
-openssl s_client -connect elbingote.com:443 -servername elbingote.com \
+openssl s_client -connect tubingazo.com:443 -servername tubingazo.com \
   </dev/null 2>/dev/null | openssl x509 -noout -dates
 ```
 > Debe mostrar `notAfter=` con una fecha futura.
@@ -625,11 +639,17 @@ sudo certbot renew --dry-run
 
 Certbot programa la renovación automáticamente cada 90 días — no necesitás hacer nada más.
 
-> ⚠️ **Si aparece un certificado duplicado fallando** (por ejemplo `elbingote.com` y `elbingote.com-0001`), es porque Virtualmin/Webmin creó un certificado anterior con subdominios extra. El que importa es el que termina en `-0001`. Eliminá el viejo:
+> ⚠️ **Si aparece un certificado duplicado fallando** (por ejemplo `tubingazo.com` y `tubingazo.com-0001`), es porque Virtualmin/Webmin creó un certificado anterior con subdominios extra. Eliminá el viejo y quedá con el nuevo:
 > ```bash
-> sudo certbot delete --cert-name elbingote.com
+> # Ver todos los certificados
+> sudo certbot certificates
+>
+> # Eliminar el que NO termina en -0001 (el viejo de Virtualmin)
+> sudo certbot delete --cert-name tubingazo.com
+>
+> # Verificar que solo queda uno
+> sudo certbot renew --dry-run
 > ```
-> Luego volvé a ejecutar `sudo certbot renew --dry-run` — ahora debe mostrar solo un certificado y éxito total.
 
 ---
 
@@ -668,12 +688,12 @@ Solo Nginx (que corre en el mismo servidor) puede acceder internamente a `localh
 
 ## PARTE 15 — Primer ingreso al panel de administración
 
-1. Abrí `https://elbingote.com`
+1. Abrí `https://tubingazo.com`
 2. Hacé clic en **"Entrar"**
 3. Ingresá la **CI** y **contraseña** que elegiste en el Paso 10
 4. Verificar que funciona → vas al inicio como administrador
 
-Para acceder al panel admin: `https://elbingote.com/admin`
+Para acceder al panel admin: `https://tubingazo.com/admin`
 
 ### Configuración inicial recomendada
 
@@ -706,7 +726,7 @@ pnpm --filter @workspace/api-server run build
 BASE_PATH=/ PORT=8080 pnpm --filter @workspace/tu-bingazo run build
 
 # 5. Reiniciar el backend y recargar frontend
-pm2 restart elbingote-api
+pm2 restart tubingazo-api
 sudo systemctl reload nginx
 ```
 
@@ -729,7 +749,7 @@ pnpm --filter @workspace/api-server run build
 echo "▶ Compilando frontend..."
 BASE_PATH=/ PORT=8080 pnpm --filter @workspace/tu-bingazo run build
 echo "▶ Reiniciando servicios..."
-pm2 restart elbingote-api
+pm2 restart tubingazo-api
 sudo systemctl reload nginx
 echo "✅ Actualización completada."
 EOF
@@ -747,6 +767,9 @@ Un backup completo del sistema incluye **dos partes**: la base de datos y los ar
 ### Backup de la base de datos
 
 ```bash
+# Cargar DATABASE_URL si no está en el entorno
+set -a && source /var/www/tubingazo/.env && set +a
+
 # Backup manual con fecha
 pg_dump $DATABASE_URL > /root/backup-db-$(date +%Y%m%d-%H%M).sql
 
@@ -757,6 +780,9 @@ ls -lh /root/backup-db-*.sql
 ### Backup de archivos del sistema
 
 ```bash
+# Cargar variables
+set -a && source /var/www/tubingazo/.env && set +a
+
 # Backup manual completo (DB + archivos críticos)
 FECHA=$(date +%Y%m%d-%H%M)
 BACKUP=/root/backups/$FECHA
@@ -767,6 +793,7 @@ pg_dump $DATABASE_URL > $BACKUP/database.sql
 
 # Archivos de configuración
 cp /var/www/tubingazo/.env $BACKUP/env.bak
+cp /var/www/tubingazo/ecosystem.config.cjs $BACKUP/ecosystem.config.cjs.bak
 
 # Imágenes subidas por usuarios (fotos de CI, avatares)
 if [ -d /var/www/tubingazo/uploads ]; then
@@ -816,6 +843,9 @@ echo "✅ Backup automático configurado para las 3 AM diariamente"
 ### Restaurar un backup completo
 
 ```bash
+# Cargar DATABASE_URL
+set -a && source /var/www/tubingazo/.env && set +a
+
 # 1. Restaurar la base de datos
 psql $DATABASE_URL < /root/backups/tubingazo/db-FECHA.sql
 
@@ -823,7 +853,7 @@ psql $DATABASE_URL < /root/backups/tubingazo/db-FECHA.sql
 tar -xzf /root/backups/tubingazo/files-FECHA.tar.gz -C /
 
 # 3. Reiniciar la aplicación
-pm2 restart elbingote-api
+pm2 restart tubingazo-api
 ```
 
 ---
@@ -836,26 +866,27 @@ Antes de abrir el sistema al público, verificá cada punto:
 # ── Infraestructura ───────────────────────────────────────────────────────
 node --version              # Debe mostrar v24.x.x
 pnpm --version              # Debe mostrar la versión instalada
-pm2 status                  # elbingote-api debe estar "online"
+pm2 status                  # tubingazo-api debe estar "online" modo "fork"
 sudo systemctl status nginx      # Debe mostrar "active (running)"
-sudo systemctl status postgresql # Debe mostrar "active (running)"
+sudo systemctl status postgresql # Debe mostrar "active"
 
 # ── Conectividad ─────────────────────────────────────────────────────────
 curl -s http://localhost:8080/api/healthz
 # Esperado: {"status":"ok"}
 
-curl -s -o /dev/null -w "%{http_code}" http://elbingote.com
-# Esperado: 200 o 301 (redirección a HTTPS)
+curl -s -o /dev/null -w "HTTP: %{http_code}\n" http://tubingazo.com
+# Esperado: 301 (redirige a HTTPS)
 
-curl -s -o /dev/null -w "%{http_code}" https://elbingote.com
+curl -s -o /dev/null -w "HTTPS: %{http_code}\n" https://tubingazo.com
 # Esperado: 200
 
 # ── Base de datos ────────────────────────────────────────────────────────
+set -a && source /var/www/tubingazo/.env && set +a
 psql $DATABASE_URL -c "SELECT COUNT(*) FROM users WHERE is_admin=true;"
 # Esperado: 1 (el administrador que creaste)
 
 # ── Certificado SSL ──────────────────────────────────────────────────────
-openssl s_client -connect elbingote.com:443 -servername elbingote.com \
+openssl s_client -connect tubingazo.com:443 -servername tubingazo.com \
   </dev/null 2>/dev/null | openssl x509 -noout -dates
 # notAfter debe ser una fecha futura
 
@@ -867,7 +898,7 @@ sudo ufw status
 
 ### Lista de verificación manual en el navegador
 
-Abrí `https://elbingote.com` y confirmá:
+Abrí `https://tubingazo.com` y confirmá:
 
 - [ ] El sitio carga con el candado HTTPS ✅
 - [ ] La página de inicio muestra los juegos disponibles
@@ -888,9 +919,10 @@ Abrí `https://elbingote.com` y confirmá:
 
 ```bash
 # 1. Detener y eliminar PM2
-pm2 stop elbingote-api
-pm2 delete elbingote-api
+pm2 stop tubingazo-api
+pm2 delete tubingazo-api
 pm2 save
+pm2 unstartup systemd
 
 # 2. Eliminar archivos de la aplicación
 sudo rm -rf /var/www/tubingazo
@@ -905,13 +937,13 @@ sudo -u postgres psql -c "DROP DATABASE IF EXISTS tubingazo;"
 sudo -u postgres psql -c "DROP USER IF EXISTS tubingazo_user;"
 
 # 5. Eliminar certificados SSL (opcional)
-sudo certbot delete --cert-name elbingote.com
+sudo certbot delete --cert-name tubingazo.com
 
 # 6. Eliminar backups (opcional)
 sudo rm -rf /root/backups/tubingazo
 
 # 7. Eliminar logs de PM2
-sudo rm -f /var/log/elbingote-api-*.log
+rm -f ~/tubingazo-api-*.log
 
 # 8. Desinstalar PostgreSQL (solo si no lo usás para otra cosa)
 # sudo apt remove --purge -y postgresql postgresql-contrib
@@ -942,7 +974,7 @@ Creadas automáticamente con `pnpm --filter @workspace/db run push`:
 
 | Tabla | ¿Para qué sirve? |
 |-------|-----------------|
-| `users` | Jugadores y administradores. Columnas clave: `balance` (pagos QR reales), `bonus_balance` (bonos de referidos), `admin_credit_balance` (crédito del admin — no cuenta como ingreso) |
+| `users` | Jugadores y administradores. Columnas clave: `balance` (pagos QR reales), `bonus_balance` (bonos de referidos), `admin_credit_balance` (crédito del admin) |
 | `games` | Partidas de bingo con precio del cartón, premio y estado |
 | `cards` | Cartones comprados. `bonus_amount_used` y `admin_credit_amount_used` separan los montos que no son ingreso real |
 | `winners` | Ganadores validados con monto de premio y comisiones |
@@ -969,10 +1001,10 @@ Creadas automáticamente con `pnpm --filter @workspace/db run push`:
 ```bash
 # ── PM2 ──────────────────────────────────────────────────────────────────
 pm2 status                              # Estado de todos los procesos
-pm2 logs elbingote-api                  # Logs en tiempo real
-pm2 logs elbingote-api --lines 100      # Últimas 100 líneas
-pm2 restart elbingote-api               # Reiniciar el backend
-pm2 stop elbingote-api                  # Detener el backend
+pm2 logs tubingazo-api                  # Logs en tiempo real
+pm2 logs tubingazo-api --lines 100 --nostream  # Últimas 100 líneas (sin seguir)
+pm2 restart tubingazo-api               # Reiniciar el backend
+pm2 stop tubingazo-api                  # Detener el backend
 pm2 resurrect                           # Restaurar procesos guardados tras reinicio
 
 # ── Nginx ────────────────────────────────────────────────────────────────
@@ -980,16 +1012,18 @@ sudo systemctl status nginx                  # Estado
 sudo nginx -t                                # Verificar configuración
 sudo systemctl reload nginx                  # Recargar sin downtime
 sudo systemctl restart nginx                 # Reinicio completo
+tail -50 /var/log/nginx/error.log            # Ver errores de Nginx
 
 # ── PostgreSQL ───────────────────────────────────────────────────────────
 sudo systemctl status postgresql             # Estado
 sudo systemctl restart postgresql            # Reiniciar
+set -a && source /var/www/tubingazo/.env && set +a
 psql $DATABASE_URL                      # Conectarse
 psql $DATABASE_URL -c "\dt"             # Ver todas las tablas
 psql $DATABASE_URL -c "SELECT COUNT(*) FROM users;" # Contar usuarios
 
 # ── Sistema ──────────────────────────────────────────────────────────────
-ss -tlnp | grep -E "80|443|8080|5432"  # Ver puertos escuchando
+sudo ss -tlnp | grep -E "80|443|8080|5432"  # Ver puertos escuchando
 df -h                                   # Espacio en disco
 free -h                                 # RAM y SWAP
 htop                                    # CPU y procesos (salir con Q)
@@ -998,7 +1032,7 @@ journalctl -xe --no-pager | tail -50    # Logs del sistema operativo
 # ── Recompilar y reiniciar rápido ─────────────────────────────────────────
 cd /var/www/tubingazo && \
   pnpm --filter @workspace/api-server run build && \
-  pm2 restart elbingote-api
+  pm2 restart tubingazo-api
 ```
 
 ---
@@ -1012,9 +1046,48 @@ cd /var/www/tubingazo && \
 3. `psql $DATABASE_URL -c "SELECT 1"` — probar conexión directa
 4. Si dice "role does not exist": repetir el Paso 5.2
 
+### ❌ El proceso de PM2 está en modo `errored` con logs vacíos
+
+Este es el error más común. Causas posibles y soluciones:
+
+**Causa 1 — `exec_mode` incorrecto (más frecuente):**
+El servidor usa archivos `.mjs` (ESM), que son incompatibles con el modo `cluster` predeterminado de PM2. El proceso arranca, falla al instante y los logs quedan vacíos.
+
+Verificá que tu `ecosystem.config.cjs` tenga `exec_mode: "fork"`:
+```bash
+grep exec_mode /var/www/tubingazo/ecosystem.config.cjs
+# Debe mostrar: exec_mode: "fork"
+```
+Si no está, editá el archivo en Webmin y agregalo. Luego:
+```bash
+pm2 delete tubingazo-api
+pm2 start /var/www/tubingazo/ecosystem.config.cjs
+```
+
+**Causa 2 — Variables de entorno no incluidas en `ecosystem.config.cjs`:**
+Si usaste `env_file` en lugar de poner las variables en la sección `env`, PM2 puede no cargarlas al reiniciar automáticamente. Asegurate de que `DATABASE_URL`, `SESSION_SECRET` y `PAYMENT_API_KEY` estén directamente en la sección `env` del archivo de configuración.
+
+**Causa 3 — Puerto 8080 ocupado por otro proceso:**
+Si previamente corriste el servidor directamente con `node index.mjs`, ese proceso puede seguir usando el puerto 8080. Liberalo antes de iniciar PM2:
+```bash
+sudo fuser -k 8080/tcp
+pm2 start /var/www/tubingazo/ecosystem.config.cjs
+```
+
+### ❌ "EACCES: permission denied" al iniciar PM2 (error de logs)
+
+PM2 no puede crear los archivos de log en `/var/log/` porque ese directorio requiere permisos de root. La solución es apuntar los logs a la carpeta home del usuario en `ecosystem.config.cjs`:
+
+```js
+error_file: "/home/TU_USUARIO/tubingazo-api-error.log",
+out_file: "/home/TU_USUARIO/tubingazo-api-out.log",
+```
+
+Reemplazá `TU_USUARIO` con tu nombre de usuario (el mismo con que entrás al VPS).
+
 ### ❌ El sitio no carga / pantalla en blanco
 
-1. `pm2 status` — verificar que `elbingote-api` está `online`
+1. `pm2 status` — verificar que `tubingazo-api` está `online`
 2. `sudo nginx -t` — verificar configuración de Nginx
 3. Verificar que el frontend está compilado: `ls /var/www/tubingazo/artifacts/tu-bingazo/dist/public/index.html`
 4. Si falta el `index.html`: repetir el Paso 9 (compilar frontend)
@@ -1033,13 +1106,22 @@ sudo systemctl disable apache2
 sudo systemctl start nginx
 ```
 
+### ❌ Error al probar Nginx — "duplicate gzip directive"
+
+```
+nginx: [warn] duplicate "gzip" directive is in /etc/nginx/sites-available/tubingazo:1
+```
+
+El bloque `gzip` en el archivo del sitio entra en conflicto con el que ya trae Nginx en su configuración global. Editá `/etc/nginx/sites-available/tubingazo` y eliminá el bloque `gzip` completo (todo lo que esté fuera del bloque `server { }`). La compresión gzip ya funciona sin necesidad de repetirla.
+
 ### ❌ Error 502 Bad Gateway
 
 El backend no está respondiendo:
 1. `pm2 status` — ver si está `online` o `errored`
-2. `pm2 logs elbingote-api --lines 50` — leer el error exacto
+2. `pm2 logs tubingazo-api --lines 50 --nostream` — leer el error exacto
 3. Error frecuente: `.env` mal formateado → revisar reglas de la Parte 7
-4. Reintentar: `pm2 restart elbingote-api`
+4. Reintentar: `pm2 restart tubingazo-api`
+5. Verificar que el puerto está libre: `sudo ss -tlnp | grep ':8080'`
 
 ### ❌ Error 404 en rutas del frontend (`/admin`, `/wallet`, etc.)
 
@@ -1050,6 +1132,7 @@ La app es un SPA. Verificar que Nginx tiene `try_files $uri $uri/ /index.html;` 
 ```bash
 cd /var/www/tubingazo
 pnpm install
+set -a && source .env && set +a
 node create-admin.mjs
 ```
 
@@ -1057,7 +1140,7 @@ node create-admin.mjs
 
 1. Verificar que `PAYMENT_API_KEY` es correcta y activa en el panel de Enlazo
 2. El sitio debe usar HTTPS (requerido por Enlazo para webhooks)
-3. Revisar logs: `pm2 logs elbingote-api | grep -i payment`
+3. Revisar logs: `pm2 logs tubingazo-api | grep -i payment`
 
 ### ❌ El compilado falla con "JavaScript heap out of memory"
 
@@ -1071,17 +1154,27 @@ O bien configurar SWAP (Parte 3).
 
 ```bash
 pm2 resurrect
-# Si no funciona:
-cd /var/www/tubingazo && set -a && source /var/www/tubingazo/.env && set +a && pm2 start ecosystem.config.cjs && pm2 save
 ```
-
-### ❌ Variables de entorno no cargadas correctamente
-
-Si un comando falla porque no encuentra las variables:
+Si no funciona o muestra errores:
 ```bash
-set -a && source /var/www/tubingazo/.env && set +a
+pm2 start /var/www/tubingazo/ecosystem.config.cjs
+pm2 save
 ```
-Verificar que no hay espacios alrededor del `=` en el `.env`.
+Si el proceso vuelve al estado `errored`, revisá la sección "El proceso de PM2 está en modo `errored`" más arriba.
+
+### ❌ Certificado SSL duplicado al ejecutar certbot
+
+Virtualmin/Webmin suele crear un certificado propio al configurar el dominio. Cuando ejecutás certbot manualmente, crea uno nuevo (`dominio.com-0001`). Si el `dry-run` falla por el conflicto, eliminá el certificado viejo:
+```bash
+# Ver todos los certificados existentes
+sudo certbot certificates
+
+# Eliminar el original de Virtualmin (sin sufijo)
+sudo certbot delete --cert-name tubingazo.com
+
+# Verificar que solo queda el nuevo
+sudo certbot renew --dry-run
+```
 
 ---
 
@@ -1089,15 +1182,17 @@ Verificar que no hay espacios alrededor del `=` en el `.env`.
 
 | Qué | Dónde |
 |-----|-------|
-| Sitio web | `https://elbingote.com` |
-| Panel admin | `https://elbingote.com/admin` |
+| Sitio web | `https://tubingazo.com` |
+| Panel admin | `https://tubingazo.com/admin` |
 | Webmin | `https://TU_IP:10000` |
 | Puerto API (interno) | `8080` |
-| Logs del backend | `pm2 logs elbingote-api` |
+| Logs del backend en tiempo real | `pm2 logs tubingazo-api` |
+| Logs del backend (archivo error) | `~/tubingazo-api-error.log` |
+| Logs del backend (archivo salida) | `~/tubingazo-api-out.log` |
 | Frontend compilado | `/var/www/tubingazo/artifacts/tu-bingazo/dist/public/` |
 | Archivo de configuración | `/var/www/tubingazo/.env` |
+| Configuración PM2 | `/var/www/tubingazo/ecosystem.config.cjs` |
 | Logs de errores Nginx | `/var/log/nginx/error.log` |
-| Logs de errores API | `/var/log/elbingote-api-error.log` |
 | Script de actualización | `/var/www/tubingazo/update.sh` |
 | Script de crear admin | `/var/www/tubingazo/create-admin.mjs` |
 | Backups automáticos | `/root/backups/tubingazo/` |
