@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const LS_KEY = "site-settings-cache";
 
 export interface SiteSettings {
   site_name: string;
@@ -33,16 +34,33 @@ const DEFAULTS: SiteSettings = {
   terms_and_conditions: null,
 };
 
+function loadCached(): SiteSettings | undefined {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) return JSON.parse(raw) as SiteSettings;
+  } catch {}
+  return undefined;
+}
+
+function saveCache(s: SiteSettings) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(s));
+  } catch {}
+}
+
 async function fetchSiteSettings(): Promise<SiteSettings> {
   const r = await fetch(`${BASE}/api/site-settings`);
   if (!r.ok) return DEFAULTS;
-  return r.json();
+  const data: SiteSettings = await r.json();
+  saveCache(data);
+  return data;
 }
 
 export function useSiteSettings() {
   const { data } = useQuery<SiteSettings>({
     queryKey: ["site-settings"],
     queryFn: fetchSiteSettings,
+    initialData: loadCached,
     staleTime: 1 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
