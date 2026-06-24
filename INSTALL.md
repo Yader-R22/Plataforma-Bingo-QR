@@ -89,7 +89,7 @@ Verificá que tu servidor tenga:
 - ✅ Un **dominio apuntando a la IP del servidor** (ej: `tubingazo.com`)
 - ✅ Credenciales de **Enlazo Business** (pasarela de pago QR boliviana)
 
-> ⚠️ El dominio debe apuntar a la IP del servidor **antes** de instalar HTTPS (Parte 13). Verificá con: `ping TU_DOMINIO.COM`
+> ⚠️ El dominio debe apuntar a la IP del servidor **antes** de instalar HTTPS (Parte 13). Verificá con: `ping elbingote.com`
 
 ---
 
@@ -508,7 +508,7 @@ sudo rm -f /etc/nginx/sites-enabled/default
 sudo nano /etc/nginx/sites-available/tubingazo
 ```
 
-Pegá exactamente esto (**reemplazá `TU_DOMINIO.COM` en los 2 lugares donde aparece**):
+Pegá exactamente esto (**reemplazá `elbingote.com` en los 2 lugares donde aparece**):
 
 ```nginx
 # ── Compresión gzip ──────────────────────────────────────────────────────
@@ -522,7 +522,7 @@ gzip_types text/plain text/css text/xml application/json application/javascript
 
 server {
     listen 80;
-    server_name TU_DOMINIO.COM www.TU_DOMINIO.COM;
+    server_name elbingote.com www.elbingote.com;
 
     # ── Cabeceras de seguridad ───────────────────────────────────────────
     add_header X-Frame-Options "SAMEORIGIN" always;
@@ -585,7 +585,7 @@ sudo systemctl reload nginx
 
 ### Probar el sitio
 
-Abrí `http://TU_DOMINIO.COM` — deberías ver Tu Bingazo ✅
+Abrí `http://elbingote.com` — deberías ver Tu Bingazo ✅
 
 ---
 
@@ -593,13 +593,13 @@ Abrí `http://TU_DOMINIO.COM` — deberías ver Tu Bingazo ✅
 
 > ⚠️ Solo si el dominio ya apunta a la IP del servidor:
 > ```bash
-> dig +short TU_DOMINIO.COM
+> dig +short elbingote.com
 > ```
 > Debe mostrar la IP de tu VPS.
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d TU_DOMINIO.COM -d www.TU_DOMINIO.COM
+sudo certbot --nginx -d elbingote.com -d www.elbingote.com
 ```
 
 Cuando pregunte:
@@ -611,7 +611,7 @@ Cuando pregunte:
 
 ```bash
 # Comprobar fecha de vencimiento
-openssl s_client -connect TU_DOMINIO.COM:443 -servername TU_DOMINIO.COM \
+openssl s_client -connect elbingote.com:443 -servername elbingote.com \
   </dev/null 2>/dev/null | openssl x509 -noout -dates
 ```
 > Debe mostrar `notAfter=` con una fecha futura.
@@ -662,12 +662,12 @@ Solo Nginx (que corre en el mismo servidor) puede acceder internamente a `localh
 
 ## PARTE 15 — Primer ingreso al panel de administración
 
-1. Abrí `https://TU_DOMINIO.COM`
+1. Abrí `https://elbingote.com`
 2. Hacé clic en **"Entrar"**
 3. Ingresá la **CI** y **contraseña** que elegiste en el Paso 10
 4. Verificar que funciona → vas al inicio como administrador
 
-Para acceder al panel admin: `https://TU_DOMINIO.COM/admin`
+Para acceder al panel admin: `https://elbingote.com/admin`
 
 ### Configuración inicial recomendada
 
@@ -838,10 +838,10 @@ sudo systemctl status postgresql # Debe mostrar "active (running)"
 curl -s http://localhost:8080/api/healthz
 # Esperado: {"status":"ok"}
 
-curl -s -o /dev/null -w "%{http_code}" http://TU_DOMINIO.COM
+curl -s -o /dev/null -w "%{http_code}" http://elbingote.com
 # Esperado: 200 o 301 (redirección a HTTPS)
 
-curl -s -o /dev/null -w "%{http_code}" https://TU_DOMINIO.COM
+curl -s -o /dev/null -w "%{http_code}" https://elbingote.com
 # Esperado: 200
 
 # ── Base de datos ────────────────────────────────────────────────────────
@@ -849,7 +849,7 @@ psql $DATABASE_URL -c "SELECT COUNT(*) FROM users WHERE is_admin=true;"
 # Esperado: 1 (el administrador que creaste)
 
 # ── Certificado SSL ──────────────────────────────────────────────────────
-openssl s_client -connect TU_DOMINIO.COM:443 -servername TU_DOMINIO.COM \
+openssl s_client -connect elbingote.com:443 -servername elbingote.com \
   </dev/null 2>/dev/null | openssl x509 -noout -dates
 # notAfter debe ser una fecha futura
 
@@ -861,7 +861,7 @@ sudo ufw status
 
 ### Lista de verificación manual en el navegador
 
-Abrí `https://TU_DOMINIO.COM` y confirmá:
+Abrí `https://elbingote.com` y confirmá:
 
 - [ ] El sitio carga con el candado HTTPS ✅
 - [ ] La página de inicio muestra los juegos disponibles
@@ -899,7 +899,7 @@ sudo -u postgres psql -c "DROP DATABASE IF EXISTS tubingazo;"
 sudo -u postgres psql -c "DROP USER IF EXISTS tubingazo_user;"
 
 # 5. Eliminar certificados SSL (opcional)
-sudo certbot delete --cert-name TU_DOMINIO.COM
+sudo certbot delete --cert-name elbingote.com
 
 # 6. Eliminar backups (opcional)
 sudo rm -rf /root/backups/tubingazo
@@ -1083,8 +1083,8 @@ Verificar que no hay espacios alrededor del `=` en el `.env`.
 
 | Qué | Dónde |
 |-----|-------|
-| Sitio web | `https://TU_DOMINIO.COM` |
-| Panel admin | `https://TU_DOMINIO.COM/admin` |
+| Sitio web | `https://elbingote.com` |
+| Panel admin | `https://elbingote.com/admin` |
 | Webmin | `https://TU_IP:10000` |
 | Puerto API (interno) | `8080` |
 | Logs del backend | `pm2 logs elbingote-api` |
