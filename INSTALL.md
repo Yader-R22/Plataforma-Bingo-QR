@@ -6,6 +6,9 @@
 >
 > **Sistema operativo recomendado:** Ubuntu 22.04 LTS o Ubuntu 24.04 LTS
 
+> ⚠️ **Sobre `sudo` en esta guía:**
+> Los comandos de sistema usan `sudo` para funcionar tanto si estás conectado como usuario `root` como si usás un usuario con permisos de administrador (común en Ubuntu). Si tu VPS te conecta directamente como `root`, los comandos funcionan igual — `sudo` como root simplemente lo ignora.
+
 ---
 
 ## Diagrama de arquitectura
@@ -114,13 +117,13 @@ Verificá que tu servidor tenga:
 free -h
 
 # Crear 2 GB de SWAP
-fallocate -l 2G /swapfile
-chmod 600 /swapfile
-mkswap /swapfile
-swapon /swapfile
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
 
 # Hacer la SWAP permanente (sobrevive reinicios)
-echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 # Verificar — debe aparecer "Swap: 2.0Gi"
 free -h
@@ -135,8 +138,8 @@ free -h
 Antes de agregar el repositorio de Node.js, instalá las herramientas que Ubuntu mínimo puede no traer:
 
 ```bash
-apt update
-apt install -y curl ca-certificates gnupg git
+sudo apt update
+sudo apt install -y curl ca-certificates gnupg git
 ```
 
 > Estos tres paquetes son necesarios para descargar e instalar Node.js correctamente. Sin `ca-certificates`, la descarga del repositorio de NodeSource puede fallar con errores de SSL.
@@ -144,8 +147,8 @@ apt install -y curl ca-certificates gnupg git
 ### Paso 4.2: Instalar Node.js 24
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
-apt install -y nodejs
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo bash -
+sudo apt install -y nodejs
 ```
 
 ### Paso 4.3: Verificar Node.js 24
@@ -158,7 +161,7 @@ node --version
 ### Paso 4.4: Instalar pnpm y PM2
 
 ```bash
-npm install -g pnpm@latest pm2
+sudo npm install -g pnpm@latest pm2
 ```
 
 > **¿Por qué `npm install -g` y no Corepack?**
@@ -178,10 +181,10 @@ node --version && pnpm --version && pm2 --version && git --version
 ### Paso 5.1: Instalar PostgreSQL
 
 ```bash
-apt install -y postgresql postgresql-contrib
-systemctl start postgresql
-systemctl enable postgresql
-systemctl status postgresql
+sudo apt install -y postgresql postgresql-contrib
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+sudo systemctl status postgresql
 ```
 > Debe mostrar `active (running)` ✅
 
@@ -217,7 +220,8 @@ psql postgresql://tubingazo_user:TU_CONTRASEÑA_SEGURA@localhost:5432/tubingazo 
 ### Opción A: Clonar desde GitHub (recomendado)
 
 ```bash
-mkdir -p /var/www
+sudo mkdir -p /var/www
+sudo chown $USER:$USER /var/www
 git clone https://github.com/Yader-R22/Plataforma-Bingo-QR.git /var/www/tubingazo
 ```
 
@@ -474,15 +478,15 @@ pm2 startup
 ### Instalar Nginx
 
 ```bash
-apt install -y nginx
-systemctl enable nginx
-rm -f /etc/nginx/sites-enabled/default
+sudo apt install -y nginx
+sudo systemctl enable nginx
+sudo rm -f /etc/nginx/sites-enabled/default
 ```
 
 ### Crear la configuración del sitio
 
 ```bash
-nano /etc/nginx/sites-available/tubingazo
+sudo nano /etc/nginx/sites-available/tubingazo
 ```
 
 Pegá exactamente esto (**reemplazá `TU_DOMINIO.COM` en los 2 lugares donde aparece**):
@@ -554,9 +558,9 @@ Guardá: **Ctrl+X → Y → Enter**
 ### Activar y aplicar
 
 ```bash
-ln -s /etc/nginx/sites-available/tubingazo /etc/nginx/sites-enabled/
-nginx -t
-systemctl reload nginx
+sudo ln -s /etc/nginx/sites-available/tubingazo /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
 ```
 > `nginx -t` debe decir `syntax is ok`. Si hay error, revisá que copiaste bien el bloque y reemplazaste el dominio.
 
@@ -575,8 +579,8 @@ Abrí `http://TU_DOMINIO.COM` — deberías ver Tu Bingazo ✅
 > Debe mostrar la IP de tu VPS.
 
 ```bash
-apt install -y certbot python3-certbot-nginx
-certbot --nginx -d TU_DOMINIO.COM -d www.TU_DOMINIO.COM
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d TU_DOMINIO.COM -d www.TU_DOMINIO.COM
 ```
 
 Cuando pregunte:
@@ -596,7 +600,7 @@ openssl s_client -connect TU_DOMINIO.COM:443 -servername TU_DOMINIO.COM \
 ### Verificar renovación automática
 
 ```bash
-certbot renew --dry-run
+sudo certbot renew --dry-run
 ```
 > Debe mostrar `All simulated renewals succeeded` ✅
 
@@ -607,23 +611,23 @@ Certbot programa la renovación automáticamente cada 90 días — no necesitás
 ## PARTE 14 — Configurar el Firewall (UFW)
 
 ```bash
-apt install -y ufw
+sudo apt install -y ufw
 
 # SSH — SIEMPRE primero para no perder acceso
-ufw allow 22/tcp
+sudo ufw allow 22/tcp
 
 # HTTP y HTTPS — el sitio web
-ufw allow 80/tcp
-ufw allow 443/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
 
 # Webmin
-ufw allow 10000/tcp
+sudo ufw allow 10000/tcp
 
 # Activar
-ufw --force enable
+sudo ufw --force enable
 
 # Verificar
-ufw status
+sudo ufw status
 ```
 
 ### ¿Por qué los puertos 8080 y 5432 no se abren?
@@ -678,7 +682,7 @@ BASE_PATH=/ PORT=8080 pnpm --filter @workspace/tu-bingazo run build
 
 # 5. Reiniciar el backend y recargar frontend
 pm2 restart tubingazo-api
-systemctl reload nginx
+sudo systemctl reload nginx
 ```
 
 ### Script de actualización rápida
@@ -701,7 +705,7 @@ echo "▶ Compilando frontend..."
 BASE_PATH=/ PORT=8080 pnpm --filter @workspace/tu-bingazo run build
 echo "▶ Reiniciando servicios..."
 pm2 restart tubingazo-api
-systemctl reload nginx
+sudo systemctl reload nginx
 echo "✅ Actualización completada."
 EOF
 chmod +x /var/www/tubingazo/update.sh
@@ -808,8 +812,8 @@ Antes de abrir el sistema al público, verificá cada punto:
 node --version              # Debe mostrar v24.x.x
 pnpm --version              # Debe mostrar la versión instalada
 pm2 status                  # tubingazo-api debe estar "online"
-systemctl status nginx      # Debe mostrar "active (running)"
-systemctl status postgresql # Debe mostrar "active (running)"
+sudo systemctl status nginx      # Debe mostrar "active (running)"
+sudo systemctl status postgresql # Debe mostrar "active (running)"
 
 # ── Conectividad ─────────────────────────────────────────────────────────
 curl -s http://localhost:8080/api/healthz
@@ -831,7 +835,7 @@ openssl s_client -connect TU_DOMINIO.COM:443 -servername TU_DOMINIO.COM \
 # notAfter debe ser una fecha futura
 
 # ── Firewall ─────────────────────────────────────────────────────────────
-ufw status
+sudo ufw status
 # Puertos abiertos: 22, 80, 443, 10000
 # Puertos 8080 y 5432 NO deben aparecer en la lista
 ```
@@ -864,33 +868,33 @@ pm2 delete tubingazo-api
 pm2 save
 
 # 2. Eliminar archivos de la aplicación
-rm -rf /var/www/tubingazo
+sudo rm -rf /var/www/tubingazo
 
 # 3. Eliminar configuración de Nginx
-rm -f /etc/nginx/sites-enabled/tubingazo
-rm -f /etc/nginx/sites-available/tubingazo
-nginx -t && systemctl reload nginx
+sudo rm -f /etc/nginx/sites-enabled/tubingazo
+sudo rm -f /etc/nginx/sites-available/tubingazo
+sudo nginx -t && sudo systemctl reload nginx
 
 # 4. Eliminar la base de datos y el usuario (si no los necesitás más)
 sudo -u postgres psql -c "DROP DATABASE IF EXISTS tubingazo;"
 sudo -u postgres psql -c "DROP USER IF EXISTS tubingazo_user;"
 
 # 5. Eliminar certificados SSL (opcional)
-certbot delete --cert-name TU_DOMINIO.COM
+sudo certbot delete --cert-name TU_DOMINIO.COM
 
 # 6. Eliminar backups (opcional)
-rm -rf /root/backups/tubingazo
+sudo rm -rf /root/backups/tubingazo
 
 # 7. Eliminar logs de PM2
-rm -f /var/log/tubingazo-api-*.log
+sudo rm -f /var/log/tubingazo-api-*.log
 
 # 8. Desinstalar PostgreSQL (solo si no lo usás para otra cosa)
-# apt remove --purge -y postgresql postgresql-contrib
-# rm -rf /etc/postgresql /var/lib/postgresql
+# sudo apt remove --purge -y postgresql postgresql-contrib
+# sudo rm -rf /etc/postgresql /var/lib/postgresql
 
 # 9. Desinstalar Node.js (solo si no lo usás para otra cosa)
-# apt remove --purge -y nodejs
-# rm -rf /usr/lib/node_modules
+# sudo apt remove --purge -y nodejs
+# sudo rm -rf /usr/lib/node_modules
 ```
 
 ---
@@ -947,14 +951,14 @@ pm2 stop tubingazo-api                  # Detener el backend
 pm2 resurrect                           # Restaurar procesos guardados tras reinicio
 
 # ── Nginx ────────────────────────────────────────────────────────────────
-systemctl status nginx                  # Estado
-nginx -t                                # Verificar configuración
-systemctl reload nginx                  # Recargar sin downtime
-systemctl restart nginx                 # Reinicio completo
+sudo systemctl status nginx                  # Estado
+sudo nginx -t                                # Verificar configuración
+sudo systemctl reload nginx                  # Recargar sin downtime
+sudo systemctl restart nginx                 # Reinicio completo
 
 # ── PostgreSQL ───────────────────────────────────────────────────────────
-systemctl status postgresql             # Estado
-systemctl restart postgresql            # Reiniciar
+sudo systemctl status postgresql             # Estado
+sudo systemctl restart postgresql            # Reiniciar
 psql $DATABASE_URL                      # Conectarse
 psql $DATABASE_URL -c "\dt"             # Ver todas las tablas
 psql $DATABASE_URL -c "SELECT COUNT(*) FROM users;" # Contar usuarios
@@ -978,7 +982,7 @@ cd /var/www/tubingazo && \
 
 ### ❌ "Cannot connect to database" al aplicar migraciones
 
-1. `systemctl status postgresql` — verificar que está activo
+1. `sudo systemctl status postgresql` — verificar que está activo
 2. La contraseña en `.env` debe ser exactamente igual a la del Paso 5.2 (sin espacios)
 3. `psql $DATABASE_URL -c "SELECT 1"` — probar conexión directa
 4. Si dice "role does not exist": repetir el Paso 5.2
@@ -986,7 +990,7 @@ cd /var/www/tubingazo && \
 ### ❌ El sitio no carga / pantalla en blanco
 
 1. `pm2 status` — verificar que `tubingazo-api` está `online`
-2. `nginx -t` — verificar configuración de Nginx
+2. `sudo nginx -t` — verificar configuración de Nginx
 3. Verificar que el frontend está compilado: `ls /var/www/tubingazo/artifacts/tu-bingazo/dist/public/index.html`
 4. Si falta el `index.html`: repetir el Paso 9 (compilar frontend)
 5. Revisar logs de Nginx: `tail -50 /var/log/nginx/error.log`
