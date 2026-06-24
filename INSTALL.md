@@ -424,7 +424,7 @@ cat > /var/www/tubingazo/ecosystem.config.cjs << 'EOF'
 module.exports = {
   apps: [
     {
-      name: "tubingazo-api",
+      name: "elbingote-api",
       script: "./artifacts/api-server/dist/index.mjs",
       cwd: "/var/www/tubingazo",
       env_file: "/var/www/tubingazo/.env",
@@ -436,8 +436,8 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: "400M",
-      error_file: "/var/log/tubingazo-api-error.log",
-      out_file: "/var/log/tubingazo-api-out.log",
+      error_file: "/var/log/elbingote-api-error.log",
+      out_file: "/var/log/elbingote-api-out.log",
       log_date_format: "YYYY-MM-DD HH:mm:ss"
     }
   ]
@@ -447,8 +447,11 @@ EOF
 
 ### Iniciar el backend
 
+> ⚠️ **Importante:** Antes de iniciar PM2, cargá las variables de entorno del `.env`. Sin este paso, el servidor arranca sin configuración y entra en estado `errored`.
+
 ```bash
 cd /var/www/tubingazo
+set -a && source /var/www/tubingazo/.env && set +a
 pm2 start ecosystem.config.cjs
 ```
 
@@ -457,8 +460,8 @@ pm2 start ecosystem.config.cjs
 ```bash
 pm2 status
 ```
-> La fila `tubingazo-api` debe mostrar `online` en verde ✅
-> Si dice `errored`: `pm2 logs tubingazo-api --lines 30`
+> La fila `elbingote-api` debe mostrar `online` ✅
+> Si dice `errored`: revisá los logs con `pm2 logs elbingote-api --lines 30 --nostream`
 
 ### Probar que el backend responde
 
@@ -691,7 +694,7 @@ pnpm --filter @workspace/api-server run build
 BASE_PATH=/ PORT=8080 pnpm --filter @workspace/tu-bingazo run build
 
 # 5. Reiniciar el backend y recargar frontend
-pm2 restart tubingazo-api
+pm2 restart elbingote-api
 sudo systemctl reload nginx
 ```
 
@@ -714,7 +717,7 @@ pnpm --filter @workspace/api-server run build
 echo "▶ Compilando frontend..."
 BASE_PATH=/ PORT=8080 pnpm --filter @workspace/tu-bingazo run build
 echo "▶ Reiniciando servicios..."
-pm2 restart tubingazo-api
+pm2 restart elbingote-api
 sudo systemctl reload nginx
 echo "✅ Actualización completada."
 EOF
@@ -808,7 +811,7 @@ psql $DATABASE_URL < /root/backups/tubingazo/db-FECHA.sql
 tar -xzf /root/backups/tubingazo/files-FECHA.tar.gz -C /
 
 # 3. Reiniciar la aplicación
-pm2 restart tubingazo-api
+pm2 restart elbingote-api
 ```
 
 ---
@@ -821,7 +824,7 @@ Antes de abrir el sistema al público, verificá cada punto:
 # ── Infraestructura ───────────────────────────────────────────────────────
 node --version              # Debe mostrar v24.x.x
 pnpm --version              # Debe mostrar la versión instalada
-pm2 status                  # tubingazo-api debe estar "online"
+pm2 status                  # elbingote-api debe estar "online"
 sudo systemctl status nginx      # Debe mostrar "active (running)"
 sudo systemctl status postgresql # Debe mostrar "active (running)"
 
@@ -873,8 +876,8 @@ Abrí `https://TU_DOMINIO.COM` y confirmá:
 
 ```bash
 # 1. Detener y eliminar PM2
-pm2 stop tubingazo-api
-pm2 delete tubingazo-api
+pm2 stop elbingote-api
+pm2 delete elbingote-api
 pm2 save
 
 # 2. Eliminar archivos de la aplicación
@@ -896,7 +899,7 @@ sudo certbot delete --cert-name TU_DOMINIO.COM
 sudo rm -rf /root/backups/tubingazo
 
 # 7. Eliminar logs de PM2
-sudo rm -f /var/log/tubingazo-api-*.log
+sudo rm -f /var/log/elbingote-api-*.log
 
 # 8. Desinstalar PostgreSQL (solo si no lo usás para otra cosa)
 # sudo apt remove --purge -y postgresql postgresql-contrib
@@ -954,10 +957,10 @@ Creadas automáticamente con `pnpm --filter @workspace/db run push`:
 ```bash
 # ── PM2 ──────────────────────────────────────────────────────────────────
 pm2 status                              # Estado de todos los procesos
-pm2 logs tubingazo-api                  # Logs en tiempo real
-pm2 logs tubingazo-api --lines 100      # Últimas 100 líneas
-pm2 restart tubingazo-api               # Reiniciar el backend
-pm2 stop tubingazo-api                  # Detener el backend
+pm2 logs elbingote-api                  # Logs en tiempo real
+pm2 logs elbingote-api --lines 100      # Últimas 100 líneas
+pm2 restart elbingote-api               # Reiniciar el backend
+pm2 stop elbingote-api                  # Detener el backend
 pm2 resurrect                           # Restaurar procesos guardados tras reinicio
 
 # ── Nginx ────────────────────────────────────────────────────────────────
@@ -983,7 +986,7 @@ journalctl -xe --no-pager | tail -50    # Logs del sistema operativo
 # ── Recompilar y reiniciar rápido ─────────────────────────────────────────
 cd /var/www/tubingazo && \
   pnpm --filter @workspace/api-server run build && \
-  pm2 restart tubingazo-api
+  pm2 restart elbingote-api
 ```
 
 ---
@@ -999,7 +1002,7 @@ cd /var/www/tubingazo && \
 
 ### ❌ El sitio no carga / pantalla en blanco
 
-1. `pm2 status` — verificar que `tubingazo-api` está `online`
+1. `pm2 status` — verificar que `elbingote-api` está `online`
 2. `sudo nginx -t` — verificar configuración de Nginx
 3. Verificar que el frontend está compilado: `ls /var/www/tubingazo/artifacts/tu-bingazo/dist/public/index.html`
 4. Si falta el `index.html`: repetir el Paso 9 (compilar frontend)
@@ -1009,9 +1012,9 @@ cd /var/www/tubingazo && \
 
 El backend no está respondiendo:
 1. `pm2 status` — ver si está `online` o `errored`
-2. `pm2 logs tubingazo-api --lines 50` — leer el error exacto
+2. `pm2 logs elbingote-api --lines 50` — leer el error exacto
 3. Error frecuente: `.env` mal formateado → revisar reglas de la Parte 7
-4. Reintentar: `pm2 restart tubingazo-api`
+4. Reintentar: `pm2 restart elbingote-api`
 
 ### ❌ Error 404 en rutas del frontend (`/admin`, `/wallet`, etc.)
 
@@ -1029,7 +1032,7 @@ node create-admin.mjs
 
 1. Verificar que `PAYMENT_API_KEY` es correcta y activa en el panel de Enlazo
 2. El sitio debe usar HTTPS (requerido por Enlazo para webhooks)
-3. Revisar logs: `pm2 logs tubingazo-api | grep -i payment`
+3. Revisar logs: `pm2 logs elbingote-api | grep -i payment`
 
 ### ❌ El compilado falla con "JavaScript heap out of memory"
 
@@ -1044,7 +1047,7 @@ O bien configurar SWAP (Parte 3).
 ```bash
 pm2 resurrect
 # Si no funciona:
-cd /var/www/tubingazo && pm2 start ecosystem.config.cjs && pm2 save
+cd /var/www/tubingazo && set -a && source /var/www/tubingazo/.env && set +a && pm2 start ecosystem.config.cjs && pm2 save
 ```
 
 ### ❌ Variables de entorno no cargadas correctamente
@@ -1065,11 +1068,11 @@ Verificar que no hay espacios alrededor del `=` en el `.env`.
 | Panel admin | `https://TU_DOMINIO.COM/admin` |
 | Webmin | `https://TU_IP:10000` |
 | Puerto API (interno) | `8080` |
-| Logs del backend | `pm2 logs tubingazo-api` |
+| Logs del backend | `pm2 logs elbingote-api` |
 | Frontend compilado | `/var/www/tubingazo/artifacts/tu-bingazo/dist/public/` |
 | Archivo de configuración | `/var/www/tubingazo/.env` |
 | Logs de errores Nginx | `/var/log/nginx/error.log` |
-| Logs de errores API | `/var/log/tubingazo-api-error.log` |
+| Logs de errores API | `/var/log/elbingote-api-error.log` |
 | Script de actualización | `/var/www/tubingazo/update.sh` |
 | Script de crear admin | `/var/www/tubingazo/create-admin.mjs` |
 | Backups automáticos | `/root/backups/tubingazo/` |
