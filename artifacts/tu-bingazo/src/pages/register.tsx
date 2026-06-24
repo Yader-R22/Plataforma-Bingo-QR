@@ -12,6 +12,29 @@ const DEPARTMENTS = [
   "Oruro", "Pando", "Potosí", "Santa Cruz", "Tarija",
 ];
 
+const DEPT_CENTROIDS: Array<{ name: string; lat: number; lon: number }> = [
+  { name: "Beni",       lat: -13.8, lon: -65.4 },
+  { name: "Chuquisaca", lat: -20.1, lon: -64.3 },
+  { name: "Cochabamba", lat: -17.0, lon: -65.9 },
+  { name: "La Paz",     lat: -16.5, lon: -68.1 },
+  { name: "Oruro",      lat: -18.5, lon: -67.2 },
+  { name: "Pando",      lat: -11.0, lon: -67.6 },
+  { name: "Potosí",     lat: -20.6, lon: -65.7 },
+  { name: "Santa Cruz", lat: -17.0, lon: -61.8 },
+  { name: "Tarija",     lat: -21.5, lon: -63.4 },
+];
+
+function detectDepartmentFromCoords(lat: number, lon: number): string | null {
+  if (lat < -23 || lat > -9 || lon < -70 || lon > -57) return null;
+  let nearest = DEPT_CENTROIDS[0];
+  let minDist = Infinity;
+  for (const dept of DEPT_CENTROIDS) {
+    const dist = (lat - dept.lat) ** 2 + (lon - dept.lon) ** 2;
+    if (dist < minDist) { minDist = dist; nearest = dept; }
+  }
+  return nearest!.name;
+}
+
 function PhotoCapture({
   label,
   value,
@@ -112,8 +135,8 @@ export default function RegisterPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  // Auto-detect department from geolocation
-  async function detectDepartment() {
+  // Auto-detect department from geolocation (local lookup, no external API)
+  function detectDepartment() {
     if (!navigator.geolocation) {
       setGeoAttempted(true);
       setShowManualPicker(true);
@@ -121,24 +144,11 @@ export default function RegisterPage() {
     }
     setGeoLoading(true);
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const { latitude, longitude } = pos.coords;
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=es`
-          );
-          const data = await res.json();
-          const state = data.address?.state ?? "";
-          const match = DEPARTMENTS.find(d =>
-            state.toLowerCase().includes(d.toLowerCase()) ||
-            d.toLowerCase().includes(state.toLowerCase().split(" ")[0])
-          );
-          if (match) {
-            update("department", match);
-          } else {
-            setShowManualPicker(true);
-          }
-        } catch {
+      (pos) => {
+        const dept = detectDepartmentFromCoords(pos.coords.latitude, pos.coords.longitude);
+        if (dept) {
+          update("department", dept);
+        } else {
           setShowManualPicker(true);
         }
         setGeoAttempted(true);
@@ -172,7 +182,17 @@ export default function RegisterPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) { toast.error(data.error || "Error al registrarse"); return; }
+      if (!res.ok) {
+        if (res.status === 409) {
+          toast.error("Ya tenés una cuenta con ese CI. ¿Querés iniciar sesión?", {
+            action: { label: "Iniciar sesión", onClick: () => navigate("/login") },
+            duration: 6000,
+          });
+        } else {
+          toast.error(data.error || "Error al registrarse");
+        }
+        return;
+      }
       setAuth(data.token, data.user);
       toast.success("¡Cuenta creada! Ya puedes usar la plataforma.");
       navigate("/");
