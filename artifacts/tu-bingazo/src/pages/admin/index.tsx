@@ -6734,8 +6734,18 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           function pwaImgUpload(field: "pwa_icon_512" | "pwa_icon_192", e: React.ChangeEvent<HTMLInputElement>) {
             const file = e.target.files?.[0];
             if (!file) return;
+            const MAX = field === "pwa_icon_512" ? 512 : 192;
             const reader = new FileReader();
-            reader.onload = ev => setPwaForm(f => ({ ...f, [field]: ev.target?.result as string }));
+            reader.onload = ev => {
+              const img = new Image();
+              img.onload = () => {
+                const canvas = document.createElement("canvas");
+                canvas.width = MAX; canvas.height = MAX;
+                canvas.getContext("2d")!.drawImage(img, 0, 0, MAX, MAX);
+                setPwaForm(f => ({ ...f, [field]: canvas.toDataURL("image/webp", 0.9) }));
+              };
+              img.src = ev.target?.result as string;
+            };
             reader.readAsDataURL(file);
           }
 

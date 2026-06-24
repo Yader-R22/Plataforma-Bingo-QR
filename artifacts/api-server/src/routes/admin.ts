@@ -23,6 +23,11 @@ const router = Router();
 // All admin routes require admin auth
 router.use(requireAdmin);
 
+function formatUserList(user: typeof usersTable.$inferSelect) {
+  const u = formatUser(user);
+  return { ...u, id_photo_front_url: null, id_photo_back_url: null };
+}
+
 router.get("/users", async (req: AuthRequest, res) => {
   const query = AdminListUsersQueryParams.safeParse(req.query);
   let users;
@@ -31,7 +36,7 @@ router.get("/users", async (req: AuthRequest, res) => {
   } else {
     users = await db.select().from(usersTable).orderBy(desc(usersTable.createdAt));
   }
-  res.json(users.map(formatUser));
+  res.json(users.map(formatUserList));
 });
 
 router.post("/users/:id/verify", async (req: AuthRequest, res) => {
