@@ -45,6 +45,8 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<"verify" | "info" | "role" | "password" | "balance" | "danger">("info");
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<{ id_photo_front_url: string | null; id_photo_back_url: string | null } | null>(null);
+  const [photosLoading, setPhotosLoading] = useState(false);
 
   const [tempPwd, setTempPwd] = useState("");
   const [tempPwdHours, setTempPwdHours] = useState(24);
@@ -64,13 +66,24 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
 
   const auth = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
 
+  const loadPhotos = useCallback(async () => {
+    if (photos || photosLoading) return;
+    setPhotosLoading(true);
+    try {
+      const r = await fetch(`${BASE}/api/admin/users/${userId}/photos`, { headers: auth() });
+      if (r.ok) setPhotos(await r.json());
+    } finally {
+      setPhotosLoading(false);
+    }
+  }, [userId, photos, photosLoading, auth]);
+
   useEffect(() => {
     fetch(`${BASE}/api/admin/users/${userId}`, { headers: auth() })
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(d => {
         setUser(d);
         setLoading(false);
-        if (d?.status === "pending") setSection("verify");
+        if (d?.status === "pending") { setSection("verify"); }
       })
       .catch((err) => {
         setLoading(false);
@@ -78,6 +91,10 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
         onClose();
       });
   }, [userId]);
+
+  useEffect(() => {
+    if (!loading && (section === "verify" || section === "info")) loadPhotos();
+  }, [section, loading]);
 
   async function setTempPassword() {
     if (tempPwd.length < 6) { toast.error("Mínimo 6 caracteres"); return; }
@@ -300,29 +317,36 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
               {/* CI photos */}
               <div className="space-y-2">
                 <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">📄 Documentos del CI enviados</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { url: user.id_photo_front_url, label: "Anverso" },
-                    { url: user.id_photo_back_url, label: "Reverso" },
-                  ].map(({ url, label }) => (
-                    <div key={label} className="space-y-1">
-                      <p className="text-[11px] font-bold text-muted-foreground">{label}</p>
-                      {url ? (
-                        <img src={url} alt={label}
-                          className="w-full rounded-xl object-cover cursor-zoom-in border hover:opacity-90 transition-opacity"
-                          style={{ height: 140 }}
-                          onClick={() => setLightboxUrl(url)} />
-                      ) : (
-                        <div className="w-full rounded-xl border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground"
-                          style={{ height: 140 }}>
-                          <span className="text-2xl mb-1">📷</span>
-                          <span className="text-[11px]">Aún no enviada</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {(!user.id_photo_front_url || !user.id_photo_back_url) && (
+                {photosLoading ? (
+                  <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground text-xs">
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    Cargando fotos...
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { url: photos?.id_photo_front_url, label: "Anverso" },
+                      { url: photos?.id_photo_back_url, label: "Reverso" },
+                    ].map(({ url, label }) => (
+                      <div key={label} className="space-y-1">
+                        <p className="text-[11px] font-bold text-muted-foreground">{label}</p>
+                        {url ? (
+                          <img src={url} alt={label}
+                            className="w-full rounded-xl object-cover cursor-zoom-in border hover:opacity-90 transition-opacity"
+                            style={{ height: 140 }}
+                            onClick={() => setLightboxUrl(url)} />
+                        ) : (
+                          <div className="w-full rounded-xl border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground"
+                            style={{ height: 140 }}>
+                            <span className="text-2xl mb-1">📷</span>
+                            <span className="text-[11px]">Aún no enviada</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {photos && (!photos.id_photo_front_url || !photos.id_photo_back_url) && (
                   <p className="text-xs text-center text-muted-foreground">
                     ⚠️ El usuario aún no ha enviado todos los documentos.
                   </p>
@@ -330,7 +354,7 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
               </div>
 
               {/* Only show approve/reject when photos are uploaded */}
-              {user.id_photo_front_url && user.id_photo_back_url ? (
+              {photos?.id_photo_front_url && photos?.id_photo_back_url ? (
                 <>
                   <button onClick={() => verifyAccount(true)} disabled={savingVerify}
                     className="w-full py-3.5 rounded-2xl font-black text-white text-sm disabled:opacity-50"
@@ -366,35 +390,42 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
               {/* Documentos de identidad — siempre visible */}
               <div className="space-y-2">
                 <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">📄 Documentos de identidad (CI)</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { url: user.id_photo_front_url, label: "Anverso", filename: `CI_anverso_${user.ci}.jpg` },
-                    { url: user.id_photo_back_url, label: "Reverso", filename: `CI_reverso_${user.ci}.jpg` },
-                  ].map(({ url, label, filename }) => (
-                    <div key={label} className="space-y-1">
-                      <p className="text-[11px] font-bold text-muted-foreground">{label}</p>
-                      {url ? (
-                        <>
-                          <img src={url} alt={label}
-                            className="w-full rounded-xl object-cover cursor-zoom-in border hover:opacity-90 transition-opacity"
-                            style={{ maxHeight: 130 }}
-                            onClick={() => setLightboxUrl(url)} />
-                          <button onClick={() => downloadUrl(url, filename)}
-                            className="w-full text-xs font-bold py-1.5 rounded-lg"
-                            style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
-                            ⬇ Descargar
-                          </button>
-                        </>
-                      ) : (
-                        <div className="w-full rounded-xl border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground"
-                          style={{ height: 130, borderColor: "hsl(var(--border))" }}>
-                          <span className="text-2xl mb-1">📷</span>
-                          <span className="text-[11px] font-semibold">Sin foto</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                {photosLoading ? (
+                  <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground text-xs">
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    Cargando fotos...
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { url: photos?.id_photo_front_url, label: "Anverso", filename: `CI_anverso_${user.ci}.jpg` },
+                      { url: photos?.id_photo_back_url, label: "Reverso", filename: `CI_reverso_${user.ci}.jpg` },
+                    ].map(({ url, label, filename }) => (
+                      <div key={label} className="space-y-1">
+                        <p className="text-[11px] font-bold text-muted-foreground">{label}</p>
+                        {url ? (
+                          <>
+                            <img src={url} alt={label}
+                              className="w-full rounded-xl object-cover cursor-zoom-in border hover:opacity-90 transition-opacity"
+                              style={{ maxHeight: 130 }}
+                              onClick={() => setLightboxUrl(url)} />
+                            <button onClick={() => downloadUrl(url, filename!)}
+                              className="w-full text-xs font-bold py-1.5 rounded-lg"
+                              style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
+                              ⬇ Descargar
+                            </button>
+                          </>
+                        ) : (
+                          <div className="w-full rounded-xl border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground"
+                            style={{ height: 130, borderColor: "hsl(var(--border))" }}>
+                            <span className="text-2xl mb-1">📷</span>
+                            <span className="text-[11px] font-semibold">Sin foto</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Registration info */}

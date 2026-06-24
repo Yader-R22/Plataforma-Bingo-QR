@@ -608,25 +608,39 @@ router.get("/users/:id", async (req: AuthRequest, res) => {
   if (!rows.length) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
   const u = rows[0];
 
-  // Last IP from audit_logs (most recent entry for this user)
-  const lastIpRows = await db.select({ ip: auditLogsTable.ipAddress, createdAt: auditLogsTable.createdAt })
-    .from(auditLogsTable)
-    .where(and(eq(auditLogsTable.userId, id), sql`${auditLogsTable.ipAddress} IS NOT NULL`))
-    .orderBy(desc(auditLogsTable.createdAt))
-    .limit(1);
+  const [lastIpRows, cardCount, winCount] = await Promise.all([
+    db.select({ ip: auditLogsTable.ipAddress, createdAt: auditLogsTable.createdAt })
+      .from(auditLogsTable)
+      .where(and(eq(auditLogsTable.userId, id), sql`${auditLogsTable.ipAddress} IS NOT NULL`))
+      .orderBy(desc(auditLogsTable.createdAt))
+      .limit(1),
+    db.select({ count: sql<number>`count(*)` }).from(cardsTable).where(eq(cardsTable.userId, id)),
+    db.select({ count: sql<number>`count(*)` }).from(winnersTable).where(eq(winnersTable.userId, id)),
+  ]);
 
-  // Card stats
-  const cardCount = await db.select({ count: sql<number>`count(*)` })
-    .from(cardsTable).where(eq(cardsTable.userId, id));
-  const winCount = await db.select({ count: sql<number>`count(*)` })
-    .from(winnersTable).where(eq(winnersTable.userId, id));
-
+  const base = formatUserList(u);
   res.json({
-    ...formatUser(u),
+    ...base,
+    has_photos: !!(u.idPhotoFrontUrl || u.idPhotoBackUrl),
     last_audit_ip: lastIpRows[0]?.ip ?? null,
     last_audit_at: lastIpRows[0]?.createdAt ?? null,
     cards_purchased: Number(cardCount[0]?.count ?? 0),
     wins: Number(winCount[0]?.count ?? 0),
+  });
+});
+
+// ── User CI photos (separate lazy endpoint) ──────────────────────────────────
+router.get("/users/:id/photos", async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+  const rows = await db.select({
+    idPhotoFrontUrl: usersTable.idPhotoFrontUrl,
+    idPhotoBackUrl: usersTable.idPhotoBackUrl,
+  }).from(usersTable).where(eq(usersTable.id, id)).limit(1);
+  if (!rows.length) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
+  res.json({
+    id_photo_front_url: rows[0].idPhotoFrontUrl ?? null,
+    id_photo_back_url: rows[0].idPhotoBackUrl ?? null,
   });
 });
 
