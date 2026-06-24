@@ -549,6 +549,7 @@ server {
 
     # ── API del backend ──────────────────────────────────────────────────
     location /api {
+        client_max_body_size 15M;   # Fotos de CI en base64 pueden superar 10 MB
         proxy_pass http://localhost:8080;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -1161,6 +1162,64 @@ pm2 start /var/www/tubingazo/ecosystem.config.cjs
 pm2 save
 ```
 Si el proceso vuelve al estado `errored`, revisá la sección "El proceso de PM2 está en modo `errored`" más arriba.
+
+### ❌ El registro de usuario falla silenciosamente o da "Ya existe un usuario" al segundo intento
+
+**Síntoma:** el usuario llena el formulario, toca "Crear Cuenta", el botón queda cargando, y eventualmente aparece el error "Ya existe un usuario con ese CI" — aunque era la primera vez que intentaba registrarse.
+
+**Causa:** el registro incluye fotos del CI en base64. Si Nginx rechaza el cuerpo de la solicitud por superar su límite (`client_max_body_size`), el frontend recibe un error de red y muestra "Error de conexión". El usuario vuelve a intentar, pero el primer intento SÍ llegó al servidor y creó la cuenta — por eso el segundo intento falla con 409.
+
+**Solución:** verificar que el bloque `location /api` en la configuración de Nginx tiene `client_max_body_size 15M;`:
+```bash
+grep -A3 "location /api" /etc/nginx/sites-available/tubingazo
+# Debe mostrar: client_max_body_size 15M;
+```
+Si no está, editá el archivo, agregá la línea y recargá:
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+Si ya existe un usuario duplicado de las pruebas fallidas, borralo con:
+```bash
+psql $DATABASE_URL -c "DELETE FROM users WHERE ci = 'CI_DEL_USUARIO';"
+```
+
+### ❌ Pagos QR fallan con "Fallo al encriptar con Baneco API"
+
+**Síntoma:** la `PAYMENT_API_KEY` es válida (no recibe 401), pero al generar un QR la función de Supabase responde HTTP 500 con el mensaje `"Fallo al encriptar con Baneco API"`.
+
+**Causa:** el error viene de la Edge Function de Supabase, no del código de la app. La función necesita las credenciales de la API de Baneco configuradas como variables de entorno en el proyecto de Supabase.
+
+**Solución:**
+1. Ingresá al panel de tu proyecto en [supabase.com](https://supabase.com)
+2. Menú izquierdo → **Project Settings → Edge Functions**
+3. Buscá la función `generate-qr` (o similar)
+4. Agregá las variables de entorno que Baneco requiere (credenciales proporcionadas por Baneco al activar tu cuenta)
+5. Guardá y desplegá la función nuevamente
+
+Hasta que esas credenciales estén configuradas, ningún pago QR funcionará aunque el resto de la app esté operativo.
+
+### ❌ La app PWA instala con el ícono pequeño de Chrome (no como app nativa)
+
+**Síntoma:** el banner de instalación aparece y el usuario acepta instalar, pero el ícono en el home screen tiene el logo pequeño de Chrome superpuesto — en lugar de instalarse como app independiente (WebAPK).
+
+**Causa:** Chrome necesita conectarse a los servidores de Google para "empaquetar" la app como WebAPK. Si el DNS del dominio **no resuelve desde internet** (nameservers sin glue records, o propagación incompleta), Google no puede descargar los iconos y Chrome cae al modo shortcut (acceso directo con badge).
+
+**Cómo verificar si el DNS resuelve globalmente:**
+```bash
+# Desde el VPS:
+dig @8.8.8.8 +short tubingazo.com
+# Debe mostrar la IP del servidor. Si no muestra nada o da SERVFAIL, el DNS no está propagado.
+```
+
+**Solución — Usar Cloudflare como DNS (recomendado):**
+1. Crear cuenta gratuita en [cloudflare.com](https://cloudflare.com)
+2. Agregar tu dominio → Cloudflare escaneará los registros existentes automáticamente
+3. En el panel de tu registrador (donde compraste el dominio), cambiar los nameservers a los de Cloudflare (ej: `aria.ns.cloudflare.com`)
+4. Esperar 5–30 minutos para que propague
+
+Una vez que `dig @8.8.8.8 tubingazo.com` muestre la IP correcta, los nuevos intentos de instalación crearán una WebAPK real sin el badge de Chrome.
+
+> 💡 **Nota:** los usuarios que ya instalaron el acceso directo pueden desinstalarlo y volver a instalar desde `https://tubingazo.com` para obtener la WebAPK correcta.
 
 ### ❌ Certificado SSL duplicado al ejecutar certbot
 
