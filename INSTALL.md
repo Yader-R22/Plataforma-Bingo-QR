@@ -244,9 +244,16 @@ cd /var/www/tubingazo
 ### Instalar dependencias
 
 ```bash
+cd /var/www/tubingazo
 pnpm install
 ```
 > Puede tardar 3–8 minutos. Esperá el mensaje `Done` o `packages installed`.
+
+> ⚠️ Si al final aparece `[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: esbuild`, ejecutá:
+> ```bash
+> pnpm approve-builds
+> ```
+> Seleccioná `esbuild` con la barra espaciadora y confirmá con Enter. Luego volvé a ejecutar `pnpm install`.
 
 ---
 
