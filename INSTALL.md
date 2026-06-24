@@ -625,6 +625,12 @@ sudo certbot renew --dry-run
 
 Certbot programa la renovación automáticamente cada 90 días — no necesitás hacer nada más.
 
+> ⚠️ **Si aparece un certificado duplicado fallando** (por ejemplo `elbingote.com` y `elbingote.com-0001`), es porque Virtualmin/Webmin creó un certificado anterior con subdominios extra. El que importa es el que termina en `-0001`. Eliminá el viejo:
+> ```bash
+> sudo certbot delete --cert-name elbingote.com
+> ```
+> Luego volvé a ejecutar `sudo certbot renew --dry-run` — ahora debe mostrar solo un certificado y éxito total.
+
 ---
 
 ## PARTE 14 — Configurar el Firewall (UFW)
