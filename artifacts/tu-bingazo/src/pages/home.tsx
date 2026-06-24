@@ -398,7 +398,7 @@ export default function HomePage() {
           <div className="relative z-10">
             <p className="text-white/70 text-sm">¡Hola, {user.full_name.split(" ")[0]}! 👋</p>
             <h1 className="text-2xl font-black mt-0.5" style={{ fontFamily: "'Poppins', sans-serif" }}>
-              {user.status === "active" ? "¡A ganar hoy! 🎉" : `Bienvenido a ${site.site_name}`}
+              {user.status === "active" ? "¡A ganar hoy! 🎉" : site.site_name ? `Bienvenido a ${site.site_name}` : "¡Bienvenido!"}
             </h1>
             {user.status === "active" && (
               <div className="mt-3 inline-flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2">

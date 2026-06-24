@@ -219,7 +219,7 @@ export default function RegisterPage() {
         <h1 className="text-white font-black text-xl mt-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
           Crear Cuenta
         </h1>
-        <p className="text-white/60 text-sm">{site.site_name} · Bolivia</p>
+        <p className="text-white/60 text-sm">{site.site_name ? `${site.site_name} · Bolivia` : "Bolivia"}</p>
       </div>
 
       {/* Referral banner */}
