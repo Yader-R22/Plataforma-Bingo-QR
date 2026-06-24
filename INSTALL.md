@@ -303,7 +303,10 @@ PORT=8080
 NODE_ENV=production
 ```
 
-Guardá: **Ctrl+X → Y → Enter**
+**Cómo guardar en nano:**
+- Las flechas del teclado mueven el cursor
+- Para pegar: clic derecho en la terminal
+- Para guardar y salir: **`Ctrl+X`** → te pregunta `Save modified buffer?` → apretá **`Y`** → apretá **`Enter`**
 
 ### Paso 7.4: Proteger el archivo
 
