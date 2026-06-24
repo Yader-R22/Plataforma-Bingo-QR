@@ -496,6 +496,12 @@ sudo systemctl enable nginx
 sudo rm -f /etc/nginx/sites-enabled/default
 ```
 
+> ⚠️ **Si tu VPS ya tiene Apache2 instalado**, Nginx no podrá arrancar porque Apache ocupa el puerto 80. Deshabilitalo primero:
+> ```bash
+> sudo systemctl stop apache2
+> sudo systemctl disable apache2
+> ```
+
 ### Crear la configuración del sitio
 
 ```bash
@@ -1007,6 +1013,19 @@ cd /var/www/tubingazo && \
 3. Verificar que el frontend está compilado: `ls /var/www/tubingazo/artifacts/tu-bingazo/dist/public/index.html`
 4. Si falta el `index.html`: repetir el Paso 9 (compilar frontend)
 5. Revisar logs de Nginx: `tail -50 /var/log/nginx/error.log`
+
+### ❌ Nginx no arranca — puerto 80 ocupado por Apache2
+
+Algunos VPS tienen Apache2 preinstalado. Si `sudo systemctl start nginx` falla, verificá:
+```bash
+sudo ss -tlnp | grep ':80'
+```
+Si aparece `apache2` en el resultado, deshabilitalo:
+```bash
+sudo systemctl stop apache2
+sudo systemctl disable apache2
+sudo systemctl start nginx
+```
 
 ### ❌ Error 502 Bad Gateway
 
