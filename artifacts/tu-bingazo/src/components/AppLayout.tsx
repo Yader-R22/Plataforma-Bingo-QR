@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useLayoutEffect, useRef, useCallback, useSta
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { compressImage } from "@/lib/utils";
 import { toast } from "sonner";
 import { create } from "zustand";
 
@@ -37,12 +38,10 @@ export function useSetLayoutConfig(config: LayoutConfig, deps: unknown[] = []) {
 
 function PhotoCapture({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => onChange(ev.target?.result as string);
-    reader.readAsDataURL(file);
+    onChange(await compressImage(file, 400));
   }
   return (
     <div>

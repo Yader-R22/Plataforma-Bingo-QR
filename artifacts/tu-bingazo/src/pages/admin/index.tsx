@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { compressImage } from "@/lib/utils";
 import { toast } from "sonner";
 import { useSetLayoutConfig } from "@/components/AppLayout";
 import { ADMIN_PERMS } from "./perms";
@@ -3850,12 +3851,10 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                             color: hasImage ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
                           }}>
                           🖼️ Imagen
-                          <input type="file" accept="image/*" className="hidden" onChange={e => {
+                          <input type="file" accept="image/*" className="hidden" onChange={async e => {
                             const file = e.target.files?.[0];
                             if (!file) return;
-                            const reader = new FileReader();
-                            reader.onload = ev => updCatDraft(c.id, "background_image_url", ev.target?.result as string);
-                            reader.readAsDataURL(file);
+                            updCatDraft(c.id, "background_image_url", await compressImage(file, 1000));
                             e.target.value = "";
                           }} />
                         </label>
@@ -3992,12 +3991,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                               ? <img src={wdAction.proof} alt="Comprobante" className="w-full max-h-40 object-contain rounded-xl" />
                               : <span>📷 Subir imagen del comprobante</span>}
                             <input type="file" accept="image/*" className="hidden"
-                              onChange={e => {
+                              onChange={async e => {
                                 const f = e.target.files?.[0];
                                 if (!f) return;
-                                const reader = new FileReader();
-                                reader.onload = ev => setWdAction(a => a ? { ...a, proof: ev.target?.result as string } : null);
-                                reader.readAsDataURL(f);
+                                setWdAction(a => a ? { ...a, proof: "loading" } : null);
+                                const compressed = await compressImage(f, 1200);
+                                setWdAction(a => a ? { ...a, proof: compressed } : null);
                               }} />
                           </label>
                         </div>
@@ -6608,19 +6607,17 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     const file = e.target.files?.[0]; if (!file) return;
                     setSavingBanner(true);
                     const mediaType = file.type === "video/mp4" ? "video" : file.type === "image/gif" ? "gif" : "image";
-                    const reader = new FileReader();
-                    reader.onload = async ev => {
-                      const image_url = ev.target?.result as string;
-                      const display_order = banners.length;
-                      const r = await fetch(`${BASE}/api/banners`, {
-                        method: "POST", headers: authH(),
-                        body: JSON.stringify({ image_url, media_type: mediaType, display_order }),
-                      });
-                      if (r.ok) { const b = await r.json(); setBanners(prev => [...prev, b]); toast.success("Banner agregado"); }
-                      else toast.error("Error al subir el banner");
-                      setSavingBanner(false);
-                    };
-                    reader.readAsDataURL(file);
+                    const image_url = mediaType === "image"
+                      ? await compressImage(file, 1200)
+                      : await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target?.result as string); r.onerror = rej; r.readAsDataURL(file); });
+                    const display_order = banners.length;
+                    const r = await fetch(`${BASE}/api/banners`, {
+                      method: "POST", headers: authH(),
+                      body: JSON.stringify({ image_url, media_type: mediaType, display_order }),
+                    });
+                    if (r.ok) { const b = await r.json(); setBanners(prev => [...prev, b]); toast.success("Banner agregado"); }
+                    else toast.error("Error al subir el banner");
+                    setSavingBanner(false);
                     e.target.value = "";
                   }} />
                 </div>

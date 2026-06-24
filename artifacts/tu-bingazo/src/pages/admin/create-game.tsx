@@ -4,6 +4,7 @@ import { useAuthStore } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { compressImage } from "@/lib/utils";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -319,13 +320,10 @@ export default function CreateGamePage() {
                 <span className="text-2xl mb-1">🖼️</span>
                 <span className="text-sm font-medium">Subir imagen de portada</span>
                 <span className="text-xs text-muted-foreground mt-0.5">JPG, PNG, WebP — máx. 8 MB</span>
-                <input type="file" accept="image/*" className="hidden" onChange={e => {
+                <input type="file" accept="image/*" className="hidden" onChange={async e => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  if (file.size > 8 * 1024 * 1024) { toast.error("La imagen es demasiado grande (máx. 8 MB)"); return; }
-                  const reader = new FileReader();
-                  reader.onload = ev => setCoverImage(ev.target?.result as string);
-                  reader.readAsDataURL(file);
+                  setCoverImage(await compressImage(file, 1200));
                   e.target.value = "";
                 }} />
               </label>

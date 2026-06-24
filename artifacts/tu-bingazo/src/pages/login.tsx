@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
+import { compressImage } from "@/lib/utils";
 import { useSetLayoutConfig } from "@/components/AppLayout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -55,19 +56,10 @@ export default function LoginPage() {
     }
   }
 
-  function readPhoto(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = e => resolve(e.target?.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
   async function handlePhotoChange(key: "front" | "back" | "selfie", e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const b64 = await readPhoto(file);
+    const b64 = await compressImage(file, 1200);
     setForgotPhotos(prev => ({ ...prev, [key]: b64 }));
   }
 

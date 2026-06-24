@@ -3,6 +3,7 @@ import { useGetWallet, useListWithdrawals, useListEarnings, useListCommissions }
 import { useAuthStore } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useSetLayoutConfig } from "@/components/AppLayout";
+import { compressImage } from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const BANKS = ["Banco BNB", "Banco Económico", "Banco Unión", "Banco Mercantil", "Banco BISA"];
@@ -81,16 +82,12 @@ export default function WalletPage() {
     });
   }, [withdrawals, histFilter, customFrom, customTo]);
 
-  function handleQrFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleQrFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const b64 = ev.target?.result as string;
-      setQrBase64(b64);
-      setQrPreview(b64);
-    };
-    reader.readAsDataURL(file);
+    const b64 = await compressImage(file, 800);
+    setQrBase64(b64);
+    setQrPreview(b64);
   }
 
   async function submitWithdrawal(method: "qr" | "bank") {
