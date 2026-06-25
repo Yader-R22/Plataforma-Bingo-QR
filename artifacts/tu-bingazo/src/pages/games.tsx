@@ -83,7 +83,12 @@ export default function GamesPage() {
   const TYPE_FILTERS = ALL_TYPE_FILTERS.filter(f => f.value === "all" || existingTypes.has(f.value));
   const filtered = (filter === "all" ? allGamesList : allGamesList.filter((g: any) => g.type === filter))
     .slice()
-    .sort((a: any, b: any) => drawDatePriority(a) - drawDatePriority(b));
+    .sort((a: any, b: any) => {
+      const pa = drawDatePriority(a);
+      const pb = drawDatePriority(b);
+      if (pa !== pb) return pa - pb;
+      return new Date(a.draw_date).getTime() - new Date(b.draw_date).getTime();
+    });
 
   const typeTitle = filter === "daily" ? "Bingos Diarios" : filter === "weekly" ? "Bingos Semanales" : filter === "monthly" ? "Bingos Mensuales" : "Juegos Disponibles";
 
