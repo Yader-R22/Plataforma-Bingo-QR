@@ -34,6 +34,7 @@ export const siteSettingsTable = pgTable("site_settings", {
   pwaStartUrl: text("pwa_start_url").notNull().default("/"),
   pwaCategories: text("pwa_categories").notNull().default("games,entertainment"),
   termsAndConditions: text("terms_and_conditions"),
+  ogImageUrl: text("og_image_url"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedById: integer("updated_by_id").references(() => usersTable.id),
 });

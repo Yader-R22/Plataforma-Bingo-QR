@@ -43,7 +43,27 @@ router.get("/", async (_req, res) => {
     pwa_start_url: s.pwaStartUrl,
     pwa_categories: s.pwaCategories,
     terms_and_conditions: s.termsAndConditions ?? null,
+    og_image_url: s.ogImageUrl ?? null,
   });
+});
+
+// ── OG image served as proper binary (required for og:image absolute URL) ───
+router.get("/og-image", async (_req, res) => {
+  const s = await ensureSettings();
+  const raw = s.ogImageUrl;
+  if (raw && raw.startsWith("data:")) {
+    const commaIdx = raw.indexOf(",");
+    const header = raw.slice(0, commaIdx);
+    const mimeMatch = header.match(/data:([^;]+)/);
+    const mime = mimeMatch?.[1] ?? "image/png";
+    const buf = Buffer.from(raw.slice(commaIdx + 1), "base64");
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(buf);
+    return;
+  }
+  // No custom OG image — serve static fallback from public dir
+  res.redirect("/opengraph.jpg");
 });
 
 router.put("/", requireAdmin, async (req: AuthRequest, res) => {
@@ -64,6 +84,7 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
     pwa_short_name,
     pwa_icon_url,
     terms_and_conditions,
+    og_image_url,
   } = req.body as Record<string, string | null | undefined>;
 
   await ensureSettings();
@@ -87,6 +108,7 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
       ...(pwa_short_name !== undefined && { pwaShortName: pwa_short_name ?? undefined }),
       ...(pwa_icon_url !== undefined && { pwaIconUrl: pwa_icon_url }),
       ...(terms_and_conditions !== undefined && { termsAndConditions: terms_and_conditions }),
+      ...(og_image_url !== undefined && { ogImageUrl: og_image_url }),
       updatedAt: new Date(),
       updatedById: req.userId!,
     })
@@ -123,6 +145,7 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
     pwa_start_url: s.pwaStartUrl,
     pwa_categories: s.pwaCategories,
     terms_and_conditions: s.termsAndConditions ?? null,
+    og_image_url: s.ogImageUrl ?? null,
   });
 });
 

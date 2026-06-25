@@ -875,6 +875,7 @@ export default function AdminPage() {
     seo_title: "Tu Bingazo — Bingo en Vivo Bolivia",
     seo_description: "La plataforma de bingo en vivo más grande de Bolivia. Gana premios en efectivo desde tu celular.",
     seo_keywords: "bingo, bolivia, bingo en vivo, premios, dinero",
+    og_image_url: "",
     primary_color: "#1a0050",
     qr_background_url: "",
     banner_interval: 5,
@@ -1126,6 +1127,7 @@ export default function AdminPage() {
             pwa_icon_url: s.pwa_icon_url ?? "",
             pwa_cache_version: s.pwa_cache_version ?? 1,
             terms_and_conditions: s.terms_and_conditions ?? "",
+            og_image_url: s.og_image_url ?? "",
           });
         }
         if (br.ok) { setBanners(await br.json()); }
@@ -6391,6 +6393,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 pwa_icon_url: siteForm.pwa_icon_url || null,
                 ...(siteForm.payment_api_key && { payment_api_key: siteForm.payment_api_key }),
                 terms_and_conditions: siteForm.terms_and_conditions || null,
+                og_image_url: siteForm.og_image_url || null,
               };
               const r = await fetch(`${BASE}/api/site-settings`, {
                 method: "PUT",
@@ -6609,6 +6612,63 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Palabras clave (separadas por coma)</label>
                     <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
                       value={sf.seo_keywords} onChange={e => setSiteForm(f => ({ ...f, seo_keywords: e.target.value }))} />
+                  </div>
+
+                  {/* OG Image */}
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">
+                      Imagen de vista previa al compartir (Open Graph)
+                    </label>
+                    <p className="text-[11px] text-muted-foreground mb-2">
+                      Esta imagen aparece cuando compartes el enlace por WhatsApp, Facebook, Telegram, etc. Tamaño recomendado: 1200×630 px (horizontal).
+                    </p>
+                    <div className="flex flex-col items-center gap-3 rounded-xl p-4"
+                      style={{ background: "hsl(var(--muted)/0.4)", border: "2px dashed hsl(var(--border))" }}>
+                      {sf.og_image_url
+                        ? <img src={sf.og_image_url} alt="OG preview" className="w-full max-h-40 rounded-xl object-cover border" />
+                        : <div className="w-full h-28 rounded-xl flex flex-col items-center justify-center text-muted-foreground"
+                            style={{ background: "hsl(var(--muted)/0.3)" }}>
+                            <span className="text-3xl mb-1">🖼️</span>
+                            <span className="text-xs">Sin imagen de vista previa</span>
+                          </div>
+                      }
+                      <div className="flex gap-2">
+                        <label htmlFor="upload-og-image"
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer"
+                          style={{ background: "hsl(var(--primary))", color: "white" }}>
+                          📁 Subir imagen
+                        </label>
+                        {sf.og_image_url && (
+                          <button onClick={() => setSiteForm(f => ({ ...f, og_image_url: "" }))}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-500 border border-red-200">
+                            Quitar
+                          </button>
+                        )}
+                      </div>
+                      <input id="upload-og-image" type="file" accept="image/*" className="hidden" onChange={e => {
+                        const file = e.target.files?.[0]; if (!file) return;
+                        const img = new Image();
+                        const reader = new FileReader();
+                        reader.onload = ev => {
+                          img.onload = () => {
+                            const TARGET_W = 1200, TARGET_H = 630;
+                            const canvas = document.createElement("canvas");
+                            canvas.width = TARGET_W; canvas.height = TARGET_H;
+                            const ctx = canvas.getContext("2d")!;
+                            ctx.fillStyle = "#1a0050";
+                            ctx.fillRect(0, 0, TARGET_W, TARGET_H);
+                            // center-fit the image
+                            const scale = Math.min(TARGET_W / img.width, TARGET_H / img.height);
+                            const w = img.width * scale, h = img.height * scale;
+                            ctx.drawImage(img, (TARGET_W - w) / 2, (TARGET_H - h) / 2, w, h);
+                            setSiteForm(f => ({ ...f, og_image_url: canvas.toDataURL("image/jpeg", 0.9) }));
+                          };
+                          img.src = ev.target?.result as string;
+                        };
+                        reader.readAsDataURL(file);
+                        e.target.value = "";
+                      }} />
+                    </div>
                   </div>
                 </div>
               </div>
