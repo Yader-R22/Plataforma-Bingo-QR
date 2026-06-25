@@ -383,7 +383,8 @@ export default function HomePage() {
               ? <video
                   ref={el => { if (el) videoRefs.current.set(b.id, el); else videoRefs.current.delete(b.id); }}
                   src={b.image_url} className="w-full h-full object-cover" autoPlay muted playsInline style={{ display: "block" }}
-                  onEnded={() => heroBanners.length > 1 && setActiveBanner(idx => (idx + 1) % heroBanners.length)} />
+                  loop={heroBanners.length === 1}
+                  onEnded={() => setActiveBanner(idx => (idx + 1) % heroBanners.length)} />
               : <img src={b.image_url} alt="" className="w-full h-full object-cover" style={{ display: "block" }} />}
             <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.45)" }} />
           </div>
