@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable } from "@workspace/db";
 import type { RoundConfig, RoundHistoryEntry } from "@workspace/db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, asc, and, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
 import {
   ListGamesQueryParams,
@@ -97,9 +97,10 @@ router.get("/", async (req: AuthRequest, res) => {
     if (query.data.type) conditions.push(eq(gamesTable.type, query.data.type as "daily" | "weekly" | "monthly"));
     if (query.data.status) conditions.push(eq(gamesTable.status, query.data.status as "upcoming" | "active" | "finished"));
   }
+  const statusOrder = sql`CASE status WHEN 'active' THEN 0 WHEN 'upcoming' THEN 1 ELSE 2 END`;
   const games = conditions.length
-    ? await db.select().from(gamesTable).where(and(...conditions)).orderBy(desc(gamesTable.drawDate))
-    : await db.select().from(gamesTable).orderBy(desc(gamesTable.drawDate));
+    ? await db.select().from(gamesTable).where(and(...conditions)).orderBy(statusOrder, asc(gamesTable.drawDate))
+    : await db.select().from(gamesTable).orderBy(statusOrder, asc(gamesTable.drawDate));
 
   // Unique participants per game (one query for all games)
   const uniqueRows = await db.execute(
