@@ -6769,8 +6769,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               img.onload = () => {
                 const canvas = document.createElement("canvas");
                 canvas.width = MAX; canvas.height = MAX;
-                canvas.getContext("2d")!.drawImage(img, 0, 0, MAX, MAX);
-                setPwaForm(f => ({ ...f, [field]: canvas.toDataURL("image/webp", 0.9) }));
+                const ctx = canvas.getContext("2d")!;
+                // Clear to fully transparent (preserves alpha channel in PNG)
+                ctx.clearRect(0, 0, MAX, MAX);
+                ctx.drawImage(img, 0, 0, MAX, MAX);
+                // Use PNG to guarantee alpha channel is preserved on all OS/browsers
+                setPwaForm(f => ({ ...f, [field]: canvas.toDataURL("image/png") }));
               };
               img.src = ev.target?.result as string;
             };

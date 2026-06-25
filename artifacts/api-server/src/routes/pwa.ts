@@ -28,15 +28,17 @@ router.get("/manifest.json", async (_req, res) => {
   const icons: { src: string; sizes: string; type: string; purpose: string }[] = [];
 
   if (s.pwaIconUrl) {
-    icons.push({ src: s.pwaIconUrl, sizes: "512x512", type: iconType(s.pwaIconUrl), purpose: "any maskable" });
+    // purpose "any" only — transparent PNGs cannot be "maskable" (maskable requires solid full-bleed bg)
+    // Mixing "any maskable" on a transparent icon causes black background on Android splash screen
+    icons.push({ src: s.pwaIconUrl, sizes: "512x512", type: iconType(s.pwaIconUrl), purpose: "any" });
   }
   if (s.pwaIcon192Url) {
     icons.push({ src: s.pwaIcon192Url, sizes: "192x192", type: iconType(s.pwaIcon192Url), purpose: "any" });
   }
   if (icons.length === 0) {
     const fallback = s.logoUrl || s.faviconUrl || "/favicon.svg";
-    icons.push({ src: fallback, sizes: "any", type: "image/svg+xml", purpose: "any maskable" });
-    icons.push({ src: fallback, sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" });
+    icons.push({ src: fallback, sizes: "any", type: "image/svg+xml", purpose: "any" });
+    icons.push({ src: fallback, sizes: "512x512", type: "image/svg+xml", purpose: "any" });
   }
 
   const manifest = {
