@@ -572,17 +572,39 @@ export default function GameDetailPage() {
                 <div className="flex gap-2 flex-wrap">
                   {game.stream_url_youtube && (
                     <a href={String(game.stream_url_youtube)} target="_blank" rel="noopener noreferrer">
-                      <div className="flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-xl">▶ YouTube</div>
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-bold" style={{ background: "#FF0000" }}>
+                        <span className="inline-flex items-center justify-center shrink-0" style={{ width: 16, height: 16 }}>
+                          <svg width="16" height="11" viewBox="0 0 24 17" fill="none" preserveAspectRatio="xMidYMid meet">
+                            <path d="M23.495 2.656a3.01 3.01 0 0 0-2.117-2.13C19.483 0 12 0 12 0S4.517 0 2.622.526A3.01 3.01 0 0 0 .505 2.656C0 4.558 0 8.5 0 8.5s0 3.942.505 5.844a3.01 3.01 0 0 0 2.117 2.13C4.517 17 12 17 12 17s7.483 0 9.378-.526a3.01 3.01 0 0 0 2.117-2.13C24 12.442 24 8.5 24 8.5s0-3.942-.505-5.844z" fill="#FF0000"/>
+                            <path d="M9.546 12.143V4.857L15.818 8.5l-6.272 3.643z" fill="white"/>
+                          </svg>
+                        </span>
+                        <span className="text-white text-[11px]">YouTube</span>
+                      </div>
                     </a>
                   )}
                   {game.stream_url_tiktok && (
                     <a href={game.stream_url_tiktok as string} target="_blank" rel="noopener noreferrer">
-                      <div className="flex items-center gap-1.5 bg-black text-white text-xs font-bold px-3 py-2 rounded-xl">TikTok</div>
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-bold" style={{ background: "#010101" }}>
+                        <span className="inline-flex items-center justify-center shrink-0" style={{ width: 16, height: 16 }}>
+                          <svg width="12" height="14" viewBox="0 0 24 27" fill="none" preserveAspectRatio="xMidYMid meet">
+                            <path d="M17.526 0c.347 3.674 2.65 5.853 6.474 6.107v4.151c-2.213.217-4.15-.51-6.386-1.838v8.14c0 10.34-11.276 13.575-15.8 6.16C-.248 17.78.86 10.82 8.48 10.514v4.374c-.576.094-1.19.237-1.75.429-1.677.57-2.623 1.66-2.356 3.532.516 3.6 7.207 4.67 6.646-2.93V.001h6.506z" fill="white"/>
+                          </svg>
+                        </span>
+                        <span className="text-white text-[11px]">TikTok</span>
+                      </div>
                     </a>
                   )}
                   {game.stream_url_facebook && (
                     <a href={game.stream_url_facebook as string} target="_blank" rel="noopener noreferrer">
-                      <div className="flex items-center gap-1.5 bg-blue-600 text-white text-xs font-bold px-3 py-2 rounded-xl">Facebook</div>
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-bold" style={{ background: "#1877F2" }}>
+                        <span className="inline-flex items-center justify-center shrink-0" style={{ width: 16, height: 16 }}>
+                          <svg width="9" height="16" viewBox="0 0 10 19" fill="none" preserveAspectRatio="xMidYMid meet">
+                            <path d="M9.293.004L6.974 0C4.368 0 2.686 1.73 2.686 4.41V6.43H.354A.356.356 0 0 0 0 6.787v2.929c0 .197.159.356.354.356H2.686v7.394c0 .197.158.356.353.356H5.98c.195 0 .354-.16.354-.356v-7.394h2.693c.195 0 .354-.16.354-.356l.001-2.929a.357.357 0 0 0-.354-.357H6.334V4.714c0-.823.196-1.24 1.268-1.24H9.293C9.487 3.474 9.647 3.314 9.647 3.118V.36A.356.356 0 0 0 9.293.004z" fill="white"/>
+                          </svg>
+                        </span>
+                        <span className="text-white text-[11px]">Facebook</span>
+                      </div>
                     </a>
                   )}
                 </div>
