@@ -58,7 +58,9 @@ router.get("/og-image", async (_req, res) => {
     const mime = mimeMatch?.[1] ?? "image/png";
     const buf = Buffer.from(raw.slice(commaIdx + 1), "base64");
     res.setHeader("Content-Type", mime);
-    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     res.send(buf);
     return;
   }
