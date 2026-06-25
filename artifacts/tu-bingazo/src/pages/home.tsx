@@ -50,7 +50,7 @@ function YouTubeIcon() {
 function TikTokIcon() {
   return (
     <span className="inline-flex items-center justify-center shrink-0" style={{ width: 16, height: 16 }}>
-      <svg width="12" height="14" viewBox="0 0 24 27" fill="none" preserveAspectRatio="xMidYMid meet">
+      <svg width="14" height="16" viewBox="0 0 24 27" fill="none" preserveAspectRatio="xMidYMid meet">
         <path d="M17.526 0c.347 3.674 2.65 5.853 6.474 6.107v4.151c-2.213.217-4.15-.51-6.386-1.838v8.14c0 10.34-11.276 13.575-15.8 6.16C-.248 17.78.86 10.82 8.48 10.514v4.374c-.576.094-1.19.237-1.75.429-1.677.57-2.623 1.66-2.356 3.532.516 3.6 7.207 4.67 6.646-2.93V.001h6.506z" fill="white"/>
       </svg>
     </span>
