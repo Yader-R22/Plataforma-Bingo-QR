@@ -198,7 +198,7 @@ export default function GamesPage() {
                         {/* Footer row */}
                         <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.2)" }}>
                           <div className="flex items-center gap-3 text-white/80 text-sm">
-                            <span>👥 {game.participant_count} participantes</span>
+                            <span>👥 {game.unique_participants} participantes</span>
                             <span className="font-bold" style={{ color: "hsl(42 98% 65%)" }}>Bs {game.card_price as number}/cartón</span>
                           </div>
                           <div
