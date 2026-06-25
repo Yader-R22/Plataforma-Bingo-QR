@@ -31,7 +31,8 @@ app.use(async (req, res, next) => {
     if (!s) { next(); return; }
 
     const proto = (req.headers["x-forwarded-proto"] as string | undefined) || "https";
-    const host = (req.headers["x-forwarded-host"] as string | undefined) || req.headers["host"] || "vps.elbingote.com";
+    const rawHost = (req.headers["x-forwarded-host"] as string | undefined) || req.headers["host"] || "";
+    const host = rawHost && !rawHost.startsWith("localhost") && !rawHost.startsWith("127.") ? rawHost : "elbingote.com";
     const base = `${proto}://${host}`;
     const ogImage = `${base}/api/site-settings/og-image`;
     const title = escHtml(s.seoTitle);
