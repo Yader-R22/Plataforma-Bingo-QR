@@ -21,24 +21,70 @@ function iconType(src: string): string {
   return "image/svg+xml";
 }
 
-// Dynamic manifest served from DB — no-cache so admin changes reflect immediately
-router.get("/manifest.json", async (_req, res) => {
+function dataUrlToBuffer(dataUrl: string): { buf: Buffer; mime: string } {
+  const commaIdx = dataUrl.indexOf(",");
+  const header = dataUrl.slice(0, commaIdx);
+  const mimeMatch = header.match(/data:([^;]+)/);
+  const mime = mimeMatch?.[1] ?? "image/png";
+  const buf = Buffer.from(dataUrl.slice(commaIdx + 1), "base64");
+  return { buf, mime };
+}
+
+// Serve PWA icon as binary — Chrome on Android rejects data: URLs in manifests
+router.get("/icon/512", async (_req, res) => {
   const s = await getSettings();
+  const raw = s.pwaIconUrl;
+  if (raw && raw.startsWith("data:")) {
+    const { buf, mime } = dataUrlToBuffer(raw);
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.send(buf);
+    return;
+  }
+  res.redirect(raw || "/favicon.svg");
+});
+
+router.get("/icon/192", async (_req, res) => {
+  const s = await getSettings();
+  const raw = s.pwaIcon192Url || s.pwaIconUrl;
+  if (raw && raw.startsWith("data:")) {
+    const { buf, mime } = dataUrlToBuffer(raw);
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.send(buf);
+    return;
+  }
+  res.redirect(raw || "/favicon.svg");
+});
+
+// Dynamic manifest served from DB — no-cache so admin changes reflect immediately
+router.get("/manifest.json", async (req, res) => {
+  const s = await getSettings();
+
+  // Build absolute base URL so icons work from any origin
+  const proto = (req.headers["x-forwarded-proto"] as string | undefined) || "https";
+  const rawHost = (req.headers["x-forwarded-host"] as string | undefined) || req.headers["host"] || "";
+  const host = rawHost && !rawHost.startsWith("localhost") && !rawHost.startsWith("127.") ? rawHost : "elbingote.com";
+  const base = `${proto}://${host}`;
 
   const icons: { src: string; sizes: string; type: string; purpose: string }[] = [];
 
   if (s.pwaIconUrl) {
-    // purpose "any" only — transparent PNGs cannot be "maskable" (maskable requires solid full-bleed bg)
-    // Mixing "any maskable" on a transparent icon causes black background on Android splash screen
-    icons.push({ src: s.pwaIconUrl, sizes: "512x512", type: iconType(s.pwaIconUrl), purpose: "any" });
+    const src = s.pwaIconUrl.startsWith("data:") ? `${base}/api/pwa/icon/512` : s.pwaIconUrl;
+    icons.push({ src, sizes: "512x512", type: "image/png", purpose: "any" });
   }
   if (s.pwaIcon192Url) {
-    icons.push({ src: s.pwaIcon192Url, sizes: "192x192", type: iconType(s.pwaIcon192Url), purpose: "any" });
+    const src = s.pwaIcon192Url.startsWith("data:") ? `${base}/api/pwa/icon/192` : s.pwaIcon192Url;
+    icons.push({ src, sizes: "192x192", type: "image/png", purpose: "any" });
+  } else if (s.pwaIconUrl) {
+    // Reuse 512 icon at 192 slot if no separate 192 uploaded
+    const src = s.pwaIconUrl.startsWith("data:") ? `${base}/api/pwa/icon/192` : s.pwaIconUrl;
+    icons.push({ src, sizes: "192x192", type: "image/png", purpose: "any" });
   }
   if (icons.length === 0) {
     const fallback = s.logoUrl || s.faviconUrl || "/favicon.svg";
-    icons.push({ src: fallback, sizes: "any", type: "image/svg+xml", purpose: "any" });
     icons.push({ src: fallback, sizes: "512x512", type: "image/svg+xml", purpose: "any" });
+    icons.push({ src: fallback, sizes: "192x192", type: "image/svg+xml", purpose: "any" });
   }
 
   const manifest = {
