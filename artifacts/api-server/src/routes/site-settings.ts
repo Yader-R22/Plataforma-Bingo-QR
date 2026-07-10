@@ -43,6 +43,7 @@ router.get("/", async (_req, res) => {
     pwa_start_url: s.pwaStartUrl,
     pwa_categories: s.pwaCategories,
     terms_and_conditions: s.termsAndConditions ?? null,
+    og_image_url: s.ogImageUrl ?? null,
   });
 });
 

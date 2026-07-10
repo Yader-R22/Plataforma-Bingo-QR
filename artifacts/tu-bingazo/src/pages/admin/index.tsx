@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
@@ -769,6 +770,7 @@ export default function AdminPage() {
   const site = useSiteSettings();
   const token = useAuthStore(s => s.token);
   const user = useAuthStore(s => s.user);
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>(() => {
     const h = window.location.hash.slice(1);
     return ALL_TABS.some(t => t.id === h) ? (h as Tab) : "overview";
@@ -6403,11 +6405,28 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               if (r.ok) {
                 const updated = await r.json();
                 setSiteSettingsData(updated);
-                setSiteForm(f => ({
-                  ...f,
+                setSiteForm({
+                  site_name: updated.site_name,
+                  site_tagline: updated.site_tagline,
+                  site_emoji: updated.site_emoji,
+                  favicon_url: updated.favicon_url ?? "",
+                  logo_url: updated.logo_url ?? "",
+                  seo_title: updated.seo_title,
+                  seo_description: updated.seo_description,
+                  seo_keywords: updated.seo_keywords,
+                  primary_color: updated.primary_color,
+                  qr_background_url: updated.qr_background_url ?? "",
+                  banner_interval: updated.banner_interval ?? 5,
+                  support_whatsapp: updated.support_whatsapp ?? "",
                   payment_api_key: "",
                   payment_api_key_configured: !!updated.payment_api_key_configured,
-                }));
+                  pwa_short_name: updated.pwa_short_name ?? "Bingazo",
+                  pwa_icon_url: updated.pwa_icon_url ?? "",
+                  pwa_cache_version: updated.pwa_cache_version ?? 1,
+                  terms_and_conditions: updated.terms_and_conditions ?? "",
+                  og_image_url: updated.og_image_url ?? "",
+                });
+                void queryClient.invalidateQueries({ queryKey: ["site-settings"] });
                 toast.success("✅ Configuración del sitio guardada");
               } else {
                 const d = await r.json().catch(() => ({}));
