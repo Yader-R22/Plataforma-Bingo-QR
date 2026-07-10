@@ -1,5 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
 import pinoHttp from "pino-http";
 import path from "path";
 import router from "./routes";
@@ -15,8 +17,35 @@ function escHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+// ── Rate limiters ────────────────────────────────────────────────────────────
+// Login / registro: máx. 10 intentos por IP cada 15 minutos
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Demasiados intentos. Espera 15 minutos antes de volver a intentarlo." },
+  skip: () => process.env["NODE_ENV"] === "development",
+});
+
+// API general: máx. 300 requests por IP cada minuto (anti-scraping)
+const generalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Demasiadas peticiones. Intenta de nuevo en un momento." },
+  skip: () => process.env["NODE_ENV"] === "development",
+});
+
 const app: Express = express();
 app.disable("etag");
+
+// ── Security headers (helmet) ─────────────────────────────────────────────────
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // permite cargar imágenes desde el frontend
+  contentSecurityPolicy: false, // el frontend es SPA, CSP se configura en Nginx
+}));
 
 // ── Social-bot OG middleware ────────────────────────────────────────────────
 // Nginx routes social crawler User-Agents to Express (see deployment docs).
@@ -91,6 +120,11 @@ app.use(
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
+
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+app.use("/api/auth/login",    authLimiter);
+app.use("/api/auth/register", authLimiter);
+app.use("/api",               generalLimiter);
 
 // Serve uploaded media files (videos, large images) as static — bypasses JSON body limit
 app.use("/api/uploads", express.static(UPLOADS_DIR));
