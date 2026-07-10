@@ -73,7 +73,7 @@ export default function PWAInstallBanner() {
       style={{ animation: "slide-up 0.35s cubic-bezier(0.34,1.56,0.64,1) both" }}
     >
       <div
-        className="rounded-2xl px-4 py-3 flex items-center gap-3 shadow-2xl"
+        className="rounded-2xl px-4 py-4 flex items-center gap-3 shadow-2xl"
         style={{
           background: "linear-gradient(135deg, #1a0050, #2d0082)",
           border: "1px solid rgba(255,255,255,0.18)",
@@ -104,14 +104,14 @@ export default function PWAInstallBanner() {
         <div className="flex items-center gap-2 shrink-0 ml-1">
           <button
             onClick={handleInstall}
-            className="px-3 py-1.5 rounded-xl text-xs font-black text-purple-950 whitespace-nowrap"
+            className="px-3 py-1.5 rounded-xl text-xs font-black text-purple-950 whitespace-nowrap cursor-pointer hover:brightness-110 transition-all"
             style={{ background: "linear-gradient(135deg, #fbbf24, #f59e0b)" }}
           >
             Instalar
           </button>
           <button
             onClick={handleDismiss}
-            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 cursor-pointer hover:brightness-125 transition-all"
             style={{ background: "rgba(255,255,255,0.08)" }}
             aria-label="Cerrar"
           >
