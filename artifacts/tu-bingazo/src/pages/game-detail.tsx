@@ -558,7 +558,7 @@ export default function GameDetailPage() {
 
           <div className="px-4 py-4 space-y-4">
             {/* Details grid */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               {([
                 { icon: "💳", label: "Precio cartón", value: `Bs ${game.card_price as number}` },
                 { icon: "👥", label: "Participantes", value: `${(game as any).unique_participants ?? game.participant_count}` },
@@ -567,9 +567,9 @@ export default function GameDetailPage() {
                     const rounds = (game as any).rounds as Array<{ game_mode: string }> | null;
                     if (rounds && rounds.length > 1) {
                       return (
-                        <span className="flex flex-col gap-0.5">
+                        <span className="flex flex-col gap-px">
                           {rounds.map((r, i) => (
-                            <span key={i} className="font-black leading-tight" style={{ color: "hsl(var(--primary))" }}>
+                            <span key={i} className="font-bold leading-snug text-[11px]" style={{ color: "hsl(var(--primary))" }}>
                               R{i + 1}: {gameModeLabel(r.game_mode)}
                             </span>
                           ))}
@@ -581,11 +581,11 @@ export default function GameDetailPage() {
                 },
                 { icon: "🏆", label: "Ganadores máx.", value: `${(game.max_winners as number) * ((game as any).total_rounds ?? 1)}` },
               ] as { icon: string; label: string; value: React.ReactNode }[]).map(item => (
-                <div key={item.label} className="bg-card border rounded-2xl p-4">
-                  <span className="text-lg">{item.icon}</span>
-                  <p className="text-xs text-muted-foreground mt-1">{item.label}</p>
+                <div key={item.label} className="bg-card border rounded-xl p-3">
+                  <span className="text-base">{item.icon}</span>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{item.label}</p>
                   {typeof item.value === "string"
-                    ? <p className="font-black mt-0.5" style={{ color: "hsl(var(--primary))" }}>{item.value}</p>
+                    ? <p className="font-bold text-sm mt-0.5 leading-tight" style={{ color: "hsl(var(--primary))" }}>{item.value}</p>
                     : <div className="mt-0.5">{item.value}</div>}
                 </div>
               ))}
