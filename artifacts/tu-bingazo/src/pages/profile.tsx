@@ -35,17 +35,17 @@ function PushToggle() {
   );
   if (status === "loading") return null;
   if (status === "subscribed") return (
-    <div className="bg-card border rounded-2xl p-5 flex items-center justify-between gap-3">
-      <div className="flex items-center gap-3">
-        <span className="text-2xl">🔔</span>
+    <div className="flex items-center justify-between gap-3 px-1">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">🔔</span>
         <div>
           <p className="font-bold text-sm">Notificaciones activadas</p>
           <p className="text-xs text-muted-foreground">Recibirás avisos de juegos, premios y retiros.</p>
         </div>
       </div>
       <button onClick={disable} disabled={loading}
-        className="text-xs font-bold px-3 py-1.5 rounded-xl shrink-0"
-        style={{ background: "hsl(0 75% 52% / 0.12)", color: "hsl(0 75% 45%)" }}>
+        className="text-xs font-bold shrink-0"
+        style={{ color: "hsl(0 75% 45%)" }}>
         {loading ? "..." : "Desactivar"}
       </button>
     </div>
@@ -433,6 +433,9 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* ── Notificaciones push ───────────────────────────────── */}
+        <PushToggle />
+
         {/* Editable contact data */}
         <div className="bg-card border rounded-2xl p-5 space-y-4">
           <h2 className="font-black">Mis datos</h2>
@@ -525,9 +528,6 @@ export default function ProfilePage() {
             );
           })()}
         </div>
-
-        {/* ── Notificaciones push ───────────────────────────────── */}
-        <PushToggle />
 
         {/* ── Activador section ──────────────────────────────────── */}
         <div className="bg-card border rounded-2xl p-5 space-y-4">
