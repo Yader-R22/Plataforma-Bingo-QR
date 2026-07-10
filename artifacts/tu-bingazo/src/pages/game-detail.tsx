@@ -559,16 +559,34 @@ export default function GameDetailPage() {
           <div className="px-4 py-4 space-y-4">
             {/* Details grid */}
             <div className="grid grid-cols-2 gap-3">
-              {[
+              {([
                 { icon: "💳", label: "Precio cartón", value: `Bs ${game.card_price as number}` },
                 { icon: "👥", label: "Participantes", value: `${(game as any).unique_participants ?? game.participant_count}` },
-                { icon: "🎯", label: "Modalidad", value: gameModeLabel(game.game_mode ?? "full_card") },
+                {
+                  icon: "🎯", label: "Modalidad", value: (() => {
+                    const rounds = (game as any).rounds as Array<{ game_mode: string }> | null;
+                    if (rounds && rounds.length > 1) {
+                      return (
+                        <span className="flex flex-col gap-0.5">
+                          {rounds.map((r, i) => (
+                            <span key={i} className="font-black leading-tight" style={{ color: "hsl(var(--primary))" }}>
+                              R{i + 1}: {gameModeLabel(r.game_mode)}
+                            </span>
+                          ))}
+                        </span>
+                      );
+                    }
+                    return gameModeLabel(game.game_mode ?? "full_card");
+                  })()
+                },
                 { icon: "🏆", label: "Ganadores máx.", value: `${(game.max_winners as number) * ((game as any).total_rounds ?? 1)}` },
-              ].map(item => (
+              ] as { icon: string; label: string; value: React.ReactNode }[]).map(item => (
                 <div key={item.label} className="bg-card border rounded-2xl p-4">
                   <span className="text-lg">{item.icon}</span>
                   <p className="text-xs text-muted-foreground mt-1">{item.label}</p>
-                  <p className="font-black mt-0.5" style={{ color: "hsl(var(--primary))" }}>{item.value}</p>
+                  {typeof item.value === "string"
+                    ? <p className="font-black mt-0.5" style={{ color: "hsl(var(--primary))" }}>{item.value}</p>
+                    : <div className="mt-0.5">{item.value}</div>}
                 </div>
               ))}
             </div>
