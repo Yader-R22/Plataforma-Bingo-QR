@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { X, Download, Monitor } from "lucide-react";
-
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+import { useSiteSettings } from "../hooks/useSiteSettings";
 
 type Platform = "android" | "desktop" | "ios" | "other";
 
@@ -28,7 +27,8 @@ export default function PWAInstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [show, setShow] = useState(false);
   const [platform, setPlatform] = useState<Platform>("other");
-  const [appName, setAppName] = useState("Tu Bingazo");
+  const site = useSiteSettings();
+  const appName = site.site_name;
 
   useEffect(() => {
     if (isStandalone()) return;
@@ -40,12 +40,6 @@ export default function PWAInstallBanner() {
 
     const dismissed = localStorage.getItem(DISMISSED_KEY);
     if (dismissed && Date.now() - parseInt(dismissed) < DISMISS_TTL) return;
-
-    // Fetch app name from site settings
-    fetch(`${BASE}/api/site-settings`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.site_name) setAppName(d.site_name); })
-      .catch(() => {});
 
     const handler = (e: Event) => {
       e.preventDefault();
@@ -69,7 +63,7 @@ export default function PWAInstallBanner() {
     setShow(false);
   }
 
-  if (!show || location.startsWith("/admin")) return null;
+  if (!show || !appName || location.startsWith("/admin")) return null;
 
   const isAndroid = platform === "android";
 

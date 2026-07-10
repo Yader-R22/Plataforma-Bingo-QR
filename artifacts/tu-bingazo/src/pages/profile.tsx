@@ -466,7 +466,7 @@ export default function ProfilePage() {
           {site.support_whatsapp && (() => {
             const esActivador = activatorStatus?.status === "accepted";
             const mensaje = encodeURIComponent(
-              `Hola, necesito soporte en Tu Bingazo.\n\n` +
+              `Hola, necesito soporte en ${site.site_name}.\n\n` +
               `👤 Nombre: ${user.full_name}\n` +
               `🪪 CI: ${user.ci}\n` +
               `📍 Departamento: ${user.department || "No registrado"}\n` +

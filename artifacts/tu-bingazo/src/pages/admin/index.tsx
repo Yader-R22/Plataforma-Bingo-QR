@@ -6464,7 +6464,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     ? <img src={sf.logo_url} alt="logo" className="h-8 w-auto object-contain" />
                     : <span className="text-2xl">{sf.site_emoji || "🎱"}</span>}
                   <div>
-                    <p className="font-black text-white text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>{sf.site_name || "Tu Bingazo"}</p>
+                    <p className="font-black text-white text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>{sf.site_name}</p>
                     <p className="text-white/60 text-xs">{sf.site_tagline || "Bingo en Vivo Bolivia"}</p>
                   </div>
                 </div>
