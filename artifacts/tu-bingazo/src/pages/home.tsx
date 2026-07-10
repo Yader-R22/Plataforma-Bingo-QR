@@ -305,12 +305,12 @@ export default function HomePage() {
   }, [activeBanner, heroBanners]);
 
   const { data: games = [], refetch: refetchGames } = useListGames(undefined, {
-    query: { queryKey: getListGamesQueryKey(), staleTime: 30_000, gcTime: 10 * 60 * 1000 },
+    query: { queryKey: getListGamesQueryKey(), staleTime: 60_000, gcTime: 10 * 60 * 1000 },
   });
 
-  // Poll game list every 8s so any admin change is immediately visible on home
+  // Poll game list every 20s so admin changes propagate without hammering the server
   useEffect(() => {
-    const iv = setInterval(() => { void refetchGames(); }, 8000);
+    const iv = setInterval(() => { void refetchGames(); }, 20_000);
     return () => clearInterval(iv);
   }, []);
   const { data: categories = [] } = useListCategories({
@@ -320,31 +320,29 @@ export default function HomePage() {
     query: {
       queryKey: getGetWalletQueryKey(),
       enabled: !!user && user.status === "active",
-      refetchInterval: 5000,
-      refetchOnWindowFocus: true,
+      refetchInterval: 30_000,
     },
   });
   const balance = wallet?.balance ?? user?.balance ?? 0;
 
-  // Feed + stats — cached 10s, polls every 5s; shows stale data instantly on revisit
+  // Feed + stats — cached 20s, polls every 20s; shows stale data instantly on revisit
   const { data: liveData } = useQuery({
     queryKey: ["home-live", token ?? "anon"],
     queryFn: async () => {
-      const noCache = { cache: "no-store" as RequestCache };
       const fetches: Promise<Response>[] = [
-        fetch(`${BASE}/api/feed/recent`, noCache),
-        fetch(`${BASE}/api/feed/stats`, noCache),
+        fetch(`${BASE}/api/feed/recent`),
+        fetch(`${BASE}/api/feed/stats`),
       ];
-      if (token) fetches.push(fetch(`${BASE}/api/auth/me/stats`, { ...noCache, headers: { Authorization: `Bearer ${token}` } }));
+      if (token) fetches.push(fetch(`${BASE}/api/auth/me/stats`, { headers: { Authorization: `Bearer ${token}` } }));
       const [fr, sr, ur] = await Promise.all(fetches);
       const feed: FeedItem[] = fr.ok ? (await fr.json()).items ?? [] : [];
       const stats: Stats | null = sr.ok ? await sr.json() : null;
       const userStats: UserStats | null = (ur && ur.ok) ? await ur.json() : null;
       return { feed, stats, userStats };
     },
-    staleTime: 10_000,
+    staleTime: 20_000,
     gcTime: 5 * 60 * 1000,
-    refetchInterval: 5000,
+    refetchInterval: 20_000,
   });
   const feed = liveData?.feed ?? [];
   const stats = liveData?.stats ?? null;

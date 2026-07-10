@@ -34,10 +34,10 @@ export default function MyCardsPage() {
   const { data: rawCards, isLoading, refetch: refetchCards } = useListMyCards();
   const { data: games = [], refetch: refetchGames } = useListGames();
 
-  // Adaptive polling: 3s when any of the user's games is upcoming (waiting to go live),
-  // 10s when everything is active or finished (numbers already polled separately in /jugar).
+  // Adaptive polling: 8s when any of the user's games is upcoming (waiting to go live),
+  // 20s when everything is active or finished (numbers already polled separately in /jugar).
   const hasUpcoming = (games as any[]).some((g: any) => g.status === "upcoming");
-  const pollInterval = hasUpcoming ? 3_000 : 10_000;
+  const pollInterval = hasUpcoming ? 8_000 : 20_000;
 
   useEffect(() => {
     const iv = setInterval(() => { void refetchCards(); void refetchGames(); }, pollInterval);
