@@ -1,15 +1,43 @@
-const BASE_CACHE = "tu-bingazo";
-let currentCacheName = "tu-bingazo-v1";
+const BASE_CACHE = "elbingote";
+let currentCacheName = "elbingote-v1";
+let lastKnownVersion = 1;
+let lastVersionCheck = 0;
+const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // recheck at most every 5 minutes
 
 async function resolveCacheName() {
   try {
     const r = await fetch("/api/pwa/cache-version", { cache: "no-store" });
     if (r.ok) {
       const d = await r.json();
-      return `${BASE_CACHE}-v${d.version ?? 1}`;
+      const v = d.version ?? 1;
+      lastKnownVersion = v;
+      lastVersionCheck = Date.now();
+      return `${BASE_CACHE}-v${v}`;
     }
   } catch {}
-  return `${BASE_CACHE}-v1`;
+  return `${BASE_CACHE}-v${lastKnownVersion}`;
+}
+
+async function applyVersionIfChanged() {
+  const now = Date.now();
+  if (now - lastVersionCheck < VERSION_CHECK_INTERVAL) return; // throttle
+  try {
+    const r = await fetch("/api/pwa/cache-version", { cache: "no-store" });
+    if (!r.ok) return;
+    const d = await r.json();
+    const v = d.version ?? 1;
+    lastVersionCheck = now;
+    if (v === lastKnownVersion) return; // no change
+    lastKnownVersion = v;
+    const newName = `${BASE_CACHE}-v${v}`;
+    if (newName === currentCacheName) return;
+    // Version changed — delete all old caches under this app's prefix
+    const keys = await caches.keys();
+    await Promise.all(
+      keys.filter((k) => k.startsWith(BASE_CACHE) && k !== newName).map((k) => caches.delete(k))
+    );
+    currentCacheName = newName;
+  } catch {}
 }
 
 function offlinePage(noInternet) {
@@ -24,7 +52,7 @@ function offlinePage(noInternet) {
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>${title} — El Bingote</title>
+  <title>${title}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f14;color:#f1f1f5;display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:24px;text-align:center}
@@ -77,9 +105,18 @@ self.addEventListener("activate", (e) => {
   );
 });
 
+// Triggered by the admin "Forzar caché" button via postMessage
+self.addEventListener("message", async (e) => {
+  if (e.data?.type === "FORCE_CACHE_UPDATE") {
+    lastVersionCheck = 0; // bypass throttle
+    await applyVersionIfChanged();
+  }
+});
+
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
 
+  // API calls: always go to network, return error JSON if offline
   if (e.request.url.includes("/api/")) {
     e.respondWith(
       fetch(e.request).catch(() =>
@@ -92,7 +129,27 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Network-first: always try network, fall back to cache, then offline page
+  // Navigation requests (HTML): check version in background (throttled), then network-first
+  if (e.request.mode === "navigate") {
+    e.respondWith(
+      (async () => {
+        applyVersionIfChanged().catch(() => {}); // non-blocking version check
+        try {
+          const res = await fetch(e.request);
+          if (res.ok) {
+            caches.open(currentCacheName).then((c) => c.put(e.request, res.clone()));
+          }
+          return res;
+        } catch {
+          const cached = await caches.match(e.request);
+          return cached ?? offlinePage(!self.navigator.onLine);
+        }
+      })()
+    );
+    return;
+  }
+
+  // All other assets: network-first, cache as fallback
   e.respondWith(
     fetch(e.request)
       .then((res) => {
