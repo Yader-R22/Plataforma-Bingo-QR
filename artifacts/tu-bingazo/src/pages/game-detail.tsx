@@ -555,17 +555,15 @@ function FallbackPaymentModal({
             <div className="text-center mb-5">
               {fallbackQrImageUrl ? (
                 <>
-                  <div className="rounded-2xl px-4 py-3 mb-3 text-center"
-                    style={{ background: "hsl(38 95% 93%)", border: "2px solid hsl(38 90% 65%)" }}>
-                    <p className="text-xs font-bold uppercase tracking-wide mb-1"
-                      style={{ color: "hsl(38 80% 35%)" }}>
-                      📲 Escanea y transfiere exactamente
-                    </p>
-                    <p className="text-3xl font-black" style={{ color: "hsl(38 80% 25%)", fontFamily: "'Poppins', sans-serif" }}>
-                      Bs {totalPrice.toFixed(0)}
-                    </p>
-                    <p className="text-xs mt-1 font-medium" style={{ color: "hsl(38 80% 38%)" }}>
-                      ⚠️ El monto debe ser exacto para activar tus cartones
+                  <div className="rounded-xl px-3 py-2.5 mb-3 flex items-center gap-2.5"
+                    style={{ background: "hsl(38 95% 93%)", border: "1px solid hsl(38 85% 68%)" }}>
+                    <span className="text-lg shrink-0">📲</span>
+                    <p className="text-sm font-semibold leading-snug" style={{ color: "hsl(38 80% 28%)" }}>
+                      Escanea este QR y transfiere exactamente{" "}
+                      <span className="font-black" style={{ color: "hsl(38 75% 22%)" }}>
+                        Bs {totalPrice.toFixed(0)}
+                      </span>
+                      {" "}— el monto debe ser exacto.
                     </p>
                   </div>
                   <div className="inline-block p-3 rounded-2xl border-2 mb-3" style={{ borderColor: "hsl(var(--primary) / 0.2)" }}>
