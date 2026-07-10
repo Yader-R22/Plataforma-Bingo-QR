@@ -6900,7 +6900,21 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               });
               if (r.ok) {
                 const updated = await r.json();
-                setPwaForm(f => ({ ...f, pwa_cache_version: updated.pwa_cache_version }));
+                setPwaForm({
+                  pwa_name: updated.pwa_name ?? "",
+                  pwa_short_name: updated.pwa_short_name ?? "",
+                  pwa_tagline: updated.pwa_tagline ?? "",
+                  pwa_start_url: updated.pwa_start_url ?? "/",
+                  pwa_display_mode: updated.pwa_display_mode ?? "standalone",
+                  pwa_orientation: updated.pwa_orientation ?? "portrait",
+                  pwa_theme_color: updated.pwa_theme_color ?? "#1a0050",
+                  pwa_bg_color: updated.pwa_bg_color ?? "#1a0050",
+                  pwa_icon_512: updated.pwa_icon_512 ?? "",
+                  pwa_icon_192: updated.pwa_icon_192 ?? "",
+                  pwa_categories: updated.pwa_categories ?? "games,entertainment",
+                  pwa_cache_version: updated.pwa_cache_version ?? 1,
+                });
+                void queryClient.invalidateQueries({ queryKey: ["site-settings"] });
                 const mr = await fetch(`${BASE}/api/pwa/manifest.json`);
                 if (mr.ok) setPwaManifestPreview(JSON.stringify(await mr.json(), null, 2));
                 toast.success("✅ Configuración PWA guardada");
