@@ -32,7 +32,7 @@ async function send(endpoint: string, p256dh: string, auth: string, payload: Pus
     await webpush.sendNotification(
       { endpoint, keys: { p256dh, auth } },
       JSON.stringify(payload),
-      { TTL: 86400 }
+      { TTL: 86400, urgency: "high" }
     );
     return true;
   } catch (err: unknown) {
