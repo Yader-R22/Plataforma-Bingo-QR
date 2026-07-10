@@ -971,7 +971,7 @@ export default function AdminPage() {
         const d = await r.json() as { sent: number; failed: number };
         setPushResult(d);
         if (d.sent === 0) {
-          toast.error("No hay dispositivos suscritos. Los usuarios deben activar las notificaciones desde su perfil.");
+          toast.error("No hay dispositivos suscritos. Los usuarios deben abrir la app y activar las notificaciones cuando se les solicite.");
         } else {
           toast.success(`📤 Enviado a ${d.sent} dispositivo${d.sent !== 1 ? "s" : ""}`);
           setPushTitle(""); setPushBody(""); setPushUrl("/");
@@ -981,6 +981,12 @@ export default function AdminPage() {
     } catch { toast.error("Error de conexión"); }
     finally { setPushSending(false); }
   }
+
+  // Auto-cargar conteo de suscriptores push al entrar al tab pwa
+  useEffect(() => {
+    if (tab === "pwa" && token) fetchPushSubCount();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, token]);
 
   // Global poll for new winners — auto-refreshes the winners list when on that tab.
   useEffect(() => {
