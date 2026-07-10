@@ -607,11 +607,11 @@ export default function ProfilePage() {
               <div className="rounded-xl px-4 py-3 space-y-1"
                 style={{ background: "hsl(142 70% 45% / 0.1)", border: "1px solid hsl(142 70% 45% / 0.3)" }}>
                 <p className="font-bold text-sm" style={{ color: "hsl(142 70% 30%)" }}>✅ ¡Eres Activador!</p>
-                <p className="text-xs text-muted-foreground">Tu código:</p>
-                <div className="flex items-center gap-2">
-                  <p className="font-black text-lg tracking-widest" style={{ color: "hsl(var(--primary))", fontFamily: "'Poppins', sans-serif" }}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground shrink-0">Tu código:</span>
+                  <span className="font-black text-lg tracking-widest" style={{ color: "hsl(var(--primary))", fontFamily: "'Poppins', sans-serif" }}>
                     {activatorStatus.code}
-                  </p>
+                  </span>
                   <button
                     className="px-2 py-1 rounded-lg text-[11px] font-bold text-white shrink-0"
                     style={{ background: "hsl(var(--primary))" }}
