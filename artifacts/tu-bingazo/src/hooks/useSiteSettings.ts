@@ -69,8 +69,9 @@ export function useSiteSettings() {
   const s = data ?? DEFAULTS;
 
   useEffect(() => {
-    if (s.seo_title) document.title = s.seo_title;
-  }, [s.seo_title]);
+    const title = s.seo_title || s.site_name;
+    if (title) document.title = title;
+  }, [s.seo_title, s.site_name]);
 
   useEffect(() => {
     let metaDesc = document.querySelector<HTMLMetaElement>('meta[name="description"]');
@@ -111,8 +112,19 @@ export function useSiteSettings() {
       metaOgTitle.setAttribute("property", "og:title");
       document.head.appendChild(metaOgTitle);
     }
-    metaOgTitle.content = s.seo_title;
-  }, [s.seo_title]);
+    metaOgTitle.content = s.seo_title || s.site_name;
+  }, [s.seo_title, s.site_name]);
+
+  useEffect(() => {
+    if (!s.site_name) return;
+    let appleMeta = document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-title"]');
+    if (!appleMeta) {
+      appleMeta = document.createElement("meta");
+      appleMeta.name = "apple-mobile-web-app-title";
+      document.head.appendChild(appleMeta);
+    }
+    appleMeta.content = s.site_name;
+  }, [s.site_name]);
 
   return s;
 }

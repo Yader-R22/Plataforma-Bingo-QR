@@ -37,9 +37,9 @@ app.use(async (req, res, next) => {
     const host = rawHost && !rawHost.startsWith("localhost") && !rawHost.startsWith("127.") ? rawHost : "elbingote.com";
     const base = `${proto}://${host}`;
     const ogImage = `${base}/api/site-settings/og-image`;
-    const title = escHtml(s.seoTitle);
-    const desc = escHtml(s.seoDescription);
     const siteName = escHtml(s.siteName);
+    const title = escHtml(s.seoTitle || s.siteName);
+    const desc = escHtml(s.seoDescription);
     const url = escHtml(`${base}/`);
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
