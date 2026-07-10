@@ -6391,8 +6391,6 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 qr_background_url: siteForm.qr_background_url || null,
                 banner_interval: siteForm.banner_interval,
                 support_whatsapp: siteForm.support_whatsapp || null,
-                pwa_short_name: siteForm.pwa_short_name,
-                pwa_icon_url: siteForm.pwa_icon_url || null,
                 ...(siteForm.payment_api_key && { payment_api_key: siteForm.payment_api_key }),
                 terms_and_conditions: siteForm.terms_and_conditions || null,
                 og_image_url: siteForm.og_image_url || null,
