@@ -124,7 +124,7 @@ self.addEventListener("push", (e) => {
   e.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: data.icon || "/notification-icon.png",
+      icon: data.icon || "/notif-icon.png",
       badge: "/badge-96.png",
       data: { url: data.url ?? "/" },
       vibrate: [200, 100, 200],

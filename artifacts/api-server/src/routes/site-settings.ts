@@ -69,7 +69,7 @@ router.get("/logo", async (_req, res) => {
     return;
   }
   // Sin logo configurado — sirve el ícono estático de la app
-  res.redirect("/notification-icon.png");
+  res.redirect("/notif-icon.png");
 });
 
 // ── OG image served as proper binary (required for og:image absolute URL) ───
