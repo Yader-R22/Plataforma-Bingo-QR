@@ -60,16 +60,26 @@ export function usePushNotifications() {
   const supported = typeof window !== "undefined" && "PushManager" in window && "serviceWorker" in navigator;
 
   useEffect(() => {
-    if (!supported || !user) { setStatus("unsupported"); return; }
+    if (!supported || !user || !token) { setStatus("unsupported"); return; }
     (async () => {
       const reg = await navigator.serviceWorker.ready;
       const existing = await reg.pushManager.getSubscription();
       const perm = Notification.permission;
       if (perm === "denied") { setStatus("denied"); return; }
       if (existing) { setCurrentSub(existing); setStatus("subscribed"); return; }
+      if (perm === "granted") {
+        // Permiso ya otorgado pero sin suscripción activa — reintentar en segundo plano
+        try {
+          const vapidKey = await getVapidKey();
+          if (vapidKey) {
+            const sub = await subscribe(vapidKey, token);
+            if (sub) { setCurrentSub(sub); setStatus("subscribed"); return; }
+          }
+        } catch { /* ignorar, se reintentará la próxima vez */ }
+      }
       setStatus("unsubscribed");
     })();
-  }, [supported, user]);
+  }, [supported, user, token]);
 
   const enable = useCallback(async () => {
     if (!token || loading) return;
