@@ -1,10 +1,15 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import path from "path";
+import fs from "fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { db, siteSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+
+export const UPLOADS_DIR = process.env.UPLOADS_DIR || path.resolve(process.cwd(), "uploads");
+fs.mkdirSync(path.join(UPLOADS_DIR, "banners"), { recursive: true });
 
 // Social media crawler User-Agents that cannot execute JavaScript
 const SOCIAL_BOT_RE = /WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|LinkedInBot|Discordbot|Slackbot|ia_archiver|rogerbot|vkShare|W3C_Validator/i;
@@ -87,8 +92,11 @@ app.use(
   }),
 );
 app.use(cors());
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
+
+// Serve uploaded media files (videos, large images) as static — bypasses JSON body limit
+app.use("/api/uploads", express.static(UPLOADS_DIR));
 
 app.use("/api", router);
 

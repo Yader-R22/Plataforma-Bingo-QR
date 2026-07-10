@@ -2,9 +2,28 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { bannersTable } from "@workspace/db/schema";
 import { eq, asc } from "drizzle-orm";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { requireAdmin, type AuthRequest } from "../middlewares/auth";
+import { UPLOADS_DIR } from "../app";
 
 const router = Router();
+
+const BANNERS_DIR = path.join(UPLOADS_DIR, "banners");
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, BANNERS_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || ".bin";
+    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 200 * 1024 * 1024 }, // 200 MB max
+});
 
 function toSnake(b: { id: number; imageUrl: string; mediaType: string; displayOrder: number; isActive: boolean; createdAt: Date }) {
   return {
@@ -16,6 +35,14 @@ function toSnake(b: { id: number; imageUrl: string; mediaType: string; displayOr
   };
 }
 
+function deleteFileIfLocal(imageUrl: string) {
+  if (!imageUrl.startsWith("/api/uploads/")) return;
+  const relative = imageUrl.replace("/api/uploads/", "");
+  const fullPath = path.join(UPLOADS_DIR, relative);
+  fs.unlink(fullPath, () => {});
+}
+
+// GET /api/banners — list active banners
 router.get("/", async (_req, res) => {
   const banners = await db
     .select()
@@ -25,6 +52,22 @@ router.get("/", async (_req, res) => {
   res.json(banners.map(toSnake));
 });
 
+// POST /api/banners/upload — multipart upload (videos + large images)
+router.post("/upload", requireAdmin, upload.single("file"), async (req: AuthRequest, res) => {
+  if (!req.file) { res.status(400).json({ error: "No se recibió archivo" }); return; }
+  const mime = req.file.mimetype;
+  const mediaType = mime.startsWith("video/") ? "video" : mime === "image/gif" ? "gif" : "image";
+  const displayOrder = Number(req.body.display_order ?? 0);
+  const imageUrl = `/api/uploads/banners/${req.file.filename}`;
+  const [banner] = await db
+    .insert(bannersTable)
+    .values({ imageUrl, mediaType, displayOrder })
+    .returning();
+  req.log.info({ admin_id: req.userId, file: req.file.filename, size: req.file.size }, "Banner uploaded to disk");
+  res.status(201).json(toSnake(banner));
+});
+
+// POST /api/banners — JSON body (small base64 images ≤ 2 MB)
 router.post("/", requireAdmin, async (req: AuthRequest, res) => {
   const { image_url, media_type, display_order } = req.body as {
     image_url: string;
@@ -39,6 +82,7 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
   res.status(201).json(toSnake(banner));
 });
 
+// PUT /api/banners/:id — update display_order / is_active
 router.put("/:id", requireAdmin, async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
   const { display_order, is_active } = req.body as {
@@ -57,9 +101,11 @@ router.put("/:id", requireAdmin, async (req: AuthRequest, res) => {
   res.json(toSnake(updated));
 });
 
+// DELETE /api/banners/:id — also removes file from disk if uploaded
 router.delete("/:id", requireAdmin, async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
-  await db.delete(bannersTable).where(eq(bannersTable.id, id));
+  const [deleted] = await db.delete(bannersTable).where(eq(bannersTable.id, id)).returning();
+  if (deleted) deleteFileIfLocal(deleted.imageUrl);
   res.json({ ok: true });
 });
 

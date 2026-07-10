@@ -6694,18 +6694,31 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   style={{ borderColor: "hsl(var(--border))" }}
                   onClick={() => { (document.getElementById("admin-banner-upload") as HTMLInputElement)?.click(); }}>
                   <p className="text-xs text-muted-foreground">{savingBanner ? "⏳ Subiendo..." : "📁 Agregar banner — imagen (JPG/PNG/GIF) o video (MP4)"}</p>
-                  <input id="admin-banner-upload" type="file" accept="image/*,video/mp4" className="hidden" onChange={async e => {
+                  <input id="admin-banner-upload" type="file" accept="image/*,video/mp4,video/webm" className="hidden" onChange={async e => {
                     const file = e.target.files?.[0]; if (!file) return;
                     setSavingBanner(true);
-                    const mediaType = file.type === "video/mp4" ? "video" : file.type === "image/gif" ? "gif" : "image";
-                    const image_url = mediaType === "image"
-                      ? await compressImage(file, 1200)
-                      : await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target?.result as string); r.onerror = rej; r.readAsDataURL(file); });
-                    const display_order = banners.length;
-                    const r = await fetch(`${BASE}/api/banners`, {
-                      method: "POST", headers: authH(),
-                      body: JSON.stringify({ image_url, media_type: mediaType, display_order }),
-                    });
+                    const isVideo = file.type.startsWith("video/");
+                    const isLarge = file.size > 800 * 1024; // > 800 KB
+                    let r: Response;
+                    if (isVideo || isLarge) {
+                      // Videos y archivos grandes → multipart (nunca como base64 en DB)
+                      const form = new FormData();
+                      form.append("file", file);
+                      form.append("display_order", String(banners.length));
+                      r = await fetch(`${BASE}/api/banners/upload`, {
+                        method: "POST",
+                        headers: { Authorization: authH().Authorization },
+                        body: form,
+                      });
+                    } else {
+                      // Imágenes pequeñas → base64 comprimido (≤ 800 KB, sin riesgo)
+                      const mediaType = file.type === "image/gif" ? "gif" : "image";
+                      const image_url = await compressImage(file, 1200);
+                      r = await fetch(`${BASE}/api/banners`, {
+                        method: "POST", headers: authH(),
+                        body: JSON.stringify({ image_url, media_type: mediaType, display_order: banners.length }),
+                      });
+                    }
                     if (r.ok) { const b = await r.json(); setBanners(prev => [...prev, b]); toast.success("Banner agregado"); }
                     else toast.error("Error al subir el banner");
                     setSavingBanner(false);
