@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, usersTable, nameChangeRequestsTable, ciChangeRequestsTable, withdrawalsTable, winnersTable, auditLogsTable, gamesTable, feedItemsTable, cardsTable, partnersTable, partnerPaymentsTable, operatingExpensesTable, activatorRequestsTable, referralCodesTable, activatorSettingsTable, referralTransactionsTable } from "@workspace/db";
-import { sendPushToUser } from "../lib/push";
+import { sendPushToUser, sendPushToUsers } from "../lib/push";
 import { eq, and, like, sql, desc, gte, lte, or } from "drizzle-orm";
 import { requireAdmin, type AuthRequest } from "../middlewares/auth";
 import bcrypt from "bcryptjs";
@@ -67,6 +67,19 @@ router.post("/users/:id/verify", async (req: AuthRequest, res) => {
   ).where(eq(usersTable.id, p.data.id)).returning();
   if (!user) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
   res.json(formatUser(user));
+  if (parsed.data.approved) {
+    sendPushToUser(p.data.id, {
+      title: "✅ Cuenta verificada",
+      body: "Tu identidad fue aprobada. Ya podés comprar cartones y jugar al bingo.",
+      url: "/games",
+    }).catch(() => {});
+  } else {
+    sendPushToUser(p.data.id, {
+      title: "❌ Verificación rechazada",
+      body: "Tus documentos no fueron aceptados. Volvé a subir tu CI desde tu perfil.",
+      url: "/profile",
+    }).catch(() => {});
+  }
 });
 
 router.get("/name-change-requests", async (req: AuthRequest, res) => {
@@ -153,6 +166,15 @@ router.patch("/ci-change-requests/:id", async (req: AuthRequest, res) => {
     admin_notes: updated.adminNotes ?? null,
     created_at: updated.createdAt,
   });
+  sendPushToUser(req2.userId, approved ? {
+    title: "✅ Cambio de CI aprobado",
+    body: `Tu nuevo CI (${req2.requestedCi}) fue actualizado correctamente en tu cuenta.`,
+    url: "/profile",
+  } : {
+    title: "❌ Cambio de CI rechazado",
+    body: admin_notes?.trim() ? `Motivo: ${admin_notes.trim()}` : "Tu solicitud de cambio de CI no fue aceptada.",
+    url: "/profile",
+  }).catch(() => {});
 });
 
 router.patch("/name-change-requests/:id", async (req: AuthRequest, res) => {
@@ -183,6 +205,15 @@ router.patch("/name-change-requests/:id", async (req: AuthRequest, res) => {
     admin_notes: updated.adminNotes ?? null,
     created_at: updated.createdAt,
   });
+  sendPushToUser(requests[0].userId, parsed.data.approved ? {
+    title: "✅ Cambio de nombre aprobado",
+    body: `Tu nombre fue actualizado a "${requests[0].requestedName}" correctamente.`,
+    url: "/profile",
+  } : {
+    title: "❌ Cambio de nombre rechazado",
+    body: parsed.data.admin_notes?.trim() ? `Motivo: ${parsed.data.admin_notes.trim()}` : "Tu solicitud de cambio de nombre no fue aceptada.",
+    url: "/profile",
+  }).catch(() => {});
 });
 
 router.get("/withdrawals", async (req: AuthRequest, res) => {
@@ -336,6 +367,11 @@ router.post("/withdrawals/:id/reject", async (req: AuthRequest, res) => {
     status: updated.status,
     notes: updated.notes ?? null,
   });
+  sendPushToUser(updated.userId, {
+    title: "❌ Retiro rechazado",
+    body: `Tu retiro de Bs ${parseFloat(updated.amount).toFixed(2)} fue rechazado. Motivo: ${notes.trim()}`,
+    url: "/wallet",
+  }).catch(() => {});
 });
 
 // All unvalidated bingo claims across every game — admin uses this for real-time monitoring
@@ -519,6 +555,12 @@ router.post("/winners/:id/validate", async (req: AuthRequest, res) => {
           commissionPercentage: String(commPct),
           description: `Comisión ${commPct}% por ganancia de ${winnerUserName} — Premio: Bs ${prizeTotal.toFixed(2)}`,
         });
+        // Notify activator about their commission
+        sendPushToUser(activatorId, {
+          title: "💰 ¡Comisión recibida!",
+          body: `${winnerUserName} ganó y recibiste Bs ${commAmount.toFixed(2)} de comisión (${commPct}%). Ya está en tu billetera.`,
+          url: "/wallet",
+        }).catch(() => {});
       }
     });
     if (alreadyValidated) { res.status(400).json({ error: "Este ganador ya fue validado" }); return; }
@@ -538,8 +580,20 @@ router.post("/winners/:id/validate", async (req: AuthRequest, res) => {
       amount: winner.prizeAmount,
       userDisplayName: userName,
     });
+    // Notify the winner
+    sendPushToUser(winner.userId, {
+      title: "🎉 ¡BINGO validado!",
+      body: `Tu bingo fue confirmado. Ganaste Bs ${netPrize.toFixed(2)}. Ya podés retirarlo desde tu billetera.`,
+      url: "/wallet",
+    }).catch(() => {});
   } else {
     await db.update(winnersTable).set({ adminNotes: parsed.data.notes ?? null }).where(eq(winnersTable.id, p.data.id));
+    // Notify the player their claim was rejected
+    sendPushToUser(winner.userId, {
+      title: "❌ Reclamo de BINGO rechazado",
+      body: parsed.data.notes?.trim() ? `Motivo: ${parsed.data.notes.trim()}` : "Tu reclamo de BINGO no fue válido. Seguí jugando.",
+      url: "/my-cards",
+    }).catch(() => {});
   }
 
   const [updated] = await db.select({
@@ -1447,6 +1501,11 @@ router.post("/activator-requests/:id/review", async (req: AuthRequest, res) => {
     await db.delete(referralCodesTable).where(eq(referralCodesTable.userId, request.userId));
     await db.delete(activatorRequestsTable).where(eq(activatorRequestsTable.id, id));
     res.json({ ok: true, status: "deleted" });
+    sendPushToUser(request.userId, {
+      title: "❌ Solicitud de activador rechazada",
+      body: notes?.trim() ? `Motivo: ${notes.trim()}` : "Tu solicitud para ser activador no fue aprobada.",
+      url: "/profile",
+    }).catch(() => {});
     return;
   }
 
@@ -1471,6 +1530,25 @@ router.post("/activator-requests/:id/review", async (req: AuthRequest, res) => {
   }
 
   res.json({ ok: true, status: newStatus });
+  if (action === "accept") {
+    sendPushToUser(request.userId, {
+      title: "🎉 ¡Sos activador!",
+      body: "Tu solicitud fue aprobada. Ya tenés tu código de referido activo para ganar comisiones.",
+      url: "/profile",
+    }).catch(() => {});
+  } else if (action === "suspend") {
+    sendPushToUser(request.userId, {
+      title: "⚠️ Cuenta de activador suspendida",
+      body: notes?.trim() ? `Motivo: ${notes.trim()}` : "Tu cuenta de activador fue suspendida temporalmente.",
+      url: "/profile",
+    }).catch(() => {});
+  } else if (action === "hold") {
+    sendPushToUser(request.userId, {
+      title: "⏸️ Solicitud de activador en revisión",
+      body: "Tu solicitud está siendo revisada. Te avisaremos cuando haya novedades.",
+      url: "/profile",
+    }).catch(() => {});
+  }
 });
 
 // ── Delete activator (full removal) ───────────────────────────────────────────
@@ -1487,6 +1565,11 @@ router.delete("/activator-requests/:id", async (req: AuthRequest, res) => {
   await db.delete(activatorRequestsTable).where(eq(activatorRequestsTable.id, id));
 
   res.json({ ok: true });
+  sendPushToUser(request.userId, {
+    title: "🚫 Eliminado del programa de activadores",
+    body: "Fuiste removido del programa de activadores. Tu código de referido ya no está activo.",
+    url: "/profile",
+  }).catch(() => {});
 });
 
 // ── Ban activator user ─────────────────────────────────────────────────────────
@@ -1509,6 +1592,11 @@ router.post("/activator-requests/:id/ban", async (req: AuthRequest, res) => {
   await db.update(referralCodesTable).set({ isActive: false }).where(eq(referralCodesTable.userId, request.userId));
 
   res.json({ ok: true });
+  sendPushToUser(request.userId, {
+    title: "🚫 Activador suspendido por incumplimiento",
+    body: reason?.trim() ? `Motivo: ${reason.trim()}` : "Tu cuenta de activador fue suspendida por incumplimiento de las normas.",
+    url: "/profile",
+  }).catch(() => {});
 });
 
 // ── Unban activator ────────────────────────────────────────────────────────────
@@ -1536,6 +1624,11 @@ router.post("/activator-requests/:id/unban", async (req: AuthRequest, res) => {
   }
 
   res.json({ ok: true });
+  sendPushToUser(request.userId, {
+    title: "✅ Activador rehabilitado",
+    body: "Tu cuenta de activador fue reactivada. Ya podés volver a ganar comisiones con tu código.",
+    url: "/profile",
+  }).catch(() => {});
 });
 
 // ── Activator settings ────────────────────────────────────────────────────────

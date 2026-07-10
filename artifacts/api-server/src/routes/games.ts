@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable, manualPaymentRequestsTable } from "@workspace/db";
-import { sendPushToAll } from "../lib/push";
+import { sendPushToAll, sendPushToUsers } from "../lib/push";
 import type { RoundConfig, RoundHistoryEntry } from "@workspace/db";
 import { eq, desc, asc, and, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
@@ -374,6 +374,15 @@ router.post("/:id/start", requireAdmin, async (req: AuthRequest, res) => {
     .returning();
   if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
   res.json(formatGame(game));
+  // Notify players who bought cards for this game
+  const players = await db.selectDistinct({ userId: cardsTable.userId }).from(cardsTable)
+    .where(and(eq(cardsTable.gameId, p.data.id), eq(cardsTable.status, "active")));
+  const playerIds = players.map(r => r.userId);
+  sendPushToUsers(playerIds, {
+    title: "🎱 ¡El bingo empezó!",
+    body: `${game.title} ya está en vivo. ¡Entrá a jugar ahora!`,
+    url: `/play/${game.id}`,
+  }).catch(() => {});
 });
 
 router.post("/:id/next-round", requireAdmin, async (req: AuthRequest, res) => {
@@ -417,11 +426,24 @@ router.post("/:id/next-round", requireAdmin, async (req: AuthRequest, res) => {
 
   req.log.info({ gameId: p.data.id, newRound: currentRound + 1 }, "Ronda avanzada por admin");
   res.json(formatGame(updated));
+  // Notify active players that the board reset
+  const players = await db.selectDistinct({ userId: cardsTable.userId }).from(cardsTable)
+    .where(and(eq(cardsTable.gameId, p.data.id), eq(cardsTable.status, "active")));
+  sendPushToUsers(players.map(r => r.userId), {
+    title: "🔄 Nueva ronda",
+    body: `${updated.title} — Ronda ${currentRound + 1} comenzó. ¡Los números se reiniciaron!`,
+    url: `/play/${updated.id}`,
+  }).catch(() => {});
 });
 
 router.post("/:id/finish", requireAdmin, async (req: AuthRequest, res) => {
   const p = FinishGameParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  // Collect players before expiring cards
+  const players = await db.selectDistinct({ userId: cardsTable.userId }).from(cardsTable)
+    .where(and(eq(cardsTable.gameId, p.data.id), eq(cardsTable.status, "active")));
+
   const [game] = await db.update(gamesTable).set({ status: "finished" }).where(eq(gamesTable.id, p.data.id)).returning();
   if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
 
@@ -432,6 +454,12 @@ router.post("/:id/finish", requireAdmin, async (req: AuthRequest, res) => {
   presenceMap.delete(p.data.id);
 
   res.json(formatGame(game));
+  const playerIds = players.map(r => r.userId);
+  sendPushToUsers(playerIds, {
+    title: "🏁 Juego finalizado",
+    body: `${game.title} terminó. Revisá los resultados y tu billetera.`,
+    url: `/games/${game.id}`,
+  }).catch(() => {});
 });
 
 router.post("/:id/reset", requireAdmin, async (req: AuthRequest, res) => {

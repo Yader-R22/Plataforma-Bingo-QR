@@ -51,6 +51,13 @@ export async function sendPushToUser(userId: number, payload: PushPayload): Prom
   await Promise.allSettled(subs.map((s) => send(s.endpoint, s.p256dh, s.auth, payload)));
 }
 
+export async function sendPushToUsers(userIds: number[], payload: PushPayload): Promise<void> {
+  if (!userIds.length) return;
+  const { inArray } = await import("drizzle-orm");
+  const subs = await db.select().from(pushSubscriptionsTable).where(inArray(pushSubscriptionsTable.userId, userIds));
+  await Promise.allSettled(subs.map((s) => send(s.endpoint, s.p256dh, s.auth, payload)));
+}
+
 export async function sendPushToAll(payload: PushPayload): Promise<{ sent: number; failed: number }> {
   const subs = await db.select().from(pushSubscriptionsTable);
   const results = await Promise.allSettled(subs.map((s) => send(s.endpoint, s.p256dh, s.auth, payload)));

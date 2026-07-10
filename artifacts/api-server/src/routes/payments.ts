@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, cardsTable, gamesTable, feedItemsTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { sendPushToUser } from "../lib/push";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 
 const PAYMENT_API_URL = "https://api.pay.enlazzo.com/functions/v1";
@@ -84,6 +85,18 @@ router.get("/:checkoutId/status", requireAuth, async (req: AuthRequest, res) => 
         }
       }
 
+      // Notify the buyer their cards are ready
+      if (paidCards.length && paidCards[0].userId) {
+        const count = paidCards.length;
+        const gameId2 = paidCards[0].gameId;
+        const gameRow = await db.select({ title: gamesTable.title }).from(gamesTable).where(eq(gamesTable.id, gameId2)).limit(1);
+        const gameTitle = gameRow[0]?.title ?? "el bingo";
+        sendPushToUser(paidCards[0].userId, {
+          title: "🎟️ ¡Pago confirmado!",
+          body: `Tu${count > 1 ? "s" : ""} ${count} cartón${count !== 1 ? "es" : ""} para ${gameTitle} ${count !== 1 ? "están listos" : "está listo"}. ¡Buena suerte!`,
+          url: `/my-cards`,
+        }).catch(() => {});
+      }
       req.log.info({ transactionId }, "Payment confirmed via polling, cards activated");
       res.json({ checkout_id: transactionId, status: "completed" });
       return;
