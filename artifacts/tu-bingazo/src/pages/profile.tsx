@@ -50,30 +50,8 @@ function PushToggle() {
       </button>
     </div>
   );
-  // unsubscribed
-  if (isDismissed()) return null;
-  return (
-    <div className="rounded-2xl p-4 flex items-start gap-3"
-      style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.3)" }}>
-      <span className="text-2xl">🔔</span>
-      <div className="flex-1">
-        <p className="font-bold text-sm">¿Quieres recibir notificaciones?</p>
-        <p className="text-xs text-muted-foreground mt-0.5">Te avisamos cuando hay nuevo bingo, ganas un premio o se procesa tu retiro.</p>
-        <div className="flex gap-2 mt-3">
-          <button onClick={enable} disabled={loading}
-            className="px-4 py-2 rounded-xl font-bold text-sm text-white"
-            style={{ background: "hsl(var(--primary))" }}>
-            {loading ? "..." : "Activar"}
-          </button>
-          <button onClick={dismiss}
-            className="px-4 py-2 rounded-xl font-bold text-sm text-muted-foreground"
-            style={{ background: "hsl(var(--muted))" }}>
-            Ahora no
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  // unsubscribed — el modal de bienvenida ya se encarga de pedirlo
+  return null;
 }
 
 export default function ProfilePage() {
