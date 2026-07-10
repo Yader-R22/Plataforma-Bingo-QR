@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable, manualPaymentRequestsTable } from "@workspace/db";
 import type { RoundConfig, RoundHistoryEntry } from "@workspace/db";
-import { eq, desc, asc, and, sql } from "drizzle-orm";
+import { eq, desc, asc, and, sql, ne } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
 import {
   ListGamesQueryParams,
@@ -125,6 +125,52 @@ router.get("/", async (req: AuthRequest, res) => {
   })));
 });
 
+async function syncPredefinedCards(gameId: number, rounds: RoundConfig[]) {
+  for (let i = 0; i < rounds.length; i++) {
+    const round = rounds[i];
+    const roundNum = i + 1;
+    const userId = round.predefined_winner_user_id;
+    if (!userId) continue;
+
+    const existing = await db.select().from(cardsTable)
+      .where(and(
+        eq(cardsTable.gameId, gameId),
+        eq(cardsTable.isPredefined, true),
+        eq(cardsTable.predefinedRound, roundNum),
+      )).limit(1);
+
+    if (!existing.length) {
+      const numbers: number[][] = [];
+      const ranges = [[1,15],[16,30],[31,45],[46,60],[61,75]];
+      for (let col = 0; col < 5; col++) {
+        const [min, max] = ranges[col];
+        const pool = Array.from({ length: max - min + 1 }, (_, k) => k + min);
+        const picked: number[] = [];
+        for (let row = 0; row < 5; row++) {
+          const idx = Math.floor(Math.random() * pool.length);
+          picked.push(pool.splice(idx, 1)[0]);
+        }
+        numbers.push(picked);
+      }
+      const transposed: number[][] = [];
+      for (let row = 0; row < 5; row++) {
+        transposed.push([]);
+        for (let col = 0; col < 5; col++) transposed[row].push(numbers[col][row]);
+      }
+      transposed[2][2] = 0;
+      await db.insert(cardsTable).values({
+        gameId,
+        userId,
+        numbers: transposed,
+        status: "active",
+        paymentStatus: "paid",
+        isPredefined: true,
+        predefinedRound: roundNum,
+      });
+    }
+  }
+}
+
 router.post("/", requireAdmin, async (req: AuthRequest, res) => {
   const parsed = CreateGameBody.safeParse(req.body);
   if (!parsed.success) {
@@ -151,6 +197,11 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
     currentRound: 1,
     coverImageUrl: data.cover_image_url ?? null,
   }).returning();
+
+  if (rounds?.length) {
+    await syncPredefinedCards(game.id, rounds);
+  }
+
   res.status(201).json(formatGame(game));
 });
 
@@ -191,6 +242,18 @@ router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
   if (data.rounds !== undefined) updateData.rounds = (data.rounds as RoundConfig[]) ?? null;
   const [game] = await db.update(gamesTable).set(updateData).where(eq(gamesTable.id, p.data.id)).returning();
   if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
+
+  if (data.rounds !== undefined) {
+    // Eliminar cartones predefinidos activos anteriores (no ganados) y recrear
+    await db.execute(
+      sql`DELETE FROM cards WHERE game_id = ${p.data.id} AND is_predefined = true AND status != 'winner'`
+    );
+    const newRounds = (data.rounds as RoundConfig[] | null) ?? [];
+    if (newRounds.length) {
+      await syncPredefinedCards(p.data.id, newRounds);
+    }
+  }
+
   res.json(formatGame(game));
 });
 

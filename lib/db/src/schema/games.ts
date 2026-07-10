@@ -15,6 +15,7 @@ export type RoundConfig = {
   game_mode: "horizontal" | "vertical" | "diagonal" | "quina" | "full_card" | "esquinas" | "cruz" | "x_doble";
   max_winners: number;
   prize_amount: number;
+  predefined_winner_user_id?: number | null;
 };
 
 export type RoundHistoryEntry = {

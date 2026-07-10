@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation, useRoute } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,16 @@ function toDatetimeLocal(iso: string): string {
   return local.toISOString().slice(0, 16);
 }
 
-type RoundRow = { game_mode: string; max_winners: string; prize_amount: string };
+type RoundRow = {
+  game_mode: string;
+  max_winners: string;
+  prize_amount: string;
+  predefined_winner_user_id: number | null;
+  predefined_winner_name: string;
+  predefined_winner_ci: string;
+};
+
+type UserResult = { id: number; full_name: string; ci: string };
 
 const MODE_OPTIONS = [
   { value: "full_card", label: "Cartón completo" },
@@ -29,6 +38,102 @@ const MODE_OPTIONS = [
   { value: "diagonal", label: "Diagonal" },
   { value: "quina", label: "Quina" },
 ];
+
+function PredefinedWinnerPicker({
+  roundIndex,
+  value,
+  name,
+  ci,
+  onSelect,
+  onClear,
+  token,
+}: {
+  roundIndex: number;
+  value: number | null;
+  name: string;
+  ci: string;
+  onSelect: (user: UserResult) => void;
+  onClear: () => void;
+  token: string | null;
+}) {
+  const [query, setQuery] = useState(ci || "");
+  const [results, setResults] = useState<UserResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (value) { setQuery(ci); setResults([]); return; }
+    if (!query.trim() || query.trim().length < 3) { setResults([]); return; }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(`${BASE}/api/admin/users/search?ci=${encodeURIComponent(query.trim())}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setResults(data.map((u: any) => ({ id: u.id, full_name: u.full_name, ci: u.ci })));
+        }
+      } catch { /* ignore */ } finally {
+        setSearching(false);
+      }
+    }, 400);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [query, value]);
+
+  if (value) {
+    return (
+      <div className="rounded-xl p-2.5 flex items-center justify-between gap-2"
+        style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)" }}>
+        <div className="min-w-0">
+          <p className="text-[11px] font-black text-green-600">✅ Ganador predefinido</p>
+          <p className="text-xs font-bold truncate">{name}</p>
+          <p className="text-[10px] text-muted-foreground">CI: {ci}</p>
+        </div>
+        <button type="button" onClick={onClear}
+          className="text-xs font-bold text-red-500 shrink-0 cursor-pointer">
+          ✕ Quitar
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[11px] text-muted-foreground font-medium">Ganador predefinido (opcional)</p>
+      <div className="relative">
+        <Input
+          className="h-9 text-xs pr-8"
+          placeholder="Buscar por CI (mín. 3 dígitos)…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+        />
+        {searching && (
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">⟳</span>
+        )}
+      </div>
+      {results.length > 0 && (
+        <div className="rounded-xl border overflow-hidden" style={{ background: "hsl(var(--background))" }}>
+          {results.map(u => (
+            <button
+              key={u.id}
+              type="button"
+              onClick={() => { onSelect(u); setResults([]); setQuery(u.ci); }}
+              className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors border-b last:border-b-0 cursor-pointer"
+            >
+              <span className="font-bold">{u.full_name}</span>
+              <span className="text-muted-foreground ml-1.5">CI: {u.ci}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {query.trim().length >= 3 && !searching && results.length === 0 && (
+        <p className="text-[10px] text-muted-foreground px-1">Sin resultados para "{query}"</p>
+      )}
+    </div>
+  );
+}
 
 export default function CreateGamePage() {
   useSetLayoutConfig({});
@@ -58,10 +163,15 @@ export default function CreateGamePage() {
   const [coverImage, setCoverImage] = useState<string | null>(null);
 
   const [multiRound, setMultiRound] = useState(false);
-  const [rounds, setRounds] = useState<RoundRow[]>([
-    { game_mode: "full_card", max_winners: "1", prize_amount: "" },
-    { game_mode: "full_card", max_winners: "1", prize_amount: "" },
-  ]);
+  const emptyRound = (): RoundRow => ({
+    game_mode: "full_card",
+    max_winners: "1",
+    prize_amount: "",
+    predefined_winner_user_id: null,
+    predefined_winner_name: "",
+    predefined_winner_ci: "",
+  });
+  const [rounds, setRounds] = useState<RoundRow[]>([emptyRound(), emptyRound()]);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -85,10 +195,13 @@ export default function CreateGamePage() {
         setCoverImage(g.cover_image_url ?? null);
         if (g.rounds?.length > 1) {
           setMultiRound(true);
-          setRounds(g.rounds.map((r: { game_mode: string; max_winners: number; prize_amount: number }) => ({
+          setRounds(g.rounds.map((r: any) => ({
             game_mode: r.game_mode,
             max_winners: String(r.max_winners),
             prize_amount: String(r.prize_amount),
+            predefined_winner_user_id: r.predefined_winner_user_id ?? null,
+            predefined_winner_name: "",
+            predefined_winner_ci: "",
           })));
         }
       } catch {
@@ -102,12 +215,12 @@ export default function CreateGamePage() {
 
   function upd(k: string, v: string) { setForm(f => ({ ...f, [k]: v })); }
 
-  function updateRound(i: number, k: keyof RoundRow, v: string) {
+  function updateRound(i: number, k: keyof RoundRow, v: any) {
     setRounds(rs => rs.map((r, idx) => idx === i ? { ...r, [k]: v } : r));
   }
 
   function addRound() {
-    setRounds(rs => [...rs, { game_mode: "full_card", max_winners: "1", prize_amount: "" }]);
+    setRounds(rs => [...rs, emptyRound()]);
   }
 
   function removeRound(i: number) {
@@ -123,6 +236,7 @@ export default function CreateGamePage() {
             game_mode: r.game_mode,
             max_winners: parseInt(r.max_winners) || 1,
             prize_amount: parseFloat(r.prize_amount) || 0,
+            predefined_winner_user_id: r.predefined_winner_user_id ?? null,
           }))
         : null;
 
@@ -257,13 +371,13 @@ export default function CreateGamePage() {
               </div>
 
               {rounds.map((r, i) => (
-                <div key={i} className="rounded-xl border p-3 space-y-2"
+                <div key={i} className="rounded-xl border p-3 space-y-2.5"
                   style={{ background: "hsl(var(--muted) / 0.4)" }}>
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-black">Ronda {i + 1}</p>
                     {rounds.length > 2 && (
                       <button type="button" onClick={() => removeRound(i)}
-                        className="text-xs font-bold text-red-500 hover:text-red-400">
+                        className="text-xs font-bold text-red-500 hover:text-red-400 cursor-pointer">
                         ✕ Quitar
                       </button>
                     )}
@@ -289,11 +403,34 @@ export default function CreateGamePage() {
                         value={r.max_winners} onChange={e => updateRound(i, "max_winners", e.target.value)} />
                     </div>
                   </div>
+
+                  {/* ── Ganador predefinido ── */}
+                  <div className="pt-0.5 border-t" style={{ borderColor: "hsl(var(--border))" }}>
+                    <PredefinedWinnerPicker
+                      roundIndex={i}
+                      value={r.predefined_winner_user_id}
+                      name={r.predefined_winner_name}
+                      ci={r.predefined_winner_ci}
+                      token={token}
+                      onSelect={u => {
+                        setRounds(rs => rs.map((row, idx) => idx === i
+                          ? { ...row, predefined_winner_user_id: u.id, predefined_winner_name: u.full_name, predefined_winner_ci: u.ci }
+                          : row
+                        ));
+                      }}
+                      onClear={() => {
+                        setRounds(rs => rs.map((row, idx) => idx === i
+                          ? { ...row, predefined_winner_user_id: null, predefined_winner_name: "", predefined_winner_ci: "" }
+                          : row
+                        ));
+                      }}
+                    />
+                  </div>
                 </div>
               ))}
 
               <button type="button" onClick={addRound}
-                className="w-full py-2 rounded-xl border-2 border-dashed text-sm font-bold transition-colors hover:border-primary/60"
+                className="w-full py-2 rounded-xl border-2 border-dashed text-sm font-bold transition-colors hover:border-primary/60 cursor-pointer"
                 style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
                 + Agregar ronda
               </button>
@@ -309,7 +446,7 @@ export default function CreateGamePage() {
                 <button
                   type="button"
                   onClick={() => setCoverImage(null)}
-                  className="absolute top-2 right-2 text-xs font-bold px-3 py-1.5 rounded-xl"
+                  className="absolute top-2 right-2 text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer"
                   style={{ background: "rgba(0,0,0,0.65)", color: "#fff" }}>
                   ✕ Quitar
                 </button>
@@ -340,7 +477,7 @@ export default function CreateGamePage() {
           </div>
           <div className="space-y-1.5">
             <Label>URL Facebook (opcional)</Label>
-            <Input type="url" placeholder="https://facebook.com/..." value={form.stream_url_facebook} onChange={e => upd("stream_url_facebook", e.target.value)} />
+            <Input type="url" placeholder="https://facebook.com/..." value={form.stream_url_facebook || ""} onChange={e => upd("stream_url_facebook", e.target.value)} />
           </div>
 
           <Button type="submit" className="w-full h-12 font-bold" disabled={loading}>

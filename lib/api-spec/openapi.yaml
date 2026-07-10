@@ -1045,6 +1045,9 @@ components:
           type: integer
         prize_amount:
           type: number
+        predefined_winner_user_id:
+          type: ["integer", "null"]
+          description: ID del usuario asignado como ganador predefinido de esta ronda
 
     Game:
       type: object

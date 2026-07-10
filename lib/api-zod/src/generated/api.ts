@@ -122,7 +122,8 @@ export const ListGamesResponseItem = zod.object({
   "rounds": zod.array(zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
-  "prize_amount": zod.number()
+  "prize_amount": zod.number(),
+  "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
   "total_rounds": zod.number().optional().describe('Total de rondas programadas'),
@@ -154,7 +155,8 @@ export const CreateGameBody = zod.object({
   "rounds": zod.array(zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
-  "prize_amount": zod.number()
+  "prize_amount": zod.number(),
+  "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).nullish().describe('Configuración de múltiples rondas (null = juego de una sola ronda)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)')
 })
@@ -188,7 +190,8 @@ export const GetGameResponse = zod.object({
   "rounds": zod.array(zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
-  "prize_amount": zod.number()
+  "prize_amount": zod.number(),
+  "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
   "total_rounds": zod.number().optional().describe('Total de rondas programadas'),
@@ -219,7 +222,8 @@ export const UpdateGameBody = zod.object({
   "rounds": zod.array(zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
-  "prize_amount": zod.number()
+  "prize_amount": zod.number(),
+  "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).nullish().describe('Actualizar configuración de rondas (null = quitar multi-ronda)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)')
 })
@@ -245,7 +249,8 @@ export const UpdateGameResponse = zod.object({
   "rounds": zod.array(zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
-  "prize_amount": zod.number()
+  "prize_amount": zod.number(),
+  "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
   "total_rounds": zod.number().optional().describe('Total de rondas programadas'),
@@ -363,7 +368,8 @@ export const StartGameResponse = zod.object({
   "rounds": zod.array(zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
-  "prize_amount": zod.number()
+  "prize_amount": zod.number(),
+  "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
   "total_rounds": zod.number().optional().describe('Total de rondas programadas'),
@@ -401,7 +407,8 @@ export const FinishGameResponse = zod.object({
   "rounds": zod.array(zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
-  "prize_amount": zod.number()
+  "prize_amount": zod.number(),
+  "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
   "total_rounds": zod.number().optional().describe('Total de rondas programadas'),
@@ -439,7 +446,8 @@ export const NextRoundResponse = zod.object({
   "rounds": zod.array(zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
-  "prize_amount": zod.number()
+  "prize_amount": zod.number(),
+  "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
   "total_rounds": zod.number().optional().describe('Total de rondas programadas'),

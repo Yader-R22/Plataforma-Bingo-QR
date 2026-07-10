@@ -11,4 +11,9 @@ export interface RoundConfig {
   game_mode: RoundConfigGameMode;
   max_winners: number;
   prize_amount: number;
+  /**
+     * ID del usuario asignado como ganador predefinido de esta ronda
+     * @nullable
+     */
+  predefined_winner_user_id?: number | null;
 }

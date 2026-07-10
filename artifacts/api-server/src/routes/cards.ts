@@ -76,6 +76,8 @@ function formatCard(card: typeof cardsTable.$inferSelect) {
     status: card.status,
     payment_status: card.paymentStatus,
     checkout_id: card.checkoutId ?? null,
+    is_predefined: card.isPredefined ?? false,
+    predefined_round: card.predefinedRound ?? null,
     created_at: card.createdAt,
   };
 }
@@ -467,6 +469,109 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
   const calledNumbers = game.calledNumbers ?? [];
   const currentRound = game.currentRound ?? 1;
   const roundCfg = getCurrentRoundConfig(game);
+
+  // ── Ganador predefinido: bypass de validación ─────────────────────────────
+  // Si el cartón es predefinido Y corresponde a la ronda activa,
+  // el reclamo se acepta sin validar jugada. Solo ese cartón específico
+  // tiene este privilegio; los demás cartones del mismo usuario (pagados)
+  // siguen la validación normal.
+  if (card.isPredefined && card.predefinedRound === currentRound) {
+    // Saltar directamente a la transacción de registro de ganador
+    let winner: typeof winnersTable.$inferSelect | undefined;
+    let dupCard = false;
+    let capReached = false;
+    let notActive = false;
+    try {
+      await db.transaction(async (tx) => {
+        const lockedRows = await tx.execute(
+          sql`SELECT status FROM games WHERE id = ${game.id} FOR UPDATE`
+        );
+        if ((lockedRows.rows[0]?.status as string | undefined) !== "active") { notActive = true; return; }
+
+        const cardWinner = await tx.select().from(winnersTable)
+          .where(and(
+            eq(winnersTable.cardId, card.id),
+            eq(winnersTable.round, currentRound),
+            eq(winnersTable.isHistorical, false),
+          )).limit(1);
+        if (cardWinner.length) { dupCard = true; return; }
+
+        const existingWinners = await tx.select().from(winnersTable)
+          .where(and(
+            eq(winnersTable.gameId, game.id),
+            eq(winnersTable.round, currentRound),
+            eq(winnersTable.isHistorical, false),
+          ));
+        if (existingWinners.length >= roundCfg.max_winners) { capReached = true; return; }
+
+        const nextPlace = existingWinners.length + 1;
+        const prizeAmount = roundCfg.prize_amount;
+
+        [winner] = await tx.insert(winnersTable).values({
+          gameId: game.id,
+          userId: req.userId!,
+          cardId: card.id,
+          round: currentRound,
+          place: nextPlace,
+          prizeAmount: String(prizeAmount),
+          claimedAtMs: String(b.data.claimed_at_ms),
+          validated: true,
+        }).returning();
+
+        // Ganador predefinido NO recibe crédito real — el premio es de la plataforma
+        await tx.insert(auditLogsTable).values({
+          action: "bingo_claim",
+          userId: req.userId,
+          gameId: game.id,
+          cardId: card.id,
+          details: {
+            round: currentRound,
+            predefined: true,
+            claimed_at_ms: b.data.claimed_at_ms,
+            server_timestamp_ms: claimTimestamp,
+            prize_amount: prizeAmount,
+            place: nextPlace,
+          },
+          ipAddress: req.ip,
+        });
+      });
+    } catch (err) {
+      req.log.warn({ err, cardId: card.id }, "Reclamo predefinido duplicado o en conflicto");
+      res.json({ valid: false, message: "Ya reclamaste BINGO con este cartón en esta ronda." });
+      return;
+    }
+
+    if (notActive) { res.json({ valid: false, message: "El juego ya no está activo." }); return; }
+    if (dupCard) { res.json({ valid: false, message: "Ya reclamaste BINGO con este cartón en esta ronda." }); return; }
+    if (capReached) { res.json({ valid: false, message: "Ya se alcanzó el número máximo de ganadores." }); return; }
+    if (!winner) { res.status(500).json({ error: "No se pudo registrar el reclamo" }); return; }
+
+    try {
+      await db.insert(feedItemsTable).values({
+        type: "winner",
+        message: `¡Un jugador ganó Bs ${parseFloat(String(winner.prizeAmount)).toFixed(0)}!`,
+        amount: String(winner.prizeAmount),
+        userDisplayName: "Un jugador",
+      });
+    } catch { /* feed errors must not block */ }
+
+    res.json({
+      valid: true,
+      message: `¡BINGO! ¡Felicitaciones! Ganaste Bs ${parseFloat(String(winner.prizeAmount)).toFixed(0)} en el puesto #${winner.place}.`,
+      winner: {
+        id: winner.id,
+        game_id: winner.gameId,
+        user_id: winner.userId,
+        card_id: winner.cardId,
+        place: winner.place,
+        prize_amount: parseFloat(winner.prizeAmount),
+        claimed_at_ms: parseInt(winner.claimedAtMs),
+        validated: winner.validated,
+        created_at: winner.createdAt,
+      },
+    });
+    return;
+  }
 
   const isValid = validateBingo(card, roundCfg.game_mode, calledNumbers);
 
