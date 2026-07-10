@@ -25,6 +25,17 @@ const router = Router();
 const presenceMap = new Map<number, Map<number, number>>();
 const PRESENCE_TTL_MS = 30_000;
 
+// Periodically purge stale user entries from active presence maps (every 5 min)
+setInterval(() => {
+  const now = Date.now();
+  for (const [gameId, userMap] of presenceMap) {
+    for (const [userId, ts] of userMap) {
+      if (now - ts > PRESENCE_TTL_MS * 4) userMap.delete(userId);
+    }
+    if (userMap.size === 0) presenceMap.delete(gameId);
+  }
+}, 5 * 60 * 1000).unref();
+
 function getOnlineCount(gameId: number): number {
   const m = presenceMap.get(gameId);
   if (!m) return 0;
@@ -344,6 +355,9 @@ router.post("/:id/finish", requireAdmin, async (req: AuthRequest, res) => {
   await db.update(cardsTable).set({ status: "expired" })
     .where(and(eq(cardsTable.gameId, p.data.id), eq(cardsTable.status, "active")));
 
+  // Free in-memory presence data for this game
+  presenceMap.delete(p.data.id);
+
   res.json(formatGame(game));
 });
 
@@ -421,6 +435,9 @@ router.delete("/:id", requireAdmin, async (req: AuthRequest, res) => {
       ipAddress: req.ip,
     });
   });
+
+  // Free in-memory presence data for this game
+  presenceMap.delete(gameId);
 
   req.log.info({ gameId }, "Juego eliminado por admin");
   res.json({ id: gameId, deleted: true });

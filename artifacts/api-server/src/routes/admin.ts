@@ -31,9 +31,9 @@ router.get("/users", async (req: AuthRequest, res) => {
   const query = AdminListUsersQueryParams.safeParse(req.query);
   let users;
   if (query.success && query.data.status) {
-    users = await db.select().from(usersTable).where(eq(usersTable.status, query.data.status as "pending" | "active" | "rejected"));
+    users = await db.select().from(usersTable).where(eq(usersTable.status, query.data.status as "pending" | "active" | "rejected")).limit(2000);
   } else {
-    users = await db.select().from(usersTable).orderBy(desc(usersTable.createdAt));
+    users = await db.select().from(usersTable).orderBy(desc(usersTable.createdAt)).limit(2000);
   }
   res.json(users.map(formatUserList));
 });
