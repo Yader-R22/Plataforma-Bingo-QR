@@ -98,7 +98,10 @@ self.addEventListener("activate", (e) => {
       currentCacheName = name;
       const keys = await caches.keys();
       await Promise.all(
-        keys.filter((k) => k.startsWith(BASE_CACHE) && k !== name).map((k) => caches.delete(k))
+        keys
+          // Delete old prefix caches (tu-bingazo-*) and any outdated new prefix caches
+          .filter((k) => (k.startsWith(BASE_CACHE) || k.startsWith("tu-bingazo")) && k !== name)
+          .map((k) => caches.delete(k))
       );
       self.clients.claim();
     })
