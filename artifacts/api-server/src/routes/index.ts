@@ -14,6 +14,8 @@ import { referralsRouter } from "./referrals";
 import { siteSettingsRouter } from "./site-settings";
 import { bannersRouter } from "./banners";
 import { pwaRouter } from "./pwa";
+import { manualPaymentsRouter } from "./manual-payments";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
@@ -32,5 +34,7 @@ router.use("/referrals", referralsRouter);
 router.use("/site-settings", siteSettingsRouter);
 router.use("/banners", bannersRouter);
 router.use("/pwa", pwaRouter);
+router.use("/manual-payments", manualPaymentsRouter);
+router.use("/storage", storageRouter);
 
 export default router;

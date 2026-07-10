@@ -5,6 +5,7 @@ import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
 import { useSetLayoutConfig } from "@/components/AppLayout";
+import { useUpload } from "@workspace/object-storage-web";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -388,16 +389,214 @@ function QRPaymentModal({
   );
 }
 
+// ── Fallback QR Payment Modal ─────────────────────────────────────────────
+function FallbackPaymentModal({
+  gameId,
+  qty,
+  totalPrice,
+  cardIds,
+  token,
+  fallbackQrImageUrl,
+  supportWhatsapp,
+  onClose,
+}: {
+  gameId: number;
+  qty: number;
+  totalPrice: number;
+  cardIds: number[];
+  token: string;
+  fallbackQrImageUrl: string | null;
+  supportWhatsapp: string | null;
+  onClose: () => void;
+}) {
+  const [step, setStep] = useState<"scan" | "uploading" | "done" | "error">("scan");
+  const [manualRequestId, setManualRequestId] = useState<number | null>(null);
+  const [rejectedReason, setRejectedReason] = useState<string | null>(null);
+
+  const { uploadFile, isUploading } = useUpload({
+    basePath: `${BASE}/api/storage`,
+    onError: () => { toast.error("Error al subir el comprobante"); setStep("error"); },
+  });
+
+  async function handleReceiptUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setStep("uploading");
+    try {
+      // 1. Upload receipt to object storage
+      const uploadResult = await uploadFile(file);
+      if (!uploadResult) { setStep("error"); return; }
+      const receiptUrl = `${BASE}/api/storage${uploadResult.objectPath}`;
+
+      // 2. Create manual payment request (linking card IDs)
+      let requestId = manualRequestId;
+      if (!requestId) {
+        const r = await fetch(`${BASE}/api/manual-payments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ game_id: gameId, quantity: qty, card_ids: cardIds }),
+        });
+        const data = await r.json();
+        if (!r.ok) { toast.error(data.error || "Error al crear solicitud"); setStep("scan"); return; }
+        requestId = data.id;
+        setManualRequestId(requestId);
+      }
+
+      // 3. Attach receipt URL to the request
+      const rr = await fetch(`${BASE}/api/manual-payments/${requestId}/receipt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ receipt_url: receiptUrl }),
+      });
+      if (!rr.ok) { toast.error("Error al registrar comprobante"); setStep("scan"); return; }
+
+      setStep("done");
+      toast.success("✅ Comprobante enviado. El administrador lo revisará pronto.");
+    } catch {
+      toast.error("Error inesperado al procesar el comprobante");
+      setStep("error");
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
+      <div className="w-full max-w-md rounded-t-[28px] p-6 pb-8 bg-white" style={{ maxHeight: "92vh", overflowY: "auto" }}>
+
+        {step !== "done" && (
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                💳 Pago Manual con QR
+              </h3>
+              <p className="text-xs text-muted-foreground">Método alternativo de pago</p>
+            </div>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        )}
+
+        {(step === "scan" || step === "uploading" || step === "error") && (
+          <>
+            {/* Amount summary */}
+            <div className="rounded-xl p-3 mb-4 flex items-center justify-between" style={{ background: "hsl(var(--muted))" }}>
+              <span className="text-muted-foreground text-sm">{qty} cartón{qty > 1 ? "es" : ""}</span>
+              <span className="font-black text-lg" style={{ color: "hsl(var(--primary))", fontFamily: "'Poppins', sans-serif" }}>
+                Bs {totalPrice.toFixed(0)}
+              </span>
+            </div>
+
+            {/* Static QR image */}
+            <div className="text-center mb-5">
+              {fallbackQrImageUrl ? (
+                <>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Escanea este código QR y transfiere exactamente <strong>Bs {totalPrice.toFixed(0)}</strong>
+                  </p>
+                  <div className="inline-block p-3 rounded-2xl border-2 mb-3" style={{ borderColor: "hsl(var(--primary) / 0.2)" }}>
+                    <img src={fallbackQrImageUrl} alt="QR de pago alternativo" style={{ width: 200, height: 200, display: "block", objectFit: "contain" }} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Incluye en el detalle: <strong>{qty} cartón{qty > 1 ? "es" : ""} bingo</strong>
+                  </p>
+                </>
+              ) : (
+                <div className="rounded-xl p-5 mb-3" style={{ background: "hsl(var(--muted))" }}>
+                  <div className="text-3xl mb-2">📞</div>
+                  <p className="text-sm font-semibold mb-1">Pago por mensaje</p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    No hay QR configurado aún. Contacta al administrador para coordinar el pago.
+                  </p>
+                  {supportWhatsapp && (
+                    <a
+                      href={`https://wa.me/${supportWhatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(`Hola, quiero comprar ${qty} cartón${qty > 1 ? "es" : ""} — Bs ${totalPrice.toFixed(0)}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-bold"
+                      style={{ background: "#25D366" }}
+                    >
+                      💬 Contactar por WhatsApp
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Receipt upload */}
+            <div className="rounded-xl border-2 border-dashed p-4 mb-4 text-center" style={{ borderColor: "hsl(var(--primary) / 0.3)" }}>
+              <div className="text-2xl mb-2">📎</div>
+              <p className="text-sm font-semibold mb-1">Subir comprobante de pago</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                Sube una foto o captura de pantalla que confirme tu pago
+              </p>
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={isUploading || step === "uploading"}
+                  onChange={handleReceiptUpload}
+                />
+                <span
+                  className="inline-block px-5 py-2.5 rounded-xl text-white text-sm font-bold"
+                  style={{ background: isUploading ? "hsl(var(--muted))" : "hsl(var(--primary))", cursor: isUploading ? "not-allowed" : "pointer" }}
+                >
+                  {isUploading || step === "uploading" ? "Subiendo..." : "📷 Seleccionar imagen"}
+                </span>
+              </label>
+            </div>
+
+            {step === "error" && (
+              <p className="text-red-500 text-xs text-center mb-3">Error al procesar. Intenta nuevamente.</p>
+            )}
+
+            <p className="text-center text-xs text-muted-foreground">
+              Una vez verificado el pago, el administrador activará tus cartones.
+            </p>
+          </>
+        )}
+
+        {step === "done" && (
+          <div className="text-center py-6">
+            <div className="text-6xl mb-4">✅</div>
+            <h3 className="font-black text-xl mb-2" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(142 70% 35%)" }}>
+              ¡Comprobante enviado!
+            </h3>
+            <p className="text-muted-foreground text-sm mb-6">
+              El administrador revisará tu pago y activará tus cartones pronto. Puedes ver el estado en <strong>Mis Cartones</strong>.
+            </p>
+            {rejectedReason && (
+              <div className="rounded-xl p-3 mb-4 text-left" style={{ background: "hsl(0 75% 97%)" }}>
+                <p className="text-red-600 text-sm font-semibold">Solicitud rechazada</p>
+                <p className="text-red-500 text-xs mt-1">{rejectedReason}</p>
+              </div>
+            )}
+            <button
+              onClick={onClose}
+              className="w-full py-3 rounded-xl font-bold text-white"
+              style={{ background: "hsl(var(--primary))" }}
+            >
+              Cerrar
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function GameDetailPage() {
   const [, params] = useRoute("/juegos/:id");
   const [, navigate] = useLocation();
   const user = useAuthStore(s => s.user);
   const token = useAuthStore(s => s.token);
   const setUser = useAuthStore(s => s.setUser);
+  const site = useSiteSettings();
   const [qty, setQty] = useState(1);
   const [buying, setBuying] = useState(false);
   const [payWith, setPayWith] = useState<"qr" | "wallet">("qr");
   const [qrData, setQrData] = useState<{ checkoutId: string; qrImage: string; qrError?: string } | null>(null);
+  const [fallbackData, setFallbackData] = useState<{ cardIds: number[]; gameId: number; qty: number; amount: number } | null>(null);
   const [winners, setWinners] = useState<Winner[]>([]);
 
   const gameId = parseInt(params?.id ?? "0");
@@ -466,9 +665,17 @@ export default function GameDetailPage() {
         // If game is active, go directly to play; otherwise to my-cards
         navigate(isActive ? `/juegos/${gameId}/jugar` : "/mis-cartones");
       } else {
-        // Show QR inline
-        setQrData({ checkoutId: data.checkout_id, qrImage: data.qr_image ?? "", qrError: data.qr_error });
-        if (data.qr_error) toast.error(`QR: ${data.qr_error}`);
+        const useFallback = site.fallback_qr_force_enabled || !!data.qr_error;
+        if (useFallback) {
+          // Show fallback QR (static QR + receipt upload)
+          const cardIds: number[] = Array.isArray(data.cards)
+            ? data.cards.map((c: { id: number }) => c.id)
+            : [];
+          setFallbackData({ cardIds, gameId, qty, amount: totalPrice });
+        } else {
+          // Show Enlazo dynamic QR inline
+          setQrData({ checkoutId: data.checkout_id, qrImage: data.qr_image ?? "", qrError: data.qr_error });
+        }
       }
     } catch {
       toast.error("Error al procesar la compra");
@@ -812,6 +1019,19 @@ export default function GameDetailPage() {
           drawDate={game?.draw_date ?? new Date().toISOString()}
           onClose={() => setQrData(null)}
           onSuccess={() => { setQrData(null); navigate("/mis-cartones"); }}
+        />
+      )}
+      {/* Fallback QR Payment modal — shown when Enlazo fails or admin forces it */}
+      {fallbackData && (
+        <FallbackPaymentModal
+          gameId={fallbackData.gameId}
+          qty={fallbackData.qty}
+          totalPrice={fallbackData.amount}
+          cardIds={fallbackData.cardIds}
+          token={token ?? ""}
+          fallbackQrImageUrl={site.fallback_qr_image_url}
+          supportWhatsapp={site.support_whatsapp}
+          onClose={() => setFallbackData(null)}
         />
       )}
     </>

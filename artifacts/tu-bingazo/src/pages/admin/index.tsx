@@ -16,19 +16,20 @@ function hasPermission(perms: string[], perm: string): boolean {
 }
 
 const ALL_TABS = [
-  { id: "overview",     label: "📊 Resumen",     perm: null },
-  { id: "pwa",          label: "📱 Config. PWA", perm: null },
-  { id: "sitio",        label: "🌐 Sitio Web",   perm: null },
-  { id: "finance",      label: "💰 Finanzas",    perm: null },
-  { id: "users",        label: "👥 Usuarios",    perm: "admin:users" },
-  { id: "games",        label: "🎱 Juegos",       perm: "admin:games" },
-  { id: "categories",   label: "🗂️ Categorías",  perm: "admin:games" },
-  { id: "withdrawals",  label: "💸 Retiros",      perm: "admin:withdrawals" },
-  { id: "winners",      label: "🏆 Ganadores",   perm: "admin:games" },
-  { id: "referidos",    label: "🔗 Referidos",   perm: null },
-  { id: "solicitudes",  label: "📋 Solicitudes",  perm: "admin:users" },
-  { id: "resets",       label: "🔑 Resets",       perm: "admin:resets" },
-  { id: "logs",         label: "📋 Auditoría",   perm: "admin:logs" },
+  { id: "overview",        label: "📊 Resumen",        perm: null },
+  { id: "pwa",             label: "📱 Config. PWA",    perm: null },
+  { id: "sitio",           label: "🌐 Sitio Web",      perm: null },
+  { id: "finance",         label: "💰 Finanzas",       perm: null },
+  { id: "users",           label: "👥 Usuarios",       perm: "admin:users" },
+  { id: "games",           label: "🎱 Juegos",          perm: "admin:games" },
+  { id: "categories",      label: "🗂️ Categorías",     perm: "admin:games" },
+  { id: "withdrawals",     label: "💸 Retiros",         perm: "admin:withdrawals" },
+  { id: "winners",         label: "🏆 Ganadores",      perm: "admin:games" },
+  { id: "pagos-manuales",  label: "🧾 Pagos Manuales", perm: null },
+  { id: "referidos",       label: "🔗 Referidos",      perm: null },
+  { id: "solicitudes",     label: "📋 Solicitudes",    perm: "admin:users" },
+  { id: "resets",          label: "🔑 Resets",          perm: "admin:resets" },
+  { id: "logs",            label: "📋 Auditoría",      perm: "admin:logs" },
 ] as const;
 
 type Tab = typeof ALL_TABS[number]["id"];
@@ -888,7 +889,15 @@ export default function AdminPage() {
     pwa_icon_url: "",
     pwa_cache_version: 1,
     terms_and_conditions: "",
+    fallback_qr_image_url: "",
+    fallback_qr_force_enabled: false,
   });
+  const [manualPayments, setManualPayments] = useState<any[]>([]);
+  const [manualPaymentsFilter, setManualPaymentsFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
+  const [manualPaymentsLoading, setManualPaymentsLoading] = useState(false);
+  const [manualPaymentNotes, setManualPaymentNotes] = useState<Record<number, string>>({});
+  const [manualPaymentAction, setManualPaymentAction] = useState<Record<number, "approve" | "reject" | null>>({});
+  const [uploadingFallbackQr, setUploadingFallbackQr] = useState(false);
   const [savingSite, setSavingSite] = useState(false);
   const [banners, setBanners] = useState<{ id: number; image_url: string; media_type: string; display_order: number; is_active: boolean }[]>([]);
   const [savingBanner, setSavingBanner] = useState(false);
@@ -1130,6 +1139,8 @@ export default function AdminPage() {
             pwa_cache_version: s.pwa_cache_version ?? 1,
             terms_and_conditions: s.terms_and_conditions ?? "",
             og_image_url: s.og_image_url ?? "",
+            fallback_qr_image_url: s.fallback_qr_image_url ?? "",
+            fallback_qr_force_enabled: !!s.fallback_qr_force_enabled,
           });
         }
         if (br.ok) { setBanners(await br.json()); }
@@ -1173,6 +1184,15 @@ export default function AdminPage() {
         if (pR.ok) setPartners(await pR.json());
         if (ppR.ok) setPartnerPayments(await ppR.json());
         if (eR.ok) setExpenses(await eR.json());
+      }
+      if (t === "pagos-manuales") {
+        setManualPaymentsLoading(true);
+        try {
+          const r = await fetch(`${BASE}/api/manual-payments`, { headers: authH() });
+          if (r.ok) setManualPayments(await r.json());
+        } finally {
+          setManualPaymentsLoading(false);
+        }
       }
       loadedTabsRef.current.add(t);
     } catch {}
@@ -6383,11 +6403,184 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           </div>
         )}
 
+        {/* ── Pagos Manuales ──────────────────────────────────────── */}
+        {tab === "pagos-manuales" && !loading && (() => {
+          const filtered = manualPayments.filter(p =>
+            manualPaymentsFilter === "all" ? true : p.status === manualPaymentsFilter
+          );
+
+          async function refreshManualPayments() {
+            setManualPaymentsLoading(true);
+            try {
+              const r = await fetch(`${BASE}/api/manual-payments`, { headers: authH() });
+              if (r.ok) setManualPayments(await r.json());
+            } finally {
+              setManualPaymentsLoading(false);
+            }
+          }
+
+          async function approvePayment(id: number) {
+            const notes = manualPaymentNotes[id] || "";
+            const r = await fetch(`${BASE}/api/manual-payments/${id}/approve`, {
+              method: "PUT",
+              headers: authH(),
+              body: JSON.stringify({ notes }),
+            });
+            if (r.ok) {
+              toast.success("✅ Pago aprobado — cartones activados");
+              await refreshManualPayments();
+            } else {
+              const d = await r.json().catch(() => ({}));
+              toast.error(d.error || "Error al aprobar");
+            }
+          }
+
+          async function rejectPayment(id: number) {
+            const notes = manualPaymentNotes[id] || "";
+            if (!notes.trim()) { toast.error("Debes escribir un motivo de rechazo"); return; }
+            const r = await fetch(`${BASE}/api/manual-payments/${id}/reject`, {
+              method: "PUT",
+              headers: authH(),
+              body: JSON.stringify({ notes }),
+            });
+            if (r.ok) {
+              toast.success("Solicitud rechazada");
+              await refreshManualPayments();
+            } else {
+              const d = await r.json().catch(() => ({}));
+              toast.error(d.error || "Error al rechazar");
+            }
+          }
+
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>🧾 Pagos Manuales</h2>
+                <button onClick={refreshManualPayments} disabled={manualPaymentsLoading}
+                  className="text-xs px-3 py-1.5 rounded-xl font-bold"
+                  style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
+                  {manualPaymentsLoading ? "..." : "🔄 Actualizar"}
+                </button>
+              </div>
+
+              {/* Filter tabs */}
+              <div className="flex gap-2 flex-wrap">
+                {(["pending", "all", "approved", "rejected"] as const).map(f => (
+                  <button key={f} onClick={() => setManualPaymentsFilter(f)}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold transition-colors"
+                    style={{
+                      background: manualPaymentsFilter === f ? "hsl(var(--primary))" : "hsl(var(--muted))",
+                      color: manualPaymentsFilter === f ? "white" : "hsl(var(--foreground))",
+                    }}>
+                    {f === "pending" ? "⏳ Pendientes" : f === "approved" ? "✅ Aprobados" : f === "rejected" ? "❌ Rechazados" : "📋 Todos"}
+                    {f === "pending" && ` (${manualPayments.filter(p => p.status === "pending").length})`}
+                  </button>
+                ))}
+              </div>
+
+              {manualPaymentsLoading && (
+                <p className="text-center text-muted-foreground py-8">Cargando solicitudes...</p>
+              )}
+
+              {!manualPaymentsLoading && filtered.length === 0 && (
+                <div className="text-center py-10 text-muted-foreground">
+                  <div className="text-4xl mb-2">🧾</div>
+                  <p className="text-sm">No hay solicitudes {manualPaymentsFilter !== "all" ? `con estado "${manualPaymentsFilter}"` : ""}</p>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {filtered.map((mp: any) => (
+                  <div key={mp.id} className="rounded-2xl p-4 space-y-3"
+                    style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-sm">
+                          {mp.user_name ?? `Usuario #${mp.user_id}`}
+                          <span className="text-xs text-muted-foreground font-normal ml-2">CI {mp.user_ci}</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {mp.game_title ?? `Juego #${mp.game_id}`} · {mp.quantity} cartón{mp.quantity > 1 ? "es" : ""}
+                          · <strong>Bs {(mp.expected_amount ?? 0).toFixed(0)}</strong>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(mp.created_at).toLocaleString("es-BO")}
+                        </p>
+                      </div>
+                      <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold"
+                        style={{
+                          background: mp.status === "pending" ? "hsl(42 98% 90%)" : mp.status === "approved" ? "hsl(142 70% 90%)" : "hsl(0 75% 92%)",
+                          color: mp.status === "pending" ? "hsl(42 98% 30%)" : mp.status === "approved" ? "hsl(142 70% 30%)" : "hsl(0 75% 40%)",
+                        }}>
+                        {mp.status === "pending" ? "⏳ Pendiente" : mp.status === "approved" ? "✅ Aprobado" : "❌ Rechazado"}
+                      </span>
+                    </div>
+
+                    {/* Receipt image */}
+                    {mp.receipt_url && (
+                      <a href={mp.receipt_url} target="_blank" rel="noopener noreferrer"
+                        className="block rounded-xl overflow-hidden border"
+                        style={{ borderColor: "hsl(var(--border))" }}>
+                        <img src={mp.receipt_url} alt="Comprobante de pago"
+                          className="w-full max-h-48 object-contain bg-muted" />
+                        <div className="text-xs text-center py-1.5 text-muted-foreground bg-muted/50">
+                          📎 Ver comprobante completo
+                        </div>
+                      </a>
+                    )}
+                    {!mp.receipt_url && (
+                      <div className="rounded-xl p-3 text-center text-xs text-muted-foreground"
+                        style={{ background: "hsl(var(--muted))" }}>
+                        📭 Sin comprobante adjunto aún
+                      </div>
+                    )}
+
+                    {/* Admin note display */}
+                    {mp.admin_note && (
+                      <div className="rounded-xl px-3 py-2 text-xs"
+                        style={{ background: mp.status === "approved" ? "hsl(142 70% 97%)" : "hsl(0 75% 97%)" }}>
+                        <span className="font-semibold">Nota admin:</span> {mp.admin_note}
+                      </div>
+                    )}
+
+                    {/* Actions for pending requests */}
+                    {mp.status === "pending" && (
+                      <div className="space-y-2">
+                        <textarea
+                          className="w-full rounded-xl border px-3 py-2 text-sm bg-background resize-none"
+                          rows={2}
+                          placeholder="Nota (obligatoria para rechazar, opcional para aprobar)..."
+                          value={manualPaymentNotes[mp.id] ?? ""}
+                          onChange={e => setManualPaymentNotes(prev => ({ ...prev, [mp.id]: e.target.value }))}
+                        />
+                        <div className="flex gap-2">
+                          <button onClick={() => approvePayment(mp.id)}
+                            className="flex-1 py-2.5 rounded-xl font-bold text-sm text-white"
+                            style={{ background: "hsl(142 70% 38%)" }}>
+                            ✅ Aprobar y activar cartones
+                          </button>
+                          <button onClick={() => rejectPayment(mp.id)}
+                            className="flex-1 py-2.5 rounded-xl font-bold text-sm text-white"
+                            style={{ background: "hsl(0 75% 45%)" }}>
+                            ❌ Rechazar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── Sitio Web ───────────────────────────────────────────── */}
         {tab === "sitio" && !loading && (() => {
           const imgRef = { favicon: null as HTMLInputElement | null, logo: null as HTMLInputElement | null };
 
-          function handleImgUpload(field: "favicon_url" | "logo_url" | "qr_background_url", e: React.ChangeEvent<HTMLInputElement>) {
+          function handleImgUpload(field: "favicon_url" | "logo_url" | "qr_background_url" | "fallback_qr_image_url", e: React.ChangeEvent<HTMLInputElement>) {
             const file = e.target.files?.[0];
             if (!file) return;
             const reader = new FileReader();
@@ -6413,7 +6606,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           async function saveSiteSettings() {
             setSavingSite(true);
             try {
-              const body: Record<string, string | number | null> = {
+              const body: Record<string, string | number | boolean | null> = {
                 site_name: siteForm.site_name,
                 site_tagline: siteForm.site_tagline,
                 site_emoji: siteForm.site_emoji,
@@ -6429,6 +6622,8 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 ...(siteForm.payment_api_key && { payment_api_key: siteForm.payment_api_key }),
                 terms_and_conditions: siteForm.terms_and_conditions || null,
                 og_image_url: siteForm.og_image_url || null,
+                fallback_qr_image_url: siteForm.fallback_qr_image_url || null,
+                fallback_qr_force_enabled: siteForm.fallback_qr_force_enabled,
               };
               const r = await fetch(`${BASE}/api/site-settings`, {
                 method: "PUT",
@@ -6458,6 +6653,8 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   pwa_cache_version: updated.pwa_cache_version ?? 1,
                   terms_and_conditions: updated.terms_and_conditions ?? "",
                   og_image_url: updated.og_image_url ?? "",
+                  fallback_qr_image_url: updated.fallback_qr_image_url ?? "",
+                  fallback_qr_force_enabled: !!updated.fallback_qr_force_enabled,
                 });
                 void queryClient.invalidateQueries({ queryKey: ["site-settings"] });
                 toast.success("✅ Configuración del sitio guardada");
@@ -6874,6 +7071,72 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     value={siteForm.support_whatsapp}
                     onChange={e => setSiteForm(f => ({ ...f, support_whatsapp: e.target.value.replace(/\s/g, "") }))}
                   />
+                </div>
+              </div>
+
+              {/* Fallback QR — pago manual alternativo */}
+              <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                <div>
+                  <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>🔄 QR Alternativo (Fallback)</h2>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Cuando Enlazo falla o se activa el modo forzado, los jugadores verán este QR estático y podrán subir su comprobante de pago para aprobación manual.
+                  </p>
+                </div>
+
+                {/* Toggle forzar fallback */}
+                <div className="flex items-center justify-between rounded-xl p-3" style={{ background: "hsl(var(--muted))" }}>
+                  <div>
+                    <p className="font-bold text-sm">Forzar modo fallback</p>
+                    <p className="text-xs text-muted-foreground">Deshabilita Enlazo y usa solo el QR estático</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSiteForm(f => ({ ...f, fallback_qr_force_enabled: !f.fallback_qr_force_enabled }))}
+                    className="relative w-12 h-6 rounded-full transition-colors"
+                    style={{ background: siteForm.fallback_qr_force_enabled ? "hsl(0 75% 45%)" : "hsl(var(--border))" }}
+                  >
+                    <span className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform"
+                      style={{ transform: siteForm.fallback_qr_force_enabled ? "translateX(24px)" : "translateX(0)" }} />
+                  </button>
+                </div>
+
+                {siteForm.fallback_qr_force_enabled && (
+                  <div className="flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: "hsl(0 75% 97%)", border: "1px solid hsl(0 75% 85%)" }}>
+                    <span className="text-red-500">⚠️</span>
+                    <p className="text-xs text-red-600 font-semibold">Modo forzado ACTIVO — todos los pagos van a aprobación manual</p>
+                  </div>
+                )}
+
+                {/* Upload QR estático */}
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">
+                    Imagen del QR estático
+                  </label>
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="w-32 h-32 rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer overflow-hidden shrink-0"
+                      style={{ borderColor: sf.fallback_qr_image_url ? "hsl(var(--primary))" : "hsl(var(--border))" }}
+                      onClick={() => (document.getElementById("admin-fallback-qr-upload") as HTMLInputElement)?.click()}
+                    >
+                      {sf.fallback_qr_image_url ? (
+                        <img src={sf.fallback_qr_image_url} alt="fallback QR" className="w-full h-full object-contain" />
+                      ) : (
+                        <p className="text-xs text-muted-foreground text-center px-2">📷 Subir QR</p>
+                      )}
+                      <input id="admin-fallback-qr-upload" type="file" accept="image/*" className="hidden"
+                        onChange={e => handleImgUpload("fallback_qr_image_url", e)} />
+                    </div>
+                    <div className="flex-1 text-xs text-muted-foreground space-y-2 pt-1">
+                      <p>Sube una imagen del QR de tu cuenta bancaria o billetera digital (Tigo Money, Banco BNB, etc.).</p>
+                      <p>Los jugadores escanearán este QR y luego subirán su comprobante para que lo apruebes manualmente.</p>
+                      {sf.fallback_qr_image_url && (
+                        <button onClick={() => setSiteForm(f => ({ ...f, fallback_qr_image_url: "" }))}
+                          className="text-red-500 text-xs font-bold hover:underline">
+                          ✕ Quitar imagen
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 

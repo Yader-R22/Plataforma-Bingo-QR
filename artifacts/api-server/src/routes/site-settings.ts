@@ -44,6 +44,8 @@ router.get("/", async (_req, res) => {
     pwa_categories: s.pwaCategories,
     terms_and_conditions: s.termsAndConditions ?? null,
     og_image_url: s.ogImageUrl ?? null,
+    fallback_qr_image_url: s.fallbackQrImageUrl ?? null,
+    fallback_qr_force_enabled: s.fallbackQrForceEnabled,
   });
 });
 
@@ -87,30 +89,34 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
     pwa_icon_url,
     terms_and_conditions,
     og_image_url,
-  } = req.body as Record<string, string | null | undefined>;
+    fallback_qr_image_url,
+    fallback_qr_force_enabled,
+  } = req.body as Record<string, string | null | undefined | boolean>;
 
   await ensureSettings();
 
   await db
     .update(siteSettingsTable)
     .set({
-      ...(site_name !== undefined && { siteName: site_name ?? undefined }),
-      ...(site_tagline !== undefined && { siteTagline: site_tagline ?? undefined }),
-      ...(site_emoji !== undefined && { siteEmoji: site_emoji ?? undefined }),
-      ...(favicon_url !== undefined && { faviconUrl: favicon_url ?? undefined }),
-      ...(logo_url !== undefined && { logoUrl: logo_url ?? undefined }),
-      ...(seo_title !== undefined && { seoTitle: seo_title ?? undefined }),
-      ...(seo_description !== undefined && { seoDescription: seo_description ?? undefined }),
-      ...(seo_keywords !== undefined && { seoKeywords: seo_keywords ?? undefined }),
-      ...(primary_color !== undefined && { primaryColor: primary_color ?? undefined }),
-      ...(qr_background_url !== undefined && { qrBackgroundUrl: qr_background_url }),
-      ...(banner_interval !== undefined && banner_interval !== null && { bannerInterval: Number(banner_interval) }),
-      ...(support_whatsapp !== undefined && { supportWhatsapp: support_whatsapp }),
-      ...(payment_api_key !== undefined && payment_api_key !== null && payment_api_key !== "" && { paymentApiKey: payment_api_key }),
-      ...(pwa_short_name !== undefined && pwa_short_name && { pwaShortName: pwa_short_name }),
-      ...(pwa_icon_url !== undefined && pwa_icon_url !== null && { pwaIconUrl: pwa_icon_url }),
-      ...(terms_and_conditions !== undefined && { termsAndConditions: terms_and_conditions }),
-      ...(og_image_url !== undefined && { ogImageUrl: og_image_url }),
+      ...(site_name !== undefined ? { siteName: String(site_name) } : {}),
+      ...(site_tagline !== undefined ? { siteTagline: String(site_tagline) } : {}),
+      ...(site_emoji !== undefined ? { siteEmoji: String(site_emoji) } : {}),
+      ...(favicon_url !== undefined ? { faviconUrl: favicon_url as string | null } : {}),
+      ...(logo_url !== undefined ? { logoUrl: logo_url as string | null } : {}),
+      ...(seo_title !== undefined ? { seoTitle: String(seo_title) } : {}),
+      ...(seo_description !== undefined ? { seoDescription: String(seo_description) } : {}),
+      ...(seo_keywords !== undefined ? { seoKeywords: String(seo_keywords) } : {}),
+      ...(primary_color !== undefined ? { primaryColor: String(primary_color) } : {}),
+      ...(qr_background_url !== undefined ? { qrBackgroundUrl: qr_background_url as string | null } : {}),
+      ...(banner_interval !== undefined && banner_interval !== null ? { bannerInterval: Number(banner_interval) } : {}),
+      ...(support_whatsapp !== undefined ? { supportWhatsapp: support_whatsapp as string | null } : {}),
+      ...(payment_api_key !== undefined && payment_api_key !== null && payment_api_key !== "" ? { paymentApiKey: String(payment_api_key) } : {}),
+      ...(pwa_short_name !== undefined && pwa_short_name ? { pwaShortName: String(pwa_short_name) } : {}),
+      ...(pwa_icon_url !== undefined && pwa_icon_url !== null ? { pwaIconUrl: pwa_icon_url as string | null } : {}),
+      ...(terms_and_conditions !== undefined ? { termsAndConditions: terms_and_conditions as string | null } : {}),
+      ...(og_image_url !== undefined ? { ogImageUrl: og_image_url as string | null } : {}),
+      ...(fallback_qr_image_url !== undefined ? { fallbackQrImageUrl: fallback_qr_image_url as string | null } : {}),
+      ...(fallback_qr_force_enabled !== undefined ? { fallbackQrForceEnabled: fallback_qr_force_enabled === true || fallback_qr_force_enabled === "true" } : {}),
       updatedAt: new Date(),
       updatedById: req.userId!,
     })
@@ -149,6 +155,8 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
     pwa_categories: s.pwaCategories,
     terms_and_conditions: s.termsAndConditions ?? null,
     og_image_url: s.ogImageUrl ?? null,
+    fallback_qr_image_url: s.fallbackQrImageUrl ?? null,
+    fallback_qr_force_enabled: s.fallbackQrForceEnabled,
   });
 });
 

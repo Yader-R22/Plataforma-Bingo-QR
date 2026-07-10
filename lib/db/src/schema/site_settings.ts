@@ -4,6 +4,7 @@ import {
   text,
   integer,
   timestamp,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
@@ -35,6 +36,9 @@ export const siteSettingsTable = pgTable("site_settings", {
   pwaCategories: text("pwa_categories").notNull().default("games,entertainment"),
   termsAndConditions: text("terms_and_conditions"),
   ogImageUrl: text("og_image_url"),
+  // Fallback QR payment settings
+  fallbackQrImageUrl: text("fallback_qr_image_url"),
+  fallbackQrForceEnabled: boolean("fallback_qr_force_enabled").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedById: integer("updated_by_id").references(() => usersTable.id),
 });

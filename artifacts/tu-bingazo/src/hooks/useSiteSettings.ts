@@ -17,6 +17,8 @@ export interface SiteSettings {
   qr_background_url: string | null;
   support_whatsapp: string | null;
   terms_and_conditions: string | null;
+  fallback_qr_image_url: string | null;
+  fallback_qr_force_enabled: boolean;
 }
 
 const DEFAULTS: SiteSettings = {
@@ -32,6 +34,8 @@ const DEFAULTS: SiteSettings = {
   qr_background_url: null,
   support_whatsapp: null,
   terms_and_conditions: null,
+  fallback_qr_image_url: null,
+  fallback_qr_force_enabled: false,
 };
 
 function loadCached(): SiteSettings | undefined {
