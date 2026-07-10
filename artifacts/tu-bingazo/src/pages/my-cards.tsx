@@ -225,10 +225,10 @@ export default function MyCardsPage() {
                       </div>
                       {req.receipt_url && (
                         <button
-                          className="shrink-0 px-3 py-2 rounded-xl text-xs font-semibold border flex items-center gap-1.5 whitespace-nowrap"
+                          className="shrink-0 px-3.5 py-2.5 rounded-xl text-xs font-semibold border flex items-center gap-1.5 whitespace-nowrap"
                           style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))", background: "hsl(var(--muted) / 0.5)" }}
                           onClick={() => setReceiptLightbox(`${BASE}${req.receipt_url}`)}>
-                          📎 Comprobante
+                          📎 Ver comprobante
                         </button>
                       )}
                     </div>
