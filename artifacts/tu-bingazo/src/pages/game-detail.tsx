@@ -555,9 +555,19 @@ function FallbackPaymentModal({
             <div className="text-center mb-5">
               {fallbackQrImageUrl ? (
                 <>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Escanea este código QR y transfiere exactamente <strong>Bs {totalPrice.toFixed(0)}</strong>
-                  </p>
+                  <div className="rounded-2xl px-4 py-3 mb-3 text-center"
+                    style={{ background: "hsl(38 95% 93%)", border: "2px solid hsl(38 90% 65%)" }}>
+                    <p className="text-xs font-bold uppercase tracking-wide mb-1"
+                      style={{ color: "hsl(38 80% 35%)" }}>
+                      📲 Escanea y transfiere exactamente
+                    </p>
+                    <p className="text-3xl font-black" style={{ color: "hsl(38 80% 25%)", fontFamily: "'Poppins', sans-serif" }}>
+                      Bs {totalPrice.toFixed(0)}
+                    </p>
+                    <p className="text-xs mt-1 font-medium" style={{ color: "hsl(38 80% 38%)" }}>
+                      ⚠️ El monto debe ser exacto para activar tus cartones
+                    </p>
+                  </div>
                   <div className="inline-block p-3 rounded-2xl border-2 mb-3" style={{ borderColor: "hsl(var(--primary) / 0.2)" }}>
                     <img src={fallbackQrImageUrl} alt="QR de pago alternativo" style={{ width: 200, height: 200, display: "block", objectFit: "contain" }} />
                   </div>
