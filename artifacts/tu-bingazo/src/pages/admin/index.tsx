@@ -942,8 +942,32 @@ export default function AdminPage() {
   });
   const [savingPwa, setSavingPwa] = useState(false);
   const [pwaManifestPreview, setPwaManifestPreview] = useState<string | null>(null);
+  const [pushTitle, setPushTitle] = useState("");
+  const [pushBody, setPushBody] = useState("");
+  const [pushUrl, setPushUrl] = useState("/");
+  const [pushSending, setPushSending] = useState(false);
+  const [pushResult, setPushResult] = useState<{ sent: number; failed: number } | null>(null);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
+
+  async function sendBroadcast() {
+    if (!pushTitle.trim() || !pushBody.trim()) { toast.error("Título y mensaje son requeridos"); return; }
+    setPushSending(true); setPushResult(null);
+    try {
+      const r = await fetch(`${BASE}/api/push/broadcast`, {
+        method: "POST",
+        headers: authH(),
+        body: JSON.stringify({ title: pushTitle, body: pushBody, url: pushUrl }),
+      });
+      if (r.ok) {
+        const d = await r.json() as { sent: number; failed: number };
+        setPushResult(d);
+        toast.success(`📤 Enviado a ${d.sent} dispositivos`);
+        setPushTitle(""); setPushBody(""); setPushUrl("/");
+      } else { toast.error("Error al enviar"); }
+    } catch { toast.error("Error de conexión"); }
+    finally { setPushSending(false); }
+  }
 
   // Global poll for new winners — auto-refreshes the winners list when on that tab.
   useEffect(() => {
@@ -7675,31 +7699,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               </div>
 
               {/* 6 — Notificaciones push */}
-              {(() => {
-                const [pushTitle, setPushTitle] = useState("");
-                const [pushBody, setPushBody] = useState("");
-                const [pushUrl, setPushUrl] = useState("/");
-                const [pushSending, setPushSending] = useState(false);
-                const [pushResult, setPushResult] = useState<{ sent: number; failed: number } | null>(null);
-                async function sendBroadcast() {
-                  if (!pushTitle.trim() || !pushBody.trim()) { toast.error("Título y mensaje son requeridos"); return; }
-                  setPushSending(true); setPushResult(null);
-                  try {
-                    const r = await fetch(`${BASE}/api/push/broadcast`, {
-                      method: "POST",
-                      headers: authH(),
-                      body: JSON.stringify({ title: pushTitle, body: pushBody, url: pushUrl }),
-                    });
-                    if (r.ok) {
-                      const d = await r.json() as { sent: number; failed: number };
-                      setPushResult(d);
-                      toast.success(`📤 Enviado a ${d.sent} dispositivos`);
-                      setPushTitle(""); setPushBody(""); setPushUrl("/");
-                    } else { toast.error("Error al enviar"); }
-                  } catch { toast.error("Error de conexión"); }
-                  finally { setPushSending(false); }
-                }
-                return (
+              {(true) && (
                   <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
                     <h2 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>🔔 Enviar notificación push</h2>
                     <p className="text-xs text-muted-foreground">Llega a todos los usuarios que activaron notificaciones, aunque tengan el navegador cerrado.</p>
@@ -7735,8 +7735,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       )}
                     </div>
                   </div>
-                );
-              })()}
+              )}
 
               {/* 7 — Vista previa del manifiesto */}
               <div className="rounded-2xl p-5 space-y-3" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
