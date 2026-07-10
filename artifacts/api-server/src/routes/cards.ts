@@ -34,7 +34,7 @@ import {
 
 import { getPaymentApiKey } from "../lib/paymentApiKey";
 
-const PAYMENT_API_URL = "https://yhzzqeogsakeeknjlwtw.supabase.co/functions/v1";
+const PAYMENT_API_URL = "https://api.pay.enlazzo.com/functions/v1";
 
 const router = Router();
 

@@ -3,7 +3,7 @@ import { db, cardsTable, gamesTable, feedItemsTable, usersTable } from "@workspa
 import { eq } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 
-const PAYMENT_API_URL = "https://yhzzqeogsakeeknjlwtw.supabase.co/functions/v1";
+const PAYMENT_API_URL = "https://api.pay.enlazzo.com/functions/v1";
 
 const router = Router();
 
