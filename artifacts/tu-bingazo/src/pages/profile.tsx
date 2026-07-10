@@ -506,11 +506,6 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* CI — read only */}
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-bold text-muted-foreground shrink-0">🪪 Carnet de Identidad</span>
-            <span className="text-sm font-medium">{user.ci}</span>
-          </div>
 
           {/* WhatsApp support button */}
           {site.support_whatsapp && (() => {
