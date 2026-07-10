@@ -6655,11 +6655,14 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                               </div>
                             )}
                             <div className="flex gap-2">
-                              <button onClick={() => approvePayment(mp.id)}
-                                className="flex-1 py-2.5 rounded-xl font-black text-sm text-white"
-                                style={{ background: "hsl(142 70% 38%)" }}>
-                                ✅ Aprobar
-                              </button>
+                              {/* Aprobar solo visible si NO hay nota escrita — la nota indica rechazo */}
+                              {!(manualPaymentNotes[mp.id] ?? "").trim() && (
+                                <button onClick={() => approvePayment(mp.id)}
+                                  className="flex-1 py-2.5 rounded-xl font-black text-sm text-white"
+                                  style={{ background: "hsl(142 70% 38%)" }}>
+                                  ✅ Aprobar
+                                </button>
+                              )}
                               <button onClick={() => rejectPayment(mp.id)}
                                 className="flex-1 py-2.5 rounded-xl font-black text-sm text-white"
                                 style={{ background: "hsl(0 75% 45%)" }}>
