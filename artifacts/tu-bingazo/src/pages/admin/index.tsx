@@ -180,7 +180,7 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
       toast.success(approved ? "✅ Cuenta aprobada — usuario activo" : "🔄 Documentos rechazados — el usuario deberá reenviarlos");
       setUser((u: any) => approved
         ? { ...u, status: d.status }
-        : { ...u, status: d.status, needs_ci_upload: true, id_photo_front_url: null, id_photo_back_url: null });
+        : { ...u, status: d.status, needs_ci_upload: true, has_id_photos: false });
       onUserUpdated(d);
       setSection("info");
     } else { const d = await r.json(); toast.error(d.error || "Error"); }
@@ -1274,7 +1274,7 @@ export default function AdminPage() {
       setUsers(us => us.map(u => u.id === userId
         ? approved
           ? { ...u, status: "active" }
-          : { ...u, status: "rejected", needs_ci_upload: true, id_photo_front_url: null, id_photo_back_url: null, rejection_reason: d.rejection_reason }
+          : { ...u, status: "rejected", needs_ci_upload: true, has_id_photos: false, rejection_reason: d.rejection_reason }
         : u));
       loadStats();
     }
@@ -3501,7 +3501,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         style={{ background: sc.bg, color: sc.text }}>{sc.label}</span>
 
                       {/* Quick verify for pending — only when photos are uploaded */}
-                      {u.status === "pending" && !u.is_banned && u.id_photo_front_url && u.id_photo_back_url && !u.needs_ci_upload && (
+                      {u.status === "pending" && !u.is_banned && u.has_id_photos && !u.needs_ci_upload && (
                         <div className="flex gap-1">
                           <button onClick={() => verifyUser(u.id, true)}
                             className="px-2 py-1 rounded-lg text-xs font-bold text-white"

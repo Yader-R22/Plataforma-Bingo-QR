@@ -24,8 +24,7 @@ const router = Router();
 router.use(requireAdmin);
 
 function formatUserList(user: typeof usersTable.$inferSelect) {
-  const u = formatUser(user);
-  return { ...u, id_photo_front_url: null, id_photo_back_url: null };
+  return formatUser(user);
 }
 
 router.get("/users", async (req: AuthRequest, res) => {

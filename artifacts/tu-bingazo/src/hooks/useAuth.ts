@@ -14,8 +14,7 @@ export interface AuthUser {
   status: "pending" | "active" | "rejected";
   is_admin: boolean;
   avatar_url: string | null;
-  id_photo_front_url: string | null;
-  id_photo_back_url: string | null;
+  has_id_photos: boolean;
   needs_ci_upload: boolean;
   rejection_reason: string | null;
   is_banned: boolean;

@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import express from "express";
 import healthRouter from "./health";
 import { authRouter } from "./auth";
 import { gamesRouter } from "./games";
@@ -17,7 +18,8 @@ import { pwaRouter } from "./pwa";
 const router: IRouter = Router();
 
 router.use(healthRouter);
-router.use("/auth", authRouter);
+// Auth routes need higher body limit — CI reset sends 3 photos as base64
+router.use("/auth", express.json({ limit: "8mb" }), authRouter);
 router.use("/games", gamesRouter);
 router.use("/cards", cardsRouter);
 router.use("/payments", paymentsRouter);
