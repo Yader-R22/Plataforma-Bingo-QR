@@ -12,6 +12,46 @@ async function resolveCacheName() {
   return `${BASE_CACHE}-v1`;
 }
 
+function offlinePage(noInternet) {
+  const emoji = noInternet ? "📵" : "🔧";
+  const title = noInternet ? "Sin conexión a Internet" : "Actualización en proceso";
+  const msg = noInternet
+    ? "Parece que no tienes Internet. Conéctate a una red y vuelve a intentarlo."
+    : "El servidor se está actualizando. Vuelve a intentarlo en unos momentos.";
+  return new Response(
+    `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>${title} — El Bingote</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f14;color:#f1f1f5;display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:24px;text-align:center}
+    .card{background:#1a1a24;border:1px solid #2a2a3a;border-radius:20px;padding:40px 32px;max-width:360px;width:100%}
+    .emoji{font-size:56px;margin-bottom:16px}
+    h1{font-size:20px;font-weight:700;margin-bottom:10px;color:#fff}
+    p{font-size:14px;color:#9090a8;line-height:1.6;margin-bottom:24px}
+    button{background:#7c3aed;color:#fff;border:none;border-radius:12px;padding:12px 28px;font-size:15px;font-weight:600;cursor:pointer;width:100%}
+    button:active{opacity:.85}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="emoji">${emoji}</div>
+    <h1>${title}</h1>
+    <p>${msg}</p>
+    <button onclick="location.reload()">Reintentar</button>
+  </div>
+</body>
+</html>`,
+    {
+      status: 503,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    }
+  );
+}
+
 self.addEventListener("install", (e) => {
   e.waitUntil(
     resolveCacheName().then((name) => {
@@ -42,12 +82,17 @@ self.addEventListener("fetch", (e) => {
 
   if (e.request.url.includes("/api/")) {
     e.respondWith(
-      fetch(e.request).catch(() => new Response("Offline", { status: 503 }))
+      fetch(e.request).catch(() =>
+        new Response(
+          JSON.stringify({ error: self.navigator.onLine ? "Servidor en mantenimiento" : "Sin conexión a Internet" }),
+          { status: 503, headers: { "Content-Type": "application/json" } }
+        )
+      )
     );
     return;
   }
 
-  // Network-first: always try network, fall back to cache when offline
+  // Network-first: always try network, fall back to cache, then offline page
   e.respondWith(
     fetch(e.request)
       .then((res) => {
@@ -58,7 +103,7 @@ self.addEventListener("fetch", (e) => {
       })
       .catch(() =>
         caches.match(e.request).then(
-          (cached) => cached ?? new Response("Offline", { status: 503 })
+          (cached) => cached ?? offlinePage(!self.navigator.onLine)
         )
       )
   );
