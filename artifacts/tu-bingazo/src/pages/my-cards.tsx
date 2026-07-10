@@ -209,9 +209,9 @@ export default function MyCardsPage() {
                   </div>
 
                   <div className="px-4 py-3 space-y-3">
-                    {/* Info */}
+                    {/* Info + botón comprobante en la misma fila */}
                     <div className="flex items-start justify-between gap-2">
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <p className="font-black text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>
                           {req.game_title ?? `Juego #${req.game_id}`}
                         </p>
@@ -223,17 +223,15 @@ export default function MyCardsPage() {
                           📅 {new Date(req.created_at).toLocaleString("es-BO")}
                         </p>
                       </div>
+                      {req.receipt_url && (
+                        <button
+                          className="shrink-0 px-2.5 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1"
+                          style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))", background: "hsl(var(--muted) / 0.5)" }}
+                          onClick={() => setReceiptLightbox(`${BASE}${req.receipt_url}`)}>
+                          📎 Ver
+                        </button>
+                      )}
                     </div>
-
-                    {/* Comprobante adjunto */}
-                    {req.receipt_url && (
-                      <button
-                        className="w-full py-2.5 rounded-xl text-sm font-semibold border flex items-center justify-center gap-2"
-                        style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))", background: "hsl(var(--muted) / 0.5)" }}
-                        onClick={() => setReceiptLightbox(`${BASE}${req.receipt_url}`)}>
-                        📎 Ver comprobante
-                      </button>
-                    )}
 
                     {!req.receipt_url && isPending && (
                       <div className="rounded-xl p-3 text-center text-xs text-muted-foreground border border-dashed"
