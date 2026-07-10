@@ -145,12 +145,23 @@ export default function MyCardsPage() {
                         <span className="text-xs text-muted-foreground font-semibold">
                           🃏 {gameCards.length} cartón{gameCards.length !== 1 ? "es" : ""}
                         </span>
-                        {game?.game_mode && (
-                          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
-                            style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.2)", color: "hsl(var(--primary))" }}>
-                            🎯 {MODE_LABEL[game.game_mode] ?? game.game_mode}
-                          </span>
-                        )}
+                        {game?.game_mode && (() => {
+                          const rounds = (game as any).rounds as Array<{ game_mode: string }> | null;
+                          if (rounds && rounds.length > 1) {
+                            return rounds.map((r, i) => (
+                              <span key={i} className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
+                                style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.2)", color: "hsl(var(--primary))" }}>
+                                🎯 R{i + 1}: {MODE_LABEL[r.game_mode] ?? r.game_mode}
+                              </span>
+                            ));
+                          }
+                          return (
+                            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
+                              style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.2)", color: "hsl(var(--primary))" }}>
+                              🎯 {MODE_LABEL[game.game_mode] ?? game.game_mode}
+                            </span>
+                          );
+                        })()}
                       </div>
                       {game?.draw_date && (
                         <p className="text-xs text-muted-foreground mt-1">
