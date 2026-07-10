@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const LS_KEY = "site-settings-cache";
@@ -60,7 +61,10 @@ async function fetchSiteSettings(): Promise<SiteSettings> {
   return data;
 }
 
+const DOMAIN = "https://elbingote.com";
+
 export function useSiteSettings() {
+  const [location] = useLocation();
   const { data } = useQuery<SiteSettings>({
     queryKey: ["site-settings"],
     queryFn: fetchSiteSettings,
@@ -129,6 +133,26 @@ export function useSiteSettings() {
     }
     appleMeta.content = s.site_name;
   }, [s.site_name]);
+
+  // Canonical URL — se actualiza con cada cambio de ruta
+  useEffect(() => {
+    const canonical = `${DOMAIN}${location === "/" ? "" : location}`;
+    let link = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "canonical";
+      document.head.appendChild(link);
+    }
+    link.href = canonical;
+
+    let ogUrl = document.querySelector<HTMLMetaElement>('meta[property="og:url"]');
+    if (!ogUrl) {
+      ogUrl = document.createElement("meta");
+      ogUrl.setAttribute("property", "og:url");
+      document.head.appendChild(ogUrl);
+    }
+    ogUrl.content = canonical;
+  }, [location]);
 
   return s;
 }
