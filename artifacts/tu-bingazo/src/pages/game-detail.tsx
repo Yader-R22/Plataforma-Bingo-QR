@@ -5,7 +5,7 @@ import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
 import { useSetLayoutConfig } from "@/components/AppLayout";
-import { useUpload } from "@workspace/object-storage-web";
+
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -440,37 +440,73 @@ function FallbackPaymentModal({
     return () => { cancelled = true; clearInterval(interval); };
   }, [step, manualRequestId, token]);
 
-  const { uploadFile, isUploading } = useUpload({
-    basePath: `${BASE}/api/storage`,
-    token: token,
-    onError: () => { toast.error("Error al subir el comprobante"); setStep("error"); },
-  });
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  /** Comprime la imagen en canvas y devuelve un Blob listo para subir */
+  function compressToBlob(file: File, maxPx = 1200, quality = 0.78): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = ev => {
+        const img = new Image();
+        img.onerror = reject;
+        img.onload = () => {
+          const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+          canvas.toBlob(b => b ? resolve(b) : reject(new Error("compress failed")), "image/webp", quality);
+        };
+        img.src = ev.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 
   async function handleReceiptUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setStep("uploading");
+    setUploadProgress(10);
     try {
-      // 1. Upload receipt to object storage
-      const uploadResult = await uploadFile(file);
-      if (!uploadResult) { setStep("error"); return; }
-      const receiptUrl = `${BASE}/api/storage${uploadResult.objectPath}`;
+      // 1. Comprimir imagen client-side antes de enviar
+      const blob = await compressToBlob(file);
+      setUploadProgress(35);
 
-      // 2. Create manual payment request (linking card IDs)
+      // 2. Subir directamente al servidor (sin presigned URLs, funciona en VPS)
+      const form = new FormData();
+      form.append("receipt", blob, "comprobante.webp");
+      const uploadRes = await fetch(`${BASE}/api/manual-payments/upload-receipt`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json().catch(() => ({}));
+        toast.error(err.error || "Error al subir el comprobante");
+        setStep("scan"); return;
+      }
+      const { url: receiptUrl } = await uploadRes.json();
+      setUploadProgress(65);
+
+      // 3. Crear solicitud de pago manual (con los IDs de cartones)
       let requestId = manualRequestId;
       if (!requestId) {
         const r = await fetch(`${BASE}/api/manual-payments`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ game_id: gameId, quantity: qty, card_ids: cardIds }),
+          body: JSON.stringify({ game_id: gameId, card_ids: cardIds }),
         });
         const data = await r.json();
         if (!r.ok) { toast.error(data.error || "Error al crear solicitud"); setStep("scan"); return; }
         requestId = data.id;
         setManualRequestId(requestId);
       }
+      setUploadProgress(85);
 
-      // 3. Attach receipt URL to the request
+      // 4. Adjuntar URL del comprobante a la solicitud
       const rr = await fetch(`${BASE}/api/manual-payments/${requestId}/receipt`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -478,6 +514,7 @@ function FallbackPaymentModal({
       });
       if (!rr.ok) { toast.error("Error al registrar comprobante"); setStep("scan"); return; }
 
+      setUploadProgress(100);
       setStep("done");
       toast.success("✅ Comprobante enviado. El administrador lo revisará pronto.");
     } catch {
@@ -562,14 +599,14 @@ function FallbackPaymentModal({
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  disabled={isUploading || step === "uploading"}
+                  disabled={step === "uploading"}
                   onChange={handleReceiptUpload}
                 />
                 <span
                   className="inline-block px-5 py-2.5 rounded-xl text-white text-sm font-bold"
-                  style={{ background: isUploading ? "hsl(var(--muted))" : "hsl(var(--primary))", cursor: isUploading ? "not-allowed" : "pointer" }}
+                  style={{ background: step === "uploading" ? "hsl(var(--muted))" : "hsl(var(--primary))", cursor: step === "uploading" ? "not-allowed" : "pointer" }}
                 >
-                  {isUploading || step === "uploading" ? "Subiendo..." : "📷 Seleccionar imagen"}
+                  {step === "uploading" ? `Subiendo... ${uploadProgress}%` : "📷 Seleccionar imagen"}
                 </span>
               </label>
             </div>

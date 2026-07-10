@@ -4,9 +4,41 @@ import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { Readable } from "stream";
+import multer from "multer";
+import path from "path";
+import crypto from "crypto";
+import { UPLOADS_DIR } from "../config";
 
 const router = Router();
 const objectStorageService = new ObjectStorageService();
+
+// ── Local disk multer for receipt uploads ─────────────────────────────────
+const receiptStorage = multer.diskStorage({
+  destination: path.join(UPLOADS_DIR, "receipts"),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || ".jpg";
+    cb(null, `${crypto.randomUUID()}${ext}`);
+  },
+});
+const receiptUpload = multer({
+  storage: receiptStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max (client compresses before sending)
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("Solo se permiten imágenes"));
+  },
+});
+
+// ── POST /api/manual-payments/upload-receipt — direct image upload ─────────
+// Returns a local URL served from /api/uploads/receipts/<filename>
+router.post("/upload-receipt", requireAuth, receiptUpload.single("receipt"), (req: AuthRequest, res) => {
+  if (!req.file) {
+    res.status(400).json({ error: "No se recibió ningún archivo" });
+    return;
+  }
+  const url = `/api/uploads/receipts/${req.file.filename}`;
+  res.json({ url });
+});
 
 // ── POST /api/manual-payments — create a manual payment request ────────────
 router.post("/", requireAuth, async (req: AuthRequest, res) => {

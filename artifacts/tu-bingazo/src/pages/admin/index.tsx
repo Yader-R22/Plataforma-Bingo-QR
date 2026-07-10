@@ -6541,15 +6541,24 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       </span>
                     </div>
 
-                    {/* Receipt image — served via auth proxy */}
+                    {/* Receipt image — local uploads served directly; old object storage via auth proxy */}
                     {mp.receipt_url ? (
                       <div className="rounded-xl overflow-hidden border" style={{ borderColor: "hsl(var(--border))" }}>
-                        <AuthedImg
-                          src={`${BASE}/api/manual-payments/${mp.id}/receipt-image`}
-                          alt="Comprobante de pago"
-                          className="w-full max-h-48 object-contain bg-muted"
-                          style={{ display: "block" }}
-                        />
+                        {mp.receipt_url.startsWith("/api/uploads/") ? (
+                          <img
+                            src={`${BASE}${mp.receipt_url}`}
+                            alt="Comprobante de pago"
+                            className="w-full max-h-48 object-contain bg-muted"
+                            style={{ display: "block" }}
+                          />
+                        ) : (
+                          <AuthedImg
+                            src={`${BASE}/api/manual-payments/${mp.id}/receipt-image`}
+                            alt="Comprobante de pago"
+                            className="w-full max-h-48 object-contain bg-muted"
+                            style={{ display: "block" }}
+                          />
+                        )}
                         <div className="text-xs text-center py-1.5 text-muted-foreground bg-muted/50">
                           📎 Comprobante adjunto
                         </div>
