@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useLayoutEffect, useRef, useCallback, useSta
 import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { compressImage } from "@/lib/utils";
 import { toast } from "sonner";
 import { create } from "zustand";
@@ -34,6 +35,69 @@ export function useSetLayoutConfig(config: LayoutConfig, deps: unknown[] = []) {
     return () => set({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
+}
+
+function PushWelcomeModal() {
+  const { status, loading, enable, isDismissed, dismiss } = usePushNotifications();
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (status !== "unsubscribed") return;
+    if (isDismissed()) return;
+    const t = setTimeout(() => setVisible(true), 1800);
+    return () => clearTimeout(t);
+  }, [status]);
+
+  if (!visible) return null;
+
+  function handleDismiss() {
+    dismiss();
+    setVisible(false);
+  }
+
+  async function handleEnable() {
+    await enable();
+    setVisible(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)" }}>
+      <div className="w-full max-w-md mx-auto rounded-t-3xl p-6 pb-8"
+        style={{ background: "hsl(var(--card))", borderTop: "1px solid hsl(var(--border))" }}>
+        <div className="flex justify-center mb-4">
+          <div className="w-12 h-1.5 rounded-full bg-muted" />
+        </div>
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shrink-0"
+            style={{ background: "linear-gradient(135deg, #1a0050, #2d0082)" }}>
+            🔔
+          </div>
+          <div>
+            <p className="font-black text-base">Activá las notificaciones</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Te avisamos cuando empieza un juego, ganás un premio o se procesa tu retiro.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 mt-5">
+          <button
+            onClick={handleEnable}
+            disabled={loading}
+            className="w-full py-3.5 rounded-2xl font-black text-base text-white disabled:opacity-60"
+            style={{ background: "linear-gradient(135deg, #1a0050, #7c3aed)" }}>
+            {loading ? "Activando..." : "🔔  Activar notificaciones"}
+          </button>
+          <button
+            onClick={handleDismiss}
+            className="w-full py-3 rounded-2xl font-bold text-sm text-muted-foreground"
+            style={{ background: "hsl(var(--muted))" }}>
+            Ahora no
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function PhotoCapture({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
@@ -671,6 +735,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       {/* Content */}
       <main className={hideNav ? "flex-1" : "flex-1 safe-pb"}>{children}</main>
+
+      {/* Push notification welcome modal */}
+      {user && <PushWelcomeModal />}
 
       {/* Bottom navigation */}
       {!hideNav && (
