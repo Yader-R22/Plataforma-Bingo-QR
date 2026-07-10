@@ -947,8 +947,16 @@ export default function AdminPage() {
   const [pushUrl, setPushUrl] = useState("/");
   const [pushSending, setPushSending] = useState(false);
   const [pushResult, setPushResult] = useState<{ sent: number; failed: number } | null>(null);
+  const [pushSubCount, setPushSubCount] = useState<number | null>(null);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
+
+  async function fetchPushSubCount() {
+    try {
+      const r = await fetch(`${BASE}/api/push/subscribers/count`, { headers: authH() });
+      if (r.ok) { const d = await r.json() as { count: number }; setPushSubCount(d.count); }
+    } catch { /* ignore */ }
+  }
 
   async function sendBroadcast() {
     if (!pushTitle.trim() || !pushBody.trim()) { toast.error("Título y mensaje son requeridos"); return; }
@@ -962,8 +970,13 @@ export default function AdminPage() {
       if (r.ok) {
         const d = await r.json() as { sent: number; failed: number };
         setPushResult(d);
-        toast.success(`📤 Enviado a ${d.sent} dispositivos`);
-        setPushTitle(""); setPushBody(""); setPushUrl("/");
+        if (d.sent === 0) {
+          toast.error("No hay dispositivos suscritos. Los usuarios deben activar las notificaciones desde su perfil.");
+        } else {
+          toast.success(`📤 Enviado a ${d.sent} dispositivo${d.sent !== 1 ? "s" : ""}`);
+          setPushTitle(""); setPushBody(""); setPushUrl("/");
+        }
+        await fetchPushSubCount();
       } else { toast.error("Error al enviar"); }
     } catch { toast.error("Error de conexión"); }
     finally { setPushSending(false); }
@@ -7701,8 +7714,22 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               {/* 6 — Notificaciones push */}
               {(true) && (
                   <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-                    <h2 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>🔔 Enviar notificación push</h2>
-                    <p className="text-xs text-muted-foreground">Llega a todos los usuarios que activaron notificaciones, aunque tengan el navegador cerrado.</p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h2 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>🔔 Enviar notificación push</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">Llega a todos los usuarios que activaron notificaciones, aunque tengan el navegador cerrado.</p>
+                      </div>
+                      <button onClick={fetchPushSubCount} className="shrink-0 flex flex-col items-center rounded-xl px-3 py-1.5 text-center transition-all active:scale-95"
+                        style={{ background: "hsl(var(--muted))", minWidth: 64 }}>
+                        <span className="text-lg font-black leading-none">{pushSubCount ?? "—"}</span>
+                        <span className="text-[10px] text-muted-foreground leading-tight">dispositivos</span>
+                      </button>
+                    </div>
+                    {pushSubCount === 0 && (
+                      <div className="rounded-xl p-3 text-xs" style={{ background: "hsl(var(--destructive)/0.1)", color: "hsl(var(--destructive))" }}>
+                        ⚠️ No hay dispositivos suscritos. Los usuarios deben ir a su Perfil → Notificaciones y activarlas.
+                      </div>
+                    )}
                     <div>
                       <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Título</label>
                       <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
@@ -7722,15 +7749,20 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         onChange={e => setPushUrl(e.target.value)} />
                       <p className="text-xs text-muted-foreground mt-1">Ejemplo: <code>/games</code>, <code>/wallet</code></p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                       <button onClick={sendBroadcast} disabled={pushSending}
                         className="px-5 py-2.5 rounded-xl text-sm font-black text-white transition-all active:scale-95"
                         style={{ background: "hsl(var(--primary))", opacity: pushSending ? 0.7 : 1 }}>
                         {pushSending ? "Enviando..." : "📤 Enviar a todos"}
                       </button>
-                      {pushResult && (
-                        <p className="text-xs text-muted-foreground">
-                          ✅ {pushResult.sent} enviados {pushResult.failed > 0 ? `· ${pushResult.failed} fallidos` : ""}
+                      {pushResult && pushResult.sent > 0 && (
+                        <p className="text-xs text-green-600 font-semibold">
+                          ✅ {pushResult.sent} enviado{pushResult.sent !== 1 ? "s" : ""}{pushResult.failed > 0 ? ` · ${pushResult.failed} fallidos` : ""}
+                        </p>
+                      )}
+                      {pushResult && pushResult.sent === 0 && (
+                        <p className="text-xs font-semibold" style={{ color: "hsl(var(--destructive))" }}>
+                          ⚠️ Sin dispositivos suscritos — nadie recibirá esta notificación
                         </p>
                       )}
                     </div>

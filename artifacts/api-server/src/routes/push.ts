@@ -51,6 +51,12 @@ router.get("/vapid-public-key", (_req, res) => {
   res.json({ key });
 });
 
+// GET /api/push/subscribers/count — cuántos dispositivos suscritos hay (solo admin)
+router.get("/subscribers/count", requireAuth, requireAdmin, async (_req, res) => {
+  const rows = await db.select().from(pushSubscriptionsTable);
+  res.json({ count: rows.length });
+});
+
 // POST /api/push/broadcast — enviar push a todos los usuarios (solo admin)
 router.post("/broadcast", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
   const { title, body, url } = req.body as { title?: string; body?: string; url?: string };
