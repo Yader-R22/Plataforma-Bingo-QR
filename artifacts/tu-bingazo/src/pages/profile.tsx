@@ -442,39 +442,36 @@ export default function ProfilePage() {
 
           {/* Phone */}
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-sm font-bold">📱 Teléfono / WhatsApp</label>
-              {!editPhone && (
-                <button className="text-xs font-bold" style={{ color: "hsl(var(--primary))" }}
-                  onClick={() => { setPhone(user.phone); setEditPhone(true); }}>Editar</button>
-              )}
-            </div>
             {editPhone ? (
-              <div className="flex gap-2">
-                <input className="input-field flex-1" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+591 70000000" autoFocus />
-                <button onClick={savePhone} disabled={savingPhone}
-                  className="px-4 py-2.5 rounded-xl font-bold text-sm text-white shrink-0"
-                  style={{ background: "hsl(var(--primary))" }}>
-                  {savingPhone ? "..." : "✓"}
-                </button>
-                <button onClick={() => setEditPhone(false)} className="px-3 py-2.5 rounded-xl font-bold text-sm border shrink-0">✕</button>
+              <div className="space-y-2">
+                <label className="text-sm font-bold">📱 Teléfono / WhatsApp</label>
+                <div className="flex gap-2">
+                  <input className="input-field flex-1" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+591 70000000" autoFocus />
+                  <button onClick={savePhone} disabled={savingPhone}
+                    className="px-4 py-2.5 rounded-xl font-bold text-sm text-white shrink-0"
+                    style={{ background: "hsl(var(--primary))" }}>
+                    {savingPhone ? "..." : "✓"}
+                  </button>
+                  <button onClick={() => setEditPhone(false)} className="px-3 py-2.5 rounded-xl font-bold text-sm border shrink-0">✕</button>
+                </div>
               </div>
             ) : (
-              <p className="text-foreground font-medium">{user.phone || "No registrado"}</p>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-bold text-muted-foreground shrink-0">📱 Teléfono</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-sm font-medium truncate">{user.phone || "No registrado"}</span>
+                  <button className="text-xs font-bold shrink-0" style={{ color: "hsl(var(--primary))" }}
+                    onClick={() => { setPhone(user.phone); setEditPhone(true); }}>Editar</button>
+                </div>
+              </div>
             )}
           </div>
 
           {/* Department */}
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-sm font-bold">📍 Departamento</label>
-              {!editDept && (
-                <button className="text-xs font-bold" style={{ color: "hsl(var(--primary))" }}
-                  onClick={() => setEditDept(true)}>Editar</button>
-              )}
-            </div>
             {editDept ? (
               <div className="space-y-2">
+                <label className="text-sm font-bold">📍 Departamento</label>
                 <div className="grid grid-cols-3 gap-1.5">
                   {DEPARTMENTS.map(d => (
                     <button key={d} onClick={() => saveDepartment(d)} disabled={savingDept}
@@ -491,14 +488,21 @@ export default function ProfilePage() {
                 <button onClick={() => setEditDept(false)} className="w-full py-2 rounded-xl text-sm text-muted-foreground border">Cancelar</button>
               </div>
             ) : (
-              <p className="text-foreground font-medium">{user.department || "No registrado"}</p>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-bold text-muted-foreground shrink-0">📍 Departamento</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-sm font-medium truncate">{user.department || "No registrado"}</span>
+                  <button className="text-xs font-bold shrink-0" style={{ color: "hsl(var(--primary))" }}
+                    onClick={() => setEditDept(true)}>Editar</button>
+                </div>
+              </div>
             )}
           </div>
 
           {/* CI — read only */}
-          <div>
-            <label className="text-sm font-bold block mb-1">🪪 Carnet de Identidad</label>
-            <p className="text-foreground font-medium">{user.ci}</p>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-bold text-muted-foreground shrink-0">🪪 Carnet de Identidad</span>
+            <span className="text-sm font-medium">{user.ci}</span>
           </div>
 
           {/* WhatsApp support button */}
