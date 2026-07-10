@@ -115,7 +115,7 @@ export function usePushNotifications() {
   const isDismissed = () => {
     const d = localStorage.getItem(PUSH_DISMISSED_KEY);
     if (!d) return false;
-    return Date.now() - parseInt(d) < 7 * 24 * 60 * 60 * 1000; // 7 días
+    return Date.now() - parseInt(d) < 30 * 60 * 1000; // 30 minutos
   };
 
   const dismiss = () => localStorage.setItem(PUSH_DISMISSED_KEY, String(Date.now()));
