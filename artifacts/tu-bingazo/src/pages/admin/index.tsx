@@ -919,6 +919,7 @@ export default function AdminPage() {
   const [manualPaymentsFilter, setManualPaymentsFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
   const [manualPaymentsLoading, setManualPaymentsLoading] = useState(false);
   const [manualPaymentNotes, setManualPaymentNotes] = useState<Record<number, string>>({});
+  const [manualPaymentRefunds, setManualPaymentRefunds] = useState<Record<number, string>>({});
   const [manualPaymentAction, setManualPaymentAction] = useState<Record<number, "approve" | "reject" | null>>({});
   const [receiptLightbox, setReceiptLightbox] = useState<string | null>(null);
   const [uploadingFallbackQr, setUploadingFallbackQr] = useState(false);
@@ -6478,13 +6479,17 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           async function rejectPayment(id: number) {
             const notes = manualPaymentNotes[id] || "";
             if (!notes.trim()) { toast.error("Debes escribir un motivo de rechazo"); return; }
+            const refundStr = manualPaymentRefunds[id] ?? "";
+            const refundAmt = refundStr.trim() ? parseFloat(refundStr) : 0;
+            if (isNaN(refundAmt) || refundAmt < 0) { toast.error("El monto de reembolso no es válido"); return; }
             const r = await fetch(`${BASE}/api/manual-payments/${id}/reject`, {
               method: "PUT",
               headers: authH(),
-              body: JSON.stringify({ notes }),
+              body: JSON.stringify({ notes, refund_amount: refundAmt }),
             });
             if (r.ok) {
-              toast.success("Solicitud rechazada");
+              toast.success(refundAmt > 0 ? `Solicitud rechazada — Bs ${refundAmt} reembolsados a la billetera del usuario` : "Solicitud rechazada");
+              setManualPaymentRefunds(prev => { const n = { ...prev }; delete n[id]; return n; });
               await refreshManualPayments();
               setManualPaymentsFilter("rejected");
             } else {
@@ -6625,6 +6630,30 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                               value={manualPaymentNotes[mp.id] ?? ""}
                               onChange={e => setManualPaymentNotes(prev => ({ ...prev, [mp.id]: e.target.value }))}
                             />
+                            {/* Refund amount — only shown when there's a rejection note */}
+                            {(manualPaymentNotes[mp.id] ?? "").trim().length > 0 && (
+                              <div className="rounded-xl px-3 py-2.5 space-y-1.5"
+                                style={{ background: "hsl(210 80% 52% / 0.07)", border: "1px solid hsl(210 80% 52% / 0.2)" }}>
+                                <p className="text-xs font-bold" style={{ color: "hsl(210 80% 35%)" }}>
+                                  🔄 Reembolso a billetera (opcional)
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground shrink-0">Bs</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    placeholder={`0 (máx sugerido: ${(mp.expected_amount ?? 0).toFixed(0)})`}
+                                    className="flex-1 rounded-lg border px-2.5 py-1.5 text-sm bg-background"
+                                    value={manualPaymentRefunds[mp.id] ?? ""}
+                                    onChange={e => setManualPaymentRefunds(prev => ({ ...prev, [mp.id]: e.target.value }))}
+                                  />
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">
+                                  Deja en 0 para rechazar sin reembolso. El monto se acredita de inmediato a la billetera interna del usuario.
+                                </p>
+                              </div>
+                            )}
                             <div className="flex gap-2">
                               <button onClick={() => approvePayment(mp.id)}
                                 className="flex-1 py-2.5 rounded-xl font-black text-sm text-white"

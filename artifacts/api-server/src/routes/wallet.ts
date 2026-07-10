@@ -28,13 +28,13 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
   if (!users.length) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
   const user = users[0];
 
-  // Pending withdrawal reservations (actual user-initiated withdrawals)
+  // Pending withdrawal reservations (actual user-initiated withdrawals — excludes admin adjustments and refunds)
   const pending = await db.select({ total: sql<string>`coalesce(sum(${withdrawalsTable.amount}), 0)` })
     .from(withdrawalsTable)
     .where(and(
       eq(withdrawalsTable.userId, req.userId!),
       eq(withdrawalsTable.status, "pending"),
-      notInArray(withdrawalsTable.method, ["admin_credit", "admin_debit"] as any[]),
+      notInArray(withdrawalsTable.method, ["admin_credit", "admin_debit", "refund"] as any[]),
     ));
 
   // Total prizes won in games (from winners table, validated only)
@@ -58,13 +58,13 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
       eq(referralTransactionsTable.type, "commission"),
     ));
 
-  // Total actually withdrawn (paid user-initiated withdrawals only, not admin adjustments)
+  // Total actually withdrawn (paid user-initiated withdrawals only — excludes admin adjustments and refunds)
   const totalWithdrawn = await db.select({ total: sql<string>`coalesce(sum(${withdrawalsTable.amount}), 0)` })
     .from(withdrawalsTable)
     .where(and(
       eq(withdrawalsTable.userId, req.userId!),
       eq(withdrawalsTable.status, "paid"),
-      notInArray(withdrawalsTable.method, ["admin_credit", "admin_debit"] as any[]),
+      notInArray(withdrawalsTable.method, ["admin_credit", "admin_debit", "refund"] as any[]),
     ));
 
   // total_won = net prizes received (gross minus commissions deducted) + commissions earned as activator

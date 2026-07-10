@@ -1086,14 +1086,16 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
     db.execute(sql`SELECT coalesce(sum(g.card_price - c.bonus_amount_used - c.admin_credit_amount_used),0)::text as total, coalesce(sum(c.bonus_amount_used),0)::text as bonus_used, coalesce(sum(c.admin_credit_amount_used),0)::text as admin_credit_used, count(*)::int as count FROM cards c JOIN games g ON c.game_id=g.id WHERE c.payment_status='paid' ${dateWhere("c.created_at")}`),
     db.execute(sql`SELECT coalesce(sum(prize_amount),0)::text as total, count(*)::int as count FROM winners WHERE validated=true ${dateWhere("created_at")}`),
     db.execute(sql`SELECT
-      coalesce(sum(CASE WHEN status='paid' AND method NOT IN ('admin_credit','admin_debit') THEN amount ELSE 0 END),0)::text as paid_total,
-      count(*) FILTER (WHERE status='paid' AND method NOT IN ('admin_credit','admin_debit')) as paid_count,
-      coalesce(sum(CASE WHEN status='pending' THEN amount ELSE 0 END),0)::text as pending_total,
-      count(*) FILTER (WHERE status='pending') as pending_count,
+      coalesce(sum(CASE WHEN status='paid' AND method NOT IN ('admin_credit','admin_debit','refund') THEN amount ELSE 0 END),0)::text as paid_total,
+      count(*) FILTER (WHERE status='paid' AND method NOT IN ('admin_credit','admin_debit','refund')) as paid_count,
+      coalesce(sum(CASE WHEN status='pending' AND method NOT IN ('admin_credit','admin_debit','refund') THEN amount ELSE 0 END),0)::text as pending_total,
+      count(*) FILTER (WHERE status='pending' AND method NOT IN ('admin_credit','admin_debit','refund')) as pending_count,
       coalesce(sum(CASE WHEN status='paid' AND method='admin_credit' THEN amount ELSE 0 END),0)::text as admin_credits_total,
       count(*) FILTER (WHERE status='paid' AND method='admin_credit') as admin_credits_count,
       coalesce(sum(CASE WHEN status='paid' AND method='admin_debit' THEN amount ELSE 0 END),0)::text as admin_debits_total,
-      count(*) FILTER (WHERE status='paid' AND method='admin_debit') as admin_debits_count
+      count(*) FILTER (WHERE status='paid' AND method='admin_debit') as admin_debits_count,
+      coalesce(sum(CASE WHEN status='paid' AND method='refund' THEN amount ELSE 0 END),0)::text as refunds_total,
+      count(*) FILTER (WHERE status='paid' AND method='refund') as refunds_count
     FROM withdrawals WHERE true ${dateWhere("created_at")}`),
     db.execute(sql`SELECT
       coalesce(sum(balance),0)::text as total,
@@ -1176,6 +1178,8 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
     bonuses_unspent:              parseFloat(((parseFloat((balances.rows[0] as any)?.total_bonus ?? "0"))).toFixed(2)),
     bonuses_count:                Number((refTxs.rows[0] as any)?.bonuses_count ?? 0),
     cash_out_real:                withdrawalsPaid,
+    refunds_paid:               parseFloat((wdrs.rows[0] as any)?.refunds_total ?? "0"),
+    refunds_count:              Number((wdrs.rows[0] as any)?.refunds_count ?? 0),
     net_profit:                 netProfit,
     total_expenses:             totalExpenses,
     expenses_detail:            expensesDetail,
@@ -1261,6 +1265,11 @@ router.get("/finance/transactions", async (req: AuthRequest, res) => {
              wd.amount::text, ('Débito admin' || COALESCE(': ' || wd.notes, ''))::text
       FROM withdrawals wd JOIN users u ON wd.user_id=u.id
       WHERE wd.status='paid' AND wd.method='admin_debit' ${dw("wd.created_at")}
+      UNION ALL
+      SELECT 'reembolso'::text, wd.created_at, u.full_name, NULL,
+             wd.amount::text, (COALESCE(wd.notes, 'Reembolso a billetera'))::text
+      FROM withdrawals wd JOIN users u ON wd.user_id=u.id
+      WHERE wd.status='paid' AND wd.method='refund' ${dw("wd.created_at")}
       UNION ALL
       SELECT 'comision'::text, rt.created_at, u_act.full_name, g.title,
              rt.amount::text, rt.description

@@ -621,7 +621,8 @@ export default function WalletPage() {
               {filteredWithdrawals.slice(0, showAll ? undefined : PAGE).map((w: any) => {
                 const isAdminCredit = w.method === "admin_credit";
                 const isAdminDebit = w.method === "admin_debit";
-                const isAdmin = isAdminCredit || isAdminDebit;
+                const isRefund = w.method === "refund";
+                const isAdmin = isAdminCredit || isAdminDebit || isRefund;
 
                 let methodInfo: any = {};
                 try { methodInfo = JSON.parse(w.bank_account_info ?? "{}"); } catch {}
@@ -631,6 +632,7 @@ export default function WalletPage() {
                 let methodLabel: string;
                 if (isAdminCredit) methodLabel = "💰 Acreditado por Admin";
                 else if (isAdminDebit) methodLabel = "💸 Débito por Admin";
+                else if (isRefund) methodLabel = "🔄 Reembolso";
                 else if (isQr) methodLabel = "📱 QR";
                 else if (isBank) methodLabel = `🏧 Cajero · ${methodInfo.bank ?? ""}`;
                 else methodLabel = "Transferencia";
@@ -640,6 +642,8 @@ export default function WalletPage() {
                   ? { label: "✓ Acreditado", bg: "hsl(142 70% 45% / 0.12)", border: "hsl(142 70% 45% / 0.3)", color: "hsl(142 70% 30%)" }
                   : isAdminDebit
                   ? { label: "Débito", bg: "hsl(0 75% 52% / 0.12)", border: "hsl(0 75% 52% / 0.3)", color: "hsl(0 75% 40%)" }
+                  : isRefund
+                  ? { label: "✓ Reembolsado", bg: "hsl(210 80% 52% / 0.12)", border: "hsl(210 80% 52% / 0.3)", color: "hsl(210 80% 35%)" }
                   : statusConfig(w.status);
 
                 return (
@@ -648,9 +652,9 @@ export default function WalletPage() {
                       <div>
                         <p className="font-black text-lg" style={{
                           fontFamily: "'Poppins', sans-serif",
-                          color: isAdminCredit ? "hsl(142 70% 30%)" : isAdminDebit ? "hsl(0 75% 40%)" : undefined,
+                          color: isAdminCredit ? "hsl(142 70% 30%)" : isRefund ? "hsl(210 80% 35%)" : isAdminDebit ? "hsl(0 75% 40%)" : undefined,
                         }}>
-                          {isAdminCredit ? "+" : isAdminDebit ? "−" : "−"}Bs {parseFloat(w.amount).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                          {(isAdminCredit || isRefund) ? "+" : "−"}Bs {parseFloat(w.amount).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {methodLabel} · {new Date(w.created_at).toLocaleDateString("es-BO")}

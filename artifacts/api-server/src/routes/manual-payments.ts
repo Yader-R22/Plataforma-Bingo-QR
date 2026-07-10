@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, manualPaymentRequestsTable, cardsTable, gamesTable, usersTable, feedItemsTable } from "@workspace/db";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { db, manualPaymentRequestsTable, cardsTable, gamesTable, usersTable, feedItemsTable, withdrawalsTable } from "@workspace/db";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { Readable } from "stream";
@@ -413,8 +413,11 @@ router.put("/:id/reject", requireAdmin, async (req: AuthRequest, res) => {
   const id = parseInt(String(req.params.id));
   if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
 
-  const { notes } = req.body as { notes?: string };
+  const { notes, refund_amount } = req.body as { notes?: string; refund_amount?: number };
   if (!notes?.trim()) { res.status(400).json({ error: "El motivo de rechazo es obligatorio" }); return; }
+
+  const refundAmt = typeof refund_amount === "number" ? refund_amount : 0;
+  if (refundAmt < 0) { res.status(400).json({ error: "El monto de reembolso no puede ser negativo" }); return; }
 
   const rows = await db.select().from(manualPaymentRequestsTable)
     .where(eq(manualPaymentRequestsTable.id, id)).limit(1);
@@ -471,12 +474,27 @@ router.put("/:id/reject", requireAdmin, async (req: AuthRequest, res) => {
           .where(inArray(cardsTable.id, pendingCards.map(c => c.id)));
       }
     }
+
+    // Optional refund: credit user's internal wallet balance
+    if (refundAmt > 0) {
+      await tx.insert(withdrawalsTable).values({
+        userId:    request.userId,
+        amount:    String(refundAmt),
+        method:    "refund",
+        status:    "paid",
+        notes:     `Reembolso por pago rechazado — ${notes.trim()}`,
+        paidAt:    new Date(),
+      });
+      await tx.execute(
+        sql`UPDATE users SET balance = balance + ${refundAmt} WHERE id = ${request.userId}`
+      );
+    }
   });
 
   if (!updated) { res.status(400).json({ error: "No se pudo rechazar" }); return; }
 
-  req.log.info({ admin_id: req.userId, request_id: id }, "manual payment rejected, cards released");
-  res.json({ id, status: "rejected", admin_notes: updated.adminNotes });
+  req.log.info({ admin_id: req.userId, request_id: id, refund_amount: refundAmt }, "manual payment rejected, cards released");
+  res.json({ id, status: "rejected", admin_notes: updated.adminNotes, refund_amount: refundAmt });
 });
 
 export { router as manualPaymentsRouter };
