@@ -66,8 +66,10 @@ router.post("/broadcast", requireAuth, requireAdmin, async (req: AuthRequest, re
   }
 
   // Incluir URL del logo como ícono de la notificación
-  const origin = `${req.protocol}://${req.get("host")}`;
-  const icon = `${origin}/api/site-settings/logo`;
+  // Usar x-forwarded-proto porque en producción Express está detrás de nginx
+  const proto = (req.headers["x-forwarded-proto"] as string | undefined)?.split(",")[0]?.trim() ?? req.protocol;
+  const host = req.get("host") ?? "elbingote.com";
+  const icon = `${proto}://${host}/api/site-settings/logo`;
 
   const result = await sendPushToAll({
     title: title.trim(),

@@ -7733,7 +7733,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     </div>
                     {pushSubCount === 0 && (
                       <div className="rounded-xl p-3 text-xs" style={{ background: "hsl(var(--destructive)/0.1)", color: "hsl(var(--destructive))" }}>
-                        ⚠️ No hay dispositivos suscritos. Los usuarios deben ir a su Perfil → Notificaciones y activarlas.
+                        ⚠️ No hay dispositivos suscritos. Los usuarios deben abrir la app y aceptar las notificaciones cuando aparezca el aviso.
                       </div>
                     )}
                     <div>
