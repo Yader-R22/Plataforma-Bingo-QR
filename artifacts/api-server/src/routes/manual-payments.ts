@@ -10,13 +10,12 @@ const objectStorageService = new ObjectStorageService();
 
 // ── POST /api/manual-payments — create a manual payment request ────────────
 router.post("/", requireAuth, async (req: AuthRequest, res) => {
-  const { game_id, quantity, card_ids } = req.body as {
+  const { game_id, card_ids } = req.body as {
     game_id?: number;
-    quantity?: number;
     card_ids?: number[];
   };
 
-  if (!game_id || !quantity || quantity < 1) {
+  if (!game_id) {
     res.status(400).json({ error: "Datos inválidos" });
     return;
   }
@@ -31,7 +30,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
   const game = games[0];
   if (game.status === "finished") { res.status(400).json({ error: "El juego ya terminó" }); return; }
 
-  // Verify these cards belong to this user and game and are still pending
+  // Verify these cards belong to this user and game and are still pending_payment
   const cards = await db.select().from(cardsTable)
     .where(and(
       eq(cardsTable.userId, req.userId!),
@@ -44,6 +43,8 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     return;
   }
 
+  // Derive quantity and amount from validated cards — never trust client-supplied values
+  const quantity = validCards.length;
   const expectedAmount = parseFloat(game.cardPrice as string) * quantity;
 
   const [request] = await db.insert(manualPaymentRequestsTable).values({
