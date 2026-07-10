@@ -69,7 +69,7 @@ export default function PWAInstallBanner() {
 
   return (
     <div
-      className="fixed bottom-20 left-4 right-4 z-[9999]"
+      className="fixed bottom-20 z-[9999] left-4 right-4 sm:left-auto sm:right-5 sm:w-80"
       style={{ animation: "slide-up 0.35s cubic-bezier(0.34,1.56,0.64,1) both" }}
     >
       <div
