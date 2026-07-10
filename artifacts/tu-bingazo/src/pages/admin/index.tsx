@@ -5829,8 +5829,21 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   commission_duration_months: actSettingsForm.commission_duration === "monthly" && actSettingsForm.commission_duration_months ? parseInt(actSettingsForm.commission_duration_months) : null,
                 }),
               });
-              if (r.ok) { setActivatorSettings(await r.json()); toast.success("Configuración guardada"); }
-              else toast.error("Error al guardar");
+              if (r.ok) {
+                const updated = await r.json();
+                setActivatorSettings(updated);
+                setActSettingsForm({
+                  is_enabled: updated.is_enabled ?? true,
+                  whatsapp_group_link: updated.whatsapp_group_link ?? "",
+                  bonus_amount: String(updated.bonus_amount),
+                  bonus_title: updated.bonus_title,
+                  bonus_validity_hours: updated.bonus_validity_hours != null ? String(updated.bonus_validity_hours) : "",
+                  commission_percentage: String(updated.commission_percentage),
+                  commission_duration: updated.commission_duration,
+                  commission_duration_months: updated.commission_duration_months ? String(updated.commission_duration_months) : "",
+                });
+                toast.success("Configuración guardada");
+              } else toast.error("Error al guardar");
             } finally { setSavingActSettings(false); }
           }
 

@@ -134,6 +134,7 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
     seo_keywords: s.seoKeywords,
     primary_color: s.primaryColor,
     qr_background_url: s.qrBackgroundUrl,
+    banner_interval: s.bannerInterval,
     support_whatsapp: s.supportWhatsapp,
     payment_api_key_configured: !!s.paymentApiKey,
     pwa_short_name: s.pwaShortName,
