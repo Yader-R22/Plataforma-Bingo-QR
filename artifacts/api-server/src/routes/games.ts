@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable, manualPaymentRequestsTable } from "@workspace/db";
+import { sendPushToAll } from "../lib/push";
 import type { RoundConfig, RoundHistoryEntry } from "@workspace/db";
 import { eq, desc, asc, and, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
@@ -201,6 +202,15 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
   if (rounds?.length) {
     await syncPredefinedCards(game.id, rounds);
   }
+
+  // Push automático a todos los usuarios sobre el nuevo juego
+  const drawDate = new Date(data.draw_date);
+  const dateStr = drawDate.toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" });
+  sendPushToAll({
+    title: "🎱 ¡Nuevo bingo disponible!",
+    body: `${data.title} — Premio Bs ${data.prize_amount.toFixed(0)}. El ${dateStr}. ¡Compra tu cartón ahora!`,
+    url: `/games/${game.id}`,
+  }).catch(() => {});
 
   res.status(201).json(formatGame(game));
 });

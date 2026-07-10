@@ -31,7 +31,6 @@ async function applyVersionIfChanged() {
     lastKnownVersion = v;
     const newName = `${BASE_CACHE}-v${v}`;
     if (newName === currentCacheName) return;
-    // Version changed — delete all old caches under this app's prefix
     const keys = await caches.keys();
     await Promise.all(
       keys.filter((k) => k.startsWith(BASE_CACHE) && k !== newName).map((k) => caches.delete(k))
@@ -99,7 +98,6 @@ self.addEventListener("activate", (e) => {
       const keys = await caches.keys();
       await Promise.all(
         keys
-          // Delete old prefix caches (tu-bingazo-*) and any outdated new prefix caches
           .filter((k) => (k.startsWith(BASE_CACHE) || k.startsWith("tu-bingazo")) && k !== name)
           .map((k) => caches.delete(k))
       );
@@ -114,6 +112,40 @@ self.addEventListener("message", async (e) => {
     lastVersionCheck = 0; // bypass throttle
     await applyVersionIfChanged();
   }
+});
+
+// ── Push Notifications ────────────────────────────────────────────────────────
+self.addEventListener("push", (e) => {
+  let data = { title: "El Bingote", body: "Tienes una nueva notificación", url: "/" };
+  try {
+    if (e.data) data = { ...data, ...e.data.json() };
+  } catch {}
+
+  e.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      data: { url: data.url ?? "/" },
+      vibrate: [200, 100, 200],
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = e.notification.data?.url ?? "/";
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      const existing = clients.find((c) => c.url.includes(self.location.origin));
+      if (existing) {
+        existing.focus();
+        existing.navigate(url);
+      } else {
+        self.clients.openWindow(url);
+      }
+    })
+  );
 });
 
 self.addEventListener("fetch", (e) => {

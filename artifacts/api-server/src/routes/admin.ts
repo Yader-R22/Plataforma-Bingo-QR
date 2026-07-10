@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db, usersTable, nameChangeRequestsTable, ciChangeRequestsTable, withdrawalsTable, winnersTable, auditLogsTable, gamesTable, feedItemsTable, cardsTable, partnersTable, partnerPaymentsTable, operatingExpensesTable, activatorRequestsTable, referralCodesTable, activatorSettingsTable, referralTransactionsTable } from "@workspace/db";
+import { sendPushToUser } from "../lib/push";
 import { eq, and, like, sql, desc, gte, lte, or } from "drizzle-orm";
 import { requireAdmin, type AuthRequest } from "../middlewares/auth";
 import bcrypt from "bcryptjs";
@@ -268,6 +269,13 @@ router.post("/withdrawals/:id/mark-paid", async (req: AuthRequest, res) => {
       userDisplayName: displayName,
     });
   }
+
+  // Push automático al usuario
+  sendPushToUser(updated.userId, {
+    title: "💸 Retiro procesado",
+    body: `Tu retiro de Bs ${parseFloat(updated.amount).toFixed(2)} fue enviado correctamente.`,
+    url: "/wallet",
+  }).catch(() => {});
 
   res.json({
     id: updated.id,

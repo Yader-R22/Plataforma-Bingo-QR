@@ -7674,7 +7674,71 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 </p>
               </div>
 
-              {/* 6 — Vista previa del manifiesto */}
+              {/* 6 — Notificaciones push */}
+              {(() => {
+                const [pushTitle, setPushTitle] = useState("");
+                const [pushBody, setPushBody] = useState("");
+                const [pushUrl, setPushUrl] = useState("/");
+                const [pushSending, setPushSending] = useState(false);
+                const [pushResult, setPushResult] = useState<{ sent: number; failed: number } | null>(null);
+                async function sendBroadcast() {
+                  if (!pushTitle.trim() || !pushBody.trim()) { toast.error("Título y mensaje son requeridos"); return; }
+                  setPushSending(true); setPushResult(null);
+                  try {
+                    const r = await fetch(`${BASE}/api/push/broadcast`, {
+                      method: "POST",
+                      headers: authH(),
+                      body: JSON.stringify({ title: pushTitle, body: pushBody, url: pushUrl }),
+                    });
+                    if (r.ok) {
+                      const d = await r.json() as { sent: number; failed: number };
+                      setPushResult(d);
+                      toast.success(`📤 Enviado a ${d.sent} dispositivos`);
+                      setPushTitle(""); setPushBody(""); setPushUrl("/");
+                    } else { toast.error("Error al enviar"); }
+                  } catch { toast.error("Error de conexión"); }
+                  finally { setPushSending(false); }
+                }
+                return (
+                  <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                    <h2 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>🔔 Enviar notificación push</h2>
+                    <p className="text-xs text-muted-foreground">Llega a todos los usuarios que activaron notificaciones, aunque tengan el navegador cerrado.</p>
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Título</label>
+                      <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
+                        placeholder="🎱 ¡Nuevo bingo disponible!" value={pushTitle}
+                        onChange={e => setPushTitle(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Mensaje</label>
+                      <textarea className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background resize-none" rows={3}
+                        placeholder="El bingo de hoy empieza en 1 hora. ¡Compra tu cartón!" value={pushBody}
+                        onChange={e => setPushBody(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">URL destino (opcional)</label>
+                      <input className="w-full rounded-xl border px-3 py-2.5 text-sm font-mono bg-background"
+                        placeholder="/" value={pushUrl}
+                        onChange={e => setPushUrl(e.target.value)} />
+                      <p className="text-xs text-muted-foreground mt-1">Ejemplo: <code>/games</code>, <code>/wallet</code></p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button onClick={sendBroadcast} disabled={pushSending}
+                        className="px-5 py-2.5 rounded-xl text-sm font-black text-white transition-all active:scale-95"
+                        style={{ background: "hsl(var(--primary))", opacity: pushSending ? 0.7 : 1 }}>
+                        {pushSending ? "Enviando..." : "📤 Enviar a todos"}
+                      </button>
+                      {pushResult && (
+                        <p className="text-xs text-muted-foreground">
+                          ✅ {pushResult.sent} enviados {pushResult.failed > 0 ? `· ${pushResult.failed} fallidos` : ""}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 7 — Vista previa del manifiesto */}
               <div className="rounded-2xl p-5 space-y-3" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
                 <div className="flex items-center justify-between gap-3">
                   <div>

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db, cardsTable, gamesTable, winnersTable, usersTable, auditLogsTable, feedItemsTable, referralCodesTable, activatorSettingsTable, referralTransactionsTable } from "@workspace/db";
+import { sendPushToUser } from "../lib/push";
 import type { RoundConfig } from "@workspace/db";
 import { eq, and, inArray, sql } from "drizzle-orm";
 
@@ -554,6 +555,13 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
         userDisplayName: "Un jugador",
       });
     } catch { /* feed errors must not block */ }
+
+    // Push automático al ganador
+    sendPushToUser(winner.userId, {
+      title: "🎉 ¡BINGO! ¡Ganaste!",
+      body: `Ganaste Bs ${parseFloat(String(winner.prizeAmount)).toFixed(0)} en el puesto #${winner.place}. Ve a tu billetera para retirar.`,
+      url: "/wallet",
+    }).catch(() => {});
 
     res.json({
       valid: true,

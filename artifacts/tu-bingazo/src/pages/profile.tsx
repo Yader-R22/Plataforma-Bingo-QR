@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore, type AuthUser } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { toast } from "sonner";
 import { useSetLayoutConfig } from "@/components/AppLayout";
 
@@ -16,6 +17,63 @@ function statusConfig(status: string) {
   if (status === "active") return { label: "✓ Verificado", bg: "hsl(142 70% 38%)", border: "hsl(142 70% 28%)", color: "#fff" };
   if (status === "pending") return { label: "⏳ Pendiente", bg: "hsl(42 98% 48%)", border: "hsl(42 98% 35%)", color: "#fff" };
   return { label: "✖ Rechazado", bg: "hsl(0 75% 48%)", border: "hsl(0 75% 35%)", color: "#fff" };
+}
+
+function PushToggle() {
+  const { status, loading, enable, disable, isDismissed, dismiss } = usePushNotifications();
+
+  if (status === "unsupported") return null;
+  if (status === "denied") return (
+    <div className="rounded-2xl p-4 text-sm flex items-start gap-3"
+      style={{ background: "hsl(0 75% 52% / 0.08)", border: "1px solid hsl(0 75% 52% / 0.25)" }}>
+      <span className="text-xl">🔔</span>
+      <div>
+        <p className="font-bold">Notificaciones bloqueadas</p>
+        <p className="text-muted-foreground text-xs mt-0.5">Actívalas desde la configuración de tu navegador para recibir avisos de juegos y premios.</p>
+      </div>
+    </div>
+  );
+  if (status === "loading") return null;
+  if (status === "subscribed") return (
+    <div className="bg-card border rounded-2xl p-5 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <span className="text-2xl">🔔</span>
+        <div>
+          <p className="font-bold text-sm">Notificaciones activadas</p>
+          <p className="text-xs text-muted-foreground">Recibirás avisos de juegos, premios y retiros.</p>
+        </div>
+      </div>
+      <button onClick={disable} disabled={loading}
+        className="text-xs font-bold px-3 py-1.5 rounded-xl shrink-0"
+        style={{ background: "hsl(0 75% 52% / 0.12)", color: "hsl(0 75% 45%)" }}>
+        {loading ? "..." : "Desactivar"}
+      </button>
+    </div>
+  );
+  // unsubscribed
+  if (isDismissed()) return null;
+  return (
+    <div className="rounded-2xl p-4 flex items-start gap-3"
+      style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.3)" }}>
+      <span className="text-2xl">🔔</span>
+      <div className="flex-1">
+        <p className="font-bold text-sm">¿Quieres recibir notificaciones?</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Te avisamos cuando hay nuevo bingo, ganas un premio o se procesa tu retiro.</p>
+        <div className="flex gap-2 mt-3">
+          <button onClick={enable} disabled={loading}
+            className="px-4 py-2 rounded-xl font-bold text-sm text-white"
+            style={{ background: "hsl(var(--primary))" }}>
+            {loading ? "..." : "Activar"}
+          </button>
+          <button onClick={dismiss}
+            className="px-4 py-2 rounded-xl font-bold text-sm text-muted-foreground"
+            style={{ background: "hsl(var(--muted))" }}>
+            Ahora no
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ProfilePage() {
@@ -489,6 +547,9 @@ export default function ProfilePage() {
             );
           })()}
         </div>
+
+        {/* ── Notificaciones push ───────────────────────────────── */}
+        <PushToggle />
 
         {/* ── Activador section ──────────────────────────────────── */}
         <div className="bg-card border rounded-2xl p-5 space-y-4">
