@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, cardsTable, gamesTable, winnersTable, usersTable, auditLogsTable, feedItemsTable, referralCodesTable, activatorSettingsTable, referralTransactionsTable } from "@workspace/db";
 import type { RoundConfig } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 
 function getCurrentRoundConfig(game: typeof gamesTable.$inferSelect) {
   const rounds = game.rounds as RoundConfig[] | null | undefined;
@@ -405,7 +405,7 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
     ipAddress: req.ip,
   });
 
-  const updatedCards = await db.select().from(cardsTable).where(and(...cardIds.map(id => eq(cardsTable.id, id))));
+  const updatedCards = await db.select().from(cardsTable).where(inArray(cardsTable.id, cardIds));
 
   res.status(201).json({
     cards: updatedCards.map(formatCard),
