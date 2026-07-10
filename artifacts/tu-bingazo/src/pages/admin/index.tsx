@@ -1017,9 +1017,9 @@ export default function AdminPage() {
 
   async function loadTab(t: Tab, force = false) {
     const cached = loadedTabsRef.current.has(t);
-    // First visit: full spinner. Subsequent visits: silent background refresh.
+    // First visit: full spinner. Cached + not forced: skip fetch entirely (instant).
     if (!cached) setLoading(true);
-    else if (force) setRefreshing(true);
+    else if (!force) return;
     else setRefreshing(true);
 
     try {
