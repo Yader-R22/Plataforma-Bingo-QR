@@ -6468,6 +6468,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             if (r.ok) {
               toast.success("✅ Pago aprobado — cartones activados");
               await refreshManualPayments();
+              setManualPaymentsFilter("approved");
             } else {
               const d = await r.json().catch(() => ({}));
               toast.error(d.error || "Error al aprobar");
@@ -6485,6 +6486,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             if (r.ok) {
               toast.success("Solicitud rechazada");
               await refreshManualPayments();
+              setManualPaymentsFilter("rejected");
             } else {
               const d = await r.json().catch(() => ({}));
               toast.error(d.error || "Error al rechazar");
@@ -6512,7 +6514,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       color: manualPaymentsFilter === f ? "white" : "hsl(var(--foreground))",
                     }}>
                     {f === "pending" ? "⏳ Pendientes" : f === "approved" ? "✅ Aprobados" : f === "rejected" ? "❌ Rechazados" : "📋 Todos"}
-                    {f === "pending" && ` (${manualPayments.filter(p => p.status === "pending").length})`}
+                    {f !== "all" && ` (${manualPayments.filter(p => p.status === f).length})`}
                   </button>
                 ))}
               </div>
@@ -6529,105 +6531,118 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               )}
 
               <div className="space-y-3">
-                {filtered.map((mp: any) => (
-                  <div key={mp.id} className="rounded-2xl p-4 space-y-3"
-                    style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                {filtered.map((mp: any) => {
+                  const isPending = mp.status === "pending";
+                  const isApproved = mp.status === "approved";
+                  const statusColor = isPending
+                    ? { bg: "hsl(42 98% 93%)", border: "hsl(42 98% 78%)", text: "hsl(36 80% 28%)" }
+                    : isApproved
+                    ? { bg: "hsl(142 70% 93%)", border: "hsl(142 70% 78%)", text: "hsl(142 70% 26%)" }
+                    : { bg: "hsl(0 75% 94%)", border: "hsl(0 75% 82%)", text: "hsl(0 75% 36%)" };
 
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-bold text-sm">
-                          {mp.user_name ?? `Usuario #${mp.user_id}`}
-                          <span className="text-xs text-muted-foreground font-normal ml-2">CI {mp.user_ci}</span>
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {mp.game_title ?? `Juego #${mp.game_id}`} · {mp.quantity} cartón{mp.quantity > 1 ? "es" : ""}
-                          · <strong>Bs {(mp.expected_amount ?? 0).toFixed(0)}</strong>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(mp.created_at).toLocaleString("es-BO")}
-                        </p>
+                  return (
+                    <div key={mp.id} className="rounded-2xl overflow-hidden shadow-sm"
+                      style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+
+                      {/* Status stripe */}
+                      <div className="px-4 py-2.5 flex items-center gap-2"
+                        style={{ background: statusColor.bg, borderBottom: `1px solid ${statusColor.border}` }}>
+                        <span className="text-sm">{isPending ? "⏳" : isApproved ? "✅" : "❌"}</span>
+                        <span className="text-xs font-black" style={{ color: statusColor.text }}>
+                          {isPending ? "Pendiente de revisión" : isApproved ? "Pago aprobado" : "Pago rechazado"}
+                        </span>
+                        <span className="ml-auto text-[10px] text-muted-foreground shrink-0">
+                          {new Date(mp.created_at).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                        </span>
                       </div>
-                      <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold"
-                        style={{
-                          background: mp.status === "pending" ? "hsl(42 98% 90%)" : mp.status === "approved" ? "hsl(142 70% 90%)" : "hsl(0 75% 92%)",
-                          color: mp.status === "pending" ? "hsl(42 98% 30%)" : mp.status === "approved" ? "hsl(142 70% 30%)" : "hsl(0 75% 40%)",
-                        }}>
-                        {mp.status === "pending" ? "⏳ Pendiente" : mp.status === "approved" ? "✅ Aprobado" : "❌ Rechazado"}
-                      </span>
-                    </div>
 
-                    {/* Receipt image — clickable to zoom */}
-                    {mp.receipt_url ? (
-                      <div className="rounded-xl overflow-hidden border cursor-zoom-in"
-                        style={{ borderColor: "hsl(var(--border))" }}
-                        onClick={() => {
-                          const url = mp.receipt_url.startsWith("/api/uploads/")
-                            ? `${BASE}${mp.receipt_url}`
-                            : `${BASE}/api/manual-payments/${mp.id}/receipt-image`;
-                          setReceiptLightbox(url);
-                        }}>
-                        {mp.receipt_url.startsWith("/api/uploads/") ? (
-                          <img
-                            src={`${BASE}${mp.receipt_url}`}
-                            alt="Comprobante de pago"
-                            className="w-full max-h-52 object-contain bg-muted"
-                            style={{ display: "block" }}
-                          />
+                      <div className="px-4 py-3 space-y-3">
+                        {/* User + game */}
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-base shrink-0"
+                            style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}>
+                            {(mp.user_name ?? "U").charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-black text-sm truncate" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                              {mp.user_name ?? `Usuario #${mp.user_id}`}
+                              <span className="text-xs font-normal text-muted-foreground ml-1.5">CI {mp.user_ci}</span>
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate mt-0.5">
+                              {mp.game_title ?? `Juego #${mp.game_id}`}
+                            </p>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-sm font-black" style={{ color: "hsl(var(--primary))" }}>
+                                Bs {(mp.expected_amount ?? 0).toFixed(0)}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                🃏 {mp.quantity} cartón{mp.quantity > 1 ? "es" : ""}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Receipt button */}
+                        {mp.receipt_url ? (
+                          <button
+                            className="w-full py-2.5 rounded-xl text-sm font-bold border flex items-center justify-center gap-2 transition-opacity hover:opacity-75"
+                            style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))", background: "hsl(var(--muted) / 0.5)" }}
+                            onClick={() => {
+                              const url = mp.receipt_url.startsWith("/api/uploads/")
+                                ? `${BASE}${mp.receipt_url}`
+                                : `${BASE}/api/manual-payments/${mp.id}/receipt-image`;
+                              setReceiptLightbox(url);
+                            }}>
+                            📎 Ver comprobante de pago
+                          </button>
                         ) : (
-                          <AuthedImg
-                            src={`${BASE}/api/manual-payments/${mp.id}/receipt-image`}
-                            alt="Comprobante de pago"
-                            className="w-full max-h-52 object-contain bg-muted"
-                            style={{ display: "block" }}
-                          />
+                          <div className="rounded-xl py-2.5 text-xs text-center text-muted-foreground border border-dashed"
+                            style={{ borderColor: "hsl(var(--border))" }}>
+                            📭 Sin comprobante adjunto
+                          </div>
                         )}
-                        <div className="text-xs text-center py-1.5 text-muted-foreground bg-muted/50 flex items-center justify-center gap-1">
-                          🔍 Toca para ampliar
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="rounded-xl p-3 text-center text-xs text-muted-foreground"
-                        style={{ background: "hsl(var(--muted))" }}>
-                        📭 Sin comprobante adjunto aún
-                      </div>
-                    )}
 
-                    {/* Admin note — visible also for the player in Mis Cartones */}
-                    {mp.admin_notes && (
-                      <div className="rounded-xl px-3 py-2 text-xs space-y-0.5"
-                        style={{ background: mp.status === "approved" ? "hsl(142 70% 97%)" : "hsl(0 75% 97%)" }}>
-                        <p><span className="font-semibold">Nota admin:</span> {mp.admin_notes}</p>
-                        <p className="text-muted-foreground" style={{ fontSize: "10px" }}>💬 Este comentario es visible para el jugador en "Mis Cartones"</p>
-                      </div>
-                    )}
+                        {/* Admin notes (approved/rejected) */}
+                        {mp.admin_notes && (
+                          <div className="rounded-xl px-3 py-2.5"
+                            style={{
+                              background: isApproved ? "hsl(142 70% 97%)" : "hsl(0 75% 97%)",
+                              border: `1px solid ${isApproved ? "hsl(142 70% 82%)" : "hsl(0 75% 85%)"}`,
+                            }}>
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Nota del admin</p>
+                            <p className="text-xs">{mp.admin_notes}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">💬 Visible para el jugador en "Mis Cartones"</p>
+                          </div>
+                        )}
 
-                    {/* Actions for pending requests */}
-                    {mp.status === "pending" && (
-                      <div className="space-y-2">
-                        <textarea
-                          className="w-full rounded-xl border px-3 py-2 text-sm bg-background resize-none"
-                          rows={2}
-                          placeholder="Nota (obligatoria para rechazar, opcional para aprobar)..."
-                          value={manualPaymentNotes[mp.id] ?? ""}
-                          onChange={e => setManualPaymentNotes(prev => ({ ...prev, [mp.id]: e.target.value }))}
-                        />
-                        <div className="flex gap-2">
-                          <button onClick={() => approvePayment(mp.id)}
-                            className="flex-1 py-2.5 rounded-xl font-bold text-sm text-white"
-                            style={{ background: "hsl(142 70% 38%)" }}>
-                            ✅ Aprobar y activar cartones
-                          </button>
-                          <button onClick={() => rejectPayment(mp.id)}
-                            className="flex-1 py-2.5 rounded-xl font-bold text-sm text-white"
-                            style={{ background: "hsl(0 75% 45%)" }}>
-                            ❌ Rechazar
-                          </button>
-                        </div>
+                        {/* Actions — pending only */}
+                        {isPending && (
+                          <div className="space-y-2 pt-1 border-t" style={{ borderColor: "hsl(var(--border))" }}>
+                            <textarea
+                              className="w-full rounded-xl border px-3 py-2 text-sm bg-background resize-none mt-3"
+                              rows={2}
+                              placeholder="Nota (obligatoria para rechazar, opcional para aprobar)..."
+                              value={manualPaymentNotes[mp.id] ?? ""}
+                              onChange={e => setManualPaymentNotes(prev => ({ ...prev, [mp.id]: e.target.value }))}
+                            />
+                            <div className="flex gap-2">
+                              <button onClick={() => approvePayment(mp.id)}
+                                className="flex-1 py-2.5 rounded-xl font-black text-sm text-white"
+                                style={{ background: "hsl(142 70% 38%)" }}>
+                                ✅ Aprobar
+                              </button>
+                              <button onClick={() => rejectPayment(mp.id)}
+                                className="flex-1 py-2.5 rounded-xl font-black text-sm text-white"
+                                style={{ background: "hsl(0 75% 45%)" }}>
+                                ❌ Rechazar
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );

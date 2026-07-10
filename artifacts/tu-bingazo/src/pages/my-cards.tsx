@@ -218,27 +218,12 @@ export default function MyCardsPage() {
 
                     {/* Comprobante adjunto */}
                     {req.receipt_url && (
-                      <div className="rounded-xl overflow-hidden border cursor-zoom-in"
-                        style={{ borderColor: "hsl(var(--border))" }}
+                      <button
+                        className="w-full py-2.5 rounded-xl text-sm font-semibold border flex items-center justify-center gap-2"
+                        style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))", background: "hsl(var(--muted) / 0.5)" }}
                         onClick={() => setReceiptLightbox(`${BASE}${req.receipt_url}`)}>
-                        <img
-                          src={`${BASE}${req.receipt_url}`}
-                          alt="Comprobante enviado"
-                          className="w-full max-h-40 object-contain"
-                          style={{ background: "hsl(var(--muted))", display: "block" }}
-                          onError={e => {
-                            (e.currentTarget as HTMLImageElement).style.display = "none";
-                            const msg = e.currentTarget.nextElementSibling as HTMLElement | null;
-                            if (msg) msg.style.display = "block";
-                          }}
-                        />
-                        <p className="text-xs text-center py-2 text-muted-foreground" style={{ display: "none" }}>
-                          ⚠️ No se pudo cargar la imagen
-                        </p>
-                        <p className="text-xs text-center py-1.5 text-muted-foreground bg-muted/50">
-                          🔍 Toca para ampliar
-                        </p>
-                      </div>
+                        📎 Ver comprobante
+                      </button>
                     )}
 
                     {!req.receipt_url && isPending && (
