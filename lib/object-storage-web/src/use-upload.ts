@@ -16,6 +16,8 @@ interface UploadResponse {
 interface UseUploadOptions {
   /** Base path where object storage routes are mounted (default: "/api/storage") */
   basePath?: string;
+  /** Bearer token for authenticating the presign request */
+  token?: string;
   onSuccess?: (response: UploadResponse) => void;
   onError?: (error: Error) => void;
 }
@@ -55,17 +57,18 @@ interface UseUploadOptions {
  */
 export function useUpload(options: UseUploadOptions = {}) {
   const basePath = options.basePath ?? "/api/storage";
+  const token = options.token;
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [progress, setProgress] = useState(0);
 
   const requestUploadUrl = useCallback(
     async (file: File): Promise<UploadResponse> => {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
       const response = await fetch(`${basePath}/uploads/request-url`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
           name: file.name,
           size: file.size,
@@ -80,7 +83,7 @@ export function useUpload(options: UseUploadOptions = {}) {
 
       return response.json();
     },
-    []
+    [basePath, token]
   );
 
   const uploadToPresignedUrl = useCallback(

@@ -442,6 +442,7 @@ function FallbackPaymentModal({
 
   const { uploadFile, isUploading } = useUpload({
     basePath: `${BASE}/api/storage`,
+    token: token,
     onError: () => { toast.error("Error al subir el comprobante"); setStep("error"); },
   });
 
