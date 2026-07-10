@@ -411,7 +411,34 @@ function FallbackPaymentModal({
 }) {
   const [step, setStep] = useState<"scan" | "uploading" | "done" | "error">("scan");
   const [manualRequestId, setManualRequestId] = useState<number | null>(null);
+  const [requestStatus, setRequestStatus] = useState<"pending" | "approved" | "rejected">("pending");
   const [rejectedReason, setRejectedReason] = useState<string | null>(null);
+
+  // Poll for approval/rejection after receipt is submitted
+  useEffect(() => {
+    if (step !== "done" || !manualRequestId) return;
+    let cancelled = false;
+    async function checkStatus() {
+      try {
+        const r = await fetch(`${BASE}/api/manual-payments/my`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!r.ok || cancelled) return;
+        const data: Array<{ id: number; status: string; admin_notes?: string }> = await r.json();
+        const found = data.find(d => d.id === manualRequestId);
+        if (!found || cancelled) return;
+        if (found.status === "approved") {
+          setRequestStatus("approved");
+        } else if (found.status === "rejected") {
+          setRequestStatus("rejected");
+          setRejectedReason(found.admin_notes ?? "Sin motivo indicado");
+        }
+      } catch {}
+    }
+    checkStatus();
+    const interval = setInterval(checkStatus, 30_000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [step, manualRequestId, token]);
 
   const { uploadFile, isUploading } = useUpload({
     basePath: `${BASE}/api/storage`,
@@ -558,18 +585,46 @@ function FallbackPaymentModal({
 
         {step === "done" && (
           <div className="text-center py-6">
-            <div className="text-6xl mb-4">✅</div>
-            <h3 className="font-black text-xl mb-2" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(142 70% 35%)" }}>
-              ¡Comprobante enviado!
-            </h3>
-            <p className="text-muted-foreground text-sm mb-6">
-              El administrador revisará tu pago y activará tus cartones pronto. Puedes ver el estado en <strong>Mis Cartones</strong>.
-            </p>
-            {rejectedReason && (
-              <div className="rounded-xl p-3 mb-4 text-left" style={{ background: "hsl(0 75% 97%)" }}>
-                <p className="text-red-600 text-sm font-semibold">Solicitud rechazada</p>
-                <p className="text-red-500 text-xs mt-1">{rejectedReason}</p>
-              </div>
+            {requestStatus === "approved" ? (
+              <>
+                <div className="text-6xl mb-4">🎉</div>
+                <h3 className="font-black text-xl mb-2" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(142 70% 35%)" }}>
+                  ¡Pago aprobado!
+                </h3>
+                <p className="text-muted-foreground text-sm mb-6">
+                  El administrador verificó tu pago. Tus cartones ya están activos.
+                </p>
+              </>
+            ) : requestStatus === "rejected" ? (
+              <>
+                <div className="text-6xl mb-4">❌</div>
+                <h3 className="font-black text-xl mb-2" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(0 75% 40%)" }}>
+                  Pago rechazado
+                </h3>
+                {rejectedReason && (
+                  <div className="rounded-xl p-3 mb-4 text-left" style={{ background: "hsl(0 75% 97%)" }}>
+                    <p className="text-red-600 text-sm font-semibold">Motivo:</p>
+                    <p className="text-red-500 text-xs mt-1">{rejectedReason}</p>
+                  </div>
+                )}
+                <p className="text-muted-foreground text-sm mb-6">
+                  Contacta al administrador para más información.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="text-6xl mb-4">✅</div>
+                <h3 className="font-black text-xl mb-2" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(142 70% 35%)" }}>
+                  ¡Comprobante enviado!
+                </h3>
+                <p className="text-muted-foreground text-sm mb-4">
+                  El administrador revisará tu pago y activará tus cartones pronto.
+                </p>
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mb-6">
+                  <span className="inline-block w-2 h-2 rounded-full animate-pulse" style={{ background: "hsl(42 98% 50%)" }} />
+                  Verificando estado...
+                </div>
+              </>
             )}
             <button
               onClick={onClose}

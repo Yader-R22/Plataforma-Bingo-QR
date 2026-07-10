@@ -1,12 +1,14 @@
 import { Router } from "express";
-import { db, manualPaymentRequestsTable, cardsTable, gamesTable, usersTable, feedItemsTable, siteSettingsTable } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { db, manualPaymentRequestsTable, cardsTable, gamesTable, usersTable, feedItemsTable } from "@workspace/db";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
+import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { Readable } from "stream";
 
 const router = Router();
+const objectStorageService = new ObjectStorageService();
 
 // ── POST /api/manual-payments — create a manual payment request ────────────
-// Creates cards in pending_payment status and records the manual payment request
 router.post("/", requireAuth, async (req: AuthRequest, res) => {
   const { game_id, quantity, card_ids } = req.body as {
     game_id?: number;
@@ -19,17 +21,15 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     return;
   }
 
-  // Verify game exists and is upcoming/active
-  const games = await db.select().from(gamesTable).where(eq(gamesTable.id, game_id)).limit(1);
-  if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
-  const game = games[0];
-  if (game.status === "finished") { res.status(400).json({ error: "El juego ya terminó" }); return; }
-
-  // card_ids must be provided (frontend creates the cards first via /api/cards/buy, then calls this with the IDs)
   if (!card_ids || !card_ids.length) {
     res.status(400).json({ error: "IDs de cartones requeridos" });
     return;
   }
+
+  const games = await db.select().from(gamesTable).where(eq(gamesTable.id, game_id)).limit(1);
+  if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
+  const game = games[0];
+  if (game.status === "finished") { res.status(400).json({ error: "El juego ya terminó" }); return; }
 
   // Verify these cards belong to this user and game and are still pending
   const cards = await db.select().from(cardsTable)
@@ -51,6 +51,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     gameId: game_id,
     quantity,
     expectedAmount: expectedAmount.toFixed(2),
+    cardIds: JSON.stringify(card_ids),
   }).returning();
 
   req.log.info({ user_id: req.userId, game_id, quantity, request_id: request.id }, "manual payment request created");
@@ -65,7 +66,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
   });
 });
 
-// ── POST /api/manual-payments/:id/receipt — upload receipt URL ─────────────
+// ── POST /api/manual-payments/:id/receipt — attach receipt URL ─────────────
 router.post("/:id/receipt", requireAuth, async (req: AuthRequest, res) => {
   const id = parseInt(String(req.params.id));
   if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
@@ -94,7 +95,7 @@ router.post("/:id/receipt", requireAuth, async (req: AuthRequest, res) => {
   });
 });
 
-// ── GET /api/manual-payments/my — get current user's manual payment requests ─
+// ── GET /api/manual-payments/my — player's own requests ───────────────────
 router.get("/my", requireAuth, async (req: AuthRequest, res) => {
   const rows = await db
     .select({
@@ -160,6 +161,51 @@ router.get("/", requireAdmin, async (req: AuthRequest, res) => {
   })));
 });
 
+// ── GET /api/manual-payments/:id/receipt-image — admin proxy for receipt ──
+// Allows admin panel to display receipt images without exposing auth tokens in URLs
+router.get("/:id/receipt-image", requireAdmin, async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const rows = await db.select().from(manualPaymentRequestsTable)
+    .where(eq(manualPaymentRequestsTable.id, id)).limit(1);
+  if (!rows.length || !rows[0].receiptUrl) {
+    res.status(404).json({ error: "Comprobante no encontrado" });
+    return;
+  }
+
+  const receiptUrl = rows[0].receiptUrl;
+
+  try {
+    // Extract objectPath from the stored URL and fetch from object storage
+    // URL format: /api/storage/objects/<path>
+    const match = receiptUrl.match(/\/api\/storage\/objects\/(.+)$/);
+    if (match) {
+      const objectPath = `/objects/${match[1]}`;
+      const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+      const response = await objectStorageService.downloadObject(objectFile);
+      res.status(response.status);
+      response.headers.forEach((value, key) => res.setHeader(key, value));
+      if (response.body) {
+        const nodeStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
+        nodeStream.pipe(res);
+      } else {
+        res.end();
+      }
+    } else {
+      // Fallback: redirect to the stored URL directly
+      res.redirect(receiptUrl);
+    }
+  } catch (error) {
+    if (error instanceof ObjectNotFoundError) {
+      res.status(404).json({ error: "Imagen no encontrada" });
+      return;
+    }
+    req.log.error({ err: error }, "Error serving receipt image");
+    res.status(500).json({ error: "Error al servir imagen" });
+  }
+});
+
 // ── PUT /api/manual-payments/:id/approve — admin approves ─────────────────
 router.put("/:id/approve", requireAdmin, async (req: AuthRequest, res) => {
   const id = parseInt(String(req.params.id));
@@ -178,7 +224,12 @@ router.put("/:id/approve", requireAdmin, async (req: AuthRequest, res) => {
 
   const { notes } = req.body as { notes?: string };
 
-  // Atomic: mark approved + activate the user's pending_payment cards for this game
+  // Parse saved card IDs; fall back to oldest pending cards if missing (legacy compat)
+  let savedCardIds: number[] = [];
+  if (request.cardIds) {
+    try { savedCardIds = JSON.parse(request.cardIds); } catch {}
+  }
+
   let alreadyDone = false;
   await db.transaction(async (tx) => {
     const flipped = await tx.update(manualPaymentRequestsTable)
@@ -196,29 +247,37 @@ router.put("/:id/approve", requireAdmin, async (req: AuthRequest, res) => {
 
     if (!flipped.length) { alreadyDone = true; return; }
 
-    // Activate the latest pending_payment cards for this user+game (up to quantity)
-    const pendingCards = await tx.select({ id: cardsTable.id })
-      .from(cardsTable)
-      .where(and(
-        eq(cardsTable.userId, request.userId),
-        eq(cardsTable.gameId, request.gameId),
-        eq(cardsTable.status, "pending_payment"),
-      ))
-      .limit(request.quantity);
+    // Activate exactly the reserved cards (by saved IDs) or fall back to oldest pending_payment
+    let cardsToActivate: { id: number }[];
+    if (savedCardIds.length > 0) {
+      cardsToActivate = await tx.select({ id: cardsTable.id })
+        .from(cardsTable)
+        .where(and(
+          inArray(cardsTable.id, savedCardIds),
+          eq(cardsTable.userId, request.userId),
+          eq(cardsTable.status, "pending_payment"),
+        ));
+    } else {
+      cardsToActivate = await tx.select({ id: cardsTable.id })
+        .from(cardsTable)
+        .where(and(
+          eq(cardsTable.userId, request.userId),
+          eq(cardsTable.gameId, request.gameId),
+          eq(cardsTable.status, "pending_payment"),
+        ))
+        .limit(request.quantity);
+    }
 
-    if (pendingCards.length) {
-      for (const card of pendingCards) {
-        await tx.update(cardsTable)
-          .set({ status: "active", paymentStatus: "paid" })
-          .where(eq(cardsTable.id, card.id));
-      }
+    if (cardsToActivate.length) {
+      await tx.update(cardsTable)
+        .set({ status: "active", paymentStatus: "paid" })
+        .where(inArray(cardsTable.id, cardsToActivate.map(c => c.id)));
 
-      // Update participant count
       const game = await tx.select({ participantCount: gamesTable.participantCount })
         .from(gamesTable).where(eq(gamesTable.id, request.gameId)).limit(1);
       if (game.length) {
         await tx.update(gamesTable)
-          .set({ participantCount: game[0].participantCount + pendingCards.length })
+          .set({ participantCount: game[0].participantCount + cardsToActivate.length })
           .where(eq(gamesTable.id, request.gameId));
       }
     }
@@ -248,7 +307,7 @@ router.put("/:id/approve", requireAdmin, async (req: AuthRequest, res) => {
   res.json({ id, status: "approved" });
 });
 
-// ── PUT /api/manual-payments/:id/reject — admin rejects ───────────────────
+// ── PUT /api/manual-payments/:id/reject — admin rejects + releases cards ──
 router.put("/:id/reject", requireAdmin, async (req: AuthRequest, res) => {
   const id = parseInt(String(req.params.id));
   if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
@@ -259,24 +318,63 @@ router.put("/:id/reject", requireAdmin, async (req: AuthRequest, res) => {
   const rows = await db.select().from(manualPaymentRequestsTable)
     .where(eq(manualPaymentRequestsTable.id, id)).limit(1);
   if (!rows.length) { res.status(404).json({ error: "Solicitud no encontrada" }); return; }
-  if (rows[0].status !== "pending") { res.status(400).json({ error: "Solicitud ya procesada" }); return; }
+  const request = rows[0];
+  if (request.status !== "pending") { res.status(400).json({ error: "Solicitud ya procesada" }); return; }
 
-  const [updated] = await db.update(manualPaymentRequestsTable)
-    .set({
-      status: "rejected",
-      adminNotes: notes.trim(),
-      reviewedById: req.userId!,
-      reviewedAt: new Date(),
-    })
-    .where(and(
-      eq(manualPaymentRequestsTable.id, id),
-      eq(manualPaymentRequestsTable.status, "pending"),
-    ))
-    .returning();
+  // Parse saved card IDs for release
+  let savedCardIds: number[] = [];
+  if (request.cardIds) {
+    try { savedCardIds = JSON.parse(request.cardIds); } catch {}
+  }
+
+  let updated: typeof manualPaymentRequestsTable.$inferSelect | undefined;
+  await db.transaction(async (tx) => {
+    const [row] = await tx.update(manualPaymentRequestsTable)
+      .set({
+        status: "rejected",
+        adminNotes: notes.trim(),
+        reviewedById: req.userId!,
+        reviewedAt: new Date(),
+      })
+      .where(and(
+        eq(manualPaymentRequestsTable.id, id),
+        eq(manualPaymentRequestsTable.status, "pending"),
+      ))
+      .returning();
+
+    if (!row) return;
+    updated = row;
+
+    // Release the reserved cards (expire them so they don't block future purchases)
+    if (savedCardIds.length > 0) {
+      await tx.update(cardsTable)
+        .set({ status: "expired", paymentStatus: "failed" })
+        .where(and(
+          inArray(cardsTable.id, savedCardIds),
+          eq(cardsTable.userId, request.userId),
+          eq(cardsTable.status, "pending_payment"),
+        ));
+    } else {
+      // Fallback: release the oldest pending_payment cards for this user+game up to quantity
+      const pendingCards = await tx.select({ id: cardsTable.id })
+        .from(cardsTable)
+        .where(and(
+          eq(cardsTable.userId, request.userId),
+          eq(cardsTable.gameId, request.gameId),
+          eq(cardsTable.status, "pending_payment"),
+        ))
+        .limit(request.quantity);
+      if (pendingCards.length) {
+        await tx.update(cardsTable)
+          .set({ status: "expired", paymentStatus: "failed" })
+          .where(inArray(cardsTable.id, pendingCards.map(c => c.id)));
+      }
+    }
+  });
 
   if (!updated) { res.status(400).json({ error: "No se pudo rechazar" }); return; }
 
-  req.log.info({ admin_id: req.userId, request_id: id }, "manual payment rejected");
+  req.log.info({ admin_id: req.userId, request_id: id }, "manual payment rejected, cards released");
   res.json({ id, status: "rejected", admin_notes: updated.adminNotes });
 });
 

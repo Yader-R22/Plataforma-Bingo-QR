@@ -10,6 +10,29 @@ import { ADMIN_PERMS } from "./perms";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+/** Renders a private image that requires Bearer auth. Fetches via JS and creates a blob URL. */
+function AuthedImg({ src, alt, className, style }: { src: string; alt: string; className?: string; style?: React.CSSProperties }) {
+  const token = useAuthStore(s => s.token);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!src || !token) return;
+    let objectUrl: string | null = null;
+    fetch(src, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.blob() : null)
+      .then(blob => { if (blob) { objectUrl = URL.createObjectURL(blob); setBlobUrl(objectUrl); } })
+      .catch(() => {});
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [src, token]);
+
+  if (!blobUrl) return (
+    <div className={className} style={{ ...style, display: "flex", alignItems: "center", justifyContent: "center", background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))", fontSize: 12 }}>
+      Cargando...
+    </div>
+  );
+  return <img src={blobUrl} alt={alt} className={className} style={style} />;
+}
+
 /** Returns true if the user has a permission. Empty array = super admin = all. */
 function hasPermission(perms: string[], perm: string): boolean {
   return perms.length === 0 || perms.includes(perm);
@@ -6518,19 +6541,20 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       </span>
                     </div>
 
-                    {/* Receipt image */}
-                    {mp.receipt_url && (
-                      <a href={mp.receipt_url} target="_blank" rel="noopener noreferrer"
-                        className="block rounded-xl overflow-hidden border"
-                        style={{ borderColor: "hsl(var(--border))" }}>
-                        <img src={mp.receipt_url} alt="Comprobante de pago"
-                          className="w-full max-h-48 object-contain bg-muted" />
+                    {/* Receipt image — served via auth proxy */}
+                    {mp.receipt_url ? (
+                      <div className="rounded-xl overflow-hidden border" style={{ borderColor: "hsl(var(--border))" }}>
+                        <AuthedImg
+                          src={`${BASE}/api/manual-payments/${mp.id}/receipt-image`}
+                          alt="Comprobante de pago"
+                          className="w-full max-h-48 object-contain bg-muted"
+                          style={{ display: "block" }}
+                        />
                         <div className="text-xs text-center py-1.5 text-muted-foreground bg-muted/50">
-                          📎 Ver comprobante completo
+                          📎 Comprobante adjunto
                         </div>
-                      </a>
-                    )}
-                    {!mp.receipt_url && (
+                      </div>
+                    ) : (
                       <div className="rounded-xl p-3 text-center text-xs text-muted-foreground"
                         style={{ background: "hsl(var(--muted))" }}>
                         📭 Sin comprobante adjunto aún
@@ -6538,10 +6562,10 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     )}
 
                     {/* Admin note display */}
-                    {mp.admin_note && (
+                    {mp.admin_notes && (
                       <div className="rounded-xl px-3 py-2 text-xs"
                         style={{ background: mp.status === "approved" ? "hsl(142 70% 97%)" : "hsl(0 75% 97%)" }}>
-                        <span className="font-semibold">Nota admin:</span> {mp.admin_note}
+                        <span className="font-semibold">Nota admin:</span> {mp.admin_notes}
                       </div>
                     )}
 

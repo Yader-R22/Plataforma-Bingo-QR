@@ -15,6 +15,7 @@ export const manualPaymentRequestsTable = pgTable("manual_payment_requests", {
   gameId: integer("game_id").notNull().references(() => gamesTable.id),
   quantity: integer("quantity").notNull(),
   expectedAmount: numeric("expected_amount", { precision: 10, scale: 2 }).notNull(),
+  cardIds: text("card_ids"),
   receiptUrl: text("receipt_url"),
   status: text("status", {
     enum: ["pending", "approved", "rejected"],
