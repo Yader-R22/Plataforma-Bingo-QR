@@ -1,7 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useListMyCards, useListGames } from "@workspace/api-client-react";
 import { useSetLayoutConfig } from "@/components/AppLayout";
+import { useAuthStore } from "@/hooks/useAuth";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const TYPE_EMOJI: Record<string, string> = {
   daily: "📅",
@@ -27,11 +30,12 @@ function gameStatusConfig(status: string) {
 export default function MyCardsPage() {
   const [, navigate] = useLocation();
   useSetLayoutConfig({ hideTopBar: true });
+  const token = useAuthStore(s => s.token);
   const { data: rawCards, isLoading, refetch: refetchCards } = useListMyCards();
   const { data: games = [], refetch: refetchGames } = useListGames();
+  const [verifying, setVerifying] = useState<Record<string, boolean>>({});
+  const [verified, setVerified] = useState<Record<string, "paid" | "pending">>({});
 
-  // Adaptive polling: 3s when any of the user's games is upcoming (waiting to go live),
-  // 10s when everything is active or finished (numbers already polled separately in /jugar).
   const hasUpcoming = (games as any[]).some((g: any) => g.status === "upcoming");
   const pollInterval = hasUpcoming ? 3_000 : 10_000;
 
@@ -40,14 +44,44 @@ export default function MyCardsPage() {
     return () => clearInterval(iv);
   }, [pollInterval]);
 
-  // Only show cards that are paid
-  const cards = (rawCards as any[] ?? []).filter((c: any) => c.payment_status === "paid");
+  const allCards = (rawCards as any[] ?? []);
+  const paidCards = allCards.filter((c: any) => c.payment_status === "paid");
+  const pendingCards = allCards.filter((c: any) => c.payment_status === "pending" && c.checkout_id);
+
+  // Auto-verify all pending cards on load
+  const checkStatus = useCallback(async (checkoutId: string, silent = false) => {
+    if (!token || !checkoutId) return;
+    if (!silent) setVerifying(v => ({ ...v, [checkoutId]: true }));
+    try {
+      const res = await fetch(`${BASE}/api/payments/${checkoutId}/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === "completed") {
+          setVerified(v => ({ ...v, [checkoutId]: "paid" }));
+          void refetchCards();
+          void refetchGames();
+        } else {
+          if (!silent) setVerified(v => ({ ...v, [checkoutId]: "pending" }));
+        }
+      }
+    } catch {}
+    if (!silent) setVerifying(v => ({ ...v, [checkoutId]: false }));
+  }, [token]);
+
+  // Silent auto-check on mount for all pending cards
+  useEffect(() => {
+    for (const card of pendingCards) {
+      if (card.checkout_id) void checkStatus(card.checkout_id, true);
+    }
+  }, [pendingCards.length]);
 
   const gamesById = new Map<number, any>((games as any[]).map((g: any) => [g.id, g]));
 
   // Group paid cards by game
   const groupsMap = new Map<number, { game: any; cards: any[]; hasWinner: boolean }>();
-  for (const card of cards) {
+  for (const card of paidCards) {
     const game = gamesById.get(card.game_id);
     if (!groupsMap.has(card.game_id)) {
       groupsMap.set(card.game_id, { game, cards: [], hasWinner: false });
@@ -58,32 +92,94 @@ export default function MyCardsPage() {
   }
   const groups = Array.from(groupsMap.values());
 
+  // Group pending cards by checkout_id
+  const pendingGroups = new Map<string, { checkoutId: string; game: any; cards: any[] }>();
+  for (const card of pendingCards) {
+    const id = card.checkout_id;
+    if (!pendingGroups.has(id)) {
+      pendingGroups.set(id, { checkoutId: id, game: gamesById.get(card.game_id), cards: [] });
+    }
+    pendingGroups.get(id)!.cards.push(card);
+  }
+  const pendingGroupList = Array.from(pendingGroups.values());
+
   return (
     <>
-      {/* Header */}
       <div className="hero-bg px-4 py-5 text-white">
         <h1 className="text-2xl font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>🃏 Mis Cartones</h1>
         <p className="text-white/60 text-sm">
-          {cards.length} cartón{cards.length !== 1 ? "es" : ""} en {groups.length} juego{groups.length !== 1 ? "s" : ""}
+          {paidCards.length} cartón{paidCards.length !== 1 ? "es" : ""} en {groups.length} juego{groups.length !== 1 ? "s" : ""}
         </p>
       </div>
 
-      <div className="p-4 max-w-xl mx-auto">
+      <div className="p-4 max-w-xl mx-auto space-y-4">
+
+        {/* Pending payment section */}
+        {pendingGroupList.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Pagos pendientes</p>
+            {pendingGroupList.map(({ checkoutId, game, cards: pgCards }) => {
+              const isVerifying = verifying[checkoutId];
+              const result = verified[checkoutId];
+              const title = game?.title ?? `Juego #${pgCards[0].game_id}`;
+              return (
+                <div key={checkoutId}
+                  className="rounded-3xl border-2 overflow-hidden"
+                  style={{ borderColor: "hsl(42 98% 52% / 0.5)", background: "hsl(42 98% 52% / 0.06)" }}>
+                  <div className="px-4 py-4 flex items-start gap-3">
+                    <div className="text-3xl shrink-0">⏳</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-black text-base leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                        {title}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        🃏 {pgCards.length} cartón{pgCards.length !== 1 ? "es" : ""} — esperando confirmación de pago
+                      </p>
+                      {result === "pending" && (
+                        <p className="text-xs mt-1" style={{ color: "hsl(36 80% 38%)" }}>
+                          ⚠️ Pago aún no detectado. Si ya pagaste, espera unos minutos e intenta de nuevo.
+                        </p>
+                      )}
+                      {result === "paid" && (
+                        <p className="text-xs text-green-600 mt-1 font-bold">✅ ¡Pago confirmado! Actualizando...</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="px-4 pb-4">
+                    <button
+                      disabled={isVerifying || result === "paid"}
+                      onClick={() => void checkStatus(checkoutId)}
+                      className="w-full py-2.5 rounded-xl text-sm font-bold border-2 flex items-center justify-center gap-2 disabled:opacity-50"
+                      style={{ borderColor: "hsl(42 98% 52%)", color: "hsl(36 80% 38%)", background: "hsl(42 98% 52% / 0.1)" }}
+                    >
+                      {isVerifying ? (
+                        <><span className="animate-spin">⏳</span> Verificando...</>
+                      ) : (
+                        <>✅ Verificar mi pago</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Paid cards */}
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2].map(i => <div key={i} className="h-28 bg-muted animate-pulse rounded-3xl" />)}
           </div>
-        ) : groups.length === 0 ? (
+        ) : groups.length === 0 && pendingGroupList.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground">
             <div className="text-6xl mb-4">🎱</div>
             <p className="font-black text-lg">Sin cartones activos</p>
             <p className="text-sm mt-1 mb-6">Compra cartones en un juego para participar</p>
-            <button
-              className="btn-primary max-w-xs mx-auto"
-              onClick={() => navigate("/juegos")}
-            >Ver juegos disponibles</button>
+            <button className="btn-primary max-w-xs mx-auto" onClick={() => navigate("/juegos")}>
+              Ver juegos disponibles
+            </button>
           </div>
-        ) : (
+        ) : groups.length === 0 ? null : (
           <div className="space-y-4">
             {groups.map(({ game, cards: gameCards, hasWinner }) => {
               const gameId = gameCards[0].game_id;
@@ -129,7 +225,6 @@ export default function MyCardsPage() {
                       </div>
                     )}
                   </div>
-
                   <div className="px-4 pb-4">
                     {status === "active" ? (
                       <button className="btn-primary" onClick={() => navigate(`/juegos/${gameId}/jugar`)}>
