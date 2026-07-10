@@ -40,7 +40,7 @@ router.get("/users", async (req: AuthRequest, res) => {
 
 router.get("/users/search", async (req: AuthRequest, res) => {
   const ci = String(req.query.ci ?? "").trim();
-  if (!ci) { res.status(400).json({ error: "CI requerido" }); return; }
+  if (!ci || ci.length < 3) { res.status(400).json({ error: "Ingresa al menos 3 caracteres" }); return; }
   const users = await db.select().from(usersTable)
     .where(sql`${usersTable.ci} ILIKE ${"%" + ci + "%"}`)
     .limit(10);
@@ -1093,7 +1093,7 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
 
   const [rev, prizes, wdrs, balances, refTxs] = await Promise.all([
     db.execute(sql`SELECT coalesce(sum(g.card_price - c.bonus_amount_used - c.admin_credit_amount_used),0)::text as total, coalesce(sum(c.bonus_amount_used),0)::text as bonus_used, coalesce(sum(c.admin_credit_amount_used),0)::text as admin_credit_used, count(*)::int as count FROM cards c JOIN games g ON c.game_id=g.id WHERE c.payment_status='paid' AND c.is_predefined = false ${dateWhere("c.created_at")}`),
-    db.execute(sql`SELECT coalesce(sum(prize_amount),0)::text as total, count(*)::int as count FROM winners WHERE validated=true ${dateWhere("created_at")}`),
+    db.execute(sql`SELECT coalesce(sum(w.prize_amount),0)::text as total, count(*)::int as count FROM winners w JOIN cards c ON c.id = w.card_id WHERE w.validated=true AND c.is_predefined = false ${dateWhere("w.created_at")}`),
     db.execute(sql`SELECT
       coalesce(sum(CASE WHEN status='paid' AND method NOT IN ('admin_credit','admin_debit','refund') THEN amount ELSE 0 END),0)::text as paid_total,
       count(*) FILTER (WHERE status='paid' AND method NOT IN ('admin_credit','admin_debit','refund')) as paid_count,
@@ -1207,8 +1207,8 @@ router.get("/finance/games", async (req: AuthRequest, res) => {
       g.draw_date,
       count(c.id) FILTER (WHERE c.payment_status='paid' AND c.is_predefined = false) AS cards_sold,
       coalesce(sum(g.card_price - c.bonus_amount_used) FILTER (WHERE c.payment_status='paid' AND c.is_predefined = false),0)::text AS revenue,
-      coalesce((SELECT sum(prize_amount) FROM winners w WHERE w.game_id=g.id AND w.validated=true),0)::text AS prizes_paid,
-      coalesce((SELECT count(*)         FROM winners w WHERE w.game_id=g.id AND w.validated=true),0)::int  AS winners_count,
+      coalesce((SELECT sum(w.prize_amount) FROM winners w JOIN cards c ON c.id=w.card_id WHERE w.game_id=g.id AND w.validated=true AND c.is_predefined=false),0)::text AS prizes_paid,
+      coalesce((SELECT count(*)           FROM winners w JOIN cards c ON c.id=w.card_id WHERE w.game_id=g.id AND w.validated=true AND c.is_predefined=false),0)::int  AS winners_count,
       coalesce((SELECT sum(rt.amount) FROM referral_transactions rt JOIN winners w ON rt.winner_id=w.id WHERE w.game_id=g.id AND rt.type='commission'),0)::text AS commissions_paid
     FROM games g
     LEFT JOIN cards c ON c.game_id=g.id
