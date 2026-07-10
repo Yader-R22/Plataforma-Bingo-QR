@@ -6403,6 +6403,11 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               if (r.ok) {
                 const updated = await r.json();
                 setSiteSettingsData(updated);
+                setSiteForm(f => ({
+                  ...f,
+                  payment_api_key: "",
+                  payment_api_key_configured: !!updated.payment_api_key_configured,
+                }));
                 toast.success("✅ Configuración del sitio guardada");
               } else {
                 const d = await r.json().catch(() => ({}));

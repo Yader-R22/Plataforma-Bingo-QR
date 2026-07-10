@@ -358,27 +358,36 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
   // Call new QR payment API
   let transactionId = `tx-${orderId}`;
   let qrImage = "";
+  let qrError = "";
   try {
     const apiKey = await getPaymentApiKey();
-    const response = await fetch(`${PAYMENT_API_URL}/generate-qr`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ amount: totalAmount }),
-    });
-    if (response.ok) {
-      const data = await response.json() as { qrImage: string; transactionId: string };
-      transactionId = data.transactionId;
-      // API returns raw base64 — prefix it so browsers can render it as <img src>
-      qrImage = data.qrImage.startsWith("data:")
-        ? data.qrImage
-        : `data:image/png;base64,${data.qrImage}`;
+    if (!apiKey) {
+      qrError = "API key de pagos no configurada";
+      req.log.error("generate-qr: no payment API key configured");
     } else {
-      req.log.error({ status: response.status }, "generate-qr API error");
+      const response = await fetch(`${PAYMENT_API_URL}/generate-qr`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ amount: totalAmount }),
+      });
+      if (response.ok) {
+        const data = await response.json() as { qrImage: string; transactionId: string };
+        transactionId = data.transactionId;
+        // API returns raw base64 — prefix it so browsers can render it as <img src>
+        qrImage = data.qrImage.startsWith("data:")
+          ? data.qrImage
+          : `data:image/png;base64,${data.qrImage}`;
+      } else {
+        const body = await response.text().catch(() => "");
+        qrError = `Error ${response.status} de Enlazo: ${body.slice(0, 200)}`;
+        req.log.error({ status: response.status, body }, "generate-qr API error");
+      }
     }
   } catch (err) {
+    qrError = err instanceof Error ? err.message : "Error de red al generar QR";
     req.log.error({ err }, "generate-qr API error");
   }
 
@@ -401,6 +410,7 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
   res.status(201).json({
     cards: updatedCards.map(formatCard),
     qr_image: qrImage,
+    qr_error: qrError || undefined,
     checkout_id: transactionId,
   });
 });

@@ -63,6 +63,7 @@ interface Winner {
 function QRPaymentModal({
   checkoutId,
   qrImage,
+  qrError,
   qty,
   totalPrice,
   gameTitle,
@@ -72,6 +73,7 @@ function QRPaymentModal({
 }: {
   checkoutId: string;
   qrImage: string;
+  qrError?: string;
   qty: number;
   totalPrice: number;
   gameTitle: string;
@@ -320,6 +322,11 @@ function QRPaymentModal({
               <div className="inline-block p-4 rounded-2xl border-2" style={{ borderColor: "hsl(var(--primary) / 0.2)" }}>
                 {qrImage ? (
                   <img src={qrImage} alt="QR de pago" width={200} height={200} style={{ display: "block" }} />
+                ) : qrError ? (
+                  <div className="w-[200px] h-[200px] flex flex-col items-center justify-center bg-red-50 rounded-xl p-3 gap-2">
+                    <span className="text-2xl">⚠️</span>
+                    <p className="text-red-600 text-xs text-center leading-tight">{qrError}</p>
+                  </div>
                 ) : (
                   <div className="w-[200px] h-[200px] flex items-center justify-center bg-muted rounded-xl text-muted-foreground text-sm">
                     Generando QR...
@@ -390,7 +397,7 @@ export default function GameDetailPage() {
   const [qty, setQty] = useState(1);
   const [buying, setBuying] = useState(false);
   const [payWith, setPayWith] = useState<"qr" | "wallet">("qr");
-  const [qrData, setQrData] = useState<{ checkoutId: string; qrImage: string } | null>(null);
+  const [qrData, setQrData] = useState<{ checkoutId: string; qrImage: string; qrError?: string } | null>(null);
   const [winners, setWinners] = useState<Winner[]>([]);
 
   const gameId = parseInt(params?.id ?? "0");
@@ -460,7 +467,8 @@ export default function GameDetailPage() {
         navigate(isActive ? `/juegos/${gameId}/jugar` : "/mis-cartones");
       } else {
         // Show QR inline
-        setQrData({ checkoutId: data.checkout_id, qrImage: data.qr_image ?? "" });
+        setQrData({ checkoutId: data.checkout_id, qrImage: data.qr_image ?? "", qrError: data.qr_error });
+        if (data.qr_error) toast.error(`QR: ${data.qr_error}`);
       }
     } catch {
       toast.error("Error al procesar la compra");
@@ -779,6 +787,7 @@ export default function GameDetailPage() {
         <QRPaymentModal
           checkoutId={qrData.checkoutId}
           qrImage={qrData.qrImage}
+          qrError={qrData.qrError}
           qty={qty}
           totalPrice={totalPrice}
           gameTitle={game?.title ?? "Bingo"}
