@@ -90,32 +90,32 @@ export default function PWAInstallBanner() {
           }
         </div>
 
-        <div className="shrink-0">
-          <p className="text-white font-black text-sm leading-tight whitespace-nowrap">
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-black text-sm leading-tight sm:whitespace-nowrap">
             {isAndroid ? `¡Instala ${appName}!` : `Instala ${appName} en tu PC`}
           </p>
-          <p className="text-white/55 text-xs mt-0.5 leading-tight whitespace-nowrap">
+          <p className="text-white/55 text-xs mt-0.5 leading-tight sm:whitespace-nowrap">
             {isAndroid
               ? "Juega más rápido desde tu celular"
               : "Abre la app sin navegador"}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 ml-1">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleInstall}
-            className="px-3 py-1.5 rounded-xl text-xs font-black text-purple-950 whitespace-nowrap cursor-pointer hover:brightness-110 transition-all"
+            className="px-4 py-2.5 rounded-xl text-sm font-black text-purple-950 whitespace-nowrap cursor-pointer hover:brightness-110 transition-all"
             style={{ background: "linear-gradient(135deg, #fbbf24, #f59e0b)" }}
           >
             Instalar
           </button>
           <button
             onClick={handleDismiss}
-            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 cursor-pointer hover:brightness-125 transition-all"
+            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 cursor-pointer hover:brightness-125 transition-all"
             style={{ background: "rgba(255,255,255,0.08)" }}
             aria-label="Cerrar"
           >
-            <X className="w-3.5 h-3.5 text-white/50" />
+            <X className="w-4 h-4 text-white/50" />
           </button>
         </div>
       </div>
