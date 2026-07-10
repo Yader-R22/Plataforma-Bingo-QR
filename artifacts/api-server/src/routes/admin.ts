@@ -1571,15 +1571,8 @@ router.put("/activator-settings", async (req: AuthRequest, res) => {
     await db.insert(activatorSettingsTable).values({ id: 1, ...patch });
   }
 
-  // Retroactively apply the new bonus_amount to ALL current bonus holders.
-  if (bonus_amount != null && bonus_amount > 0) {
-    await db.execute(
-      sql`UPDATE users
-          SET bonus_balance = ${String(bonus_amount)}
-          WHERE bonus_balance > 0
-            AND referred_by_code IS NOT NULL`
-    );
-  }
+  // NOTE: bonus_amount changes only affect NEW registrations going forward.
+  // Existing users keep whatever bonus_balance they received at registration time.
 
   // Retroactively apply the new validity window to ALL current bonus holders
   // (bonus_balance > 0 and referred via a code). This handles both first-time
