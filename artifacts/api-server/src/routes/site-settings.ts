@@ -49,6 +49,29 @@ router.get("/", async (_req, res) => {
   });
 });
 
+// ── Logo served as proper binary (used as push notification icon) ────────────
+router.get("/logo", async (_req, res) => {
+  const s = await ensureSettings();
+  const raw = s.logoUrl;
+  if (raw && raw.startsWith("data:")) {
+    const commaIdx = raw.indexOf(",");
+    const header = raw.slice(0, commaIdx);
+    const mimeMatch = header.match(/data:([^;]+)/);
+    const mime = mimeMatch?.[1] ?? "image/png";
+    const buf = Buffer.from(raw.slice(commaIdx + 1), "base64");
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.send(buf);
+    return;
+  }
+  if (raw && raw.startsWith("http")) {
+    res.redirect(raw);
+    return;
+  }
+  // Sin logo configurado — sirve el ícono estático de la app
+  res.redirect("/notification-icon.png");
+});
+
 // ── OG image served as proper binary (required for og:image absolute URL) ───
 router.get("/og-image", async (_req, res) => {
   const s = await ensureSettings();

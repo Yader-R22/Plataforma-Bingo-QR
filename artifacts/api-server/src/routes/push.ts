@@ -64,10 +64,16 @@ router.post("/broadcast", requireAuth, requireAdmin, async (req: AuthRequest, re
     res.status(400).json({ error: "title y body son requeridos" });
     return;
   }
+
+  // Incluir URL del logo como ícono de la notificación
+  const origin = `${req.protocol}://${req.get("host")}`;
+  const icon = `${origin}/api/site-settings/logo`;
+
   const result = await sendPushToAll({
     title: title.trim(),
     body: body.trim(),
     url: url?.trim() ?? "/",
+    icon,
   });
   res.json(result);
 });

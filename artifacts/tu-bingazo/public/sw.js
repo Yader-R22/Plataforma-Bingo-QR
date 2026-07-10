@@ -116,7 +116,7 @@ self.addEventListener("message", async (e) => {
 
 // ── Push Notifications ────────────────────────────────────────────────────────
 self.addEventListener("push", (e) => {
-  let data = { title: "El Bingote", body: "Tienes una nueva notificación", url: "/" };
+  let data = { title: "El Bingote", body: "Tienes una nueva notificación", url: "/", icon: "" };
   try {
     if (e.data) data = { ...data, ...e.data.json() };
   } catch {}
@@ -124,7 +124,7 @@ self.addEventListener("push", (e) => {
   e.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: "/notification-icon.png",
+      icon: data.icon || "/notification-icon.png",
       badge: "/badge-96.png",
       data: { url: data.url ?? "/" },
       vibrate: [200, 100, 200],

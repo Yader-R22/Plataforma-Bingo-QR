@@ -22,6 +22,7 @@ export interface PushPayload {
   title: string;
   body: string;
   url?: string;
+  icon?: string;
 }
 
 async function send(endpoint: string, p256dh: string, auth: string, payload: PushPayload): Promise<boolean> {
