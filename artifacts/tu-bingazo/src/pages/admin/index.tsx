@@ -763,6 +763,43 @@ window.onload=function(){
 };
 </` + `script></body></html>`;
 
+// ── Number picker grid (available vs called) ──────────────────────────────────
+const BINGO_COLS = [
+  { letter: "B", start: 1,  color: "#e53e3e" },
+  { letter: "I", start: 16, color: "#d69e2e" },
+  { letter: "N", start: 31, color: "#38a169" },
+  { letter: "G", start: 46, color: "#3182ce" },
+  { letter: "O", start: 61, color: "#805ad5" },
+];
+function NumberPickerGrid({ calledNumbers, onPick }: { calledNumbers: number[]; onPick: (n: number) => void }) {
+  const calledSet = new Set(calledNumbers);
+  return (
+    <div className="mt-2 flex gap-1">
+      {BINGO_COLS.map(col => (
+        <div key={col.letter} className="flex-1 flex flex-col gap-[3px]">
+          <div className="text-center text-[10px] font-black mb-0.5" style={{ color: col.color }}>{col.letter}</div>
+          {Array.from({ length: 15 }, (_, i) => col.start + i).map(n => {
+            const called = calledSet.has(n);
+            return (
+              <button key={n} disabled={called} onClick={() => !called && onPick(n)}
+                className="w-full rounded text-[10px] font-bold py-[3px] transition-all active:scale-90"
+                style={{
+                  background: called ? "rgba(255,255,255,0.06)" : col.color + "40",
+                  color: called ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.9)",
+                  textDecoration: called ? "line-through" : "none",
+                  cursor: called ? "default" : "pointer",
+                  border: called ? "none" : `1px solid ${col.color}60`,
+                }}>
+                {n}
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Main Admin Page ───────────────────────────────────────────────────────────
 export default function AdminPage() {
   useSetLayoutConfig({});
@@ -1424,10 +1461,10 @@ export default function AdminPage() {
     if (w) { w.document.write(html); w.document.close(); }
   }
 
-  async function callNumber(gameId: number) {
+  async function callNumber(gameId: number, directNum?: number) {
     const input = numberInput[gameId];
-    const num = input ? parseInt(input) : Math.floor(Math.random() * 75) + 1;
-    if (num < 1 || num > 75) { toast.error("Número debe ser entre 1 y 75"); return; }
+    const num = directNum ?? (input ? parseInt(input) : NaN);
+    if (!num || num < 1 || num > 75) { toast.error("Ingresá un número entre 1 y 75"); return; }
     const r = await fetch(`${BASE}/api/games/${gameId}/call-number`, {
       method: "POST", headers: authH(), body: JSON.stringify({ number: num }),
     });
@@ -1441,6 +1478,15 @@ export default function AdminPage() {
       const d = await r.json();
       toast.error(d.error || "Error");
     }
+  }
+
+  function callRandom(gameId: number) {
+    const game = games.find(g => g.id === gameId);
+    const called = new Set(game?.called_numbers ?? []);
+    const available = Array.from({ length: 75 }, (_, i) => i + 1).filter(n => !called.has(n));
+    if (available.length === 0) { toast.error("Todos los números ya fueron cantados"); return; }
+    const pick = available[Math.floor(Math.random() * available.length)];
+    callNumber(gameId, pick);
   }
 
   async function startGame(gameId: number) {
@@ -3181,11 +3227,20 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           onChange={e => setNumberInput(prev => ({ ...prev, [g.id]: e.target.value }))}
                           onKeyDown={e => e.key === "Enter" && callNumber(g.id)} />
                         <button onClick={() => callNumber(g.id)}
-                          className="shrink-0 px-5 py-2.5 rounded-xl font-black text-sm transition-all active:scale-95"
+                          className="shrink-0 px-4 py-2.5 rounded-xl font-black text-sm transition-all active:scale-95"
                           style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>
                           🎱 Cantar
                         </button>
+                        <button onClick={() => callRandom(g.id)}
+                          className="shrink-0 px-3 py-2.5 rounded-xl font-black text-sm transition-all active:scale-95"
+                          style={{ background: "rgba(255,255,255,0.12)", color: "white" }}
+                          title="Cantar número aleatorio disponible">
+                          🎲
+                        </button>
                       </div>
+                      <NumberPickerGrid
+                        calledNumbers={g.called_numbers ?? []}
+                        onPick={n => callNumber(g.id, n)} />
                     </div>
 
                     {/* Called numbers display */}
@@ -3636,11 +3691,20 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         onChange={e => setNumberInput(prev => ({ ...prev, [g.id]: e.target.value }))}
                         onKeyDown={e => e.key === "Enter" && callNumber(g.id)} />
                       <button onClick={() => callNumber(g.id)}
-                        className="shrink-0 px-5 py-2.5 rounded-xl font-black text-sm transition-all active:scale-95"
+                        className="shrink-0 px-4 py-2.5 rounded-xl font-black text-sm transition-all active:scale-95"
                         style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>
                         🎱 Cantar
                       </button>
+                      <button onClick={() => callRandom(g.id)}
+                        className="shrink-0 px-3 py-2.5 rounded-xl font-black text-sm transition-all active:scale-95"
+                        style={{ background: "rgba(255,255,255,0.12)", color: "white" }}
+                        title="Cantar número aleatorio disponible">
+                        🎲
+                      </button>
                     </div>
+                    <NumberPickerGrid
+                      calledNumbers={g.called_numbers ?? []}
+                      onPick={n => callNumber(g.id, n)} />
                   </div>
                 )}
 
@@ -7397,11 +7461,20 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     onChange={e => setNumberInput(prev => ({ ...prev, [g.id]: e.target.value }))}
                     onKeyDown={e => e.key === "Enter" && callNumber(g.id)} />
                   <button onClick={() => callNumber(g.id)}
-                    className="shrink-0 px-5 py-2.5 rounded-xl font-black text-sm transition-all active:scale-95"
+                    className="shrink-0 px-4 py-2.5 rounded-xl font-black text-sm transition-all active:scale-95"
                     style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>
                     🎱 Cantar
                   </button>
+                  <button onClick={() => callRandom(g.id)}
+                    className="shrink-0 px-3 py-2.5 rounded-xl font-black text-sm transition-all active:scale-95"
+                    style={{ background: "rgba(255,255,255,0.12)", color: "white" }}
+                    title="Cantar número aleatorio disponible">
+                    🎲
+                  </button>
                 </div>
+                <NumberPickerGrid
+                  calledNumbers={g.called_numbers ?? []}
+                  onPick={n => callNumber(g.id, n)} />
               </div>
 
               {/* Números cantados */}
