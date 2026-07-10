@@ -1960,7 +1960,7 @@ ${signaturesSection}` : "";
         <td>${statusLabel[g.status] ?? g.status}</td>
         <td style="text-align:right">${g.cards_sold}</td>
         <td style="text-align:right;color:#16a34a;font-weight:bold">${fmt(g.revenue)}</td>
-        <td style="text-align:right;color:#b45309">${fmt(g.prizes_paid)}</td>
+        <td style="text-align:right;color:#b45309">${fmt(g.prizes_paid)}${(g.commissions_paid ?? 0) > 0 ? `<br><span style="font-size:9px;color:#6d28d9">neto: ${fmt(g.prizes_paid - g.commissions_paid)}</span>` : ""}</td>
         <td style="text-align:right;font-weight:bold;color:${g.net >= 0 ? "#16a34a" : "#dc2626"}">${fmt(g.net)}</td>
       </tr>`).join("");
 
@@ -2137,8 +2137,8 @@ ${signaturesSection}` : "";
 
 <div class="kpi-grid">
   <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt(s?.gross_revenue ?? 0)}</div><div class="kpi-label">Ingresos brutos</div><div class="kpi-sub">${s?.cards_sold ?? 0} cartones vendidos</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(s?.prizes_paid ?? 0)}</div><div class="kpi-label">Premios pagados</div><div class="kpi-sub">${s?.prizes_count ?? 0} ganadores</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#6d28d9">${fmt(s?.total_commissions_paid ?? 0)}</div><div class="kpi-label">Comisiones activadores</div><div class="kpi-sub">${s?.commissions_count ?? 0} pagos · ${s?.activators_with_commissions ?? 0} activadores</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(s?.prizes_paid ?? 0)}</div><div class="kpi-label">Premios pagados</div><div class="kpi-sub">${s?.prizes_count ?? 0} ganadores${commissionsTotal > 0 ? ` · Neto a ganadores: ${fmt((s?.prizes_paid ?? 0) - commissionsTotal)} · A activadores: ${fmt(commissionsTotal)}` : ""}</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#6d28d9">${fmt(s?.total_commissions_paid ?? 0)}</div><div class="kpi-label">Comisiones activadores</div><div class="kpi-sub">${s?.commissions_count ?? 0} pagos · ${s?.activators_with_commissions ?? 0} activadores · incluidas en premios</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(s?.total_bonuses_granted ?? 0)}</div><div class="kpi-label">Bonos de bienvenida</div><div class="kpi-sub">Otorgados · Gastados: ${fmt(s?.bonuses_spent_on_cards ?? 0)} · Pendiente: ${fmt(s?.bonuses_unspent ?? 0)}</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#7c3aed">${fmt(s?.balance_in_circulation ?? 0)}</div><div class="kpi-label">Saldo pendiente de retiro</div><div class="kpi-sub">${s?.users_with_balance ?? 0} usuarios con saldo</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#64748b">${fmt(s?.cash_out_real ?? s?.withdrawals_paid ?? 0)}</div><div class="kpi-label">Flujo de caja real</div><div class="kpi-sub">${s?.withdrawals_count ?? 0} retiros pagados · solo informativo</div></div>
@@ -2407,7 +2407,7 @@ ${signaturesSection}` : "";
         <td>${statusLabel[g.status] ?? g.status}</td>
         <td style="text-align:right">${g.cards_sold}</td>
         <td style="text-align:right;color:#16a34a;font-weight:bold">${fmt(g.revenue)}</td>
-        <td style="text-align:right;color:#b45309">${fmt(g.prizes_paid)}</td>
+        <td style="text-align:right;color:#b45309">${fmt(g.prizes_paid)}${(g.commissions_paid ?? 0) > 0 ? `<br><span style="font-size:9px;color:#6d28d9">neto: ${fmt(g.prizes_paid - g.commissions_paid)}</span>` : ""}</td>
         <td style="text-align:right;font-weight:bold;color:${g.net >= 0 ? "#16a34a" : "#dc2626"}">${fmt(g.net)}</td>
       </tr>`).join("");
 
@@ -2563,8 +2563,8 @@ ${signaturesSection}` : "";
 
 <div class="kpi-grid">
   <div class="kpi"><div class="kpi-value" style="color:#16a34a">${fmt(grossRev)}</div><div class="kpi-label">Ingresos brutos</div><div class="kpi-sub">${s.cards_sold ?? 0} cartones vendidos</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(Number(s.prizes_paid ?? 0))}</div><div class="kpi-label">Premios pagados</div><div class="kpi-sub">${s.prizes_count ?? 0} ganadores</div></div>
-  <div class="kpi"><div class="kpi-value" style="color:#6d28d9">${fmt(Number(s.total_commissions_paid ?? 0))}</div><div class="kpi-label">Comisiones activadores</div><div class="kpi-sub">${s.commissions_count ?? 0} pagos · ${s.activators_with_commissions ?? 0} activadores</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(Number(s.prizes_paid ?? 0))}</div><div class="kpi-label">Premios pagados</div><div class="kpi-sub">${s.prizes_count ?? 0} ganadores${commissionsTotal > 0 ? ` · Neto a ganadores: ${fmt(Number(s.prizes_paid ?? 0) - commissionsTotal)} · A activadores: ${fmt(commissionsTotal)}` : ""}</div></div>
+  <div class="kpi"><div class="kpi-value" style="color:#6d28d9">${fmt(Number(s.total_commissions_paid ?? 0))}</div><div class="kpi-label">Comisiones activadores</div><div class="kpi-sub">${s.commissions_count ?? 0} pagos · ${s.activators_with_commissions ?? 0} activadores · incluidas en premios</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#b45309">${fmt(Number(s.total_bonuses_granted ?? 0))}</div><div class="kpi-label">Bonos de bienvenida</div><div class="kpi-sub">Otorgados · Gastados: ${fmt(Number(s.bonuses_spent_on_cards ?? 0))} · Pendiente: ${fmt(Number(s.bonuses_unspent ?? 0))}</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#7c3aed">${fmt(Number(s.balance_in_circulation ?? 0))}</div><div class="kpi-label">Saldo pendiente de retiro</div><div class="kpi-sub">${s.users_with_balance ?? 0} usuarios con saldo</div></div>
   <div class="kpi"><div class="kpi-value" style="color:#64748b">${fmt(Number(s.cash_out_real ?? s.withdrawals_paid ?? 0))}</div><div class="kpi-label">Flujo de caja real</div><div class="kpi-sub">${s.withdrawals_count ?? 0} retiros pagados · solo informativo</div></div>
@@ -4597,6 +4597,13 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">🏆 Premios pagados</p>
                           <p className="text-xl font-black mt-1" style={{ color: "#b45309" }}>{fmt(s.prizes_paid)}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{s.prizes_count} ganador{s.prizes_count !== 1 ? "es" : ""}</p>
+                          {(s.total_commissions_paid ?? 0) > 0 && (
+                            <p className="text-[10px] mt-1 leading-tight">
+                              <span style={{ color: "#374151" }}>{fmt((s.prizes_paid ?? 0) - (s.total_commissions_paid ?? 0))} a ganadores</span>
+                              <span className="text-muted-foreground"> · </span>
+                              <span style={{ color: "#6d28d9" }}>{fmt(s.total_commissions_paid ?? 0)} a activadores</span>
+                            </p>
+                          )}
                         </div>
                         <div className="bg-card border rounded-2xl p-4" style={{ borderColor: s.pending_withdrawals_count > 0 ? "hsl(42 98% 52%)" : undefined }}>
                           <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">⏳ Retiros pendientes</p>
@@ -4704,6 +4711,11 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         <div className="text-center rounded-lg py-1.5" style={{ background: "hsl(42 98% 52% / 0.06)" }}>
                           <p className="font-bold" style={{ color: "#b45309" }}>{fmt(g.prizes_paid)}</p>
                           <p className="text-muted-foreground">Premios</p>
+                          {(g.commissions_paid ?? 0) > 0 && (
+                            <p className="text-[9px] mt-0.5" style={{ color: "#6d28d9" }}>
+                              neto: {fmt(g.prizes_paid - g.commissions_paid)}
+                            </p>
+                          )}
                         </div>
                         <div className="text-center rounded-lg py-1.5" style={{ background: "hsl(var(--muted)/0.5)" }}>
                           <p className="font-bold">{fmt(g.card_price)}</p>

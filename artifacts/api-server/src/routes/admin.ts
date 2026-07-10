@@ -1195,7 +1195,8 @@ router.get("/finance/games", async (req: AuthRequest, res) => {
       count(c.id) FILTER (WHERE c.payment_status='paid') AS cards_sold,
       coalesce(sum(g.card_price - c.bonus_amount_used) FILTER (WHERE c.payment_status='paid'),0)::text AS revenue,
       coalesce((SELECT sum(prize_amount) FROM winners w WHERE w.game_id=g.id AND w.validated=true),0)::text AS prizes_paid,
-      coalesce((SELECT count(*)         FROM winners w WHERE w.game_id=g.id AND w.validated=true),0)::int  AS winners_count
+      coalesce((SELECT count(*)         FROM winners w WHERE w.game_id=g.id AND w.validated=true),0)::int  AS winners_count,
+      coalesce((SELECT sum(rt.amount) FROM referral_transactions rt JOIN winners w ON rt.winner_id=w.id WHERE w.game_id=g.id AND rt.type='commission'),0)::text AS commissions_paid
     FROM games g
     LEFT JOIN cards c ON c.game_id=g.id
     GROUP BY g.id
@@ -1211,9 +1212,10 @@ router.get("/finance/games", async (req: AuthRequest, res) => {
     draw_date:     r.draw_date,
     cards_sold:    Number(r.cards_sold ?? 0),
     revenue:       parseFloat(r.revenue ?? "0"),
-    prizes_paid:   parseFloat(r.prizes_paid ?? "0"),
-    winners_count: Number(r.winners_count ?? 0),
-    net:           parseFloat(r.revenue ?? "0") - parseFloat(r.prizes_paid ?? "0"),
+    prizes_paid:      parseFloat(r.prizes_paid ?? "0"),
+    winners_count:    Number(r.winners_count ?? 0),
+    commissions_paid: parseFloat(r.commissions_paid ?? "0"),
+    net:              parseFloat(r.revenue ?? "0") - parseFloat(r.prizes_paid ?? "0"),
   })));
 });
 
