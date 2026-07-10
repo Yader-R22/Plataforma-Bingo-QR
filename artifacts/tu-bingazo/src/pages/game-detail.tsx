@@ -557,7 +557,7 @@ function FallbackPaymentModal({
                 <>
                   <p className="text-sm text-muted-foreground mb-3 leading-relaxed">
                     Escanea este código QR y transfiere exactamente{" "}
-                    <span className="font-black px-2 py-0.5 rounded-lg"
+                    <span className="font-black px-2 py-0.5 rounded-lg inline-block whitespace-nowrap"
                       style={{ background: "hsl(var(--primary) / 0.12)", color: "hsl(var(--primary))" }}>
                       Bs {totalPrice.toFixed(0)}
                     </span>
