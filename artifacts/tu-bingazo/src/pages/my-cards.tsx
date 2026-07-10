@@ -74,8 +74,10 @@ export default function MyCardsPage() {
     return () => clearInterval(iv);
   }, [pollInterval, fetchManualRequests]);
 
-  // Only show cards that are paid
-  const cards = (rawCards as any[] ?? []).filter((c: any) => c.payment_status === "paid");
+  // Only show cards that are paid AND not expired (expired = game was reset)
+  const cards = (rawCards as any[] ?? []).filter((c: any) =>
+    c.payment_status === "paid" && c.status !== "expired"
+  );
 
   // Silent background verification for pending payment cards (Enlazo QR flow).
   const silentCheck = useCallback(async (checkoutId: string) => {
@@ -110,10 +112,12 @@ export default function MyCardsPage() {
 
   const gamesById = new Map<number, any>((games as any[]).map((g: any) => [g.id, g]));
 
-  // Group paid cards by game
+  // Group paid cards by game — only for upcoming/active games (finished games disappear from view)
   const groupsMap = new Map<number, { game: any; cards: any[]; hasWinner: boolean }>();
   for (const card of cards) {
     const game = gamesById.get(card.game_id);
+    // Skip finished or deleted games
+    if (!game || game.status === "finished") continue;
     if (!groupsMap.has(card.game_id)) {
       groupsMap.set(card.game_id, { game, cards: [], hasWinner: false });
     }
@@ -123,8 +127,13 @@ export default function MyCardsPage() {
   }
   const groups = Array.from(groupsMap.values());
 
-  // Manual QR payment requests: only show pending and rejected (approved activates cards → already in groups)
-  const pendingManual = manualRequests.filter(r => r.status === "pending" || r.status === "rejected");
+  // Manual QR payment requests: only show pending/rejected for non-finished games
+  // (finished/deleted/reset games are hidden from the user's view)
+  const pendingManual = manualRequests.filter(r => {
+    const game = gamesById.get(r.game_id);
+    if (!game || game.status === "finished") return false;
+    return r.status === "pending" || r.status === "rejected";
+  });
 
   const isEmpty = !isLoading && groups.length === 0 && pendingManual.length === 0;
 
