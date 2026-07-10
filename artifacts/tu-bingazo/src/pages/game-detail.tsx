@@ -561,7 +561,7 @@ export default function GameDetailPage() {
             <div className="grid grid-cols-2 gap-3">
               {[
                 { icon: "💳", label: "Precio cartón", value: `Bs ${game.card_price as number}` },
-                { icon: "👥", label: "Participantes", value: `${game.participant_count}` },
+                { icon: "👥", label: "Participantes", value: `${(game as any).unique_participants ?? game.participant_count}` },
                 { icon: "🎯", label: "Modalidad", value: gameModeLabel(game.game_mode ?? "full_card") },
                 { icon: "🏆", label: "Ganadores máx.", value: `${(game.max_winners as number) * ((game as any).total_rounds ?? 1)}` },
               ].map(item => (
