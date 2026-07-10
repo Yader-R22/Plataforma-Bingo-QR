@@ -920,6 +920,7 @@ export default function AdminPage() {
   const [manualPaymentsLoading, setManualPaymentsLoading] = useState(false);
   const [manualPaymentNotes, setManualPaymentNotes] = useState<Record<number, string>>({});
   const [manualPaymentAction, setManualPaymentAction] = useState<Record<number, "approve" | "reject" | null>>({});
+  const [receiptLightbox, setReceiptLightbox] = useState<string | null>(null);
   const [uploadingFallbackQr, setUploadingFallbackQr] = useState(false);
   const [savingSite, setSavingSite] = useState(false);
   const [banners, setBanners] = useState<{ id: number; image_url: string; media_type: string; display_order: number; is_active: boolean }[]>([]);
@@ -6427,6 +6428,21 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
         )}
 
         {/* ── Pagos Manuales ──────────────────────────────────────── */}
+        {/* Receipt lightbox */}
+        {receiptLightbox && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.92)" }}
+            onClick={() => setReceiptLightbox(null)}>
+            <button onClick={() => setReceiptLightbox(null)}
+              className="absolute top-4 right-4 z-10 text-white text-3xl font-bold leading-none opacity-80 hover:opacity-100">✕</button>
+            <p className="absolute bottom-6 left-0 right-0 text-center text-white/50 text-xs">Toca fuera para cerrar</p>
+            <img src={receiptLightbox} alt="Comprobante ampliado"
+              className="rounded-2xl object-contain"
+              style={{ maxHeight: "90vh", maxWidth: "90vw" }}
+              onClick={e => e.stopPropagation()} />
+          </div>
+        )}
+
         {tab === "pagos-manuales" && !loading && (() => {
           const filtered = manualPayments.filter(p =>
             manualPaymentsFilter === "all" ? true : p.status === manualPaymentsFilter
@@ -6541,26 +6557,33 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       </span>
                     </div>
 
-                    {/* Receipt image — local uploads served directly; old object storage via auth proxy */}
+                    {/* Receipt image — clickable to zoom */}
                     {mp.receipt_url ? (
-                      <div className="rounded-xl overflow-hidden border" style={{ borderColor: "hsl(var(--border))" }}>
+                      <div className="rounded-xl overflow-hidden border cursor-zoom-in"
+                        style={{ borderColor: "hsl(var(--border))" }}
+                        onClick={() => {
+                          const url = mp.receipt_url.startsWith("/api/uploads/")
+                            ? `${BASE}${mp.receipt_url}`
+                            : `${BASE}/api/manual-payments/${mp.id}/receipt-image`;
+                          setReceiptLightbox(url);
+                        }}>
                         {mp.receipt_url.startsWith("/api/uploads/") ? (
                           <img
                             src={`${BASE}${mp.receipt_url}`}
                             alt="Comprobante de pago"
-                            className="w-full max-h-48 object-contain bg-muted"
+                            className="w-full max-h-52 object-contain bg-muted"
                             style={{ display: "block" }}
                           />
                         ) : (
                           <AuthedImg
                             src={`${BASE}/api/manual-payments/${mp.id}/receipt-image`}
                             alt="Comprobante de pago"
-                            className="w-full max-h-48 object-contain bg-muted"
+                            className="w-full max-h-52 object-contain bg-muted"
                             style={{ display: "block" }}
                           />
                         )}
-                        <div className="text-xs text-center py-1.5 text-muted-foreground bg-muted/50">
-                          📎 Comprobante adjunto
+                        <div className="text-xs text-center py-1.5 text-muted-foreground bg-muted/50 flex items-center justify-center gap-1">
+                          🔍 Toca para ampliar
                         </div>
                       </div>
                     ) : (
@@ -6570,11 +6593,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       </div>
                     )}
 
-                    {/* Admin note display */}
+                    {/* Admin note — visible also for the player in Mis Cartones */}
                     {mp.admin_notes && (
-                      <div className="rounded-xl px-3 py-2 text-xs"
+                      <div className="rounded-xl px-3 py-2 text-xs space-y-0.5"
                         style={{ background: mp.status === "approved" ? "hsl(142 70% 97%)" : "hsl(0 75% 97%)" }}>
-                        <span className="font-semibold">Nota admin:</span> {mp.admin_notes}
+                        <p><span className="font-semibold">Nota admin:</span> {mp.admin_notes}</p>
+                        <p className="text-muted-foreground" style={{ fontSize: "10px" }}>💬 Este comentario es visible para el jugador en "Mis Cartones"</p>
                       </div>
                     )}
 
