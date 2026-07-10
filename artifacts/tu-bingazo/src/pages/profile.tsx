@@ -43,10 +43,17 @@ function PushToggle() {
           <p className="text-xs text-muted-foreground">Recibirás avisos de juegos, premios y retiros.</p>
         </div>
       </div>
-      <button onClick={disable} disabled={loading}
-        className="text-xs font-bold shrink-0"
-        style={{ color: "hsl(0 75% 45%)" }}>
-        {loading ? "..." : "Desactivar"}
+      <button
+        onClick={disable}
+        disabled={loading}
+        aria-label="Desactivar notificaciones"
+        className="shrink-0 w-11 h-6 rounded-full relative transition-colors duration-200 focus:outline-none"
+        style={{ background: loading ? "hsl(142 70% 38% / 0.5)" : "hsl(142 70% 38%)" }}
+      >
+        <span
+          className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+          style={{ transform: "translateX(20px)" }}
+        />
       </button>
     </div>
   );
