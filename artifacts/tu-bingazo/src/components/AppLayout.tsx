@@ -44,6 +44,8 @@ function PushWelcomeModal() {
   useEffect(() => {
     if (status !== "unsubscribed") return;
     if (isDismissed()) return;
+    // Si el permiso ya fue concedido, el hook reintenta en segundo plano — no molestar al usuario
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") return;
     const t = setTimeout(() => setVisible(true), 1800);
     return () => clearTimeout(t);
   }, [status]);
@@ -56,8 +58,10 @@ function PushWelcomeModal() {
   }
 
   async function handleEnable() {
-    await enable();
+    // Marcar como gestionado ANTES de intentar — así el modal no vuelve aunque la suscripción falle
+    dismiss();
     setVisible(false);
+    await enable();
   }
 
   return (
