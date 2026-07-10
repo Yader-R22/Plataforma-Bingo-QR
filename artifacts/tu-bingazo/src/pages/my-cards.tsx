@@ -226,7 +226,15 @@ export default function MyCardsPage() {
                           alt="Comprobante enviado"
                           className="w-full max-h-40 object-contain"
                           style={{ background: "hsl(var(--muted))", display: "block" }}
+                          onError={e => {
+                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                            const msg = e.currentTarget.nextElementSibling as HTMLElement | null;
+                            if (msg) msg.style.display = "block";
+                          }}
                         />
+                        <p className="text-xs text-center py-2 text-muted-foreground" style={{ display: "none" }}>
+                          ⚠️ No se pudo cargar la imagen
+                        </p>
                         <p className="text-xs text-center py-1.5 text-muted-foreground bg-muted/50">
                           🔍 Toca para ampliar
                         </p>

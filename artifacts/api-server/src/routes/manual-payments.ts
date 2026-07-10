@@ -40,7 +40,10 @@ router.post("/upload-receipt", requireAuth, receiptUpload.single("receipt"), (re
   res.json({ url });
 });
 
-// ── POST /api/manual-payments — create a manual payment request ────────────
+// ── POST /api/manual-payments — create or reuse a manual payment request ────
+// If there is already a REJECTED request for this user+game, it is reused
+// (reset to pending with the new card_ids) so retries never create duplicates.
+// If there is already a PENDING request, 409 is returned.
 router.post("/", requireAuth, async (req: AuthRequest, res) => {
   const { game_id, card_ids } = req.body as {
     game_id?: number;
@@ -78,6 +81,60 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
   // Derive quantity and amount from validated cards — never trust client-supplied values
   const quantity = validCards.length;
   const expectedAmount = parseFloat(game.cardPrice as string) * quantity;
+
+  // Check for existing request for this user+game
+  const existing = await db.select().from(manualPaymentRequestsTable)
+    .where(and(
+      eq(manualPaymentRequestsTable.userId, req.userId!),
+      eq(manualPaymentRequestsTable.gameId, game_id),
+    ))
+    .orderBy(desc(manualPaymentRequestsTable.createdAt))
+    .limit(1);
+
+  if (existing.length) {
+    const prev = existing[0];
+    if (prev.status === "pending") {
+      // Already has an active (unreviewed) request — return it so the client can attach the receipt
+      res.status(200).json({
+        id: prev.id,
+        game_id: prev.gameId,
+        quantity: prev.quantity,
+        expected_amount: parseFloat(prev.expectedAmount),
+        status: prev.status,
+        created_at: prev.createdAt,
+      });
+      return;
+    }
+    if (prev.status === "rejected") {
+      // Reuse the rejected slot: reset to pending with fresh card_ids and clear old receipt/notes
+      const [updated] = await db.update(manualPaymentRequestsTable)
+        .set({
+          cardIds: JSON.stringify(card_ids),
+          quantity,
+          expectedAmount: expectedAmount.toFixed(2),
+          status: "pending",
+          receiptUrl: null,
+          adminNotes: null,
+          reviewedAt: null,
+          reviewedById: null,
+          createdAt: new Date(),
+        })
+        .where(eq(manualPaymentRequestsTable.id, prev.id))
+        .returning();
+
+      req.log.info({ user_id: req.userId, game_id, quantity, request_id: updated.id }, "manual payment request reopened after rejection");
+      res.status(200).json({
+        id: updated.id,
+        game_id: updated.gameId,
+        quantity: updated.quantity,
+        expected_amount: parseFloat(updated.expectedAmount),
+        status: updated.status,
+        created_at: updated.createdAt,
+      });
+      return;
+    }
+    // approved — this shouldn't normally happen (cards would be active), but fall through to create new
+  }
 
   const [request] = await db.insert(manualPaymentRequestsTable).values({
     userId: req.userId!,

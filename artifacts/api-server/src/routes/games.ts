@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable } from "@workspace/db";
+import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable, manualPaymentRequestsTable } from "@workspace/db";
 import type { RoundConfig, RoundHistoryEntry } from "@workspace/db";
 import { eq, desc, asc, and, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
@@ -375,16 +375,20 @@ router.post("/:id/reset", requireAdmin, async (req: AuthRequest, res) => {
 
   await db.transaction(async (tx) => {
     // Marcar ganadores como históricos (preserva estadísticas del usuario)
-    // NO anulamos cardId porque los cartones se conservan como registro histórico
     await tx.update(winnersTable)
       .set({ isHistorical: true })
       .where(eq(winnersTable.gameId, gameId));
     // Marcar cartones como expirados — preserva historial de compras, pagos y ganadores
-    // en vez de borrarlos. Las consultas de finanzas siguen contándolos (payment_status='paid').
-    // Las queries de sesión de juego ya filtran status='active', así que no interfieren.
     await tx.update(cardsTable)
       .set({ status: "expired" })
       .where(eq(cardsTable.gameId, gameId));
+    // Cancelar solicitudes de pago manual pendientes (los cartones ya fueron expirados arriba)
+    await tx.update(manualPaymentRequestsTable)
+      .set({ status: "rejected", adminNotes: "Juego reseteado por el administrador" })
+      .where(and(
+        eq(manualPaymentRequestsTable.gameId, gameId),
+        eq(manualPaymentRequestsTable.status, "pending"),
+      ));
     // Resetear estado del juego para que pueda volver a jugarse como nueva sesión
     await tx.update(gamesTable)
       .set({ status: "upcoming", calledNumbers: [], currentRound: 1, roundHistory: [], participantCount: 0 })
@@ -425,6 +429,7 @@ router.delete("/:id", requireAdmin, async (req: AuthRequest, res) => {
 
   await db.transaction(async (tx) => {
     await tx.delete(winnersTable).where(eq(winnersTable.gameId, gameId));
+    await tx.delete(manualPaymentRequestsTable).where(eq(manualPaymentRequestsTable.gameId, gameId));
     await tx.delete(cardsTable).where(eq(cardsTable.gameId, gameId));
     await tx.delete(gamesTable).where(eq(gamesTable.id, gameId));
     await tx.insert(auditLogsTable).values({
