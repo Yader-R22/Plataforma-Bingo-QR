@@ -186,6 +186,8 @@ router.post("/:id/receipt", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // ── GET /api/manual-payments/my — player's own requests ───────────────────
+// Returns only the most recent request per game to avoid showing old rejected
+// duplicates that were created before the idempotent POST was deployed.
 router.get("/my", requireAuth, async (req: AuthRequest, res) => {
   const rows = await db
     .select({
@@ -196,9 +198,18 @@ router.get("/my", requireAuth, async (req: AuthRequest, res) => {
     .leftJoin(gamesTable, eq(manualPaymentRequestsTable.gameId, gamesTable.id))
     .where(eq(manualPaymentRequestsTable.userId, req.userId!))
     .orderBy(desc(manualPaymentRequestsTable.createdAt))
-    .limit(50);
+    .limit(200);
 
-  res.json(rows.map(({ r, gameTitle }) => ({
+  // Deduplicate: keep only the most recent entry per game_id.
+  // Rows are already sorted newest-first so the first occurrence per game wins.
+  const seenGames = new Set<number>();
+  const deduped = rows.filter(({ r }) => {
+    if (seenGames.has(r.gameId)) return false;
+    seenGames.add(r.gameId);
+    return true;
+  });
+
+  res.json(deduped.map(({ r, gameTitle }) => ({
     id: r.id,
     game_id: r.gameId,
     game_title: gameTitle ?? null,
