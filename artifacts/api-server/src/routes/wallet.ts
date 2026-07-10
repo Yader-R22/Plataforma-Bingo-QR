@@ -50,6 +50,14 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
       eq(referralTransactionsTable.type, "commission"),
     ));
 
+  // Total commissions deducted from this user's own prizes (as the referred user)
+  const totalCommissionsDeducted = await db.select({ total: sql<string>`coalesce(sum(${referralTransactionsTable.amount}), 0)` })
+    .from(referralTransactionsTable)
+    .where(and(
+      eq(referralTransactionsTable.referredUserId, req.userId!),
+      eq(referralTransactionsTable.type, "commission"),
+    ));
+
   // Total actually withdrawn (paid user-initiated withdrawals only, not admin adjustments)
   const totalWithdrawn = await db.select({ total: sql<string>`coalesce(sum(${withdrawalsTable.amount}), 0)` })
     .from(withdrawalsTable)
@@ -59,6 +67,11 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
       notInArray(withdrawalsTable.method, ["admin_credit", "admin_debit"] as any[]),
     ));
 
+  // total_won = net prizes received (gross minus commissions deducted) + commissions earned as activator
+  const grossPrizes = parseFloat(totalBingoWon[0]?.total ?? "0");
+  const commDeducted = parseFloat(totalCommissionsDeducted[0]?.total ?? "0");
+  const commEarned = parseFloat(totalCommissions[0]?.total ?? "0");
+
   res.json({
     balance: parseFloat(user.balance) + parseFloat(user.adminCreditBalance),
     real_balance: parseFloat(user.balance),
@@ -66,7 +79,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
     bonus_balance: parseFloat(user.bonusBalance),
     bonus_expires_at: user.bonusExpiresAt ?? null,
     pending_withdrawals: parseFloat(pending[0]?.total ?? "0"),
-    total_won: parseFloat(totalBingoWon[0]?.total ?? "0") + parseFloat(totalCommissions[0]?.total ?? "0"),
+    total_won: grossPrizes - commDeducted + commEarned,
     total_withdrawn: parseFloat(totalWithdrawn[0]?.total ?? "0"),
   });
 });
