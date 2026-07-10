@@ -6,7 +6,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { requireAdmin, type AuthRequest } from "../middlewares/auth";
-import { UPLOADS_DIR } from "../app";
+import { UPLOADS_DIR } from "../config";
 
 const router = Router();
 

@@ -2,14 +2,11 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import path from "path";
-import fs from "fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { db, siteSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-
-export const UPLOADS_DIR = process.env.UPLOADS_DIR || path.resolve(process.cwd(), "uploads");
-fs.mkdirSync(path.join(UPLOADS_DIR, "banners"), { recursive: true });
+import { UPLOADS_DIR } from "./config";
 
 // Social media crawler User-Agents that cannot execute JavaScript
 const SOCIAL_BOT_RE = /WhatsApp|facebookexternalhit|Facebot|Twitterbot|TelegramBot|LinkedInBot|Discordbot|Slackbot|ia_archiver|rogerbot|vkShare|W3C_Validator/i;
