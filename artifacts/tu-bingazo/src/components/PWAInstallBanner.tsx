@@ -69,11 +69,11 @@ export default function PWAInstallBanner() {
 
   return (
     <div
-      className="fixed bottom-20 z-[9999] left-4 right-4 sm:left-auto sm:right-5 sm:w-80"
+      className="fixed bottom-20 z-[9999] left-4 right-4 sm:left-auto sm:right-5 sm:w-auto"
       style={{ animation: "slide-up 0.35s cubic-bezier(0.34,1.56,0.64,1) both" }}
     >
       <div
-        className="rounded-2xl p-4 flex items-center gap-3 shadow-2xl"
+        className="rounded-2xl px-4 py-3 flex items-center gap-3 shadow-2xl"
         style={{
           background: "linear-gradient(135deg, #1a0050, #2d0082)",
           border: "1px solid rgba(255,255,255,0.18)",
@@ -81,41 +81,41 @@ export default function PWAInstallBanner() {
         }}
       >
         <div
-          className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
           style={{ background: "rgba(255,255,255,0.1)" }}
         >
           {isAndroid
-            ? <Download className="w-6 h-6 text-yellow-400" />
-            : <Monitor className="w-6 h-6 text-yellow-400" />
+            ? <Download className="w-5 h-5 text-yellow-400" />
+            : <Monitor className="w-5 h-5 text-yellow-400" />
           }
         </div>
 
-        <div className="flex-1 min-w-0">
-          <p className="text-white font-black text-sm leading-tight">
+        <div className="shrink-0">
+          <p className="text-white font-black text-sm leading-tight whitespace-nowrap">
             {isAndroid ? `¡Instala ${appName}!` : `Instala ${appName} en tu PC`}
           </p>
-          <p className="text-white/55 text-xs mt-0.5 leading-tight">
+          <p className="text-white/55 text-xs mt-0.5 leading-tight whitespace-nowrap">
             {isAndroid
-              ? "Juega más rápido directo desde tu celular"
-              : "Abre la app sin navegador desde tu escritorio"}
+              ? "Juega más rápido desde tu celular"
+              : "Abre la app sin navegador"}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 ml-1">
           <button
             onClick={handleInstall}
-            className="px-3 py-2 rounded-xl text-xs font-black text-purple-950"
+            className="px-3 py-1.5 rounded-xl text-xs font-black text-purple-950 whitespace-nowrap"
             style={{ background: "linear-gradient(135deg, #fbbf24, #f59e0b)" }}
           >
             Instalar
           </button>
           <button
             onClick={handleDismiss}
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
             style={{ background: "rgba(255,255,255,0.08)" }}
             aria-label="Cerrar"
           >
-            <X className="w-4 h-4 text-white/50" />
+            <X className="w-3.5 h-3.5 text-white/50" />
           </button>
         </div>
       </div>
