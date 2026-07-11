@@ -4590,8 +4590,8 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             { id: "year",  label: "1 año" },
             { id: "all",   label: "Todo" },
           ];
-          const typeLabel: Record<string, string> = { ingreso: "Ingreso", premio: "Premio", retiro: "Retiro", admin_credit: "✅ Crédito admin", admin_debit: "➖ Débito admin", comision: "🔗 Comisión" };
-          const typeStyle: Record<string, string> = { ingreso: "#16a34a", premio: "#b45309", retiro: "#dc2626", admin_credit: "#7c3aed", admin_debit: "#b45309", comision: "#7c3aed" };
+          const typeLabel: Record<string, string> = { ingreso: "Ingreso", premio: "Premio", retiro: "Retiro", admin_credit: "✅ Crédito admin", admin_debit: "➖ Débito admin", comision: "🔗 Comisión", descuento_activador: "🏷️ Desc. activador" };
+          const typeStyle: Record<string, string> = { ingreso: "#16a34a", premio: "#b45309", retiro: "#dc2626", admin_credit: "#7c3aed", admin_debit: "#b45309", comision: "#7c3aed", descuento_activador: "#0891b2" };
           const statusLabel: Record<string, string> = { upcoming: "Próximo", active: "Activo", finished: "Finalizado" };
           const typeGameLabel: Record<string, string> = { daily: "Diario", weekly: "Semanal", monthly: "Mensual" };
 
@@ -4755,6 +4755,17 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                             <p className="text-xs text-muted-foreground mt-0.5">{s.bonus_users_count ?? 0} usuarios · no retirable</p>
                           </div>
                         )}
+                        {(s.activator_sales_count ?? 0) > 0 && (
+                          <div className="bg-card border rounded-2xl p-4" style={{ borderColor: "#a5f3fc", background: "#f0f9ff" }}>
+                            <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: "#0891b2" }}>🏷️ Ventas por activadores</p>
+                            <p className="text-xl font-black mt-1" style={{ color: "#0891b2" }}>{fmt(s.activator_sales_revenue ?? 0)}</p>
+                            <div className="text-xs text-muted-foreground mt-0.5 space-y-0.5">
+                              <p>{s.activator_sales_count} venta{(s.activator_sales_count ?? 0) !== 1 ? "s" : ""} · {s.activator_cards_from_sales} cartón{(s.activator_cards_from_sales ?? 0) !== 1 ? "es" : ""}</p>
+                              <p>Descuento otorgado: <span className="font-bold" style={{ color: "#0891b2" }}>−{fmt(s.activator_discounts_total ?? 0)}</span></p>
+                              <p className="text-[10px] italic">Ya descontado de los ingresos brutos</p>
+                            </div>
+                          </div>
+                        )}
                         {((s.admin_credits_total ?? 0) > 0 || (s.admin_debits_total ?? 0) > 0) && (
                           <div className="bg-card border rounded-2xl p-4">
                             <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">⚙️ Ajustes manuales</p>
@@ -4822,6 +4833,11 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           {g.net >= 0 ? "+" : ""}{fmt(g.net)}
                         </span>
                       </div>
+                      {(g.activator_discounts ?? 0) > 0 && (
+                        <p className="text-[10px] mt-0.5" style={{ color: "#0891b2" }}>
+                          🏷️ Desc. activador aplicado: −{fmt(g.activator_discounts)} · ya reflejado en ingresos
+                        </p>
+                      )}
                       <div className="mt-2 grid grid-cols-3 gap-1 text-xs">
                         <div className="text-center rounded-lg py-1.5" style={{ background: "hsl(142 70% 45% / 0.06)" }}>
                           <p className="font-bold" style={{ color: "#16a34a" }}>{fmt(g.revenue)}</p>
@@ -4907,7 +4923,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           <p className="text-xs text-muted-foreground">{new Date(t.date).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
                         </div>
                         <p className="shrink-0 font-black text-sm" style={{ color: typeStyle[t.type] ?? "#64748b" }}>
-                          {["ingreso", "admin_debit"].includes(t.type) ? "+" : "−"}{fmt(t.amount)}
+                          {["ingreso", "admin_debit"].includes(t.type) ? "+" : "−"}{fmt(Math.abs(t.amount))}
                         </p>
                       </div>
                     ))}

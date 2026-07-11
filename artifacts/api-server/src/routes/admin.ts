@@ -1153,7 +1153,7 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
     return sql.raw("");
   };
 
-  const [rev, prizes, wdrs, balances, refTxs] = await Promise.all([
+  const [rev, prizes, wdrs, balances, refTxs, actSales] = await Promise.all([
     db.execute(sql`SELECT coalesce(sum(g.card_price - c.bonus_amount_used - c.admin_credit_amount_used),0)::text as total, coalesce(sum(c.bonus_amount_used),0)::text as bonus_used, coalesce(sum(c.admin_credit_amount_used),0)::text as admin_credit_used, count(*)::int as count FROM cards c JOIN games g ON c.game_id=g.id WHERE c.payment_status='paid' AND c.is_predefined = false ${dateWhere("c.created_at")}`),
     db.execute(sql`SELECT coalesce(sum(w.prize_amount),0)::text as total, count(*)::int as count FROM winners w JOIN cards c ON c.id = w.card_id WHERE w.validated=true AND c.is_predefined = false ${dateWhere("w.created_at")}`),
     db.execute(sql`SELECT
@@ -1177,9 +1177,11 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
       count(*) FILTER (WHERE admin_credit_balance > 0) as admin_credit_user_count
     FROM users WHERE is_admin=false`),
     db.execute(sql`SELECT coalesce(sum(CASE WHEN type='commission' THEN amount ELSE 0 END),0)::text as commissions_total, coalesce(sum(CASE WHEN type='welcome_bonus' THEN amount ELSE 0 END),0)::text as bonuses_total, count(*) FILTER (WHERE type='commission') as commissions_count, count(*) FILTER (WHERE type='welcome_bonus') as bonuses_count, count(DISTINCT activator_id) FILTER (WHERE type='commission') as activators_count FROM referral_transactions WHERE true ${dateWhere("created_at")}`),
+    // Activator sales: only paid/approved count as real income
+    db.execute(sql`SELECT coalesce(sum(discount_amount),0)::text as total_discount, coalesce(sum(final_price),0)::text as total_revenue, count(*)::int as count, coalesce(sum(quantity),0)::int as cards_count FROM activator_card_sales WHERE status IN ('paid','approved') ${dateWhere("created_at")}`),
   ]);
 
-  const grossRevenue     = parseFloat((rev.rows[0] as any)?.total ?? "0");
+  const rawCardRevenue   = parseFloat((rev.rows[0] as any)?.total ?? "0");
   const bonusSpentOnCards = parseFloat((rev.rows[0] as any)?.bonus_used ?? "0");
   const adminCreditSpentOnCards = parseFloat((rev.rows[0] as any)?.admin_credit_used ?? "0");
   const prizesPaid       = parseFloat((prizes.rows[0] as any)?.total ?? "0");
@@ -1188,10 +1190,20 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
   const adminDebitsTotal  = parseFloat((wdrs.rows[0] as any)?.admin_debits_total ?? "0");
   const commissionsTotal = parseFloat((refTxs.rows[0] as any)?.commissions_total ?? "0");
   const bonusesGranted   = parseFloat((refTxs.rows[0] as any)?.bonuses_total ?? "0");
-  // gross_revenue is REAL money only: card_price - bonus_amount_used - admin_credit_amount_used.
-  // Admin-credited funds injected by the admin and bonus referral credits are already excluded.
+
+  // Activator sales: the rawCardRevenue counts g.card_price for activator-sold cards
+  // but the platform only received final_price (= original_price - discount_amount).
+  // Subtract discount_amount to get the real received amount.
+  const activatorDiscountsTotal = parseFloat((actSales.rows[0] as any)?.total_discount ?? "0");
+  const activatorSalesRevenue   = parseFloat((actSales.rows[0] as any)?.total_revenue ?? "0");
+  const activatorSalesCount     = Number((actSales.rows[0] as any)?.count ?? 0);
+  const activatorCardsFromSales = Number((actSales.rows[0] as any)?.cards_count ?? 0);
+
+  // gross_revenue is REAL money only: card_price - bonus_used - admin_credit_used - activator_discounts.
+  // Admin-credited funds and bonus referral credits are already excluded.
   // Commissions are a redistribution WITHIN the prize pool, not double-counted.
-  const netProfit        = parseFloat((grossRevenue - prizesPaid).toFixed(2));
+  const grossRevenue = parseFloat((rawCardRevenue - activatorDiscountsTotal).toFixed(2));
+  const netProfit    = parseFloat((grossRevenue - prizesPaid).toFixed(2));
 
   const [activeExpenses, committedRows] = await Promise.all([
     db.select().from(operatingExpensesTable).where(eq(operatingExpensesTable.isActive, true)),
@@ -1257,6 +1269,10 @@ router.get("/finance/summary", async (req: AuthRequest, res) => {
     committed_prizes:           committedPrizes,
     committed_prizes_detail:    committedGames,
     distributable_profit:       parseFloat((netProfit - totalExpenses - committedPrizes).toFixed(2)),
+    activator_sales_revenue:    activatorSalesRevenue,
+    activator_discounts_total:  activatorDiscountsTotal,
+    activator_sales_count:      activatorSalesCount,
+    activator_cards_from_sales: activatorCardsFromSales,
   });
 });
 
@@ -1268,10 +1284,13 @@ router.get("/finance/games", async (req: AuthRequest, res) => {
       g.prize_amount::text AS prize_amount,
       g.draw_date,
       count(c.id) FILTER (WHERE c.payment_status='paid' AND c.is_predefined = false) AS cards_sold,
-      coalesce(sum(g.card_price - c.bonus_amount_used) FILTER (WHERE c.payment_status='paid' AND c.is_predefined = false),0)::text AS revenue,
+      (coalesce(sum(g.card_price - c.bonus_amount_used) FILTER (WHERE c.payment_status='paid' AND c.is_predefined = false),0)
+        - coalesce((SELECT sum(acs.discount_amount) FROM activator_card_sales acs WHERE acs.game_id=g.id AND acs.status IN ('paid','approved')),0)
+      )::text AS revenue,
       coalesce((SELECT sum(w.prize_amount) FROM winners w JOIN cards c ON c.id=w.card_id WHERE w.game_id=g.id AND w.validated=true AND c.is_predefined=false),0)::text AS prizes_paid,
       coalesce((SELECT count(*)           FROM winners w JOIN cards c ON c.id=w.card_id WHERE w.game_id=g.id AND w.validated=true AND c.is_predefined=false),0)::int  AS winners_count,
-      coalesce((SELECT sum(rt.amount) FROM referral_transactions rt JOIN winners w ON rt.winner_id=w.id WHERE w.game_id=g.id AND rt.type='commission'),0)::text AS commissions_paid
+      coalesce((SELECT sum(rt.amount) FROM referral_transactions rt JOIN winners w ON rt.winner_id=w.id WHERE w.game_id=g.id AND rt.type='commission'),0)::text AS commissions_paid,
+      coalesce((SELECT sum(acs.discount_amount) FROM activator_card_sales acs WHERE acs.game_id=g.id AND acs.status IN ('paid','approved')),0)::text AS activator_discounts
     FROM games g
     LEFT JOIN cards c ON c.game_id=g.id
     GROUP BY g.id
@@ -1290,6 +1309,7 @@ router.get("/finance/games", async (req: AuthRequest, res) => {
     prizes_paid:      parseFloat(r.prizes_paid ?? "0"),
     winners_count:    Number(r.winners_count ?? 0),
     commissions_paid: parseFloat(r.commissions_paid ?? "0"),
+    activator_discounts: parseFloat(r.activator_discounts ?? "0"),
     net:              parseFloat(r.revenue ?? "0") - parseFloat(r.prizes_paid ?? "0"),
   })));
 });
@@ -1348,6 +1368,15 @@ router.get("/finance/transactions", async (req: AuthRequest, res) => {
       JOIN users u_act ON rt.activator_id = u_act.id
       LEFT JOIN games g ON rt.game_id = g.id
       WHERE rt.type = 'commission' ${dw("rt.created_at")}
+      UNION ALL
+      SELECT 'descuento_activador'::text, acs.created_at, u_act.full_name, g.title,
+             acs.discount_amount::text,
+             ('Desc. ' || acs.discount_amount::text || ' Bs → ' || u_tgt.full_name || ' (' || acs.quantity || ' cartón(es))')::text
+      FROM activator_card_sales acs
+      JOIN users u_act ON acs.activator_user_id = u_act.id
+      JOIN users u_tgt ON acs.target_user_id = u_tgt.id
+      JOIN games g ON acs.game_id = g.id
+      WHERE acs.status IN ('paid','approved') AND acs.discount_amount > 0 ${dw("acs.created_at")}
     ) t
     ORDER BY t.date DESC
     LIMIT ${limit}`);
