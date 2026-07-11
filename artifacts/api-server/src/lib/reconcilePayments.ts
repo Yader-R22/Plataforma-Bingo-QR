@@ -83,7 +83,9 @@ async function reconcile(): Promise<void> {
 
 export function startReconciliationJob(): void {
   // Run once shortly after boot, then on a fixed interval
-  setTimeout(() => void reconcile(), 5_000);
-  setInterval(() => void reconcile(), RECONCILE_INTERVAL_MS);
+  const initTimer = setTimeout(() => void reconcile(), 5_000);
+  initTimer.unref();
+  const job = setInterval(() => void reconcile(), RECONCILE_INTERVAL_MS);
+  job.unref();
   logger.info({ intervalMs: RECONCILE_INTERVAL_MS }, "Payment reconciliation job started");
 }

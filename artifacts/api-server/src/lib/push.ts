@@ -61,8 +61,15 @@ export async function sendPushToUsers(userIds: number[], payload: PushPayload): 
 
 export async function sendPushToAll(payload: PushPayload): Promise<{ sent: number; failed: number }> {
   const subs = await db.select().from(pushSubscriptionsTable);
-  const results = await Promise.allSettled(subs.map((s) => send(s.endpoint, s.p256dh, s.auth, payload)));
-  const sent = results.filter((r) => r.status === "fulfilled" && r.value).length;
-  const failed = results.length - sent;
+  let sent = 0;
+  let failed = 0;
+  // Process in batches of 20 to avoid loading all subs into memory at once
+  const BATCH = 20;
+  for (let i = 0; i < subs.length; i += BATCH) {
+    const batch = subs.slice(i, i + BATCH);
+    const results = await Promise.allSettled(batch.map((s) => send(s.endpoint, s.p256dh, s.auth, payload)));
+    sent  += results.filter((r) => r.status === "fulfilled" && r.value).length;
+    failed += results.filter((r) => r.status !== "fulfilled" || !r.value).length;
+  }
   return { sent, failed };
 }

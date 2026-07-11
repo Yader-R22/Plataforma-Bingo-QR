@@ -11,12 +11,13 @@ const router = Router();
 // ── In-memory rate limiter for CI check (3 failures → 24h block per IP) ──────
 const ciCheckAttempts = new Map<string, { failures: number; blockedUntil: Date | null }>();
 
-// Purge expired / clean entries every hour to prevent unbounded growth
+// Purge expired entries every hour to prevent unbounded growth
 setInterval(() => {
   const now = Date.now();
   for (const [ip, entry] of ciCheckAttempts) {
-    const expired = !entry.blockedUntil || entry.blockedUntil.getTime() < now;
-    if (expired && entry.failures === 0) ciCheckAttempts.delete(ip);
+    // Delete any entry whose block period has expired — regardless of failure count
+    const blockExpired = !entry.blockedUntil || entry.blockedUntil.getTime() < now;
+    if (blockExpired) ciCheckAttempts.delete(ip);
   }
 }, 60 * 60 * 1000).unref();
 
