@@ -39,6 +39,7 @@ const generalLimiter = rateLimit({
 });
 
 const app: Express = express();
+app.set("trust proxy", 1); // VPS está detrás de Nginx — confiar en X-Forwarded-For
 app.disable("etag");
 
 // ── Security headers (helmet) ─────────────────────────────────────────────────
