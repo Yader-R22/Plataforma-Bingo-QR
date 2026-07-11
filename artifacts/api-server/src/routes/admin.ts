@@ -1856,6 +1856,20 @@ router.get("/system/health", async (req: AuthRequest, res) => {
   });
 });
 
+// ── GET /api/admin/system/auto-restart ───────────────────────────────────────
+router.get("/system/auto-restart", async (_req: AuthRequest, res) => {
+  const { getAutoRestartConfig } = await import("../lib/autoRestart");
+  res.json(getAutoRestartConfig());
+});
+
+// ── POST /api/admin/system/auto-restart ──────────────────────────────────────
+router.post("/system/auto-restart", async (req: AuthRequest, res) => {
+  const { setAutoRestartConfig } = await import("../lib/autoRestart");
+  const { enabled, threshold } = req.body as { enabled?: boolean; threshold?: number };
+  const updated = setAutoRestartConfig({ enabled, threshold });
+  res.json(updated);
+});
+
 // ── POST /api/admin/system/restart ───────────────────────────────────────────
 router.post("/system/restart", async (req: AuthRequest, res) => {
   req.log.warn({ admin_id: req.userId ?? null }, "Admin triggered server restart");

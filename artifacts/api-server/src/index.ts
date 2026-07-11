@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { seedGameCategories } from "./lib/seed";
 import { startReconciliationJob } from "./lib/reconcilePayments";
+import { startAutoRestartWatcher } from "./lib/autoRestart";
 
 const rawPort = process.env["PORT"];
 
@@ -26,4 +27,5 @@ app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
   void seedGameCategories();
   startReconciliationJob();
+  startAutoRestartWatcher();
 });

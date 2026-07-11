@@ -931,6 +931,8 @@ export default function AdminPage() {
   const [sysLoading, setSysLoading] = useState(false);
   const [sysRestarting, setSysRestarting] = useState(false);
   const [sysConfirm, setSysConfirm] = useState(false);
+  const [autoRestart, setAutoRestart] = useState<{ enabled: boolean; threshold: number } | null>(null);
+  const [autoRestartSaving, setAutoRestartSaving] = useState(false);
   const [activatorSaleNotes, setActivatorSaleNotes] = useState<Record<number, string>>({});
   const [activatorSaleRefunds, setActivatorSaleRefunds] = useState<Record<number, string>>({});
   const [activatorSaleSettings, setActivatorSaleSettings] = useState({ card_sale_enabled: true, card_sale_discount_type: "percentage" as "percentage" | "fixed", card_sale_discount_value: 10 });
@@ -6523,6 +6525,22 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               if (r.ok) setSysHealth(await r.json());
             } finally { setSysLoading(false); }
           }
+          async function fetchAutoRestart() {
+            const r = await fetch(`${BASE}/api/admin/system/auto-restart`, { headers: authH() });
+            if (r.ok) setAutoRestart(await r.json());
+          }
+          async function saveAutoRestart(patch: Partial<{ enabled: boolean; threshold: number }>) {
+            setAutoRestartSaving(true);
+            try {
+              const current = autoRestart ?? { enabled: false, threshold: 92 };
+              const body = { ...current, ...patch };
+              const r = await fetch(`${BASE}/api/admin/system/auto-restart`, {
+                method: "POST", headers: { ...authH(), "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+              });
+              if (r.ok) { setAutoRestart(await r.json()); toast.success("Configuración guardada"); }
+            } finally { setAutoRestartSaving(false); }
+          }
           async function restartServer() {
             setSysRestarting(true);
             try {
@@ -6629,7 +6647,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       disabled={sysRestarting}
                       className="w-full py-3.5 rounded-2xl font-black text-sm disabled:opacity-40 flex items-center justify-center gap-2"
                       style={{ background: "hsl(0 75% 95%)", color: "hsl(0 75% 35%)", border: "1px solid hsl(0 75% 75%)" }}>
-                      🔁 Reiniciar servidor
+                      🔁 Reiniciar servidor manualmente
                     </button>
                   ) : (
                     <div className="rounded-2xl p-4 space-y-3"
@@ -6656,6 +6674,74 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   )}
                 </>
               )}
+
+              {/* ── Auto-reinicio ─────────────────────────────────── */}
+              <div className="bg-card border rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold">🤖 Reinicio automático</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      El servidor se reinicia solo cuando la RAM supera el umbral
+                    </p>
+                  </div>
+                  {autoRestart === null ? (
+                    <button onClick={fetchAutoRestart}
+                      className="text-xs font-bold px-3 py-1.5 rounded-xl"
+                      style={{ background: "hsl(var(--muted))" }}>
+                      Cargar
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => saveAutoRestart({ enabled: !autoRestart.enabled })}
+                      disabled={autoRestartSaving}
+                      className="relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50"
+                      style={{ background: autoRestart.enabled ? "hsl(142 70% 40%)" : "hsl(var(--muted))" }}
+                      role="switch"
+                      aria-checked={autoRestart.enabled}>
+                      <span
+                        className="pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow-lg transform transition-transform"
+                        style={{ transform: autoRestart.enabled ? "translateX(20px)" : "translateX(0)" }}
+                      />
+                    </button>
+                  )}
+                </div>
+
+                {autoRestart !== null && (
+                  <>
+                    {autoRestart.enabled && (
+                      <div className="rounded-xl px-3 py-2 text-xs font-bold flex items-center gap-2"
+                        style={{ background: "hsl(142 70% 92%)", color: "hsl(142 70% 25%)" }}>
+                        ✅ Activo — se reiniciará automáticamente si la RAM supera {autoRestart.threshold}%
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-muted-foreground">Umbral de RAM</p>
+                        <span className="text-sm font-black" style={{ color: autoRestart.threshold >= 90 ? "#dc2626" : autoRestart.threshold >= 80 ? "#d97706" : "#16a34a" }}>
+                          {autoRestart.threshold}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={50} max={99} step={1}
+                        value={autoRestart.threshold}
+                        onChange={e => setAutoRestart(a => a ? { ...a, threshold: Number(e.target.value) } : a)}
+                        onMouseUp={e => saveAutoRestart({ threshold: Number((e.target as HTMLInputElement).value) })}
+                        onTouchEnd={e => saveAutoRestart({ threshold: Number((e.target as HTMLInputElement).value) })}
+                        className="w-full accent-primary"
+                      />
+                      <div className="flex justify-between text-[10px] text-muted-foreground">
+                        <span>50% (agresivo)</span>
+                        <span>92% (recomendado)</span>
+                        <span>99% (mínimo)</span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      ⏱ Se verifica cada 60 segundos. El servidor vuelve en ~5 seg (pm2 lo relanza).
+                    </p>
+                  </>
+                )}
+              </div>
             </div>
           );
         })()}
