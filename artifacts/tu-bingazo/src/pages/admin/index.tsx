@@ -924,8 +924,11 @@ export default function AdminPage() {
   const [manualPaymentRefunds, setManualPaymentRefunds] = useState<Record<number, string>>({});
   const [manualPaymentAction, setManualPaymentAction] = useState<Record<number, "approve" | "reject" | null>>({});
   const [activatorSales, setActivatorSales] = useState<any[]>([]);
-  const [activatorSalesFilter, setActivatorSalesFilter] = useState<"all" | "pending_approval" | "approved" | "rejected">("pending_approval");
+  const [activatorSalesFilter, setActivatorSalesFilter] = useState<"all" | "pending_approval" | "approved" | "rejected" | "paid">("pending_approval");
   const [activatorSalesLoading, setActivatorSalesLoading] = useState(false);
+  const [activatorSalesHasMore, setActivatorSalesHasMore] = useState(false);
+  const [activatorSalesOffset, setActivatorSalesOffset] = useState(0);
+  const [activatorSalesLoadingMore, setActivatorSalesLoadingMore] = useState(false);
 
   const [sysHealth, setSysHealth] = useState<any>(null);
   const [sysLoading, setSysLoading] = useState(false);
@@ -1281,11 +1284,17 @@ export default function AdminPage() {
       if (t === "ventas-activador") {
         setActivatorSalesLoading(true);
         try {
+          const statusParam = activatorSalesFilter !== "all" ? `&status=${activatorSalesFilter}` : "";
           const [r, sr] = await Promise.all([
-            fetch(`${BASE}/api/activator-sales`, { headers: authH() }),
+            fetch(`${BASE}/api/activator-sales?offset=0${statusParam}`, { headers: authH() }),
             fetch(`${BASE}/api/activator-sales/settings`, { headers: authH() }),
           ]);
-          if (r.ok) setActivatorSales(await r.json());
+          if (r.ok) {
+            const data = await r.json() as { sales: any[]; has_more: boolean };
+            setActivatorSales(data.sales);
+            setActivatorSalesHasMore(data.has_more);
+            setActivatorSalesOffset(data.sales.length);
+          }
           if (sr.ok) setActivatorSaleSettings(await sr.json());
         } finally {
           setActivatorSalesLoading(false);
@@ -7000,17 +7009,38 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
 
         {/* ── Ventas Activador ────────────────────────────────────── */}
         {tab === "ventas-activador" && !loading && (() => {
-          const filtered = activatorSales.filter(s =>
-            activatorSalesFilter === "all" ? true : s.status === activatorSalesFilter
-          );
+          const filtered = activatorSales;
 
-          async function refreshSales() {
+          async function refreshSales(filter?: string) {
+            const f = filter ?? activatorSalesFilter;
             setActivatorSalesLoading(true);
             try {
-              const r = await fetch(`${BASE}/api/activator-sales`, { headers: authH() });
-              if (r.ok) setActivatorSales(await r.json());
+              const statusParam = f !== "all" ? `&status=${f}` : "";
+              const r = await fetch(`${BASE}/api/activator-sales?offset=0${statusParam}`, { headers: authH() });
+              if (r.ok) {
+                const data = await r.json() as { sales: any[]; has_more: boolean };
+                setActivatorSales(data.sales);
+                setActivatorSalesHasMore(data.has_more);
+                setActivatorSalesOffset(data.sales.length);
+              }
             } finally {
               setActivatorSalesLoading(false);
+            }
+          }
+
+          async function loadMoreSales() {
+            setActivatorSalesLoadingMore(true);
+            try {
+              const statusParam = activatorSalesFilter !== "all" ? `&status=${activatorSalesFilter}` : "";
+              const r = await fetch(`${BASE}/api/activator-sales?offset=${activatorSalesOffset}${statusParam}`, { headers: authH() });
+              if (r.ok) {
+                const data = await r.json() as { sales: any[]; has_more: boolean };
+                setActivatorSales(prev => [...prev, ...data.sales]);
+                setActivatorSalesHasMore(data.has_more);
+                setActivatorSalesOffset(prev => prev + data.sales.length);
+              }
+            } finally {
+              setActivatorSalesLoadingMore(false);
             }
           }
 
@@ -7097,7 +7127,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             <div className="space-y-5">
               <div className="flex items-center justify-between">
                 <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>🛒 Ventas de Activadores</h2>
-                <button onClick={refreshSales} disabled={activatorSalesLoading}
+                <button onClick={() => void refreshSales()} disabled={activatorSalesLoading}
                   className="text-xs px-3 py-1.5 rounded-xl font-bold"
                   style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
                   {activatorSalesLoading ? "..." : "🔄 Actualizar"}
@@ -7151,15 +7181,17 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
 
               {/* Filter tabs */}
               <div className="flex gap-2 flex-wrap">
-                {(["pending_approval", "all", "approved", "rejected", "paid"] as const).map(f => (
-                  <button key={f} onClick={() => setActivatorSalesFilter(f as any)}
+                {(["pending_approval", "all", "approved", "paid", "rejected"] as const).map(f => (
+                  <button key={f} onClick={() => {
+                    setActivatorSalesFilter(f);
+                    void refreshSales(f);
+                  }}
                     className="px-3 py-1.5 rounded-xl text-xs font-bold transition-colors"
                     style={{
                       background: activatorSalesFilter === f ? "hsl(var(--primary))" : "hsl(var(--muted))",
                       color: activatorSalesFilter === f ? "white" : "hsl(var(--foreground))",
                     }}>
                     {f === "pending_approval" ? "Pendientes" : f === "all" ? "Todos" : f === "approved" ? "Aprobados" : f === "paid" ? "Pagados (Enlazo)" : "Rechazados"}
-                    {f !== "all" && ` (${activatorSales.filter(s => s.status === f).length})`}
                   </button>
                 ))}
               </div>
@@ -7337,6 +7369,16 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   );
                 })}
               </div>
+
+              {activatorSalesHasMore && (
+                <button
+                  onClick={() => void loadMoreSales()}
+                  disabled={activatorSalesLoadingMore}
+                  className="w-full py-3 rounded-2xl text-sm font-bold border disabled:opacity-60"
+                  style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}>
+                  {activatorSalesLoadingMore ? "Cargando..." : `⬇️ Cargar más ventas`}
+                </button>
+              )}
             </div>
           );
         })()}

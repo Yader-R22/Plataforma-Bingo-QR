@@ -362,11 +362,19 @@ router.post("/:id/receipt", requireAuth, requireActivator, async (req: AuthReque
 });
 
 // ── GET /api/activator-sales/ (admin) ─────────────────────────────────────────
+// Soporta ?status=xxx&offset=N  →  devuelve { sales: [...], has_more: boolean }
+const SALES_PAGE_SIZE = 50;
 router.get("/", requireAdmin, async (req: AuthRequest, res) => {
   const statusFilter = req.query.status as string | undefined;
-  const whereClause = statusFilter && ["pending_payment","paid","pending_approval","approved","rejected"].includes(statusFilter)
+  const offset = Math.max(0, parseInt(String(req.query.offset ?? "0")) || 0);
+  const validStatuses = ["pending_payment","paid","pending_approval","approved","rejected"];
+
+  const whereClause = statusFilter && validStatuses.includes(statusFilter)
     ? sql`WHERE acs.status = ${statusFilter}`
     : sql``;
+
+  // Pedir un registro extra para saber si hay más páginas
+  const fetchLimit = SALES_PAGE_SIZE + 1;
 
   const rows = await db.execute(sql`
     SELECT
@@ -392,27 +400,35 @@ router.get("/", requireAdmin, async (req: AuthRequest, res) => {
     LEFT JOIN users ut ON ut.id = acs.target_user_id
     ${whereClause}
     ORDER BY acs.created_at DESC
-    LIMIT 200
+    LIMIT ${fetchLimit} OFFSET ${offset}
   `);
 
-  res.json((rows.rows as any[]).map(r => ({
-    id: Number(r.id),
-    game_title: r.game_title as string,
-    activator_name: r.activator_name as string,
-    activator_ci: r.activator_ci as string,
-    target_name: r.target_name as string,
-    target_ci: r.target_ci as string,
-    quantity: Number(r.quantity),
-    original_price: parseFloat(r.original_price),
-    discount_amount: parseFloat(r.discount_amount),
-    final_price: parseFloat(r.final_price),
-    payment_method: r.payment_method as string,
-    status: r.status as string,
-    receipt_url: r.receipt_url as string | null,
-    admin_notes: r.admin_notes as string | null,
-    reviewed_at: r.reviewed_at as string | null,
-    created_at: r.created_at as string,
-  })));
+  const allRows = rows.rows as any[];
+  const hasMore = allRows.length > SALES_PAGE_SIZE;
+  const pageRows = hasMore ? allRows.slice(0, SALES_PAGE_SIZE) : allRows;
+
+  res.json({
+    sales: pageRows.map(r => ({
+      id: Number(r.id),
+      game_title: r.game_title as string,
+      activator_name: r.activator_name as string,
+      activator_ci: r.activator_ci as string,
+      target_name: r.target_name as string,
+      target_ci: r.target_ci as string,
+      quantity: Number(r.quantity),
+      original_price: parseFloat(r.original_price),
+      discount_amount: parseFloat(r.discount_amount),
+      final_price: parseFloat(r.final_price),
+      payment_method: r.payment_method as string,
+      status: r.status as string,
+      receipt_url: r.receipt_url as string | null,
+      admin_notes: r.admin_notes as string | null,
+      reviewed_at: r.reviewed_at as string | null,
+      created_at: r.created_at as string,
+    })),
+    has_more: hasMore,
+    offset,
+  });
 });
 
 // ── PUT /api/activator-sales/:id/approve (admin) ──────────────────────────────
