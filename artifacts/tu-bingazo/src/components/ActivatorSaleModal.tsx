@@ -326,12 +326,35 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
     }
   }
 
+  function compressToBlob(file: File, maxPx = 1200, quality = 0.78): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = ev => {
+        const img = new Image();
+        img.onerror = reject;
+        img.onload = () => {
+          const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+          canvas.toBlob(b => b ? resolve(b) : reject(new Error("compress failed")), "image/webp", quality);
+        };
+        img.src = ev.target!.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
   async function submitReceipt() {
     if (!receiptFile || !saleId) return;
     setUploadingReceipt(true);
     try {
+      const blob = await compressToBlob(receiptFile);
       const form = new FormData();
-      form.append("receipt", receiptFile);
+      form.append("receipt", blob, "comprobante.webp");
       const up = await fetch(`${BASE}/api/manual-payments/upload-receipt`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -559,12 +582,13 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
               )}
 
               {qrImage && (
-                <div className="flex flex-col items-center gap-2">
-                  <img src={qrImage} alt="QR Enlazo Pay"
-                    className="w-56 h-56 object-contain rounded-2xl border"
-                    style={{ borderColor: "hsl(var(--border))" }} />
-                  <p className="text-[10px] text-muted-foreground">
-                    Puedes cerrar esta ventana y pagar después con el QR descargado
+                <div className="flex flex-col items-center gap-3">
+                  <div className="rounded-2xl p-3 bg-white shadow-md">
+                    <img src={qrImage} alt="QR Enlazo Pay"
+                      className="w-52 h-52 object-contain rounded-xl" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Escanea con tu app bancaria o billetera digital
                   </p>
                 </div>
               )}
@@ -591,9 +615,9 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
               )}
 
               <button onClick={onClose}
-                className="w-full py-3 rounded-2xl font-bold text-sm"
+                className="w-full py-3 rounded-2xl font-bold text-sm text-muted-foreground"
                 style={{ background: "hsl(var(--muted))" }}>
-                Cerrar (el QR sigue vigente)
+                Cerrar
               </button>
             </div>
           )}
