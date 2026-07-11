@@ -65,23 +65,26 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
   const authH = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${token}` });
 
   useEffect(() => {
+    // Games + activator settings unlock the UI — site-settings loads silently in background
     Promise.all([
       fetch(`${BASE}/api/activator-sales/games`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`${BASE}/api/activator-sales/settings`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${BASE}/api/site-settings`),
-    ]).then(async ([gr, sr, siteR]) => {
+    ]).then(async ([gr, sr]) => {
       if (gr.ok) setGames(await gr.json());
       if (sr.ok) setSettings(await sr.json());
-      if (siteR.ok) {
-        const s = await siteR.json();
-        setSiteSettings({
-          site_name: s.site_name ?? "El Bingote",
-          site_tagline: s.site_tagline ?? "¡Juega y gana!",
-          site_emoji: s.site_emoji ?? "🎱",
-          qr_background_url: s.qr_background_url ?? null,
-        });
-      }
     }).finally(() => setLoadingGames(false));
+
+    // Site settings only needed for QR download — don't block the games list
+    fetch(`${BASE}/api/site-settings`).then(async r => {
+      if (!r.ok) return;
+      const s = await r.json();
+      setSiteSettings({
+        site_name: s.site_name ?? "El Bingote",
+        site_tagline: s.site_tagline ?? "¡Juega y gana!",
+        site_emoji: s.site_emoji ?? "🎱",
+        qr_background_url: s.qr_background_url ?? null,
+      });
+    }).catch(() => {});
   }, [token]);
 
   // Polling for Enlazo payment
