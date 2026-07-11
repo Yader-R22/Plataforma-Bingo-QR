@@ -387,10 +387,13 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
               )}
 
               {qrImage && (
-                <div className="flex justify-center">
+                <div className="flex flex-col items-center gap-2">
                   <img src={qrImage} alt="QR Enlazo Pay"
                     className="w-56 h-56 object-contain rounded-2xl border"
                     style={{ borderColor: "hsl(var(--border))" }} />
+                  <p className="text-[10px] text-muted-foreground">
+                    Puedes cerrar esta ventana y pagar después con el QR descargado
+                  </p>
                 </div>
               )}
 
@@ -406,10 +409,24 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
                 </div>
               )}
 
+              {qrImage && (
+                <button
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = qrImage!;
+                    a.download = `qr-bingo-${saleId ?? "pago"}.png`;
+                    a.click();
+                  }}
+                  className="w-full py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2"
+                  style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))", border: "1px solid hsl(var(--primary) / 0.3)" }}>
+                  ⬇️ Descargar código QR
+                </button>
+              )}
+
               <button onClick={onClose}
                 className="w-full py-3 rounded-2xl font-bold text-sm"
                 style={{ background: "hsl(var(--muted))" }}>
-                Cancelar
+                Cerrar (el QR sigue vigente)
               </button>
             </div>
           )}

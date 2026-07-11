@@ -9,6 +9,7 @@ import {
   activatorSettingsTable,
   activatorCardSalesTable,
   auditLogsTable,
+  withdrawalsTable,
 } from "@workspace/db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
@@ -490,8 +491,11 @@ router.put("/:id/reject", requireAdmin, async (req: AuthRequest, res) => {
   const id = parseInt(String(req.params.id));
   if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
 
-  const { notes } = req.body as { notes?: string };
+  const { notes, refund_amount } = req.body as { notes?: string; refund_amount?: number };
   if (!notes?.trim()) { res.status(400).json({ error: "El motivo de rechazo es obligatorio" }); return; }
+
+  const refundAmt = typeof refund_amount === "number" ? refund_amount : 0;
+  if (refundAmt < 0) { res.status(400).json({ error: "El monto de reembolso no puede ser negativo" }); return; }
 
   const [sale] = await db.select().from(activatorCardSalesTable)
     .where(eq(activatorCardSalesTable.id, id)).limit(1);
@@ -529,12 +533,27 @@ router.put("/:id/reject", requireAdmin, async (req: AuthRequest, res) => {
           eq(cardsTable.status, "pending_payment"),
         ));
     }
+
+    // Reembolso opcional: acreditar billetera del activador
+    if (refundAmt > 0) {
+      await tx.insert(withdrawalsTable).values({
+        userId:  sale.activatorUserId,
+        amount:  String(refundAmt),
+        method:  "refund",
+        status:  "paid",
+        notes:   `Reembolso por venta rechazada — ${notes.trim()}`,
+        paidAt:  new Date(),
+      });
+      await tx.execute(
+        sql`UPDATE users SET balance = balance + ${refundAmt} WHERE id = ${sale.activatorUserId}`
+      );
+    }
   });
 
   if (alreadyDone) { res.status(400).json({ error: "Ya fue procesada" }); return; }
 
-  req.log.info({ admin_id: req.userId, sale_id: id }, "activator card sale rejected");
-  res.json({ id, status: "rejected" });
+  req.log.info({ admin_id: req.userId, sale_id: id, refund_amount: refundAmt }, "activator card sale rejected");
+  res.json({ id, status: "rejected", refund_amount: refundAmt });
 });
 
 export { router as activatorSalesRouter };

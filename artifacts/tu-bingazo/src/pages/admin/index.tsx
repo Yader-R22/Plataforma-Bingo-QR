@@ -926,6 +926,7 @@ export default function AdminPage() {
   const [activatorSalesFilter, setActivatorSalesFilter] = useState<"all" | "pending_approval" | "approved" | "rejected">("pending_approval");
   const [activatorSalesLoading, setActivatorSalesLoading] = useState(false);
   const [activatorSaleNotes, setActivatorSaleNotes] = useState<Record<number, string>>({});
+  const [activatorSaleRefunds, setActivatorSaleRefunds] = useState<Record<number, string>>({});
   const [activatorSaleSettings, setActivatorSaleSettings] = useState({ card_sale_enabled: true, card_sale_discount_type: "percentage" as "percentage" | "fixed", card_sale_discount_value: 10 });
   const [savingActivatorSettings, setSavingActivatorSettings] = useState(false);
   const [receiptLightbox, setReceiptLightbox] = useState<string | null>(null);
@@ -6797,13 +6798,18 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           async function rejectSale(id: number) {
             const notes = activatorSaleNotes[id] || "";
             if (!notes.trim()) { toast.error("Debes escribir un motivo de rechazo"); return; }
+            const refundRaw = activatorSaleRefunds[id] || "0";
+            const refund_amount = parseFloat(refundRaw) || 0;
             const r = await fetch(`${BASE}/api/activator-sales/${id}/reject`, {
               method: "PUT",
               headers: authH(),
-              body: JSON.stringify({ notes }),
+              body: JSON.stringify({ notes, refund_amount }),
             });
             if (r.ok) {
-              toast.success("Venta rechazada");
+              const d = await r.json().catch(() => ({}));
+              toast.success(refund_amount > 0
+                ? `Venta rechazada — Bs ${refund_amount.toFixed(2)} reembolsados a billetera del activador`
+                : "Venta rechazada");
               await refreshSales();
             } else {
               const d = await r.json().catch(() => ({}));
@@ -6999,6 +7005,25 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                               value={notes}
                               onChange={e => setActivatorSaleNotes(prev => ({ ...prev, [s.id]: e.target.value }))}
                             />
+                            {notes.trim() && (
+                              <div className="flex items-center gap-2 rounded-xl border px-3 py-2"
+                                style={{ background: "hsl(42 98% 97%)", borderColor: "hsl(42 98% 75%)" }}>
+                                <span className="text-xs font-bold text-amber-700 shrink-0">💰 Reembolso a billetera activador:</span>
+                                <div className="flex items-center gap-1 flex-1">
+                                  <span className="text-xs font-bold text-amber-700">Bs</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.5"
+                                    placeholder="0.00"
+                                    value={activatorSaleRefunds[s.id] ?? ""}
+                                    onChange={e => setActivatorSaleRefunds(prev => ({ ...prev, [s.id]: e.target.value }))}
+                                    className="flex-1 rounded-lg border px-2 py-1 text-sm bg-background w-20"
+                                  />
+                                </div>
+                                <span className="text-[10px] text-amber-600">opcional</span>
+                              </div>
+                            )}
                             <div className="flex gap-2">
                               {!notes.trim() && (
                                 <button onClick={() => approveSale(s.id)}
@@ -7026,11 +7051,30 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                               onChange={e => setActivatorSaleNotes(prev => ({ ...prev, [s.id]: e.target.value }))}
                             />
                             {notes.trim() && (
-                              <button onClick={() => rejectSale(s.id)}
-                                className="w-full py-2.5 rounded-xl font-black text-sm text-white"
-                                style={{ background: "hsl(0 75% 45%)" }}>
-                                ❌ Rechazar sin comprobante
-                              </button>
+                              <>
+                                <div className="flex items-center gap-2 rounded-xl border px-3 py-2"
+                                  style={{ background: "hsl(42 98% 97%)", borderColor: "hsl(42 98% 75%)" }}>
+                                  <span className="text-xs font-bold text-amber-700 shrink-0">💰 Reembolso a billetera activador:</span>
+                                  <div className="flex items-center gap-1 flex-1">
+                                    <span className="text-xs font-bold text-amber-700">Bs</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.5"
+                                      placeholder="0.00"
+                                      value={activatorSaleRefunds[s.id] ?? ""}
+                                      onChange={e => setActivatorSaleRefunds(prev => ({ ...prev, [s.id]: e.target.value }))}
+                                      className="flex-1 rounded-lg border px-2 py-1 text-sm bg-background w-20"
+                                    />
+                                  </div>
+                                  <span className="text-[10px] text-amber-600">opcional</span>
+                                </div>
+                                <button onClick={() => rejectSale(s.id)}
+                                  className="w-full py-2.5 rounded-xl font-black text-sm text-white"
+                                  style={{ background: "hsl(0 75% 45%)" }}>
+                                  ❌ Rechazar sin comprobante
+                                </button>
+                              </>
                             )}
                           </div>
                         )}
