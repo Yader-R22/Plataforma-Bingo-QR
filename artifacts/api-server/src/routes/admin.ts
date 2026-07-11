@@ -83,6 +83,14 @@ router.post("/users/:id/verify", async (req: AuthRequest, res) => {
 });
 
 router.get("/name-change-requests", async (req: AuthRequest, res) => {
+  const offset = Math.max(0, parseInt(String(req.query.offset ?? "0")) || 0);
+  const statusFilter = req.query.status as string | undefined;
+  const fetchLimit = ADMIN_PAGE_SIZE + 1;
+
+  const whereClause = statusFilter && ["pending","approved","rejected"].includes(statusFilter)
+    ? eq(nameChangeRequestsTable.status, statusFilter as "pending"|"approved"|"rejected")
+    : undefined;
+
   const rows = await db
     .select({
       r: nameChangeRequestsTable,
@@ -93,22 +101,39 @@ router.get("/name-change-requests", async (req: AuthRequest, res) => {
     })
     .from(nameChangeRequestsTable)
     .leftJoin(usersTable, eq(nameChangeRequestsTable.userId, usersTable.id))
-    .orderBy(desc(nameChangeRequestsTable.createdAt));
-  res.json(rows.map(({ r, userName, userCi, regPhotoFront, regPhotoBack }) => ({
-    id: r.id,
-    user_id: r.userId,
-    user_name: userName ?? null,
-    user_ci: userCi ?? null,
-    requested_name: r.requestedName,
-    reg_photo_front_url: regPhotoFront ?? null,
-    reg_photo_back_url: regPhotoBack ?? null,
-    status: r.status,
-    admin_notes: r.adminNotes ?? null,
-    created_at: r.createdAt,
-  })));
+    .where(whereClause)
+    .orderBy(desc(nameChangeRequestsTable.createdAt))
+    .limit(fetchLimit).offset(offset);
+
+  const hasMore = rows.length > ADMIN_PAGE_SIZE;
+  const pageRows = hasMore ? rows.slice(0, ADMIN_PAGE_SIZE) : rows;
+
+  res.json({
+    items: pageRows.map(({ r, userName, userCi, regPhotoFront, regPhotoBack }) => ({
+      id: r.id,
+      user_id: r.userId,
+      user_name: userName ?? null,
+      user_ci: userCi ?? null,
+      requested_name: r.requestedName,
+      reg_photo_front_url: regPhotoFront ?? null,
+      reg_photo_back_url: regPhotoBack ?? null,
+      status: r.status,
+      admin_notes: r.adminNotes ?? null,
+      created_at: r.createdAt,
+    })),
+    has_more: hasMore,
+  });
 });
 
 router.get("/ci-change-requests", async (req: AuthRequest, res) => {
+  const offset = Math.max(0, parseInt(String(req.query.offset ?? "0")) || 0);
+  const statusFilter = req.query.status as string | undefined;
+  const fetchLimit = ADMIN_PAGE_SIZE + 1;
+
+  const whereClause = statusFilter && ["pending","approved","rejected"].includes(statusFilter)
+    ? eq(ciChangeRequestsTable.status, statusFilter as "pending"|"approved"|"rejected")
+    : undefined;
+
   const rows = await db
     .select({
       r: ciChangeRequestsTable,
@@ -118,21 +143,30 @@ router.get("/ci-change-requests", async (req: AuthRequest, res) => {
     })
     .from(ciChangeRequestsTable)
     .leftJoin(usersTable, eq(ciChangeRequestsTable.userId, usersTable.id))
-    .orderBy(desc(ciChangeRequestsTable.createdAt));
-  res.json(rows.map(({ r, userName, regPhotoFront, regPhotoBack }) => ({
-    id: r.id,
-    user_id: r.userId,
-    user_name: userName ?? null,
-    current_ci: r.currentCi,
-    requested_ci: r.requestedCi,
-    photo_front_url: r.photoFrontUrl ?? null,
-    photo_back_url: r.photoBackUrl ?? null,
-    reg_photo_front_url: regPhotoFront ?? null,
-    reg_photo_back_url: regPhotoBack ?? null,
-    status: r.status,
-    admin_notes: r.adminNotes ?? null,
-    created_at: r.createdAt,
-  })));
+    .where(whereClause)
+    .orderBy(desc(ciChangeRequestsTable.createdAt))
+    .limit(fetchLimit).offset(offset);
+
+  const hasMore = rows.length > ADMIN_PAGE_SIZE;
+  const pageRows = hasMore ? rows.slice(0, ADMIN_PAGE_SIZE) : rows;
+
+  res.json({
+    items: pageRows.map(({ r, userName, regPhotoFront, regPhotoBack }) => ({
+      id: r.id,
+      user_id: r.userId,
+      user_name: userName ?? null,
+      current_ci: r.currentCi,
+      requested_ci: r.requestedCi,
+      photo_front_url: r.photoFrontUrl ?? null,
+      photo_back_url: r.photoBackUrl ?? null,
+      reg_photo_front_url: regPhotoFront ?? null,
+      reg_photo_back_url: regPhotoBack ?? null,
+      status: r.status,
+      admin_notes: r.adminNotes ?? null,
+      created_at: r.createdAt,
+    })),
+    has_more: hasMore,
+  });
 });
 
 router.patch("/ci-change-requests/:id", async (req: AuthRequest, res) => {
@@ -216,8 +250,13 @@ router.patch("/name-change-requests/:id", async (req: AuthRequest, res) => {
   }).catch(() => {});
 });
 
+const ADMIN_PAGE_SIZE = 50;
+
 router.get("/withdrawals", async (req: AuthRequest, res) => {
   const query = AdminListWithdrawalsQueryParams.safeParse(req.query);
+  const offset = Math.max(0, parseInt(String(req.query.offset ?? "0")) || 0);
+  const fetchLimit = ADMIN_PAGE_SIZE + 1;
+
   let rows;
   if (query.success && query.data.status) {
     rows = await db
@@ -225,29 +264,37 @@ router.get("/withdrawals", async (req: AuthRequest, res) => {
       .from(withdrawalsTable)
       .leftJoin(usersTable, eq(withdrawalsTable.userId, usersTable.id))
       .where(eq(withdrawalsTable.status, query.data.status as "pending" | "paid" | "rejected"))
-      .orderBy(desc(withdrawalsTable.createdAt));
+      .orderBy(desc(withdrawalsTable.createdAt))
+      .limit(fetchLimit).offset(offset);
   } else {
     rows = await db
       .select({ w: withdrawalsTable, userName: usersTable.fullName })
       .from(withdrawalsTable)
       .leftJoin(usersTable, eq(withdrawalsTable.userId, usersTable.id))
-      .orderBy(desc(withdrawalsTable.createdAt));
+      .orderBy(desc(withdrawalsTable.createdAt))
+      .limit(fetchLimit).offset(offset);
   }
-  res.json(rows.map(({ w, userName }) => ({
-    id: w.id,
-    user_id: w.userId,
-    user_name: userName ?? null,
-    amount: parseFloat(w.amount),
-    method: w.method,
-    status: w.status,
-    bank_qr_url: w.bankQrUrl ?? null,
-    bank_account_info: w.bankAccountInfo ?? null,
-    payment_proof_url: w.paymentProofUrl ?? null,
-    withdrawal_pin: w.withdrawalPin ?? null,
-    notes: w.notes ?? null,
-    created_at: w.createdAt,
-    paid_at: w.paidAt ?? null,
-  })));
+  const hasMore = rows.length > ADMIN_PAGE_SIZE;
+  const pageRows = hasMore ? rows.slice(0, ADMIN_PAGE_SIZE) : rows;
+
+  res.json({
+    items: pageRows.map(({ w, userName }) => ({
+      id: w.id,
+      user_id: w.userId,
+      user_name: userName ?? null,
+      amount: parseFloat(w.amount),
+      method: w.method,
+      status: w.status,
+      bank_qr_url: w.bankQrUrl ?? null,
+      bank_account_info: w.bankAccountInfo ?? null,
+      payment_proof_url: w.paymentProofUrl ?? null,
+      withdrawal_pin: w.withdrawalPin ?? null,
+      notes: w.notes ?? null,
+      created_at: w.createdAt,
+      paid_at: w.paidAt ?? null,
+    })),
+    has_more: hasMore,
+  });
 });
 
 router.post("/withdrawals/:id/mark-paid", async (req: AuthRequest, res) => {
@@ -619,23 +666,29 @@ router.post("/winners/:id/validate", async (req: AuthRequest, res) => {
 });
 
 router.get("/audit-logs", async (req: AuthRequest, res) => {
-  const query = AdminGetAuditLogsQueryParams.safeParse(req.query);
-  const limit = (query.success && query.data.limit) ? query.data.limit : 50;
+  const offset = Math.max(0, parseInt(String(req.query.offset ?? "0")) || 0);
+  const fetchLimit = ADMIN_PAGE_SIZE + 1;
 
-  let logs = await db.select().from(auditLogsTable)
+  const logs = await db.select().from(auditLogsTable)
     .orderBy(desc(auditLogsTable.createdAt))
-    .limit(limit);
+    .limit(fetchLimit).offset(offset);
 
-  res.json(logs.map(l => ({
-    id: l.id,
-    action: l.action,
-    user_id: l.userId ?? null,
-    game_id: l.gameId ?? null,
-    card_id: l.cardId ?? null,
-    details: l.details ?? {},
-    ip_address: l.ipAddress ?? null,
-    created_at: l.createdAt,
-  })));
+  const hasMore = logs.length > ADMIN_PAGE_SIZE;
+  const pageLogs = hasMore ? logs.slice(0, ADMIN_PAGE_SIZE) : logs;
+
+  res.json({
+    items: pageLogs.map(l => ({
+      id: l.id,
+      action: l.action,
+      user_id: l.userId ?? null,
+      game_id: l.gameId ?? null,
+      card_id: l.cardId ?? null,
+      details: l.details ?? {},
+      ip_address: l.ipAddress ?? null,
+      created_at: l.createdAt,
+    })),
+    has_more: hasMore,
+  });
 });
 
 router.get("/stats", async (req: AuthRequest, res) => {
@@ -1488,6 +1541,15 @@ router.post("/partners/payments", async (req: AuthRequest, res) => {
 // ── Activator request management ─────────────────────────────────────────────
 
 router.get("/activator-requests", async (req: AuthRequest, res) => {
+  const offset = Math.max(0, parseInt(String(req.query.offset ?? "0")) || 0);
+  const statusFilter = req.query.status as string | undefined;
+  const fetchLimit = ADMIN_PAGE_SIZE + 1;
+
+  const validStatuses = ["pending","accepted","rejected","hold","suspended","banned"];
+  const whereClause = statusFilter && validStatuses.includes(statusFilter)
+    ? eq(activatorRequestsTable.status, statusFilter as any)
+    : undefined;
+
   const rows = await db.select({
     id: activatorRequestsTable.id,
     user_id: activatorRequestsTable.userId,
@@ -1506,9 +1568,14 @@ router.get("/activator-requests", async (req: AuthRequest, res) => {
   })
     .from(activatorRequestsTable)
     .innerJoin(usersTable, eq(activatorRequestsTable.userId, usersTable.id))
-    .orderBy(desc(activatorRequestsTable.createdAt));
+    .where(whereClause)
+    .orderBy(desc(activatorRequestsTable.createdAt))
+    .limit(fetchLimit).offset(offset);
 
-  res.json(rows);
+  const hasMore = rows.length > ADMIN_PAGE_SIZE;
+  const pageRows = hasMore ? rows.slice(0, ADMIN_PAGE_SIZE) : rows;
+
+  res.json({ items: pageRows, has_more: hasMore });
 });
 
 router.post("/activator-requests/:id/review", async (req: AuthRequest, res) => {

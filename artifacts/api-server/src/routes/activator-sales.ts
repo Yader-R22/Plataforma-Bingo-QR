@@ -113,6 +113,10 @@ router.get("/lookup-user", requireAuth, requireActivator, async (req: AuthReques
 
 // ── GET /api/activator-sales/my ───────────────────────────────────────────────
 router.get("/my", requireAuth, requireActivator, async (req: AuthRequest, res) => {
+  const MY_PAGE_SIZE = 50;
+  const offset = Math.max(0, parseInt(String(req.query.offset ?? "0")) || 0);
+  const fetchLimit = MY_PAGE_SIZE + 1;
+
   const rows = await db.execute(sql`
     SELECT
       acs.id,
@@ -133,24 +137,31 @@ router.get("/my", requireAuth, requireActivator, async (req: AuthRequest, res) =
     LEFT JOIN users u ON u.id = acs.target_user_id
     WHERE acs.activator_user_id = ${req.userId!}
     ORDER BY acs.created_at DESC
-    LIMIT 50
+    LIMIT ${fetchLimit} OFFSET ${offset}
   `);
 
-  res.json((rows.rows as any[]).map(r => ({
-    id: Number(r.id),
-    game_title: r.game_title as string,
-    target_name: r.target_name as string,
-    target_ci: r.target_ci as string,
-    quantity: Number(r.quantity),
-    original_price: parseFloat(r.original_price),
-    discount_amount: parseFloat(r.discount_amount),
-    final_price: parseFloat(r.final_price),
-    payment_method: r.payment_method as string,
-    status: r.status as string,
-    receipt_url: r.receipt_url as string | null,
-    admin_notes: r.admin_notes as string | null,
-    created_at: r.created_at as string,
-  })));
+  const allRows = rows.rows as any[];
+  const hasMore = allRows.length > MY_PAGE_SIZE;
+  const pageRows = hasMore ? allRows.slice(0, MY_PAGE_SIZE) : allRows;
+
+  res.json({
+    sales: pageRows.map(r => ({
+      id: Number(r.id),
+      game_title: r.game_title as string,
+      target_name: r.target_name as string,
+      target_ci: r.target_ci as string,
+      quantity: Number(r.quantity),
+      original_price: parseFloat(r.original_price),
+      discount_amount: parseFloat(r.discount_amount),
+      final_price: parseFloat(r.final_price),
+      payment_method: r.payment_method as string,
+      status: r.status as string,
+      receipt_url: r.receipt_url as string | null,
+      admin_notes: r.admin_notes as string | null,
+      created_at: r.created_at as string,
+    })),
+    has_more: hasMore,
+  });
 });
 
 // ── POST /api/activator-sales/purchase ───────────────────────────────────────

@@ -807,8 +807,14 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [games, setGames] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [withdrawalsHasMore, setWithdrawalsHasMore] = useState(false);
+  const [withdrawalsOffset, setWithdrawalsOffset] = useState(0);
+  const [withdrawalsLoadingMore, setWithdrawalsLoadingMore] = useState(false);
   const [winners, setWinners] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
+  const [logsHasMore, setLogsHasMore] = useState(false);
+  const [logsOffset, setLogsOffset] = useState(0);
+  const [logsLoadingMore, setLogsLoadingMore] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [catDraft, setCatDraft] = useState<Record<number, any>>({});
   const [savingCat, setSavingCat] = useState<number | null>(null);
@@ -831,7 +837,13 @@ export default function AdminPage() {
   const [pendingResets, setPendingResets] = useState<any[]>([]);
   const [approvedResets, setApprovedResets] = useState<any[]>([]);
   const [nameChangeRequests, setNameChangeRequests] = useState<any[]>([]);
+  const [nameChangeHasMore, setNameChangeHasMore] = useState(false);
+  const [nameChangeOffset, setNameChangeOffset] = useState(0);
+  const [nameChangeLoadingMore, setNameChangeLoadingMore] = useState(false);
   const [ciChangeRequests, setCiChangeRequests] = useState<any[]>([]);
+  const [ciChangeHasMore, setCiChangeHasMore] = useState(false);
+  const [ciChangeOffset, setCiChangeOffset] = useState(0);
+  const [ciChangeLoadingMore, setCiChangeLoadingMore] = useState(false);
   const [solicitudAction, setSolicitudAction] = useState<{ id: number; type: "name" | "ci"; approved: boolean; notes: string; loading: boolean } | null>(null);
   const [photoLightbox, setPhotoLightbox] = useState<{ photos: { url: string; label: string }[]; index: number } | null>(null);
   const [nameFilter, setNameFilter] = useState<"pending" | "approved" | "rejected">("pending");
@@ -880,6 +892,9 @@ export default function AdminPage() {
   // gameId → round → winner[]
   const [gameWinners, setGameWinners] = useState<Record<number, Record<number, any[]>>>({});
   const [activatorRequests, setActivatorRequests] = useState<any[]>([]);
+  const [activatorReqHasMore, setActivatorReqHasMore] = useState(false);
+  const [activatorReqOffset, setActivatorReqOffset] = useState(0);
+  const [activatorReqLoadingMore, setActivatorReqLoadingMore] = useState(false);
   const [activatorSettings, setActivatorSettings] = useState<any>(null);
   const [referralStats, setReferralStats] = useState<any>(null);
   const [activatorPerformance, setActivatorPerformance] = useState<any[]>([]);
@@ -1136,16 +1151,26 @@ export default function AdminPage() {
         }
       }
       if (t === "withdrawals") {
-        const r = await fetch(`${BASE}/api/admin/withdrawals`, { headers: authH() });
-        if (r.ok) setWithdrawals(await r.json());
+        const r = await fetch(`${BASE}/api/admin/withdrawals?offset=0`, { headers: authH() });
+        if (r.ok) {
+          const d = await r.json() as { items: any[]; has_more: boolean };
+          setWithdrawals(d.items);
+          setWithdrawalsHasMore(d.has_more);
+          setWithdrawalsOffset(d.items.length);
+        }
       }
       if (t === "winners") {
         const r = await fetch(`${BASE}/api/admin/winners`, { headers: authH(), cache: "no-store" });
         if (r.ok) setWinners(await r.json());
       }
       if (t === "logs") {
-        const r = await fetch(`${BASE}/api/admin/audit-logs`, { headers: authH() });
-        if (r.ok) setLogs(await r.json());
+        const r = await fetch(`${BASE}/api/admin/audit-logs?offset=0`, { headers: authH() });
+        if (r.ok) {
+          const d = await r.json() as { items: any[]; has_more: boolean };
+          setLogs(d.items);
+          setLogsHasMore(d.has_more);
+          setLogsOffset(d.items.length);
+        }
       }
       if (t === "categories") {
         const r = await fetch(`${BASE}/api/categories`, { headers: authH() });
@@ -1159,11 +1184,21 @@ export default function AdminPage() {
       }
       if (t === "solicitudes") {
         const [nR, cR] = await Promise.all([
-          fetch(`${BASE}/api/admin/name-change-requests`, { headers: authH() }),
-          fetch(`${BASE}/api/admin/ci-change-requests`, { headers: authH() }),
+          fetch(`${BASE}/api/admin/name-change-requests?offset=0`, { headers: authH() }),
+          fetch(`${BASE}/api/admin/ci-change-requests?offset=0`, { headers: authH() }),
         ]);
-        if (nR.ok) setNameChangeRequests(await nR.json());
-        if (cR.ok) setCiChangeRequests(await cR.json());
+        if (nR.ok) {
+          const d = await nR.json() as { items: any[]; has_more: boolean };
+          setNameChangeRequests(d.items);
+          setNameChangeHasMore(d.has_more);
+          setNameChangeOffset(d.items.length);
+        }
+        if (cR.ok) {
+          const d = await cR.json() as { items: any[]; has_more: boolean };
+          setCiChangeRequests(d.items);
+          setCiChangeHasMore(d.has_more);
+          setCiChangeOffset(d.items.length);
+        }
       }
       if (t === "resets") {
         const r = await fetch(`${BASE}/api/admin/password-resets`, { headers: authH() });
@@ -1180,7 +1215,12 @@ export default function AdminPage() {
           fetch(`${BASE}/api/admin/referral-stats`, { headers: authH() }),
           fetch(`${BASE}/api/admin/activator-performance`, { headers: authH() }),
         ]);
-        if (rR.ok) setActivatorRequests(await rR.json());
+        if (rR.ok) {
+          const d = await rR.json() as { items: any[]; has_more: boolean };
+          setActivatorRequests(d.items);
+          setActivatorReqHasMore(d.has_more);
+          setActivatorReqOffset(d.items.length);
+        }
         if (sR.ok) {
           const s = await sR.json();
           setActivatorSettings(s);
@@ -4401,6 +4441,26 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               );
             })}
             {withdrawals.length === 0 && <p className="text-center text-muted-foreground py-8">Sin retiros</p>}
+            {withdrawalsHasMore && (
+              <button
+                onClick={async () => {
+                  setWithdrawalsLoadingMore(true);
+                  try {
+                    const r = await fetch(`${BASE}/api/admin/withdrawals?offset=${withdrawalsOffset}`, { headers: authH() });
+                    if (r.ok) {
+                      const d = await r.json() as { items: any[]; has_more: boolean };
+                      setWithdrawals(prev => [...prev, ...d.items]);
+                      setWithdrawalsHasMore(d.has_more);
+                      setWithdrawalsOffset(prev => prev + d.items.length);
+                    }
+                  } finally { setWithdrawalsLoadingMore(false); }
+                }}
+                disabled={withdrawalsLoadingMore}
+                className="w-full py-3 rounded-2xl text-sm font-bold border mt-2 disabled:opacity-60"
+                style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}>
+                {withdrawalsLoadingMore ? "Cargando..." : "⬇️ Cargar más retiros"}
+              </button>
+            )}
           </div>
         )}
 
@@ -5664,6 +5724,26 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 })()}
                 </>);
               })()}
+              {nameChangeHasMore && (
+                <button
+                  onClick={async () => {
+                    setNameChangeLoadingMore(true);
+                    try {
+                      const r = await fetch(`${BASE}/api/admin/name-change-requests?offset=${nameChangeOffset}`, { headers: authH() });
+                      if (r.ok) {
+                        const d = await r.json() as { items: any[]; has_more: boolean };
+                        setNameChangeRequests(prev => [...prev, ...d.items]);
+                        setNameChangeHasMore(d.has_more);
+                        setNameChangeOffset(prev => prev + d.items.length);
+                      }
+                    } finally { setNameChangeLoadingMore(false); }
+                  }}
+                  disabled={nameChangeLoadingMore}
+                  className="w-full py-2.5 rounded-2xl text-xs font-bold border mt-1 disabled:opacity-60"
+                  style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}>
+                  {nameChangeLoadingMore ? "Cargando..." : "⬇️ Cargar más solicitudes de nombre"}
+                </button>
+              )}
             </div>
 
             {/* ── Cambios de CI ── */}
@@ -5802,6 +5882,26 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 })()}
                 </>);
               })()}
+              {ciChangeHasMore && (
+                <button
+                  onClick={async () => {
+                    setCiChangeLoadingMore(true);
+                    try {
+                      const r = await fetch(`${BASE}/api/admin/ci-change-requests?offset=${ciChangeOffset}`, { headers: authH() });
+                      if (r.ok) {
+                        const d = await r.json() as { items: any[]; has_more: boolean };
+                        setCiChangeRequests(prev => [...prev, ...d.items]);
+                        setCiChangeHasMore(d.has_more);
+                        setCiChangeOffset(prev => prev + d.items.length);
+                      }
+                    } finally { setCiChangeLoadingMore(false); }
+                  }}
+                  disabled={ciChangeLoadingMore}
+                  className="w-full py-2.5 rounded-2xl text-xs font-bold border mt-1 disabled:opacity-60"
+                  style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}>
+                  {ciChangeLoadingMore ? "Cargando..." : "⬇️ Cargar más solicitudes de CI"}
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -6325,6 +6425,27 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 )}
               </div>
 
+              {activatorReqHasMore && (
+                <button
+                  onClick={async () => {
+                    setActivatorReqLoadingMore(true);
+                    try {
+                      const r = await fetch(`${BASE}/api/admin/activator-requests?offset=${activatorReqOffset}`, { headers: authH() });
+                      if (r.ok) {
+                        const d = await r.json() as { items: any[]; has_more: boolean };
+                        setActivatorRequests(prev => [...prev, ...d.items]);
+                        setActivatorReqHasMore(d.has_more);
+                        setActivatorReqOffset(prev => prev + d.items.length);
+                      }
+                    } finally { setActivatorReqLoadingMore(false); }
+                  }}
+                  disabled={activatorReqLoadingMore}
+                  className="w-full py-3 rounded-2xl text-sm font-bold border mt-1 disabled:opacity-60"
+                  style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}>
+                  {activatorReqLoadingMore ? "Cargando..." : "⬇️ Cargar más solicitudes de activador"}
+                </button>
+              )}
+
               {/* Recent referral transactions */}
               {referralStats?.recent_transactions?.length > 0 && (
                 <div>
@@ -6522,6 +6643,26 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               </div>
             ))}
             {logs.length === 0 && <p className="text-center text-muted-foreground py-8">Sin registros de auditoría</p>}
+            {logsHasMore && (
+              <button
+                onClick={async () => {
+                  setLogsLoadingMore(true);
+                  try {
+                    const r = await fetch(`${BASE}/api/admin/audit-logs?offset=${logsOffset}`, { headers: authH() });
+                    if (r.ok) {
+                      const d = await r.json() as { items: any[]; has_more: boolean };
+                      setLogs(prev => [...prev, ...d.items]);
+                      setLogsHasMore(d.has_more);
+                      setLogsOffset(prev => prev + d.items.length);
+                    }
+                  } finally { setLogsLoadingMore(false); }
+                }}
+                disabled={logsLoadingMore}
+                className="w-full py-3 rounded-2xl text-sm font-bold border mt-2 disabled:opacity-60"
+                style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}>
+                {logsLoadingMore ? "Cargando..." : "⬇️ Cargar más registros"}
+              </button>
+            )}
           </div>
         )}
 
