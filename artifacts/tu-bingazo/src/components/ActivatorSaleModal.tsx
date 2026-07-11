@@ -44,6 +44,7 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
   const [loadingGames, setLoadingGames] = useState(true);
 
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+  const [gameListOpen, setGameListOpen] = useState(true);
   const [ciInput, setCiInput] = useState("");
   const [targetUser, setTargetUser] = useState<TargetUser | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
@@ -393,55 +394,96 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-md mx-auto rounded-t-3xl sm:rounded-3xl bg-background shadow-2xl"
-        style={{ maxHeight: "92vh", overflowY: "auto" }}
+        className="relative w-full max-w-md mx-auto rounded-t-3xl sm:rounded-3xl bg-background shadow-2xl flex flex-col"
+        style={{ maxHeight: "92vh", overflow: "hidden" }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>
-            🛒 Vender cartones
-          </h2>
-          <button onClick={onClose} className="text-2xl text-muted-foreground leading-none">✕</button>
-        </div>
-
-        {/* Step indicator */}
-        <div className="px-5 pb-3">
-          <div className="flex items-center gap-1">
-            {(["game", "target", "pago"] as const).map((s, i) => {
-              const stepOrder = ["game", "target", "enlazo-qr", "static-upload", "success"];
-              const idx = stepOrder.indexOf(step);
-              const done = (i === 0 && idx >= 1) || (i === 1 && idx >= 2);
-              const active = (s === "game" && step === "game") ||
-                (s === "target" && step === "target") ||
-                (s === "pago" && ["enlazo-qr", "static-upload", "success"].includes(step));
-              return (
-                <div key={s} className="flex items-center gap-1 flex-1">
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0"
-                    style={{
-                      background: done || active ? "hsl(var(--primary))" : "hsl(var(--muted))",
-                      color: done || active ? "white" : "hsl(var(--muted-foreground))",
-                    }}>
-                    {done ? "✓" : i + 1}
-                  </div>
-                  {i < 2 && <div className="h-0.5 flex-1 rounded" style={{ background: done ? "hsl(var(--primary))" : "hsl(var(--border))" }} />}
-                </div>
-              );
-            })}
+        {/* ── Sticky top ─────────────────────────────────────────────────── */}
+        <div className="shrink-0">
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 pt-5 pb-3">
+            <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>
+              🛒 Vender cartones
+            </h2>
+            <button onClick={onClose} className="text-2xl text-muted-foreground leading-none">✕</button>
           </div>
+
+          {/* Step indicator */}
+          <div className="px-5 pb-3">
+            <div className="flex items-center gap-1">
+              {(["game", "target", "pago"] as const).map((s, i) => {
+                const stepOrder = ["game", "target", "enlazo-qr", "static-upload", "success"];
+                const idx = stepOrder.indexOf(step);
+                const done = (i === 0 && idx >= 1) || (i === 1 && idx >= 2);
+                const active = (s === "game" && step === "game") ||
+                  (s === "target" && step === "target") ||
+                  (s === "pago" && ["enlazo-qr", "static-upload", "success"].includes(step));
+                return (
+                  <div key={s} className="flex items-center gap-1 flex-1">
+                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0"
+                      style={{
+                        background: done || active ? "hsl(var(--primary))" : "hsl(var(--muted))",
+                        color: done || active ? "white" : "hsl(var(--muted-foreground))",
+                      }}>
+                      {done ? "✓" : i + 1}
+                    </div>
+                    {i < 2 && <div className="h-0.5 flex-1 rounded" style={{ background: done ? "hsl(var(--primary))" : "hsl(var(--border))" }} />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Step label (solo en paso juego) */}
+          {step === "game" && (
+            <div className="px-5 pb-2 flex items-center justify-between">
+              <p className="text-sm font-bold text-muted-foreground">Selecciona el juego</p>
+              {selectedGame && !gameListOpen && (
+                <button
+                  onClick={() => setGameListOpen(true)}
+                  className="text-xs font-bold px-3 py-1 rounded-full border"
+                  style={{ color: "hsl(var(--primary))", borderColor: "hsl(var(--primary))" }}>
+                  Cambiar ↓
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="px-5 pb-6 space-y-4">
+        {/* ── Scrollable content ──────────────────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-4">
 
-          {/* ─── Step: game ──────────────────────────────────────────────── */}
+          {/* ─── Step: game ────────────────────────────────────────────────── */}
           {step === "game" && (
             <>
-              <p className="text-sm font-bold text-muted-foreground">Selecciona el juego</p>
               {loadingGames ? (
                 <p className="text-center text-sm text-muted-foreground py-6">Cargando juegos...</p>
               ) : games.length === 0 ? (
                 <p className="text-center text-sm text-muted-foreground py-6">No hay juegos disponibles</p>
+              ) : selectedGame && !gameListOpen ? (
+                /* Juego seleccionado — vista colapsada */
+                <div className="rounded-2xl border p-4"
+                  style={{ borderColor: "hsl(var(--primary))", background: "hsl(var(--primary) / 0.06)" }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-bold text-sm">✅ {selectedGame.title}</p>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-xs text-muted-foreground">
+                          {selectedGame.scheduled_at ? new Date(selectedGame.scheduled_at).toLocaleDateString("es-BO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+                        </span>
+                        <span className="text-xs font-black" style={{ color: "hsl(var(--primary))" }}>
+                          Bs {selectedGame.card_price.toFixed(2)} / cartón
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0"
+                      style={{ background: selectedGame.status === "active" ? "hsl(142 70% 92%)" : "hsl(210 80% 92%)", color: selectedGame.status === "active" ? "hsl(142 70% 30%)" : "hsl(210 80% 35%)" }}>
+                      {selectedGame.status === "active" ? "En vivo" : "Próximo"}
+                    </span>
+                  </div>
+                </div>
               ) : (
+                /* Lista completa */
                 <div className="space-y-2">
                   {games.map(g => (
                     <button key={g.id}
@@ -450,7 +492,7 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
                         borderColor: selectedGame?.id === g.id ? "hsl(var(--primary))" : "hsl(var(--border))",
                         background: selectedGame?.id === g.id ? "hsl(var(--primary) / 0.06)" : "transparent",
                       }}
-                      onClick={() => setSelectedGame(g)}>
+                      onClick={() => { setSelectedGame(g); setGameListOpen(false); }}>
                       <p className="font-bold text-sm">{g.title}</p>
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-xs text-muted-foreground">
@@ -468,13 +510,6 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
                   ))}
                 </div>
               )}
-              <button
-                disabled={!selectedGame}
-                onClick={() => setStep("target")}
-                className="w-full py-3.5 rounded-2xl font-black text-white text-sm disabled:opacity-40"
-                style={{ background: "hsl(var(--primary))" }}>
-                Continuar →
-              </button>
             </>
           )}
 
@@ -738,6 +773,20 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
           )}
 
         </div>
+
+        {/* ── Footer sticky — botón Continuar (solo paso juego) ───────────── */}
+        {step === "game" && (
+          <div className="shrink-0 px-5 pb-5 pt-3 border-t"
+            style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--background))" }}>
+            <button
+              disabled={!selectedGame}
+              onClick={() => { setGameListOpen(true); setStep("target"); }}
+              className="w-full py-3.5 rounded-2xl font-black text-white text-sm disabled:opacity-40"
+              style={{ background: "hsl(var(--primary))" }}>
+              Continuar →
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
