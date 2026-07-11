@@ -491,9 +491,12 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
                 <div className="flex gap-2">
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={15}
                     placeholder="Ej: 7654321"
                     value={ciInput}
-                    onChange={e => { setCiInput(e.target.value); setTargetUser(null); }}
+                    onChange={e => { setCiInput(e.target.value.replace(/\D/g, "")); setTargetUser(null); }}
                     onKeyDown={e => { if (e.key === "Enter") lookupUser(); }}
                     className="flex-1 rounded-xl border px-3 py-2.5 text-sm bg-background"
                   />

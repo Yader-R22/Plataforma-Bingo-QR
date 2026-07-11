@@ -94,6 +94,7 @@ router.get("/games", requireAuth, requireActivator, async (_req: AuthRequest, re
 router.get("/lookup-user", requireAuth, requireActivator, async (req: AuthRequest, res) => {
   const ci = String(req.query.ci ?? "").trim();
   if (!ci) { res.status(400).json({ error: "CI requerido" }); return; }
+  if (!/^\d{1,15}$/.test(ci)) { res.status(400).json({ error: "CI inválido: solo se permiten dígitos" }); return; }
 
   const users = await db.select({
     id: usersTable.id,
