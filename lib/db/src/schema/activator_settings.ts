@@ -19,6 +19,9 @@ export const activatorSettingsTable = pgTable("activator_settings", {
   commissionDuration: text("commission_duration", { enum: ["once", "monthly", "indefinite"] }).notNull().default("indefinite"),
   commissionDurationMonths: integer("commission_duration_months"),
   bonusValidityHours: integer("bonus_validity_hours"),
+  cardSaleEnabled: boolean("card_sale_enabled").notNull().default(true),
+  cardSaleDiscountType: text("card_sale_discount_type", { enum: ["percentage", "fixed"] }).notNull().default("percentage"),
+  cardSaleDiscountValue: numeric("card_sale_discount_value", { precision: 10, scale: 2 }).notNull().default("10"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedById: integer("updated_by_id").references(() => usersTable.id),
 });

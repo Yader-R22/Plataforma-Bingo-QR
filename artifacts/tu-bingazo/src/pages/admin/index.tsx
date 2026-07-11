@@ -50,6 +50,7 @@ const ALL_TABS = [
   { id: "winners",         label: "🏆 Ganadores",      perm: "admin:games" },
   { id: "pagos-manuales",  label: "🧾 Pagos Manuales", perm: null },
   { id: "referidos",       label: "🔗 Referidos",      perm: null },
+  { id: "ventas-activador", label: "🛒 Ventas Activador", perm: null },
   { id: "solicitudes",     label: "📋 Solicitudes",    perm: "admin:users" },
   { id: "resets",          label: "🔑 Resets",          perm: "admin:resets" },
   { id: "logs",            label: "📋 Auditoría",      perm: "admin:logs" },
@@ -921,6 +922,12 @@ export default function AdminPage() {
   const [manualPaymentNotes, setManualPaymentNotes] = useState<Record<number, string>>({});
   const [manualPaymentRefunds, setManualPaymentRefunds] = useState<Record<number, string>>({});
   const [manualPaymentAction, setManualPaymentAction] = useState<Record<number, "approve" | "reject" | null>>({});
+  const [activatorSales, setActivatorSales] = useState<any[]>([]);
+  const [activatorSalesFilter, setActivatorSalesFilter] = useState<"all" | "pending_approval" | "approved" | "rejected">("pending_approval");
+  const [activatorSalesLoading, setActivatorSalesLoading] = useState(false);
+  const [activatorSaleNotes, setActivatorSaleNotes] = useState<Record<number, string>>({});
+  const [activatorSaleSettings, setActivatorSaleSettings] = useState({ card_sale_enabled: true, card_sale_discount_type: "percentage" as "percentage" | "fixed", card_sale_discount_value: 10 });
+  const [savingActivatorSettings, setSavingActivatorSettings] = useState(false);
   const [receiptLightbox, setReceiptLightbox] = useState<string | null>(null);
   const [uploadingFallbackQr, setUploadingFallbackQr] = useState(false);
   const [savingSite, setSavingSite] = useState(false);
@@ -1260,6 +1267,19 @@ export default function AdminPage() {
           if (r.ok) setManualPayments(await r.json());
         } finally {
           setManualPaymentsLoading(false);
+        }
+      }
+      if (t === "ventas-activador") {
+        setActivatorSalesLoading(true);
+        try {
+          const [r, sr] = await Promise.all([
+            fetch(`${BASE}/api/activator-sales`, { headers: authH() }),
+            fetch(`${BASE}/api/activator-sales/settings`, { headers: authH() }),
+          ]);
+          if (r.ok) setActivatorSales(await r.json());
+          if (sr.ok) setActivatorSaleSettings(await sr.json());
+        } finally {
+          setActivatorSalesLoading(false);
         }
       }
       loadedTabsRef.current.add(t);
@@ -6712,6 +6732,306 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                 ❌ Rechazar
                               </button>
                             </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── Ventas Activador ────────────────────────────────────── */}
+        {tab === "ventas-activador" && !loading && (() => {
+          const filtered = activatorSales.filter(s =>
+            activatorSalesFilter === "all" ? true : s.status === activatorSalesFilter
+          );
+
+          async function refreshSales() {
+            setActivatorSalesLoading(true);
+            try {
+              const r = await fetch(`${BASE}/api/activator-sales`, { headers: authH() });
+              if (r.ok) setActivatorSales(await r.json());
+            } finally {
+              setActivatorSalesLoading(false);
+            }
+          }
+
+          async function saveSettings() {
+            setSavingActivatorSettings(true);
+            try {
+              const r = await fetch(`${BASE}/api/activator-sales/settings`, {
+                method: "PUT",
+                headers: authH(),
+                body: JSON.stringify({
+                  card_sale_enabled: activatorSaleSettings.card_sale_enabled,
+                  card_sale_discount_type: activatorSaleSettings.card_sale_discount_type,
+                  card_sale_discount_value: activatorSaleSettings.card_sale_discount_value,
+                }),
+              });
+              if (r.ok) toast.success("✅ Configuración guardada");
+              else toast.error("Error al guardar");
+            } finally {
+              setSavingActivatorSettings(false);
+            }
+          }
+
+          async function approveSale(id: number) {
+            const notes = activatorSaleNotes[id] || "";
+            const r = await fetch(`${BASE}/api/activator-sales/${id}/approve`, {
+              method: "PUT",
+              headers: authH(),
+              body: JSON.stringify({ notes }),
+            });
+            if (r.ok) {
+              toast.success("✅ Venta aprobada — cartones activados");
+              await refreshSales();
+            } else {
+              const d = await r.json().catch(() => ({}));
+              toast.error((d as any).error || "Error al aprobar");
+            }
+          }
+
+          async function rejectSale(id: number) {
+            const notes = activatorSaleNotes[id] || "";
+            if (!notes.trim()) { toast.error("Debes escribir un motivo de rechazo"); return; }
+            const r = await fetch(`${BASE}/api/activator-sales/${id}/reject`, {
+              method: "PUT",
+              headers: authH(),
+              body: JSON.stringify({ notes }),
+            });
+            if (r.ok) {
+              toast.success("Venta rechazada");
+              await refreshSales();
+            } else {
+              const d = await r.json().catch(() => ({}));
+              toast.error((d as any).error || "Error al rechazar");
+            }
+          }
+
+          const statusLabel: Record<string, string> = {
+            pending_payment: "⏳ Pendiente pago",
+            paid: "✅ Pagado (Enlazo)",
+            pending_approval: "🧾 Pendiente aprobación",
+            approved: "✅ Aprobado",
+            rejected: "❌ Rechazado",
+          };
+          const statusColor: Record<string, string> = {
+            pending_payment: "hsl(42 98% 92%)",
+            paid: "hsl(142 70% 92%)",
+            pending_approval: "hsl(210 80% 92%)",
+            approved: "hsl(142 70% 92%)",
+            rejected: "hsl(0 75% 92%)",
+          };
+          const statusTextColor: Record<string, string> = {
+            pending_payment: "hsl(42 98% 30%)",
+            paid: "hsl(142 70% 30%)",
+            pending_approval: "hsl(210 80% 35%)",
+            approved: "hsl(142 70% 30%)",
+            rejected: "hsl(0 75% 35%)",
+          };
+
+          return (
+            <div className="space-y-5">
+              <div className="flex items-center justify-between">
+                <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>🛒 Ventas de Activadores</h2>
+                <button onClick={refreshSales} disabled={activatorSalesLoading}
+                  className="text-xs px-3 py-1.5 rounded-xl font-bold"
+                  style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
+                  {activatorSalesLoading ? "..." : "🔄 Actualizar"}
+                </button>
+              </div>
+
+              {/* Settings card */}
+              <div className="rounded-2xl border p-4 space-y-3" style={{ borderColor: "hsl(var(--border))" }}>
+                <p className="font-bold text-sm">⚙️ Configuración de descuento para activadores</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Ventas habilitadas</span>
+                  <button
+                    onClick={() => setActivatorSaleSettings(s => ({ ...s, card_sale_enabled: !s.card_sale_enabled }))}
+                    className="w-12 h-6 rounded-full transition-colors relative"
+                    style={{ background: activatorSaleSettings.card_sale_enabled ? "hsl(142 70% 45%)" : "hsl(var(--muted))" }}>
+                    <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all shadow"
+                      style={{ left: activatorSaleSettings.card_sale_enabled ? "26px" : "2px" }} />
+                  </button>
+                </div>
+                <div className="flex gap-3">
+                  <div className="flex-1 space-y-1">
+                    <label className="text-xs text-muted-foreground font-bold">Tipo de descuento</label>
+                    <select
+                      value={activatorSaleSettings.card_sale_discount_type}
+                      onChange={e => setActivatorSaleSettings(s => ({ ...s, card_sale_discount_type: e.target.value as "percentage" | "fixed" }))}
+                      className="w-full rounded-xl border px-3 py-2 text-sm bg-background">
+                      <option value="percentage">Porcentaje (%)</option>
+                      <option value="fixed">Monto fijo (Bs por cartón)</option>
+                    </select>
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <label className="text-xs text-muted-foreground font-bold">
+                      {activatorSaleSettings.card_sale_discount_type === "percentage" ? "Porcentaje (%)" : "Bs por cartón"}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={activatorSaleSettings.card_sale_discount_value}
+                      onChange={e => setActivatorSaleSettings(s => ({ ...s, card_sale_discount_value: parseFloat(e.target.value) || 0 }))}
+                      className="w-full rounded-xl border px-3 py-2 text-sm bg-background"
+                    />
+                  </div>
+                </div>
+                <button onClick={saveSettings} disabled={savingActivatorSettings}
+                  className="w-full py-2.5 rounded-xl font-bold text-sm text-white disabled:opacity-60"
+                  style={{ background: "hsl(var(--primary))" }}>
+                  {savingActivatorSettings ? "Guardando..." : "💾 Guardar configuración"}
+                </button>
+              </div>
+
+              {/* Filter tabs */}
+              <div className="flex gap-2 flex-wrap">
+                {(["pending_approval", "all", "approved", "rejected", "paid"] as const).map(f => (
+                  <button key={f} onClick={() => setActivatorSalesFilter(f as any)}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold transition-colors"
+                    style={{
+                      background: activatorSalesFilter === f ? "hsl(var(--primary))" : "hsl(var(--muted))",
+                      color: activatorSalesFilter === f ? "white" : "hsl(var(--foreground))",
+                    }}>
+                    {f === "pending_approval" ? "Pendientes" : f === "all" ? "Todos" : f === "approved" ? "Aprobados" : f === "paid" ? "Pagados (Enlazo)" : "Rechazados"}
+                    {f !== "all" && ` (${activatorSales.filter(s => s.status === f).length})`}
+                  </button>
+                ))}
+              </div>
+
+              {activatorSalesLoading && (
+                <p className="text-center text-sm text-muted-foreground py-4">Cargando...</p>
+              )}
+
+              {!activatorSalesLoading && filtered.length === 0 && (
+                <p className="text-center text-sm text-muted-foreground py-6">No hay ventas con este filtro</p>
+              )}
+
+              <div className="space-y-3">
+                {filtered.map((s: any) => {
+                  const isPending = s.status === "pending_approval";
+                  const notes = activatorSaleNotes[s.id] ?? "";
+                  return (
+                    <div key={s.id} className="rounded-2xl border" style={{ borderColor: "hsl(var(--border))" }}>
+                      <div className="p-4 space-y-3">
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-bold text-sm truncate">🎱 {s.game_title}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {new Date(s.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          </div>
+                          <span className="text-[10px] px-2 py-1 rounded-full font-bold shrink-0"
+                            style={{ background: statusColor[s.status] ?? "hsl(var(--muted))", color: statusTextColor[s.status] ?? "hsl(var(--foreground))" }}>
+                            {statusLabel[s.status] ?? s.status}
+                          </span>
+                        </div>
+
+                        {/* Parties */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="rounded-xl px-3 py-2" style={{ background: "hsl(var(--muted))" }}>
+                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide">Activador</p>
+                            <p className="text-xs font-bold truncate">{s.activator_name}</p>
+                            <p className="text-[10px] text-muted-foreground">CI: {s.activator_ci}</p>
+                          </div>
+                          <div className="rounded-xl px-3 py-2" style={{ background: "hsl(var(--muted))" }}>
+                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide">Usuario</p>
+                            <p className="text-xs font-bold truncate">{s.target_name}</p>
+                            <p className="text-[10px] text-muted-foreground">CI: {s.target_ci}</p>
+                          </div>
+                        </div>
+
+                        {/* Pricing */}
+                        <div className="rounded-xl px-3 py-2.5 space-y-1" style={{ background: "hsl(var(--muted))" }}>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">{s.quantity} cartón{s.quantity !== 1 ? "es" : ""} · precio normal</span>
+                            <span className="font-bold">Bs {Number(s.original_price).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Descuento activador</span>
+                            <span className="font-bold" style={{ color: "hsl(142 70% 35%)" }}>−Bs {Number(s.discount_amount).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm font-black border-t pt-1" style={{ borderColor: "hsl(var(--border))" }}>
+                            <span>Activador pagó</span>
+                            <span style={{ color: "hsl(var(--primary))" }}>Bs {Number(s.final_price).toFixed(2)}</span>
+                          </div>
+                        </div>
+
+                        {/* Method badge */}
+                        <p className="text-xs text-muted-foreground">
+                          {s.payment_method === "enlazo" ? "📱 Enlazo Pay (automático)" : "🧾 QR estático (manual)"}
+                        </p>
+
+                        {/* Receipt */}
+                        {s.receipt_url && (
+                          <button onClick={() => setReceiptLightbox(s.receipt_url)}
+                            className="flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-xl w-full"
+                            style={{ background: "hsl(210 80% 95%)", color: "hsl(210 80% 35%)" }}>
+                            🖼 Ver comprobante de pago
+                          </button>
+                        )}
+                        {isPending && !s.receipt_url && (
+                          <p className="text-xs text-muted-foreground italic">⏳ El activador aún no subió comprobante</p>
+                        )}
+
+                        {/* Admin notes */}
+                        {s.admin_notes && !isPending && (
+                          <div className="rounded-xl px-3 py-2"
+                            style={{ background: s.status === "approved" ? "hsl(142 70% 97%)" : "hsl(0 75% 97%)", border: `1px solid ${s.status === "approved" ? "hsl(142 70% 82%)" : "hsl(0 75% 85%)"}` }}>
+                            <p className="text-[10px] font-bold text-muted-foreground mb-0.5">Nota del admin</p>
+                            <p className="text-xs">{s.admin_notes}</p>
+                          </div>
+                        )}
+
+                        {/* Actions */}
+                        {isPending && s.receipt_url && (
+                          <div className="space-y-2 pt-1 border-t" style={{ borderColor: "hsl(var(--border))" }}>
+                            <textarea
+                              className="w-full rounded-xl border px-3 py-2 text-sm bg-background resize-none mt-2"
+                              rows={2}
+                              placeholder="Nota (obligatoria para rechazar, opcional para aprobar)..."
+                              value={notes}
+                              onChange={e => setActivatorSaleNotes(prev => ({ ...prev, [s.id]: e.target.value }))}
+                            />
+                            <div className="flex gap-2">
+                              {!notes.trim() && (
+                                <button onClick={() => approveSale(s.id)}
+                                  className="flex-1 py-2.5 rounded-xl font-black text-sm text-white"
+                                  style={{ background: "hsl(142 70% 38%)" }}>
+                                  ✅ Aprobar
+                                </button>
+                              )}
+                              <button onClick={() => rejectSale(s.id)}
+                                className="flex-1 py-2.5 rounded-xl font-black text-sm text-white"
+                                style={{ background: "hsl(0 75% 45%)" }}>
+                                ❌ Rechazar
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {isPending && !s.receipt_url && (
+                          <div className="space-y-2 pt-1 border-t" style={{ borderColor: "hsl(var(--border))" }}>
+                            <p className="text-xs text-muted-foreground">Esperando comprobante del activador. Puedes rechazar sin comprobante si es necesario.</p>
+                            <textarea
+                              className="w-full rounded-xl border px-3 py-2 text-sm bg-background resize-none"
+                              rows={2}
+                              placeholder="Motivo de rechazo..."
+                              value={notes}
+                              onChange={e => setActivatorSaleNotes(prev => ({ ...prev, [s.id]: e.target.value }))}
+                            />
+                            {notes.trim() && (
+                              <button onClick={() => rejectSale(s.id)}
+                                className="w-full py-2.5 rounded-xl font-black text-sm text-white"
+                                style={{ background: "hsl(0 75% 45%)" }}>
+                                ❌ Rechazar sin comprobante
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>

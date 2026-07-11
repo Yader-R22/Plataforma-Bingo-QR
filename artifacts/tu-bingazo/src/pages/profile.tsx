@@ -5,6 +5,7 @@ import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { toast } from "sonner";
 import { useSetLayoutConfig } from "@/components/AppLayout";
+import ActivatorSaleModal from "@/components/ActivatorSaleModal";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -119,6 +120,7 @@ export default function ProfilePage() {
     refetchOnWindowFocus: false,
   });
   const [requestingActivator, setRequestingActivator] = useState(false);
+  const [showSaleModal, setShowSaleModal] = useState(false);
   const [referralHistory, setReferralHistory] = useState<any>(null);
   const [showReferralHistory, setShowReferralHistory] = useState(false);
 
@@ -637,6 +639,12 @@ export default function ProfilePage() {
                     Copiar
                   </button>
                 </div>
+                <button
+                  onClick={() => setShowSaleModal(true)}
+                  className="w-full py-3 px-4 rounded-xl font-black flex items-center justify-center gap-2 text-sm text-white"
+                  style={{ background: "hsl(var(--primary))" }}>
+                  🛒 Vender cartones
+                </button>
                 <div className="flex gap-2">
                   {activatorStatus.whatsapp_group_link && (
                     <a href={activatorStatus.whatsapp_group_link} target="_blank" rel="noopener noreferrer"
@@ -892,6 +900,14 @@ export default function ProfilePage() {
           Cerrar Sesión
         </button>
       </div>
+
+      {showSaleModal && (
+        <ActivatorSaleModal
+          token={token ?? ""}
+          staticQrUrl={(site as any)?.fallback_qr_image_url ?? null}
+          onClose={() => setShowSaleModal(false)}
+        />
+      )}
     </>
   );
 }

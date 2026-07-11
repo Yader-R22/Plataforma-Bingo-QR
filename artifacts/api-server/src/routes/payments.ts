@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, cardsTable, gamesTable, feedItemsTable, usersTable } from "@workspace/db";
+import { db, cardsTable, gamesTable, feedItemsTable, usersTable, activatorCardSalesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { sendPushToUser } from "../lib/push";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
@@ -48,6 +48,11 @@ router.get("/:checkoutId/status", requireAuth, async (req: AuthRequest, res) => 
       await db.update(cardsTable)
         .set({ paymentStatus: "paid", status: "active" })
         .where(eq(cardsTable.checkoutId, transactionId));
+
+      // Mark activator sale as paid (if this was an activator purchase)
+      await db.update(activatorCardSalesTable)
+        .set({ status: "paid" })
+        .where(eq(activatorCardSalesTable.checkoutId, transactionId));
 
       // Update participant count
       const paidCards = await db.select().from(cardsTable)

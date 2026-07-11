@@ -17,6 +17,7 @@ import { pwaRouter } from "./pwa";
 import { manualPaymentsRouter } from "./manual-payments";
 import storageRouter from "./storage";
 import { pushRouter } from "./push";
+import { activatorSalesRouter } from "./activator-sales";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use("/pwa", pwaRouter);
 router.use("/manual-payments", manualPaymentsRouter);
 router.use("/storage", storageRouter);
 router.use("/push", pushRouter);
+router.use("/activator-sales", activatorSalesRouter);
 
 export default router;
