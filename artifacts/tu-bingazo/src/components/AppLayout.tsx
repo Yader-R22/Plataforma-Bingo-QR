@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useInstallBannerStore } from "@/components/PWAInstallBanner";
 import { compressImage } from "@/lib/utils";
 import { toast } from "sonner";
 import { create } from "zustand";
@@ -40,15 +41,18 @@ export function useSetLayoutConfig(config: LayoutConfig, deps: unknown[] = []) {
 function PushWelcomeModal() {
   const { status, loading, enable, isDismissed, dismiss } = usePushNotifications();
   const [visible, setVisible] = useState(false);
+  const installBannerVisible = useInstallBannerStore((s) => s.visible);
 
   useEffect(() => {
     if (status !== "unsubscribed") return;
     if (isDismissed()) return;
     // Si el permiso ya fue concedido, el hook reintenta en segundo plano — no molestar al usuario
     if (typeof Notification !== "undefined" && Notification.permission === "granted") return;
+    // Esperar a que el banner de instalación se cierre antes de aparecer
+    if (installBannerVisible) return;
     const t = setTimeout(() => setVisible(true), 1800);
     return () => clearTimeout(t);
-  }, [status]);
+  }, [status, installBannerVisible]);
 
   if (!visible) return null;
 

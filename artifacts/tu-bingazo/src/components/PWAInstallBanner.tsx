@@ -2,6 +2,17 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { X, Download, Monitor } from "lucide-react";
 import { useSiteSettings } from "../hooks/useSiteSettings";
+import { create } from "zustand";
+
+interface InstallBannerStore {
+  visible: boolean;
+  setVisible: (v: boolean) => void;
+}
+
+export const useInstallBannerStore = create<InstallBannerStore>((set) => ({
+  visible: false,
+  setVisible: (v) => set({ visible: v }),
+}));
 
 type Platform = "android" | "desktop" | "ios" | "other";
 
@@ -29,6 +40,11 @@ export default function PWAInstallBanner() {
   const [platform, setPlatform] = useState<Platform>("other");
   const site = useSiteSettings();
   const appName = site.site_name;
+  const setBannerVisible = useInstallBannerStore((s) => s.setVisible);
+
+  useEffect(() => {
+    setBannerVisible(show);
+  }, [show]);
 
   useEffect(() => {
     if (isStandalone()) return;
@@ -54,7 +70,7 @@ export default function PWAInstallBanner() {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === "accepted") setShow(false);
+    setShow(false);
     setDeferredPrompt(null);
   }
 
