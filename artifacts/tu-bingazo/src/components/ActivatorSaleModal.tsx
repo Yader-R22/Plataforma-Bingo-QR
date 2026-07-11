@@ -17,8 +17,7 @@ interface TargetUser {
   ci: string;
 }
 
-type Step = "game" | "target" | "payment" | "enlazo-qr" | "static-upload" | "success";
-type PaymentMethod = "enlazo" | "static_qr";
+type Step = "game" | "target" | "enlazo-qr" | "static-upload" | "success";
 
 interface Props {
   token: string;
@@ -42,7 +41,6 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
   const [lookingUp, setLookingUp] = useState(false);
   const [quantity, setQuantity] = useState(1);
 
-  const [payMethod, setPayMethod] = useState<PaymentMethod>("enlazo");
   const [purchasing, setPurchasing] = useState(false);
   const [saleId, setSaleId] = useState<number | null>(null);
   const [checkoutId, setCheckoutId] = useState<string | null>(null);
@@ -136,16 +134,17 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
           game_id: selectedGame.id,
           quantity,
           target_user_id: targetUser.id,
-          payment_method: payMethod,
+          payment_method: "enlazo",
         }),
       });
       const d = await r.json();
       if (!r.ok) { toast.error(d.error || "Error al crear venta"); return; }
       setSaleId(d.sale_id);
-      if (payMethod === "enlazo") {
-        setCheckoutId(d.checkout_id);
-        setQrImage(d.qr_image || null);
-        setQrError(d.qr_error || null);
+      setCheckoutId(d.checkout_id || null);
+      setQrImage(d.qr_image || null);
+      setQrError(d.qr_error || null);
+      // Si Enlazo falla (sin QR), cae automáticamente a QR estático
+      if (d.qr_image) {
         setStep("enlazo-qr");
       } else {
         setStep("static-upload");
@@ -211,10 +210,13 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
         {/* Step indicator */}
         <div className="px-5 pb-3">
           <div className="flex items-center gap-1">
-            {(["game", "target", "payment"] as const).map((s, i) => {
-              const idx = ["game", "target", "payment"].indexOf(step);
-              const done = i < Math.min(idx, 2);
-              const active = s === step || (["enlazo-qr", "static-upload", "success"].includes(step) && i === 2);
+            {(["game", "target", "pago"] as const).map((s, i) => {
+              const stepOrder = ["game", "target", "enlazo-qr", "static-upload", "success"];
+              const idx = stepOrder.indexOf(step);
+              const done = (i === 0 && idx >= 1) || (i === 1 && idx >= 2);
+              const active = (s === "game" && step === "game") ||
+                (s === "target" && step === "target") ||
+                (s === "pago" && ["enlazo-qr", "static-upload", "success"].includes(step));
               return (
                 <div key={s} className="flex items-center gap-1 flex-1">
                   <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0"
@@ -359,58 +361,11 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
                   className="flex-1 py-3 rounded-2xl font-bold text-sm"
                   style={{ background: "hsl(var(--muted))" }}>← Atrás</button>
                 <button
-                  disabled={!targetUser || quantity < 1}
-                  onClick={() => setStep("payment")}
-                  className="flex-1 py-3 rounded-2xl font-black text-white text-sm disabled:opacity-40"
-                  style={{ background: "hsl(var(--primary))" }}>
-                  Continuar →
-                </button>
-              </div>
-            </>
-          )}
-
-          {/* ─── Step: payment method ─────────────────────────────────────── */}
-          {step === "payment" && selectedGame && targetUser && (
-            <>
-              <div className="rounded-2xl px-4 py-3 space-y-1"
-                style={{ background: "hsl(var(--muted))" }}>
-                <p className="text-xs text-muted-foreground">Resumen de compra</p>
-                <p className="font-bold text-sm">{quantity} cartón{quantity !== 1 ? "es" : ""} para <span style={{ color: "hsl(var(--primary))" }}>{targetUser.full_name}</span></p>
-                <p className="text-xs text-muted-foreground">{selectedGame.title}</p>
-                <p className="font-black text-lg" style={{ color: "hsl(var(--primary))" }}>{fmt(final)}</p>
-                {discount > 0 && <p className="text-xs text-muted-foreground line-through">{fmt(original)}</p>}
-              </div>
-
-              <p className="text-sm font-bold text-muted-foreground">Método de pago</p>
-
-              <div className="space-y-2">
-                {([
-                  { key: "enlazo" as PaymentMethod, label: "📱 QR Enlazo Pay", desc: "Pago automático — se activa al instante" },
-                  { key: "static_qr" as PaymentMethod, label: "🧾 QR estático", desc: "Pago manual — requiere aprobación del admin" },
-                ] as const).map(opt => (
-                  <button key={opt.key}
-                    onClick={() => setPayMethod(opt.key)}
-                    className="w-full text-left rounded-2xl border p-4 transition-colors"
-                    style={{
-                      borderColor: payMethod === opt.key ? "hsl(var(--primary))" : "hsl(var(--border))",
-                      background: payMethod === opt.key ? "hsl(var(--primary) / 0.06)" : "transparent",
-                    }}>
-                    <p className="font-bold text-sm">{opt.label}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex gap-2">
-                <button onClick={() => setStep("target")}
-                  className="flex-1 py-3 rounded-2xl font-bold text-sm"
-                  style={{ background: "hsl(var(--muted))" }}>← Atrás</button>
-                <button
-                  disabled={purchasing}
+                  disabled={!targetUser || quantity < 1 || purchasing}
                   onClick={purchase}
                   className="flex-1 py-3 rounded-2xl font-black text-white text-sm disabled:opacity-40"
                   style={{ background: "hsl(var(--primary))" }}>
-                  {purchasing ? "Generando..." : "Pagar →"}
+                  {purchasing ? "Generando QR..." : "Pagar con QR →"}
                 </button>
               </div>
             </>
