@@ -1816,4 +1816,51 @@ router.get("/referral-stats", async (_req, res) => {
   });
 });
 
+// ── GET /api/admin/system/health ─────────────────────────────────────────────
+router.get("/system/health", async (req: AuthRequest, res) => {
+  const mem = process.memoryUsage();
+  const toMB = (b: number) => parseFloat((b / 1024 / 1024).toFixed(1));
+  const heapUsedMB  = toMB(mem.heapUsed);
+  const heapTotalMB = toMB(mem.heapTotal);
+  const rssMB       = toMB(mem.rss);
+  const heapPct     = Math.round((heapUsedMB / heapTotalMB) * 100);
+
+  const uptimeSec = Math.floor(process.uptime());
+  const hours   = Math.floor(uptimeSec / 3600);
+  const minutes = Math.floor((uptimeSec % 3600) / 60);
+  const seconds = uptimeSec % 60;
+  const uptimeStr = hours > 0
+    ? `${hours}h ${minutes}m ${seconds}s`
+    : minutes > 0
+    ? `${minutes}m ${seconds}s`
+    : `${seconds}s`;
+
+  // db ping
+  let dbOk = false;
+  try {
+    await db.execute(sql`SELECT 1`);
+    dbOk = true;
+  } catch (_) { /* db down */ }
+
+  res.json({
+    uptime_seconds: uptimeSec,
+    uptime_str:     uptimeStr,
+    heap_used_mb:   heapUsedMB,
+    heap_total_mb:  heapTotalMB,
+    rss_mb:         rssMB,
+    heap_pct:       heapPct,
+    db_ok:          dbOk,
+    node_version:   process.version,
+    pid:            process.pid,
+    warning:        heapPct >= 80 ? "RAM alta — considera reiniciar" : rssMB >= 400 ? "Memoria RSS elevada" : null,
+  });
+});
+
+// ── POST /api/admin/system/restart ───────────────────────────────────────────
+router.post("/system/restart", async (req: AuthRequest, res) => {
+  req.log.warn({ admin_id: req.userId ?? null }, "Admin triggered server restart");
+  res.json({ ok: true, message: "Reiniciando servidor en 1 segundo..." });
+  setTimeout(() => process.exit(0), 1000);
+});
+
 export { router as adminRouter };

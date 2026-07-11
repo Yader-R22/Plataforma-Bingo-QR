@@ -54,6 +54,7 @@ const ALL_TABS = [
   { id: "solicitudes",     label: "📋 Solicitudes",    perm: "admin:users" },
   { id: "resets",          label: "🔑 Resets",          perm: "admin:resets" },
   { id: "logs",            label: "📋 Auditoría",      perm: "admin:logs" },
+  { id: "sistema",         label: "⚙️ Sistema",         perm: null },
 ] as const;
 
 type Tab = typeof ALL_TABS[number]["id"];
@@ -925,6 +926,11 @@ export default function AdminPage() {
   const [activatorSales, setActivatorSales] = useState<any[]>([]);
   const [activatorSalesFilter, setActivatorSalesFilter] = useState<"all" | "pending_approval" | "approved" | "rejected">("pending_approval");
   const [activatorSalesLoading, setActivatorSalesLoading] = useState(false);
+
+  const [sysHealth, setSysHealth] = useState<any>(null);
+  const [sysLoading, setSysLoading] = useState(false);
+  const [sysRestarting, setSysRestarting] = useState(false);
+  const [sysConfirm, setSysConfirm] = useState(false);
   const [activatorSaleNotes, setActivatorSaleNotes] = useState<Record<number, string>>({});
   const [activatorSaleRefunds, setActivatorSaleRefunds] = useState<Record<number, string>>({});
   const [activatorSaleSettings, setActivatorSaleSettings] = useState({ card_sale_enabled: true, card_sale_discount_type: "percentage" as "percentage" | "fixed", card_sale_discount_value: 10 });
@@ -6507,6 +6513,152 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             {logs.length === 0 && <p className="text-center text-muted-foreground py-8">Sin registros de auditoría</p>}
           </div>
         )}
+
+        {/* ── Sistema ─────────────────────────────────────────────── */}
+        {tab === "sistema" && (() => {
+          async function fetchHealth() {
+            setSysLoading(true);
+            try {
+              const r = await fetch(`${BASE}/api/admin/system/health`, { headers: authH() });
+              if (r.ok) setSysHealth(await r.json());
+            } finally { setSysLoading(false); }
+          }
+          async function restartServer() {
+            setSysRestarting(true);
+            try {
+              await fetch(`${BASE}/api/admin/system/restart`, { method: "POST", headers: authH() });
+              toast.success("Servidor reiniciando... estará disponible en ~5 segundos");
+              setSysConfirm(false);
+              setTimeout(fetchHealth, 6000);
+            } catch (_) {
+              toast.success("Servidor reiniciando...");
+            } finally {
+              setTimeout(() => setSysRestarting(false), 7000);
+            }
+          }
+
+          const heapPct = sysHealth?.heap_pct ?? 0;
+          const rss     = sysHealth?.rss_mb ?? 0;
+          const barColor = heapPct >= 80 ? "#dc2626" : heapPct >= 60 ? "#d97706" : "#16a34a";
+
+          return (
+            <div className="space-y-4">
+              {/* Refresh */}
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-muted-foreground">Estado del servidor</p>
+                <button onClick={fetchHealth} disabled={sysLoading}
+                  className="text-xs font-bold px-3 py-1.5 rounded-xl"
+                  style={{ background: "hsl(var(--muted))" }}>
+                  {sysLoading ? "⏳" : "🔄"} Actualizar
+                </button>
+              </div>
+
+              {!sysHealth && !sysLoading && (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground text-sm mb-3">Presiona "Actualizar" para ver el estado del servidor</p>
+                  <button onClick={fetchHealth}
+                    className="px-5 py-2.5 rounded-2xl font-bold text-sm text-white"
+                    style={{ background: "hsl(var(--primary))" }}>
+                    🔍 Ver estado
+                  </button>
+                </div>
+              )}
+
+              {sysLoading && (
+                <div className="text-center py-8 text-muted-foreground text-sm">Consultando servidor...</div>
+              )}
+
+              {sysHealth && !sysLoading && (
+                <>
+                  {/* Alerta si hay warning */}
+                  {sysHealth.warning && (
+                    <div className="rounded-2xl px-4 py-3 flex items-start gap-3"
+                      style={{ background: "hsl(0 75% 95%)", border: "1px solid hsl(0 75% 75%)" }}>
+                      <span className="text-xl">⚠️</span>
+                      <div>
+                        <p className="font-bold text-sm" style={{ color: "hsl(0 75% 35%)" }}>Alerta</p>
+                        <p className="text-xs" style={{ color: "hsl(0 75% 40%)" }}>{sysHealth.warning}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* KPIs */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-card border rounded-2xl p-4">
+                      <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">⏱ Uptime</p>
+                      <p className="text-lg font-black mt-1">{sysHealth.uptime_str}</p>
+                    </div>
+                    <div className="bg-card border rounded-2xl p-4">
+                      <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">🗄️ Base de datos</p>
+                      <p className="text-lg font-black mt-1" style={{ color: sysHealth.db_ok ? "#16a34a" : "#dc2626" }}>
+                        {sysHealth.db_ok ? "✅ OK" : "❌ Error"}
+                      </p>
+                    </div>
+                    <div className="bg-card border rounded-2xl p-4 col-span-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">🧠 Memoria RAM</p>
+                        <span className="text-xs font-black" style={{ color: barColor }}>{heapPct}%</span>
+                      </div>
+                      <div className="w-full h-2.5 rounded-full" style={{ background: "hsl(var(--muted))" }}>
+                        <div className="h-2.5 rounded-full transition-all" style={{ width: `${heapPct}%`, background: barColor }} />
+                      </div>
+                      <div className="flex justify-between text-[11px] text-muted-foreground mt-1.5">
+                        <span>Heap: {sysHealth.heap_used_mb} / {sysHealth.heap_total_mb} MB</span>
+                        <span>RSS: {rss} MB</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Info técnica */}
+                  <div className="bg-card border rounded-2xl p-4 space-y-1.5">
+                    <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide mb-2">📋 Info técnica</p>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Node.js</span>
+                      <span className="font-mono font-bold">{sysHealth.node_version}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">PID</span>
+                      <span className="font-mono font-bold">{sysHealth.pid}</span>
+                    </div>
+                  </div>
+
+                  {/* Botón reiniciar */}
+                  {!sysConfirm ? (
+                    <button
+                      onClick={() => setSysConfirm(true)}
+                      disabled={sysRestarting}
+                      className="w-full py-3.5 rounded-2xl font-black text-sm disabled:opacity-40 flex items-center justify-center gap-2"
+                      style={{ background: "hsl(0 75% 95%)", color: "hsl(0 75% 35%)", border: "1px solid hsl(0 75% 75%)" }}>
+                      🔁 Reiniciar servidor
+                    </button>
+                  ) : (
+                    <div className="rounded-2xl p-4 space-y-3"
+                      style={{ background: "hsl(0 75% 95%)", border: "1px solid hsl(0 75% 75%)" }}>
+                      <p className="font-bold text-sm text-center" style={{ color: "hsl(0 75% 30%)" }}>
+                        ¿Confirmas el reinicio?
+                      </p>
+                      <p className="text-xs text-center" style={{ color: "hsl(0 75% 40%)" }}>
+                        El servidor se reiniciará automáticamente en ~5 segundos. Los jugadores en partida activa notarán una breve interrupción.
+                      </p>
+                      <div className="flex gap-2">
+                        <button onClick={() => setSysConfirm(false)}
+                          className="flex-1 py-2.5 rounded-xl font-bold text-sm"
+                          style={{ background: "hsl(var(--muted))" }}>
+                          Cancelar
+                        </button>
+                        <button onClick={restartServer} disabled={sysRestarting}
+                          className="flex-1 py-2.5 rounded-xl font-black text-sm text-white disabled:opacity-40"
+                          style={{ background: "hsl(0 75% 45%)" }}>
+                          {sysRestarting ? "⏳ Reiniciando..." : "✅ Sí, reiniciar"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── Pagos Manuales ──────────────────────────────────────── */}
         {/* Receipt lightbox */}
