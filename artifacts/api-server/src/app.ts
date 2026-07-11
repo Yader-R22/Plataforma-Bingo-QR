@@ -102,6 +102,10 @@ app.use(async (req, res, next) => {
 app.use(
   pinoHttp({
     logger,
+    // No logear el endpoint de sesión (se llama cada 3 s por jugador)
+    autoLogging: {
+      ignore: (req) => !!req.url?.includes("/session"),
+    },
     serializers: {
       req(req) {
         return {

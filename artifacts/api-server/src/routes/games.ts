@@ -267,35 +267,85 @@ router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
   res.json(formatGame(game));
 });
 
+// ── Session cache ────────────────────────────────────────────────────────────
+// Los jugadores hacen polling cada 3 s. Con N jugadores en un juego, sin caché
+// habría N queries DB por cada ciclo de 3 s. Con caché de 2 s → siempre 1 query
+// DB por juego activo, independientemente de cuántos jugadores estén conectados.
+interface SessionCacheEntry {
+  data: object;
+  expiresAt: number;
+}
+const SESSION_CACHE = new Map<number, SessionCacheEntry>();
+const SESSION_CACHE_TTL_MS = 2_000;
+
+// Invalida la caché de sesión para un juego (llamar tras cantar número, cambio de ronda, etc.)
+export function invalidateSessionCache(gameId: number): void {
+  SESSION_CACHE.delete(gameId);
+}
+
 router.get("/:id/session", requireAuth, async (req: AuthRequest, res) => {
   const p = GetGameSessionParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
-  const games = await db.select().from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
-  if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
-  const game = games[0];
 
-  // Record presence
+  // Registrar presencia siempre (antes de la caché)
   if (req.userId) {
     let gm = presenceMap.get(p.data.id);
     if (!gm) { gm = new Map(); presenceMap.set(p.data.id, gm); }
     gm.set(req.userId, Date.now());
   }
 
+  // Caché hit → responde sin tocar la DB
+  const cached = SESSION_CACHE.get(p.data.id);
+  if (cached && cached.expiresAt > Date.now()) {
+    res.json(cached.data);
+    return;
+  }
+
+  // Caché miss → query DB con solo los campos necesarios
+  const games = await db
+    .select({
+      id: gamesTable.id,
+      status: gamesTable.status,
+      calledNumbers: gamesTable.calledNumbers,
+      rounds: gamesTable.rounds,
+      currentRound: gamesTable.currentRound,
+      updatedAt: gamesTable.updatedAt,
+      gameMode: gamesTable.gameMode,
+      maxWinners: gamesTable.maxWinners,
+      prizeAmount: gamesTable.prizeAmount,
+    })
+    .from(gamesTable)
+    .where(eq(gamesTable.id, p.data.id))
+    .limit(1);
+
+  if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
+  const game = games[0];
+
   const called = game.status === "active" ? (game.calledNumbers ?? []) : [];
   const rounds = game.rounds as RoundConfig[] | null | undefined;
   const totalRounds = rounds?.length ?? 1;
   const currentRound = game.currentRound ?? 1;
-  const roundCfg = getCurrentRoundConfig(game);
-  res.json({
+
+  // getCurrentRoundConfig necesita el shape completo — reconstruimos lo mínimo
+  let gameModeOut = game.gameMode as string;
+  if (rounds?.length) {
+    const r = rounds[(currentRound - 1)];
+    if (r) gameModeOut = r.game_mode as string;
+  }
+
+  const data = {
     game_id: game.id,
     game_status: game.status,
     called_numbers: called,
     last_called_number: called.length ? called[called.length - 1] : null,
-    game_mode: roundCfg.game_mode,
+    game_mode: gameModeOut,
     current_round: currentRound,
     total_rounds: totalRounds,
     updated_at: game.updatedAt,
-  });
+  };
+
+  SESSION_CACHE.set(p.data.id, { data, expiresAt: Date.now() + SESSION_CACHE_TTL_MS });
+  res.json(data);
 });
 
 router.get("/:id/winners", async (req: AuthRequest, res) => {
@@ -349,6 +399,7 @@ router.post("/:id/call-number", requireAdmin, async (req: AuthRequest, res) => {
     res.status(409).json({ error: `El número ${b.data.number} ya fue cantado` });
     return;
   }
+  invalidateSessionCache(p.data.id);
   const [updated] = await db.select().from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
   const rounds = updated.rounds as RoundConfig[] | null | undefined;
   const totalRounds = rounds?.length ?? 1;
@@ -373,6 +424,7 @@ router.post("/:id/start", requireAdmin, async (req: AuthRequest, res) => {
     .where(eq(gamesTable.id, p.data.id))
     .returning();
   if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
+  invalidateSessionCache(p.data.id);
   res.json(formatGame(game));
   // Notify players who bought cards for this game
   const players = await db.selectDistinct({ userId: cardsTable.userId }).from(cardsTable)
@@ -424,6 +476,7 @@ router.post("/:id/next-round", requireAdmin, async (req: AuthRequest, res) => {
     .set({ markedNumbers: [] })
     .where(and(eq(cardsTable.gameId, p.data.id), eq(cardsTable.status, "active")));
 
+  invalidateSessionCache(p.data.id);
   req.log.info({ gameId: p.data.id, newRound: currentRound + 1 }, "Ronda avanzada por admin");
   res.json(formatGame(updated));
   // Notify active players that the board reset
@@ -450,8 +503,9 @@ router.post("/:id/finish", requireAdmin, async (req: AuthRequest, res) => {
   await db.update(cardsTable).set({ status: "expired" })
     .where(and(eq(cardsTable.gameId, p.data.id), eq(cardsTable.status, "active")));
 
-  // Free in-memory presence data for this game
+  // Free in-memory presence data and session cache for this game
   presenceMap.delete(p.data.id);
+  invalidateSessionCache(p.data.id);
 
   res.json(formatGame(game));
   const playerIds = players.map(r => r.userId);
@@ -504,6 +558,7 @@ router.post("/:id/reset", requireAdmin, async (req: AuthRequest, res) => {
   });
 
   const [updated] = await db.select().from(gamesTable).where(eq(gamesTable.id, gameId)).limit(1);
+  invalidateSessionCache(gameId);
   req.log.info({ gameId }, "Juego reseteado por admin");
   res.json(formatGame(updated));
 });
