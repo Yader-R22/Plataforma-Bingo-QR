@@ -9,21 +9,26 @@ import { LoginBody, RegisterBody, ForgotPasswordBody, ResetPasswordBody } from "
 const router = Router();
 
 // ── In-memory rate limiter for CI check (3 failures → 24h block per IP) ──────
-const ciCheckAttempts = new Map<string, { failures: number; blockedUntil: Date | null }>();
+const ciCheckAttempts = new Map<string, { failures: number; blockedUntil: Date | null; lastSeen: number }>();
 
-// Purge expired entries every hour to prevent unbounded growth
+// Purge entries every hour:
+// - Bloqueadas: si el bloqueo ya expiró
+// - Sin bloqueo: si llevan más de 2h sin actividad (evita crecimiento indefinido)
+const CI_IDLE_TTL_MS = 2 * 60 * 60 * 1000;
 setInterval(() => {
   const now = Date.now();
   for (const [ip, entry] of ciCheckAttempts) {
-    // Delete any entry whose block period has expired — regardless of failure count
     const blockExpired = !entry.blockedUntil || entry.blockedUntil.getTime() < now;
-    if (blockExpired) ciCheckAttempts.delete(ip);
+    const idleExpired = now - entry.lastSeen > CI_IDLE_TTL_MS;
+    if (blockExpired && idleExpired) ciCheckAttempts.delete(ip);
   }
 }, 60 * 60 * 1000).unref();
 
 function getCiCheckEntry(ip: string) {
-  if (!ciCheckAttempts.has(ip)) ciCheckAttempts.set(ip, { failures: 0, blockedUntil: null });
-  return ciCheckAttempts.get(ip)!;
+  if (!ciCheckAttempts.has(ip)) ciCheckAttempts.set(ip, { failures: 0, blockedUntil: null, lastSeen: Date.now() });
+  const entry = ciCheckAttempts.get(ip)!;
+  entry.lastSeen = Date.now();
+  return entry;
 }
 
 router.post("/check-ci", async (req, res) => {

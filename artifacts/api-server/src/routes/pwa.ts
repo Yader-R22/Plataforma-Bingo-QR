@@ -5,14 +5,34 @@ import { requireAdmin, type AuthRequest } from "../middlewares/auth";
 
 const router = Router();
 
-async function getSettings() {
+// ── Settings cache ────────────────────────────────────────────────────────────
+// getSettings() es llamado por /manifest.json, /icon/512, /icon/192, /cache-version.
+// Sin caché, cada request hace un SELECT * completo (incluye iconos en base64 de
+// hasta 500 KB). Con TTL de 60 s prácticamente eliminamos esas queries repetidas.
+type SiteSettings = typeof siteSettingsTable.$inferSelect;
+let settingsCache: SiteSettings | null = null;
+let settingsCacheAt = 0;
+const SETTINGS_TTL_MS = 60_000;
+
+export function invalidatePwaSettingsCache(): void {
+  settingsCache = null;
+  settingsCacheAt = 0;
+}
+
+async function getSettings(): Promise<SiteSettings> {
+  const now = Date.now();
+  if (settingsCache && now - settingsCacheAt < SETTINGS_TTL_MS) return settingsCache;
+
   const rows = await db.select().from(siteSettingsTable).where(eq(siteSettingsTable.id, 1));
   if (rows.length === 0) {
     await db.insert(siteSettingsTable).values({ id: 1 });
     const fresh = await db.select().from(siteSettingsTable).where(eq(siteSettingsTable.id, 1));
-    return fresh[0]!;
+    settingsCache = fresh[0]!;
+  } else {
+    settingsCache = rows[0]!;
   }
-  return rows[0]!;
+  settingsCacheAt = now;
+  return settingsCache!;
 }
 
 function iconType(src: string): string {

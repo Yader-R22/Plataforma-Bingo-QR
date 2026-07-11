@@ -1,8 +1,17 @@
 import { db, cardsTable, gamesTable, feedItemsTable, usersTable } from "@workspace/db";
-import { eq, and, isNotNull } from "drizzle-orm";
+import { eq, and, isNotNull, gte, lt } from "drizzle-orm";
 import { logger } from "./logger";
+
 const PAYMENT_API_URL = "https://yhzzqeogsakeeknjlwtw.supabase.co/functions/v1";
 const RECONCILE_INTERVAL_MS = 30_000;
+const FETCH_TIMEOUT_MS = 10_000;
+
+// Solo revisar transacciones creadas en las últimas 24 horas.
+// Los pagos más antiguos casi nunca se completan y generan requests HTTP innecesarios.
+const PENDING_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+// Expirar automáticamente cartones pendientes con más de 48 horas sin pago.
+const EXPIRE_AFTER_MS = 48 * 60 * 60 * 1000;
 
 async function activateCards(transactionId: string): Promise<void> {
   await db.update(cardsTable)
@@ -43,15 +52,36 @@ async function activateCards(transactionId: string): Promise<void> {
   logger.info({ transactionId, cards: paidCards.length }, "Reconciliation: cards activated");
 }
 
+async function expireOldPendingCards(): Promise<void> {
+  try {
+    const cutoff = new Date(Date.now() - EXPIRE_AFTER_MS);
+    const result = await db.update(cardsTable)
+      .set({ paymentStatus: "failed", status: "expired" })
+      .where(
+        and(
+          eq(cardsTable.paymentStatus, "pending"),
+          lt(cardsTable.createdAt, cutoff),
+        )
+      );
+    if ((result.rowCount ?? 0) > 0) {
+      logger.info({ count: result.rowCount }, "Reconciliation: expired old pending cards (>48h)");
+    }
+  } catch (err) {
+    logger.warn({ err }, "Reconciliation: could not expire old pending cards");
+  }
+}
+
 async function reconcile(): Promise<void> {
   try {
-    // Get all unique pending transaction IDs
+    // Solo revisar transacciones de las últimas 24 horas
+    const cutoff = new Date(Date.now() - PENDING_MAX_AGE_MS);
     const pending = await db.selectDistinct({ checkoutId: cardsTable.checkoutId })
       .from(cardsTable)
       .where(
         and(
           eq(cardsTable.paymentStatus, "pending"),
           isNotNull(cardsTable.checkoutId),
+          gte(cardsTable.createdAt, cutoff),
         )
       );
 
@@ -62,18 +92,31 @@ async function reconcile(): Promise<void> {
     for (const { checkoutId } of pending) {
       if (!checkoutId) continue;
       try {
-        const res = await fetch(`${PAYMENT_API_URL}/check-status`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transactionId: checkoutId }),
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+        let res: Response;
+        try {
+          res = await fetch(`${PAYMENT_API_URL}/check-status`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ transactionId: checkoutId }),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
         if (!res.ok) continue;
         const data = await res.json() as { status: string };
         if (data.status === "COMPLETED") {
           await activateCards(checkoutId);
         }
-      } catch (err) {
-        logger.warn({ err, checkoutId }, "Reconciliation: check-status failed for transaction");
+      } catch (err: unknown) {
+        const name = (err as { name?: string }).name;
+        if (name === "AbortError") {
+          logger.warn({ checkoutId }, "Reconciliation: check-status timed out");
+        } else {
+          logger.warn({ err, checkoutId }, "Reconciliation: check-status failed");
+        }
       }
     }
   } catch (err) {
@@ -82,10 +125,16 @@ async function reconcile(): Promise<void> {
 }
 
 export function startReconciliationJob(): void {
-  // Run once shortly after boot, then on a fixed interval
+  // Limpiar cartones viejos pendientes al arrancar y luego cada hora
+  void expireOldPendingCards();
+  const expireJob = setInterval(() => void expireOldPendingCards(), 60 * 60 * 1000);
+  expireJob.unref();
+
+  // Reconciliar pagos recientes cada 30 s
   const initTimer = setTimeout(() => void reconcile(), 5_000);
   initTimer.unref();
   const job = setInterval(() => void reconcile(), RECONCILE_INTERVAL_MS);
   job.unref();
-  logger.info({ intervalMs: RECONCILE_INTERVAL_MS }, "Payment reconciliation job started");
+
+  logger.info({ intervalMs: RECONCILE_INTERVAL_MS, maxAgeH: 24 }, "Payment reconciliation job started");
 }
