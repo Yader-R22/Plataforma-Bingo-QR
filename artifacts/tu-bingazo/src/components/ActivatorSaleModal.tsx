@@ -25,6 +25,13 @@ interface Props {
   onClose: () => void;
 }
 
+interface SiteSettings {
+  site_name: string;
+  site_tagline: string;
+  site_emoji: string;
+  qr_background_url: string | null;
+}
+
 export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Props) {
   const [step, setStep] = useState<Step>("game");
   const [games, setGames] = useState<Game[]>([]);
@@ -33,6 +40,7 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
     card_sale_discount_type: "percentage" | "fixed";
     card_sale_discount_value: number;
   } | null>(null);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
   const [loadingGames, setLoadingGames] = useState(true);
 
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
@@ -60,9 +68,19 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
     Promise.all([
       fetch(`${BASE}/api/activator-sales/games`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`${BASE}/api/activator-sales/settings`, { headers: { Authorization: `Bearer ${token}` } }),
-    ]).then(async ([gr, sr]) => {
+      fetch(`${BASE}/api/site-settings`),
+    ]).then(async ([gr, sr, siteR]) => {
       if (gr.ok) setGames(await gr.json());
       if (sr.ok) setSettings(await sr.json());
+      if (siteR.ok) {
+        const s = await siteR.json();
+        setSiteSettings({
+          site_name: s.site_name ?? "El Bingote",
+          site_tagline: s.site_tagline ?? "¡Juega y gana!",
+          site_emoji: s.site_emoji ?? "🎱",
+          qr_background_url: s.qr_background_url ?? null,
+        });
+      }
     }).finally(() => setLoadingGames(false));
   }, [token]);
 
@@ -89,6 +107,160 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
     }, 3000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [step, checkoutId, token]);
+
+  function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, lineH: number) {
+    const words = text.split(" ");
+    let line = "";
+    let curY = y;
+    for (const word of words) {
+      const test = line ? `${line} ${word}` : word;
+      if (ctx.measureText(test).width > maxW && line) {
+        ctx.fillText(line, x, curY);
+        line = word;
+        curY += lineH;
+      } else {
+        line = test;
+      }
+    }
+    if (line) ctx.fillText(line, x, curY);
+  }
+
+  function downloadQR() {
+    if (!qrImage || !selectedGame) return;
+
+    const W = 480, H = 720, QR = 240, SCALE = 3;
+    const siteName = siteSettings?.site_name ?? "El Bingote";
+    const siteTagline = siteSettings?.site_tagline ?? "¡Juega y gana!";
+    const siteEmoji = siteSettings?.site_emoji ?? "🎱";
+    const qrBgUrl = siteSettings?.qr_background_url ?? null;
+    const gameTitle = selectedGame.title;
+    const drawDate = selectedGame.scheduled_at ?? new Date().toISOString();
+    const { final: totalPrice } = calcPrices();
+
+    const qrImg = new Image();
+    qrImg.crossOrigin = "anonymous";
+    qrImg.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = W * SCALE;
+      canvas.height = H * SCALE;
+      const ctx = canvas.getContext("2d")!;
+      ctx.scale(SCALE, SCALE);
+
+      function drawContent() {
+        if (!qrBgUrl) {
+          ctx.save();
+          ctx.globalAlpha = 0.08;
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath(); ctx.arc(W - 40, 60, 110, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(50, H - 60, 90, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        ctx.font = "bold 15px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`${siteEmoji}  ${siteName.toUpperCase()}`, W / 2, 44);
+
+        ctx.fillStyle = "rgba(255,255,255,0.32)";
+        ctx.font = "12px sans-serif";
+        ctx.fillText(siteTagline, W / 2, 62);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 24px sans-serif";
+        wrapText(ctx, gameTitle, W / 2, 96, W - 60, 30);
+
+        const amountY = 160;
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.font = "14px sans-serif";
+        ctx.fillText(`${quantity} cartón${quantity > 1 ? "es" : ""}`, W / 2, amountY);
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "bold 52px sans-serif";
+        ctx.fillText(`Bs ${totalPrice.toFixed(0)}`, W / 2, amountY + 52);
+
+        ctx.strokeStyle = "rgba(255,255,255,0.12)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(40, amountY + 70);
+        ctx.lineTo(W - 40, amountY + 70);
+        ctx.stroke();
+
+        const qrCardX = (W - QR - 40) / 2;
+        const qrCardY = amountY + 85;
+        ctx.fillStyle = "#ffffff";
+        roundRect(ctx, qrCardX, qrCardY, QR + 40, QR + 40, 20);
+        ctx.fill();
+        ctx.drawImage(qrImg, qrCardX + 20, qrCardY + 20, QR, QR);
+
+        const scanY = qrCardY + QR + 56;
+        ctx.fillStyle = "rgba(255,255,255,0.65)";
+        ctx.font = "13px sans-serif";
+        ctx.fillText("Escanea con tu app bancaria o billetera digital", W / 2, scanY);
+
+        const dateStr = new Date(drawDate).toLocaleDateString("es-BO", {
+          weekday: "long", day: "numeric", month: "long", year: "numeric",
+        });
+        ctx.fillStyle = "rgba(255,255,255,0.45)";
+        ctx.font = "12px sans-serif";
+        ctx.fillText(`Sorteo: ${dateStr}`, W / 2, scanY + 24);
+
+        const pillW = 180, pillH = 32, pillX = (W - pillW) / 2, pillY = H - 52;
+        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        roundRect(ctx, pillX, pillY, pillW, pillH, 16);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.4)";
+        ctx.font = "11px sans-serif";
+        ctx.fillText(`${siteEmoji}  ${siteName}`, W / 2, pillY + 20);
+
+        const a = document.createElement("a");
+        a.href = canvas.toDataURL("image/png");
+        a.download = `qr-bingo-${saleId ?? "pago"}.png`;
+        a.click();
+      }
+
+      if (qrBgUrl) {
+        const bgImg = new Image();
+        bgImg.crossOrigin = "anonymous";
+        bgImg.onload = () => {
+          const imgAspect = bgImg.width / bgImg.height;
+          const canvasAspect = W / H;
+          let sx = 0, sy = 0, sw = bgImg.width, sh = bgImg.height;
+          if (imgAspect > canvasAspect) { sw = bgImg.height * canvasAspect; sx = (bgImg.width - sw) / 2; }
+          else { sh = bgImg.width / canvasAspect; sy = (bgImg.height - sh) / 2; }
+          ctx.drawImage(bgImg, sx, sy, sw, sh, 0, 0, W, H);
+          ctx.fillStyle = "rgba(0,0,0,0.45)";
+          ctx.fillRect(0, 0, W, H);
+          drawContent();
+        };
+        bgImg.onerror = () => {
+          const bg = ctx.createLinearGradient(0, 0, 0, H);
+          bg.addColorStop(0, "#2d0072"); bg.addColorStop(1, "#0d001a");
+          ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+          drawContent();
+        };
+        bgImg.src = qrBgUrl;
+      } else {
+        const bg = ctx.createLinearGradient(0, 0, 0, H);
+        bg.addColorStop(0, "#2d0072"); bg.addColorStop(1, "#0d001a");
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+        drawContent();
+      }
+    };
+    qrImg.src = qrImage;
+  }
 
   function calcPrices() {
     if (!selectedGame || !settings) return { original: 0, discount: 0, final: 0 };
@@ -411,12 +583,7 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
 
               {qrImage && (
                 <button
-                  onClick={() => {
-                    const a = document.createElement("a");
-                    a.href = qrImage!;
-                    a.download = `qr-bingo-${saleId ?? "pago"}.png`;
-                    a.click();
-                  }}
+                  onClick={downloadQR}
                   className="w-full py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2"
                   style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))", border: "1px solid hsl(var(--primary) / 0.3)" }}>
                   ⬇️ Descargar código QR
