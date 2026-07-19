@@ -714,15 +714,6 @@ router.get("/stats", async (req: AuthRequest, res) => {
   });
 });
 
-router.patch("/games/:id/featured", async (req: AuthRequest, res) => {
-  const id = parseInt(String(req.params.id));
-  const { is_featured } = req.body as { is_featured?: boolean };
-  if (typeof is_featured !== "boolean") { res.status(400).json({ error: "is_featured requerido" }); return; }
-  const [game] = await db.update(gamesTable).set({ isFeatured: is_featured }).where(eq(gamesTable.id, id)).returning();
-  if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
-  res.json({ id: game.id, is_featured: game.isFeatured });
-});
-
 // ── Detailed user info ──────────────────────────────────────────────────────
 router.get("/users/:id", async (req: AuthRequest, res) => {
   const id = parseInt(String(req.params.id));

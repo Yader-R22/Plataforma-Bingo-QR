@@ -1648,15 +1648,6 @@ export default function AdminPage() {
     }
   }
 
-  async function toggleFeatured(gameId: number, current: boolean) {
-    const r = await fetch(`${BASE}/api/admin/games/${gameId}/featured`, {
-      method: "PATCH", headers: authH(), body: JSON.stringify({ is_featured: !current }),
-    });
-    if (r.ok) {
-      setGames(gs => gs.map(g => g.id === gameId ? { ...g, is_featured: !current } : g));
-      toast.success(!current ? "⭐ Juego destacado en inicio" : "Juego removido de destacados");
-    }
-  }
 
   async function reactivateGame(gameId: number) {
     if (!confirm("¿Reactivar este juego? Volverá a estado 'Próximo' y los jugadores podrán comprar cartones.")) return;
@@ -3302,7 +3293,6 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
                           <div className="live-badge"><div className="live-dot" />EN VIVO</div>
                           <span className="text-white font-bold text-sm">{g.title}</span>
-                          {g.is_featured && <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: "hsl(42 98% 52% / 0.15)", color: "hsl(42 98% 35%)" }}>⭐ Destacado</span>}
                           <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
                             style={{ background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.9)" }}>
                             {{
@@ -3724,7 +3714,6 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       {g.status === "active" && <div className="live-badge"><div className="live-dot" />EN VIVO</div>}
                       <span className={`font-bold ${g.status === "active" ? "text-white text-sm" : ""}`}>{g.title}</span>
-                      {g.is_featured && <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: "hsl(42 98% 52% / 0.15)", color: "hsl(42 98% 35%)" }}>⭐ Destacado</span>}
                       <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
                         style={g.status === "active"
                           ? { background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.9)" }
@@ -3756,7 +3745,6 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       <>
                         <button onClick={() => startGame(g.id)} className="px-3 py-1.5 rounded-xl text-xs font-bold text-white" style={{ background: "#16a34a" }}>▶ Iniciar</button>
                         <button onClick={() => navigate(`/admin/editar-juego/${g.id}`)} className="text-xs font-bold" style={{ color: "hsl(var(--primary))" }}>✏ Editar</button>
-                        <button onClick={() => toggleFeatured(g.id, g.is_featured)} className="text-xs font-bold" style={{ color: "hsl(42 98% 40%)" }}>{g.is_featured ? "Quitar destacado" : "⭐ Destacar"}</button>
                         {(g.unique_participants ?? g.participant_count ?? 0) === 0 && (
                           deleteGameConfirm === g.id ? (
                             <div className="flex gap-1 items-center">

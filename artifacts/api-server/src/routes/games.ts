@@ -94,7 +94,6 @@ function formatGame(
     current_round: currentRound,
     total_rounds: totalRounds,
     round_history: (game.roundHistory as RoundHistoryEntry[] | null) ?? [],
-    is_featured: game.isFeatured,
     cover_image_url: game.coverImageUrl ?? null,
     called_numbers: game.calledNumbers ?? [],
     created_at: game.createdAt,

@@ -234,33 +234,6 @@ function GameTypeSection({
   );
 }
 
-function FeaturedGameSection({ game, onNavigate }: { game: any; onNavigate: (p: string) => void }) {
-  const isLive = game.status === "active";
-  return (
-    <div className="rounded-3xl p-5 relative overflow-hidden cursor-pointer stars-bg"
-      style={{ background: "linear-gradient(135deg, #b8500a, #e88c2a)" }}
-      onClick={() => onNavigate(`/juegos/${game.id}`)}>
-      <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full opacity-20" style={{ background: "rgba(255,255,255,0.3)" }} />
-      <div className="relative z-10">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs font-black px-2.5 py-1 rounded-full" style={{ background: "rgba(255,255,255,0.2)", color: "white" }}>⭐ ESPECIAL</span>
-          {isLive && <div className="live-badge"><div className="live-dot" />EN VIVO</div>}
-        </div>
-        <div className="flex items-start justify-between">
-          <p className="font-black text-white text-lg leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
-            🎉 {game.title}
-          </p>
-          <p className="text-3xl font-black shrink-0" style={{ fontFamily: "'Poppins', sans-serif", color: "white", textShadow: "0 0 12px rgba(255,255,255,0.4)" }}>
-            Bs {(game.prize_amount as number).toLocaleString("es-BO")}
-          </p>
-        </div>
-        <p className="text-white/80 text-xs mt-2">
-          📅 {new Date(game.draw_date).toLocaleDateString("es-BO", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · Bs {game.card_price}/cartón
-        </p>
-      </div>
-    </div>
-  );
-}
 
 export default function HomePage() {
   const [, navigate] = useLocation();
@@ -372,7 +345,6 @@ export default function HomePage() {
   }, [feed]);
 
   const gamesList = games as any[];
-  const featuredGame = gamesList.find((g: any) => g.is_featured && g.status !== "finished");
 
   return (
     <>
@@ -496,10 +468,6 @@ export default function HomePage() {
         {(categories as any[]).filter((c: any) => c.is_active).map((c: any) => (
           <GameTypeSection key={c.id} category={c} games={gamesList} onNavigate={navigate} />
         ))}
-
-        {featuredGame && (
-          <FeaturedGameSection game={featuredGame} onNavigate={navigate} />
-        )}
 
       </div>
 
