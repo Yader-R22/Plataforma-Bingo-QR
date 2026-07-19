@@ -902,6 +902,7 @@ export default function AdminPage() {
   const [actPage, setActPage] = useState(1);
   const [txPage, setTxPage] = useState(1);
   const [savingActSettings, setSavingActSettings] = useState(false);
+  const [actSettingsLoaded, setActSettingsLoaded] = useState(false);
   const [actSettingsForm, setActSettingsForm] = useState({ is_enabled: true, whatsapp_group_link: "", bonus_amount: "5", bonus_title: "Bono de bienvenida por activador {activator}", bonus_validity_hours: "", commission_percentage: "5", commission_duration: "indefinite", commission_duration_months: "" });
   const [pendingActivatorCount, setPendingActivatorCount] = useState(0);
   const [reqNoteInput, setReqNoteInput] = useState<Record<number, string>>({});
@@ -1240,6 +1241,7 @@ export default function AdminPage() {
             commission_duration: s.commission_duration,
             commission_duration_months: s.commission_duration_months ? String(s.commission_duration_months) : "",
           });
+          setActSettingsLoaded(true);
         }
         if (stR.ok) setReferralStats(await stR.json());
         if (perfR.ok) setActivatorPerformance(await perfR.json());
@@ -6727,8 +6729,8 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       </div>
                     )}
                   </div>
-                  <button className="btn-primary py-2 text-sm" onClick={saveActSettings} disabled={savingActSettings}>
-                    {savingActSettings ? "Guardando..." : "💾 Guardar configuración"}
+                  <button className="btn-primary py-2 text-sm" onClick={saveActSettings} disabled={savingActSettings || !actSettingsLoaded}>
+                    {savingActSettings ? "Guardando..." : !actSettingsLoaded ? "Cargando..." : "💾 Guardar configuración"}
                   </button>
                 </div>
               </div>
