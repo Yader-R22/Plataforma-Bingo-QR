@@ -1792,7 +1792,7 @@ router.put("/activator-settings", async (req: AuthRequest, res) => {
     );
   }
 
-  const [updated] = await db.select().from(activatorSettingsTable).where(eq(activatorSettingsTable.id, 1));
+  const [updated] = await db.select().from(activatorSettingsTable).limit(1);
   res.json({
     is_enabled: updated.isEnabled,
     whatsapp_group_link: updated.whatsappGroupLink ?? null,
