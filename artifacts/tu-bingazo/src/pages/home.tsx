@@ -245,24 +245,35 @@ export default function HomePage() {
   const [activeBanner, setActiveBanner] = useState(0);
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
 
-  // Banners + banner interval — cached 5 min, survives page transitions
-  const { data: bannersData } = useQuery({
-    queryKey: ["home-banners"],
+  // Query 1: metadatos del sitio — ligero (< 200 bytes), chequea versión cada 5 min
+  const { data: siteMeta } = useQuery({
+    queryKey: ["site-meta"],
     queryFn: async () => {
-      const [br, sr] = await Promise.all([
-        fetch(`${BASE}/api/banners`),
-        fetch(`${BASE}/api/site-settings`),
-      ]);
-      const banners: { id: number; image_url: string; media_type: string }[] = br.ok ? await br.json() : [];
-      const settings = sr.ok ? await sr.json() : {};
-      return { banners, bannerInterval: (settings.banner_interval as number) ?? 5 };
+      const r = await fetch(`${BASE}/api/site-settings`);
+      const s = r.ok ? await r.json() : {};
+      return {
+        bannerInterval: (s.banner_interval as number) ?? 5,
+        bannerVersion: (s.banner_version as number) ?? 1,
+      };
     },
-    staleTime: 2 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-    refetchInterval: 2 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   });
-  const heroBanners = bannersData?.banners ?? [];
-  const bannerInterval = bannersData?.bannerInterval ?? 5;
+
+  // Query 2: banners reales — solo se vuelve a pedir cuando la versión cambia
+  const { data: heroBanners = [] } = useQuery({
+    queryKey: ["home-banners", siteMeta?.bannerVersion ?? 0],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/banners`);
+      const list: { id: number; image_url: string; media_type: string }[] = r.ok ? await r.json() : [];
+      return list;
+    },
+    staleTime: Infinity,
+    gcTime: 24 * 60 * 60 * 1000,
+    enabled: siteMeta !== undefined,
+  });
+  const bannerInterval = siteMeta?.bannerInterval ?? 5;
 
   // Auto-rotate banners: images/GIFs use bannerInterval; videos advance on onEnded
   useEffect(() => {

@@ -21,6 +21,7 @@ export const siteSettingsTable = pgTable("site_settings", {
   primaryColor: text("primary_color").notNull().default("#1a0050"),
   qrBackgroundUrl: text("qr_background_url"),
   bannerInterval: integer("banner_interval").notNull().default(5),
+  bannerVersion: integer("banner_version").notNull().default(1),
   supportWhatsapp: text("support_whatsapp"),
   paymentApiKey: text("payment_api_key"),
   // PWA-specific fields

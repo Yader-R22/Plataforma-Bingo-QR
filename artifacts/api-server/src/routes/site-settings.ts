@@ -30,6 +30,7 @@ router.get("/", async (_req, res) => {
     primary_color: s.primaryColor,
     qr_background_url: s.qrBackgroundUrl,
     banner_interval: s.bannerInterval,
+    banner_version: s.bannerVersion,
     support_whatsapp: s.supportWhatsapp,
     payment_api_key_configured: !!s.paymentApiKey,
     pwa_short_name: s.pwaShortName,
