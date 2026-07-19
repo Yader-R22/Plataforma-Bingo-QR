@@ -207,9 +207,8 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
     currentRound: 1,
     coverImageUrl: data.cover_image_url ?? null,
   }).returning();
-  // Set slug after insert (include ID to guarantee uniqueness)
   const [gameWithSlug] = await db.update(gamesTable)
-    .set({ slug: `${generateSlug(game.title)}-${game.id}` })
+    .set({ slug: generateSlug(game.title) })
     .where(eq(gamesTable.id, game.id))
     .returning();
 
@@ -260,7 +259,7 @@ router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
   }
   const data = parsed.data;
   const updateData: Partial<typeof gamesTable.$inferInsert> = {};
-  if (data.title) { updateData.title = data.title; updateData.slug = `${generateSlug(data.title)}-${p.data.id}`; }
+  if (data.title) { updateData.title = data.title; updateData.slug = generateSlug(data.title); }
   if (data.prize_amount !== undefined) updateData.prizeAmount = String(data.prize_amount);
   if (data.card_price !== undefined) updateData.cardPrice = String(data.card_price);
   if (data.draw_date) updateData.drawDate = new Date(data.draw_date);
