@@ -114,6 +114,12 @@ function GameTypeSection({
   const game = games.find((g: any) => g.type === type && g.status !== "finished")
     ?? games.find((g: any) => g.type === type);
 
+  // Suma de premios de todos los juegos activos/próximos de esta categoría
+  const activeGames = games.filter((g: any) => g.type === type && g.status !== "finished");
+  const totalPrize = activeGames.length > 0
+    ? activeGames.reduce((sum: number, g: any) => sum + (g.prize_amount as number), 0)
+    : game?.prize_amount ?? 0;
+
   const ytUrl = (category.stream_url_youtube || undefined) as string | undefined;
   const ttUrl = (category.stream_url_tiktok || undefined) as string | undefined;
   const fbUrl = (category.stream_url_facebook || undefined) as string | undefined;
@@ -188,7 +194,7 @@ function GameTypeSection({
           </div>
           <div className="text-right">
             <p className="text-3xl font-black" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 60%)", textShadow: "0 0 12px rgba(255,180,0,0.5)" }}>
-              Bs {(game.prize_amount as number).toLocaleString("es-BO")}
+              Bs {totalPrize.toLocaleString("es-BO")}
             </p>
             <p className="text-white/60 text-xs">Premio</p>
           </div>
