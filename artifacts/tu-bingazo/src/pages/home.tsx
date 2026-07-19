@@ -188,9 +188,9 @@ function GameTypeSection({
           </div>
           <div className="text-right">
             <p className="text-3xl font-black" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 60%)", textShadow: "0 0 12px rgba(255,180,0,0.5)" }}>
-              Bs {(game.prize_amount as number).toLocaleString("es-BO")}
+              Bs {((game.total_prize_amount ?? game.prize_amount) as number).toLocaleString("es-BO")}
             </p>
-            <p className="text-white/60 text-xs">Premio</p>
+            <p className="text-white/60 text-xs">Premio{(game.total_prize_amount ?? game.prize_amount) !== game.prize_amount ? " total" : ""}</p>
           </div>
         </div>
 
@@ -245,7 +245,7 @@ function FeaturedGameSection({ game, onNavigate }: { game: any; onNavigate: (p: 
             🎉 {game.title}
           </p>
           <p className="text-3xl font-black shrink-0" style={{ fontFamily: "'Poppins', sans-serif", color: "white", textShadow: "0 0 12px rgba(255,255,255,0.4)" }}>
-            Bs {(game.prize_amount as number).toLocaleString("es-BO")}
+            Bs {((game.total_prize_amount ?? game.prize_amount) as number).toLocaleString("es-BO")}
           </p>
         </div>
         <p className="text-white/80 text-xs mt-2">
