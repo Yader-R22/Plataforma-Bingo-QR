@@ -3,6 +3,7 @@ import { Link, useSearch, useLocation } from "wouter";
 import { useListGames, getListGamesQueryKey } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSetLayoutConfig } from "@/components/AppLayout";
+import { toast } from "sonner";
 
 const ALL_TYPE_FILTERS = [
   { value: "all", label: "Todos" },
@@ -185,11 +186,35 @@ export default function GamesPage() {
                               {cfg.emoji} {game.title}
                             </p>
                           </div>
-                          <div className="text-right shrink-0">
-                            <p className="font-black text-3xl leading-none" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 65%)", textShadow: "0 0 12px rgba(255,180,0,0.5)" }}>
-                              Bs {(game.prize_amount as number).toLocaleString("es-BO")}
-                            </p>
-                            <p className="text-white/60 text-xs mt-0.5">Premio</p>
+                          <div className="flex flex-row gap-3 items-start shrink-0">
+                            <div className="text-right">
+                              <p className="font-black text-3xl leading-none" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 65%)", textShadow: "0 0 12px rgba(255,180,0,0.5)" }}>
+                                Bs {(game.prize_amount as number).toLocaleString("es-BO")}
+                              </p>
+                              <p className="text-white/60 text-xs mt-0.5">Premio</p>
+                            </div>
+                            <button
+                              className="p-1.5 rounded-lg flex-shrink-0 text-white transition-colors"
+                              style={{ background: "rgba(255,255,255,0.15)" }}
+                              aria-label="Compartir"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const slug = (game as any).slug ?? game.id;
+                                const url = `${window.location.origin}/juegos/${slug}`;
+                                if (navigator.share) {
+                                  navigator.share({ title: game.title as string, text: `¡Juega ${game.title} y gana Bs ${game.prize_amount}!`, url });
+                                } else {
+                                  navigator.clipboard.writeText(url).then(() => toast.success("¡Enlace copiado!"));
+                                }
+                              }}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                                <polyline points="16 6 12 2 8 6" />
+                                <line x1="12" y1="2" x2="12" y2="15" />
+                              </svg>
+                            </button>
                           </div>
                         </div>
 

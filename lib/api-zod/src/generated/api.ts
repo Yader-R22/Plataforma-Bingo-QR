@@ -128,6 +128,7 @@ export const ListGamesResponseItem = zod.object({
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
   "total_rounds": zod.number().optional().describe('Total de rondas programadas'),
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
+  "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
   "created_at": zod.coerce.date()
 })
@@ -196,6 +197,7 @@ export const GetGameResponse = zod.object({
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
   "total_rounds": zod.number().optional().describe('Total de rondas programadas'),
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
+  "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
   "created_at": zod.coerce.date()
 })
@@ -255,6 +257,7 @@ export const UpdateGameResponse = zod.object({
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
   "total_rounds": zod.number().optional().describe('Total de rondas programadas'),
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
+  "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
   "created_at": zod.coerce.date()
 })
@@ -374,6 +377,7 @@ export const StartGameResponse = zod.object({
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
   "total_rounds": zod.number().optional().describe('Total de rondas programadas'),
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
+  "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
   "created_at": zod.coerce.date()
 })
@@ -413,6 +417,7 @@ export const FinishGameResponse = zod.object({
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
   "total_rounds": zod.number().optional().describe('Total de rondas programadas'),
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
+  "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
   "created_at": zod.coerce.date()
 })
@@ -452,6 +457,7 @@ export const NextRoundResponse = zod.object({
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
   "total_rounds": zod.number().optional().describe('Total de rondas programadas'),
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
+  "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
   "created_at": zod.coerce.date()
 })

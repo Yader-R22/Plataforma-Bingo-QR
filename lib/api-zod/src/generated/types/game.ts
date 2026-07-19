@@ -43,6 +43,11 @@ export interface Game {
   /** Números cantados en la ronda actual */
   called_numbers?: number[];
   /**
+     * Identificador amigable para URL (ej. bingo-aniversario-pano)
+     * @nullable
+     */
+  slug?: string | null;
+  /**
      * URL o base64 de imagen de portada del juego (opcional)
      * @nullable
      */

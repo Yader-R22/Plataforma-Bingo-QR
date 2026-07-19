@@ -44,6 +44,7 @@ export const gamesTable = pgTable("games", {
   roundHistory: jsonb("round_history").$type<RoundHistoryEntry[]>(),
   calledNumbers: integer("called_numbers").array().notNull().default([]),
   participantCount: integer("participant_count").notNull().default(0),
+  slug: text("slug").unique(),
   coverImageUrl: text("cover_image_url"),
   isFeatured: boolean("is_featured").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRoute, useLocation } from "wouter";
-import { useGetGame } from "@workspace/api-client-react";
+import { useGetGame, getGetGameQueryKey } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
@@ -696,8 +696,23 @@ export default function GameDetailPage() {
   const [fallbackData, setFallbackData] = useState<{ cardIds: number[]; gameId: number; qty: number; amount: number } | null>(null);
   const [winners, setWinners] = useState<Winner[]>([]);
 
-  const gameId = parseInt(params?.id ?? "0");
-  const { data: game, isLoading, refetch: refetchGame } = useGetGame(gameId);
+  const rawParam = params?.id ?? "0";
+  const isSlug = isNaN(parseInt(rawParam));
+  const gameId = isSlug ? 0 : parseInt(rawParam);
+
+  // When the URL has a slug, resolve it to a numeric ID and redirect
+  useEffect(() => {
+    if (!isSlug) return;
+    const BASE_URL = import.meta.env.BASE_URL.replace(/\/$/, "");
+    fetch(`${BASE_URL}/api/games/${rawParam}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: any) => {
+        if (data?.id) navigate(`/juegos/${data.id}`, { replace: true });
+      })
+      .catch(() => {});
+  }, [rawParam, isSlug]);
+
+  const { data: game, isLoading, refetch: refetchGame } = useGetGame(gameId, { query: { queryKey: getGetGameQueryKey(gameId), enabled: !isSlug } });
   useSetLayoutConfig({ showBack: true, title: (game as any)?.title ?? '' }, [(game as any)?.title]);
 
   // Poll game data every 8s so any admin change (reset, start, finish) is reflected immediately

@@ -46,6 +46,16 @@ function getOnlineCount(gameId: number): number {
   return count;
 }
 
+function generateSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
 function getCurrentRoundConfig(game: typeof gamesTable.$inferSelect) {
   const rounds = game.rounds as RoundConfig[] | null | undefined;
   if (rounds?.length) {
@@ -94,6 +104,7 @@ function formatGame(
     current_round: currentRound,
     total_rounds: totalRounds,
     round_history: (game.roundHistory as RoundHistoryEntry[] | null) ?? [],
+    slug: game.slug ?? null,
     cover_image_url: game.coverImageUrl ?? null,
     called_numbers: game.calledNumbers ?? [],
     created_at: game.createdAt,
@@ -196,6 +207,11 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
     currentRound: 1,
     coverImageUrl: data.cover_image_url ?? null,
   }).returning();
+  // Set slug after insert (include ID to guarantee uniqueness)
+  const [gameWithSlug] = await db.update(gamesTable)
+    .set({ slug: `${generateSlug(game.title)}-${game.id}` })
+    .where(eq(gamesTable.id, game.id))
+    .returning();
 
   if (rounds?.length) {
     await syncPredefinedCards(game.id, rounds);
@@ -204,25 +220,33 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
   // Push automático a todos los usuarios sobre el nuevo juego
   const drawDate = new Date(data.draw_date);
   const dateStr = drawDate.toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" });
+  const finalGame = gameWithSlug ?? game;
   sendPushToAll({
     title: "🎱 ¡Nuevo bingo disponible!",
     body: `${data.title} — Premio Bs ${data.prize_amount.toFixed(0)}. El ${dateStr}. ¡Compra tu cartón ahora!`,
-    url: `/games/${game.id}`,
+    url: `/juegos/${finalGame.slug ?? finalGame.id}`,
   }).catch(() => {});
 
-  res.status(201).json(formatGame(game));
+  res.status(201).json(formatGame(finalGame));
 });
 
 router.get("/:id", async (req: AuthRequest, res) => {
-  const p = GetGameParams.safeParse({ id: parseInt(String(req.params.id)) });
-  if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
-  const games = await db.select().from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
+  const rawId = String(req.params.id);
+  const numericId = parseInt(rawId);
+  let games: (typeof gamesTable.$inferSelect)[];
+
+  if (!isNaN(numericId)) {
+    games = await db.select().from(gamesTable).where(eq(gamesTable.id, numericId)).limit(1);
+  } else {
+    games = await db.select().from(gamesTable).where(eq(gamesTable.slug, rawId)).limit(1);
+  }
   if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
+  const gameId = games[0].id;
   const uniq = await db.execute(
-    sql`SELECT COUNT(DISTINCT user_id)::int AS cnt FROM cards WHERE game_id = ${p.data.id} AND payment_status = 'paid' AND status = 'active'`
+    sql`SELECT COUNT(DISTINCT user_id)::int AS cnt FROM cards WHERE game_id = ${gameId} AND payment_status = 'paid' AND status = 'active'`
   );
   const uniqueParticipants = (uniq.rows[0]?.cnt as number) ?? 0;
-  res.json(formatGame(games[0], { uniqueParticipants, onlineCount: getOnlineCount(p.data.id) }));
+  res.json(formatGame(games[0], { uniqueParticipants, onlineCount: getOnlineCount(gameId) }));
 });
 
 router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
@@ -236,7 +260,7 @@ router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
   }
   const data = parsed.data;
   const updateData: Partial<typeof gamesTable.$inferInsert> = {};
-  if (data.title) updateData.title = data.title;
+  if (data.title) { updateData.title = data.title; updateData.slug = `${generateSlug(data.title)}-${p.data.id}`; }
   if (data.prize_amount !== undefined) updateData.prizeAmount = String(data.prize_amount);
   if (data.card_price !== undefined) updateData.cardPrice = String(data.card_price);
   if (data.draw_date) updateData.drawDate = new Date(data.draw_date);
