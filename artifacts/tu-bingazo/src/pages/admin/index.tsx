@@ -905,6 +905,8 @@ export default function AdminPage() {
   const [reqNoteInput, setReqNoteInput] = useState<Record<number, string>>({});
   const [reqNoteOpen, setReqNoteOpen] = useState<Record<number, "reject" | "hold" | null>>({});
   const [reqFilter, setReqFilter] = useState<"all" | "pending" | "accepted" | "hold" | "suspended" | "banned">("all");
+  const [referidosSubTab, setReferidosSubTab] = useState<"solicitudes" | "movimientos" | "configuracion">("solicitudes");
+  const [reqSearch, setReqSearch] = useState("");
   const [banModal, setBanModal] = useState<{ id: number; name: string } | null>(null);
   const [banReason, setBanReason] = useState("");
   const [togglingProgram, setTogglingProgram] = useState(false);
@@ -6055,6 +6057,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           const pendingReqs = activatorRequests.filter(r => r.status === "pending");
           const acceptedReqs = activatorRequests.filter(r => r.status === "accepted");
           const rejectedReqs = activatorRequests.filter(r => r.status === "rejected" || r.status === "hold");
+          const _q = reqSearch.trim().toLowerCase();
+          const reqFiltered = activatorRequests.filter(r =>
+            (reqFilter === "all" || r.status === reqFilter) &&
+            (!_q || r.user_full_name?.toLowerCase().includes(_q) || r.user_ci?.includes(_q) || r.user_phone?.includes(_q) || r.user_department?.toLowerCase().includes(_q))
+          );
+
 
           async function reviewRequest(id: number, action: "accept" | "reject" | "hold" | "suspend", notes?: string) {
             const r = await fetch(`${BASE}/api/admin/activator-requests/${id}/review`, {
@@ -6134,107 +6142,34 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 </div>
               )}
 
-              {/* Activator performance: podium + full table with department filter */}
-              {activatorPerformance.length > 0 && (() => {
-                const podiumColors = [
-                  { bg: "hsl(47 95% 52% / 0.15)", border: "hsl(47 95% 52% / 0.5)", text: "hsl(47 90% 30%)" },
-                  { bg: "hsl(220 15% 60% / 0.15)", border: "hsl(220 15% 60% / 0.4)", text: "hsl(220 10% 35%)" },
-                  { bg: "hsl(27 80% 55% / 0.15)", border: "hsl(27 80% 55% / 0.4)", text: "hsl(27 70% 30%)" },
-                ];
-                const podiumMedals = ["🥇","🥈","🥉"];
 
-                // Unique departments sorted
-                const departments = Array.from(new Set(activatorPerformance.map(a => a.department || "Sin depto."))).sort();
+              {/* ── Sub-tab nav ── */}
+              <div className="flex gap-1 bg-muted rounded-xl p-1">
+                {(["solicitudes", "movimientos", "configuracion"] as const).map(st => (
+                  <button key={st} onClick={() => setReferidosSubTab(st)}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                      referidosSubTab === st ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                    }`}>
+                    {st === "solicitudes" ? `📋 Solicitudes${pendingReqs.length > 0 ? ` (${pendingReqs.length})` : ""}` :
+                     st === "movimientos" ? "📊 Estadísticas" : "⚙️ Config."}
+                  </button>
+                ))}
+              </div>
 
-                // Filtered list: if dept selected, only that dept ordered by total; else global
-                const filtered = deptFilter === "__all__"
-                  ? [...activatorPerformance].sort((a, b) => b.total - a.total)
-                  : [...activatorPerformance].filter(a => (a.department || "Sin depto.") === deptFilter).sort((a, b) => b.total - a.total);
-
-                const top3 = filtered.slice(0, 3);
-
-                return (
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>🏆 Desempeño de Activadores</h3>
-                      <span className="text-[11px] text-muted-foreground font-bold">{filtered.length} activador{filtered.length !== 1 ? "es" : ""}</span>
-                    </div>
-
-                    {/* Department filter pills */}
-                    <div className="flex gap-1.5 flex-wrap mb-3">
-                      {["__all__", ...departments].map(dept => {
-                        const label = dept === "__all__" ? "🌐 Todos" : dept;
-                        const count = dept === "__all__" ? activatorPerformance.length : activatorPerformance.filter(a => (a.department || "Sin depto.") === dept).length;
-                        const active = deptFilter === dept;
-                        return (
-                          <button key={dept}
-                            onClick={() => setDeptFilter(dept)}
-                            className="px-2.5 py-1 rounded-full text-[11px] font-bold transition-all"
-                            style={{
-                              background: active ? "hsl(var(--primary))" : "hsl(var(--muted))",
-                              color: active ? "white" : "hsl(var(--muted-foreground))",
-                              border: active ? "none" : "1px solid hsl(var(--border))",
-                            }}>
-                            {label} <span className="opacity-75">({count})</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Podium top 3 of current filter */}
-                    {top3.length >= 1 && (
-                      <div className={`grid gap-2 mb-3 ${top3.length === 1 ? "grid-cols-1" : top3.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
-                        {top3.map((a, i) => (
-                          <div key={a.code} className="rounded-2xl p-3 text-center"
-                            style={{ background: podiumColors[i].bg, border: `1px solid ${podiumColors[i].border}` }}>
-                            <p className="text-2xl">{podiumMedals[i]}</p>
-                            <p className="font-black text-xs mt-1 leading-tight truncate" style={{ color: podiumColors[i].text, fontFamily: "'Poppins', sans-serif" }}>
-                              {a.full_name.split(" ")[0]}
-                            </p>
-                            <p className="text-[10px] font-mono text-muted-foreground">{a.code}</p>
-                            {deptFilter === "__all__" && (
-                              <p className="text-[10px] font-bold mt-0.5" style={{ color: "hsl(var(--primary))" }}>{a.department || "—"}</p>
-                            )}
-                            <p className="font-black text-lg mt-1" style={{ fontFamily: "'Poppins', sans-serif" }}>{a.total}</p>
-                            <p className="text-[10px] text-muted-foreground">referidos</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Full table */}
-                    <div className="rounded-2xl border overflow-hidden">
-                      <div className="grid text-[10px] font-black text-muted-foreground px-3 py-2"
-                        style={{ gridTemplateColumns: "1.5rem 1fr 2.5rem 2.5rem 3rem 3rem", gap: "0.25rem", background: "hsl(var(--muted)/0.4)" }}>
-                        <span>#</span>
-                        <span>Activador{deptFilter === "__all__" ? " / Depto." : ` · ${deptFilter}`}</span>
-                        <span className="text-center">Hoy</span><span className="text-center">Sem.</span>
-                        <span className="text-center">Mes</span><span className="text-center">Total</span>
-                      </div>
-                      {filtered.map((a, i) => (
-                        <div key={a.code} className="grid items-center px-3 py-2.5 border-t text-xs"
-                          style={{ gridTemplateColumns: "1.5rem 1fr 2.5rem 2.5rem 3rem 3rem", gap: "0.25rem", background: i === 0 ? "hsl(47 95% 52% / 0.06)" : undefined }}>
-                          <span className="font-black text-[11px]">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i+1}`}</span>
-                          <div className="min-w-0">
-                            <p className="font-bold truncate leading-tight">{a.full_name.split(" ").slice(0,2).join(" ")}</p>
-                            <p className="text-[10px] font-mono text-muted-foreground">
-                              {a.code}{deptFilter === "__all__" ? ` · ${a.department || "—"}` : ""}
-                            </p>
-                          </div>
-                          <span className="text-center font-bold" style={{ color: a.today > 0 ? "hsl(142 70% 30%)" : undefined }}>{a.today}</span>
-                          <span className="text-center font-bold" style={{ color: a.this_week > 0 ? "hsl(142 70% 30%)" : undefined }}>{a.this_week}</span>
-                          <span className="text-center font-bold">{a.this_month}</span>
-                          <span className="text-center font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>{a.total}</span>
-                        </div>
-                      ))}
-                      {filtered.length === 0 && (
-                        <p className="text-xs text-muted-foreground text-center py-6">Sin activadores en {deptFilter === "__all__" ? "el sistema" : deptFilter}</p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
+              {/* ── SOLICITUDES sub-tab ── */}
+              {referidosSubTab === "solicitudes" && (
+              <div className="space-y-3">
+              {/* Buscador */}
+              <div className="relative">
+                <input
+                  type="search" value={reqSearch} onChange={e => setReqSearch(e.target.value)}
+                  placeholder="Buscar por nombre, CI, teléfono o depto…"
+                  className="w-full bg-muted rounded-xl px-3 py-2 text-sm pr-8 outline-none"
+                />
+                {reqSearch && (
+                  <button onClick={() => setReqSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs">✕</button>
+                )}
+              </div>
               {/* Requests — ordered: pending → accepted → hold → rejected */}
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -6275,12 +6210,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   })}
                 </div>
 
-                {activatorRequests.filter(r => reqFilter === "all" || r.status === reqFilter).length === 0 ? (
+                {reqFiltered.length === 0 ? (
                   <p className="text-muted-foreground text-sm py-4 text-center">No hay solicitudes en esta categoría</p>
                 ) : (
+                  <div className="overflow-y-auto pr-0.5" style={{ maxHeight: "62vh" }}>
                   <div className="space-y-2.5">
-                    {[...activatorRequests]
-                      .filter(r => reqFilter === "all" || r.status === reqFilter)
+                    {[...reqFiltered]
                       .sort((a, b) => {
                         const order: Record<string, number> = { pending: 0, accepted: 1, hold: 2, suspended: 3, banned: 4, rejected: 5 };
                         return (order[a.status] ?? 9) - (order[b.status] ?? 9);
@@ -6416,6 +6351,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       );
                     })}
                   </div>
+                  </div>
                 )}
               </div>
 
@@ -6440,6 +6376,113 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 </button>
               )}
 
+              </div>
+              )}
+
+              {/* ── MOVIMIENTOS sub-tab ── */}
+              {referidosSubTab === "movimientos" && (
+              <div className="space-y-4">
+              {/* Activator performance: podium + full table with department filter */}
+              {activatorPerformance.length > 0 && (() => {
+                const podiumColors = [
+                  { bg: "hsl(47 95% 52% / 0.15)", border: "hsl(47 95% 52% / 0.5)", text: "hsl(47 90% 30%)" },
+                  { bg: "hsl(220 15% 60% / 0.15)", border: "hsl(220 15% 60% / 0.4)", text: "hsl(220 10% 35%)" },
+                  { bg: "hsl(27 80% 55% / 0.15)", border: "hsl(27 80% 55% / 0.4)", text: "hsl(27 70% 30%)" },
+                ];
+                const podiumMedals = ["🥇","🥈","🥉"];
+
+                // Unique departments sorted
+                const departments = Array.from(new Set(activatorPerformance.map(a => a.department || "Sin depto."))).sort();
+
+                // Filtered list: if dept selected, only that dept ordered by total; else global
+                const filtered = deptFilter === "__all__"
+                  ? [...activatorPerformance].sort((a, b) => b.total - a.total)
+                  : [...activatorPerformance].filter(a => (a.department || "Sin depto.") === deptFilter).sort((a, b) => b.total - a.total);
+
+                const top3 = filtered.slice(0, 3);
+
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>🏆 Desempeño de Activadores</h3>
+                      <span className="text-[11px] text-muted-foreground font-bold">{filtered.length} activador{filtered.length !== 1 ? "es" : ""}</span>
+                    </div>
+
+                    {/* Department filter pills */}
+                    <div className="flex gap-1.5 flex-wrap mb-3">
+                      {["__all__", ...departments].map(dept => {
+                        const label = dept === "__all__" ? "🌐 Todos" : dept;
+                        const count = dept === "__all__" ? activatorPerformance.length : activatorPerformance.filter(a => (a.department || "Sin depto.") === dept).length;
+                        const active = deptFilter === dept;
+                        return (
+                          <button key={dept}
+                            onClick={() => setDeptFilter(dept)}
+                            className="px-2.5 py-1 rounded-full text-[11px] font-bold transition-all"
+                            style={{
+                              background: active ? "hsl(var(--primary))" : "hsl(var(--muted))",
+                              color: active ? "white" : "hsl(var(--muted-foreground))",
+                              border: active ? "none" : "1px solid hsl(var(--border))",
+                            }}>
+                            {label} <span className="opacity-75">({count})</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Podium top 3 of current filter */}
+                    {top3.length >= 1 && (
+                      <div className={`grid gap-2 mb-3 ${top3.length === 1 ? "grid-cols-1" : top3.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+                        {top3.map((a, i) => (
+                          <div key={a.code} className="rounded-2xl p-3 text-center"
+                            style={{ background: podiumColors[i].bg, border: `1px solid ${podiumColors[i].border}` }}>
+                            <p className="text-2xl">{podiumMedals[i]}</p>
+                            <p className="font-black text-xs mt-1 leading-tight truncate" style={{ color: podiumColors[i].text, fontFamily: "'Poppins', sans-serif" }}>
+                              {a.full_name.split(" ")[0]}
+                            </p>
+                            <p className="text-[10px] font-mono text-muted-foreground">{a.code}</p>
+                            {deptFilter === "__all__" && (
+                              <p className="text-[10px] font-bold mt-0.5" style={{ color: "hsl(var(--primary))" }}>{a.department || "—"}</p>
+                            )}
+                            <p className="font-black text-lg mt-1" style={{ fontFamily: "'Poppins', sans-serif" }}>{a.total}</p>
+                            <p className="text-[10px] text-muted-foreground">referidos</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Full table */}
+                    <div className="rounded-2xl border overflow-hidden">
+                      <div className="grid text-[10px] font-black text-muted-foreground px-3 py-2"
+                        style={{ gridTemplateColumns: "1.5rem 1fr 2.5rem 2.5rem 3rem 3rem", gap: "0.25rem", background: "hsl(var(--muted)/0.4)" }}>
+                        <span>#</span>
+                        <span>Activador{deptFilter === "__all__" ? " / Depto." : ` · ${deptFilter}`}</span>
+                        <span className="text-center">Hoy</span><span className="text-center">Sem.</span>
+                        <span className="text-center">Mes</span><span className="text-center">Total</span>
+                      </div>
+                      {filtered.map((a, i) => (
+                        <div key={a.code} className="grid items-center px-3 py-2.5 border-t text-xs"
+                          style={{ gridTemplateColumns: "1.5rem 1fr 2.5rem 2.5rem 3rem 3rem", gap: "0.25rem", background: i === 0 ? "hsl(47 95% 52% / 0.06)" : undefined }}>
+                          <span className="font-black text-[11px]">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i+1}`}</span>
+                          <div className="min-w-0">
+                            <p className="font-bold truncate leading-tight">{a.full_name.split(" ").slice(0,2).join(" ")}</p>
+                            <p className="text-[10px] font-mono text-muted-foreground">
+                              {a.code}{deptFilter === "__all__" ? ` · ${a.department || "—"}` : ""}
+                            </p>
+                          </div>
+                          <span className="text-center font-bold" style={{ color: a.today > 0 ? "hsl(142 70% 30%)" : undefined }}>{a.today}</span>
+                          <span className="text-center font-bold" style={{ color: a.this_week > 0 ? "hsl(142 70% 30%)" : undefined }}>{a.this_week}</span>
+                          <span className="text-center font-bold">{a.this_month}</span>
+                          <span className="text-center font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>{a.total}</span>
+                        </div>
+                      ))}
+                      {filtered.length === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-6">Sin activadores en {deptFilter === "__all__" ? "el sistema" : deptFilter}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Recent referral transactions */}
               {referralStats?.recent_transactions?.length > 0 && (
                 <div>
@@ -6461,6 +6504,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 </div>
               )}
 
+              </div>
+              )}
+
+              {/* ── CONFIGURACIÓN sub-tab ── */}
+              {referidosSubTab === "configuracion" && (
+              <>
               {/* Settings */}
               <div className="bg-card border rounded-2xl p-4">
                 <h3 className="font-black text-sm mb-3" style={{ fontFamily: "'Poppins', sans-serif" }}>⚙️ Configuración de Referidos</h3>
@@ -6559,6 +6608,9 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   </button>
                 </div>
               </div>
+
+              </>
+              )}
 
               {/* Ban modal */}
               {banModal && (
