@@ -6075,7 +6075,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 body: JSON.stringify({
                   is_enabled: actSettingsForm.is_enabled,
                   whatsapp_group_link: actSettingsForm.whatsapp_group_link.trim() || null,
-                  bonus_amount: parseFloat(actSettingsForm.bonus_amount) || 5,
+                  bonus_amount: isNaN(parseFloat(actSettingsForm.bonus_amount)) ? 5 : parseFloat(actSettingsForm.bonus_amount),
                   bonus_title: actSettingsForm.bonus_title,
                   bonus_validity_hours: actSettingsForm.bonus_validity_hours ? parseInt(actSettingsForm.bonus_validity_hours) : null,
                   commission_percentage: parseFloat(actSettingsForm.commission_percentage) || 5,
