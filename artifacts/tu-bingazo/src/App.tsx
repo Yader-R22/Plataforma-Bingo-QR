@@ -73,6 +73,7 @@ function Router() {
       <Route path="/registro" component={RegisterPage} />
       <Route path="/juegos" component={GamesPage} />
       <Route path="/juegos/:id/jugar" component={() => <PrivateRoute component={PlayPage} />} />
+      <Route path="/juegos/:id/:slug" component={GameDetailPage} />
       <Route path="/juegos/:id" component={GameDetailPage} />
       <Route path="/pago/:checkoutId" component={() => <PrivateRoute component={PaymentPage} />} />
       <Route path="/mis-cartones" component={() => <PrivateRoute component={MyCardsPage} />} />
