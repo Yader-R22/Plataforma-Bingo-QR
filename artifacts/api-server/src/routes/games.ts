@@ -73,17 +73,12 @@ function formatGame(
   const totalRounds = rounds?.length ?? 1;
   const currentRound = game.currentRound ?? 1;
   const roundCfg = getCurrentRoundConfig(game);
-  const totalPrizeAmount = rounds?.length
-    ? rounds.reduce((sum, r) => sum + (r.prize_amount ?? 0), 0)
-    : parseFloat(game.prizeAmount);
-
   return {
     id: game.id,
     title: game.title,
     type: game.type,
     status: game.status,
     prize_amount: parseFloat(game.prizeAmount),
-    total_prize_amount: totalPrizeAmount,
     card_price: parseFloat(game.cardPrice),
     draw_date: game.drawDate,
     participant_count: game.participantCount,
