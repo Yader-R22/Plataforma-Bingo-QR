@@ -236,10 +236,14 @@ export default function GamesPage() {
                           </div>
                           <div
                             className="text-xs font-bold px-4 py-2 rounded-xl"
-                            style={{ background: "rgba(255,255,255,0.2)", color: "white" }}
+                            style={isLive
+                              ? { background: "#22c55e", color: "white", boxShadow: "0 0 10px rgba(34,197,94,0.6)" }
+                              : isFinished
+                              ? { background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.6)" }
+                              : { background: "hsl(42 98% 52%)", color: "#1a0050" }}
                             onClick={!isFinished && !user ? (e) => { e.preventDefault(); e.stopPropagation(); navigate("/login"); } : undefined}
                           >
-                            {isLive ? "🎯 Jugar" : isFinished ? "Ver" : "Comprar →"}
+                            {isLive ? "🎯 Jugar ahora" : isFinished ? "Ver" : "Comprar →"}
                           </div>
                         </div>
                       </div>
