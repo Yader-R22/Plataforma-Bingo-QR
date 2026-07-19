@@ -899,6 +899,8 @@ export default function AdminPage() {
   const [referralStats, setReferralStats] = useState<any>(null);
   const [activatorPerformance, setActivatorPerformance] = useState<any[]>([]);
   const [deptFilter, setDeptFilter] = useState<string>("__all__");
+  const [actPage, setActPage] = useState(1);
+  const [txPage, setTxPage] = useState(1);
   const [savingActSettings, setSavingActSettings] = useState(false);
   const [actSettingsForm, setActSettingsForm] = useState({ is_enabled: true, whatsapp_group_link: "", bonus_amount: "5", bonus_title: "Bono de bienvenida por activador {activator}", bonus_validity_hours: "", commission_percentage: "5", commission_duration: "indefinite", commission_duration_months: "" });
   const [pendingActivatorCount, setPendingActivatorCount] = useState(0);
@@ -6493,7 +6495,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         const active = deptFilter === dept;
                         return (
                           <button key={dept}
-                            onClick={() => setDeptFilter(dept)}
+                            onClick={() => { setDeptFilter(dept); setActPage(1); }}
                             className="px-2.5 py-1 rounded-full text-[11px] font-bold transition-all"
                             style={{
                               background: active ? "hsl(var(--primary))" : "hsl(var(--muted))",
@@ -6528,58 +6530,103 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     )}
 
                     {/* Full table */}
-                    <div className="rounded-2xl border overflow-hidden">
-                      <div className="grid text-[10px] font-black text-muted-foreground px-3 py-2"
-                        style={{ gridTemplateColumns: "1.5rem 1fr 2.5rem 2.5rem 3rem 3rem", gap: "0.25rem", background: "hsl(var(--muted)/0.4)" }}>
-                        <span>#</span>
-                        <span>Activador{deptFilter === "__all__" ? " / Depto." : ` · ${deptFilter}`}</span>
-                        <span className="text-center">Hoy</span><span className="text-center">Sem.</span>
-                        <span className="text-center">Mes</span><span className="text-center">Total</span>
-                      </div>
-                      {filtered.map((a, i) => (
-                        <div key={a.code} className="grid items-center px-3 py-2.5 border-t text-xs"
-                          style={{ gridTemplateColumns: "1.5rem 1fr 2.5rem 2.5rem 3rem 3rem", gap: "0.25rem", background: i === 0 ? "hsl(47 95% 52% / 0.06)" : undefined }}>
-                          <span className="font-black text-[11px]">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i+1}`}</span>
-                          <div className="min-w-0">
-                            <p className="font-bold truncate leading-tight">{a.full_name.split(" ").slice(0,2).join(" ")}</p>
-                            <p className="text-[10px] font-mono text-muted-foreground">
-                              {a.code}{deptFilter === "__all__" ? ` · ${a.department || "—"}` : ""}
-                            </p>
+                    {(() => {
+                      const ACT_PER_PAGE = 10;
+                      const actTotalPages = Math.max(1, Math.ceil(filtered.length / ACT_PER_PAGE));
+                      const actSafePage = Math.min(actPage, actTotalPages);
+                      const actSlice = filtered.slice((actSafePage - 1) * ACT_PER_PAGE, actSafePage * ACT_PER_PAGE);
+                      return (
+                        <>
+                          <div className="rounded-2xl border overflow-hidden">
+                            <div className="grid text-[10px] font-black text-muted-foreground px-3 py-2"
+                              style={{ gridTemplateColumns: "1.5rem 1fr 2.5rem 2.5rem 3rem 3rem", gap: "0.25rem", background: "hsl(var(--muted)/0.4)" }}>
+                              <span>#</span>
+                              <span>Activador{deptFilter === "__all__" ? " / Depto." : ` · ${deptFilter}`}</span>
+                              <span className="text-center">Hoy</span><span className="text-center">Sem.</span>
+                              <span className="text-center">Mes</span><span className="text-center">Total</span>
+                            </div>
+                            {actSlice.map((a, i) => {
+                              const globalIdx = (actSafePage - 1) * ACT_PER_PAGE + i;
+                              return (
+                                <div key={a.code} className="grid items-center px-3 py-2.5 border-t text-xs"
+                                  style={{ gridTemplateColumns: "1.5rem 1fr 2.5rem 2.5rem 3rem 3rem", gap: "0.25rem", background: globalIdx === 0 ? "hsl(47 95% 52% / 0.06)" : undefined }}>
+                                  <span className="font-black text-[11px]">{globalIdx === 0 ? "🥇" : globalIdx === 1 ? "🥈" : globalIdx === 2 ? "🥉" : `${globalIdx+1}`}</span>
+                                  <div className="min-w-0">
+                                    <p className="font-bold truncate leading-tight">{a.full_name.split(" ").slice(0,2).join(" ")}</p>
+                                    <p className="text-[10px] font-mono text-muted-foreground">
+                                      {a.code}{deptFilter === "__all__" ? ` · ${a.department || "—"}` : ""}
+                                    </p>
+                                  </div>
+                                  <span className="text-center font-bold" style={{ color: a.today > 0 ? "hsl(142 70% 30%)" : undefined }}>{a.today}</span>
+                                  <span className="text-center font-bold" style={{ color: a.this_week > 0 ? "hsl(142 70% 30%)" : undefined }}>{a.this_week}</span>
+                                  <span className="text-center font-bold">{a.this_month}</span>
+                                  <span className="text-center font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>{a.total}</span>
+                                </div>
+                              );
+                            })}
+                            {filtered.length === 0 && (
+                              <p className="text-xs text-muted-foreground text-center py-6">Sin activadores en {deptFilter === "__all__" ? "el sistema" : deptFilter}</p>
+                            )}
                           </div>
-                          <span className="text-center font-bold" style={{ color: a.today > 0 ? "hsl(142 70% 30%)" : undefined }}>{a.today}</span>
-                          <span className="text-center font-bold" style={{ color: a.this_week > 0 ? "hsl(142 70% 30%)" : undefined }}>{a.this_week}</span>
-                          <span className="text-center font-bold">{a.this_month}</span>
-                          <span className="text-center font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>{a.total}</span>
-                        </div>
-                      ))}
-                      {filtered.length === 0 && (
-                        <p className="text-xs text-muted-foreground text-center py-6">Sin activadores en {deptFilter === "__all__" ? "el sistema" : deptFilter}</p>
-                      )}
-                    </div>
+                          {actTotalPages > 1 && (
+                            <div className="flex items-center justify-between mt-2 px-1">
+                              <button onClick={() => setActPage(p => Math.max(1, p - 1))} disabled={actSafePage === 1}
+                                className="text-[11px] font-bold px-3 py-1.5 rounded-lg border disabled:opacity-40"
+                                style={{ borderColor: "hsl(var(--border))" }}>← Ant.</button>
+                              <span className="text-[11px] text-muted-foreground font-medium">Pág {actSafePage} de {actTotalPages}</span>
+                              <button onClick={() => setActPage(p => Math.min(actTotalPages, p + 1))} disabled={actSafePage === actTotalPages}
+                                className="text-[11px] font-bold px-3 py-1.5 rounded-lg border disabled:opacity-40"
+                                style={{ borderColor: "hsl(var(--border))" }}>Sig. →</button>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 );
               })()}
 
               {/* Recent referral transactions */}
-              {referralStats?.recent_transactions?.length > 0 && (
-                <div>
-                  <h3 className="font-black text-base mb-3" style={{ fontFamily: "'Poppins', sans-serif" }}>📑 Movimientos recientes</h3>
-                  <div className="space-y-2">
-                    {referralStats.recent_transactions.slice(0, 20).map((tx: any) => (
-                      <div key={tx.id} className="bg-card border rounded-xl px-4 py-3 flex items-center justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold truncate">{tx.description}</p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">
-                            {tx.type === "commission" ? "🔗 Comisión" : "🎁 Bono"} · {new Date(tx.created_at).toLocaleDateString("es-BO")}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">Activador: {tx.activator_name?.split(" ").slice(0,2).join(" ")} · Referido: {tx.referred_name?.split(" ").slice(0,2).join(" ")}</p>
+              {referralStats?.recent_transactions?.length > 0 && (() => {
+                const TX_PER_PAGE = 10;
+                const allTx = referralStats.recent_transactions;
+                const txTotalPages = Math.max(1, Math.ceil(allTx.length / TX_PER_PAGE));
+                const txSafePage = Math.min(txPage, txTotalPages);
+                const txSlice = allTx.slice((txSafePage - 1) * TX_PER_PAGE, txSafePage * TX_PER_PAGE);
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>📑 Movimientos recientes</h3>
+                      <span className="text-[11px] text-muted-foreground font-bold">{allTx.length} movimiento{allTx.length !== 1 ? "s" : ""}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {txSlice.map((tx: any) => (
+                        <div key={tx.id} className="bg-card border rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold truncate">{tx.description}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              {tx.type === "commission" ? "🔗 Comisión" : "🎁 Bono"} · {new Date(tx.created_at).toLocaleDateString("es-BO")}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">Activador: {tx.activator_name?.split(" ").slice(0,2).join(" ")} · Referido: {tx.referred_name?.split(" ").slice(0,2).join(" ")}</p>
+                          </div>
+                          <p className="font-black text-sm shrink-0" style={{ color: "hsl(142 70% 35%)" }}>+Bs {Number(tx.amount).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</p>
                         </div>
-                        <p className="font-black text-sm shrink-0" style={{ color: "hsl(142 70% 35%)" }}>+Bs {Number(tx.amount).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</p>
+                      ))}
+                    </div>
+                    {txTotalPages > 1 && (
+                      <div className="flex items-center justify-between mt-2 px-1">
+                        <button onClick={() => setTxPage(p => Math.max(1, p - 1))} disabled={txSafePage === 1}
+                          className="text-[11px] font-bold px-3 py-1.5 rounded-lg border disabled:opacity-40"
+                          style={{ borderColor: "hsl(var(--border))" }}>← Ant.</button>
+                        <span className="text-[11px] text-muted-foreground font-medium">Pág {txSafePage} de {txTotalPages}</span>
+                        <button onClick={() => setTxPage(p => Math.min(txTotalPages, p + 1))} disabled={txSafePage === txTotalPages}
+                          className="text-[11px] font-bold px-3 py-1.5 rounded-lg border disabled:opacity-40"
+                          style={{ borderColor: "hsl(var(--border))" }}>Sig. →</button>
                       </div>
-                    ))}
+                    )}
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               </div>
               )}
