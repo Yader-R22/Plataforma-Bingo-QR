@@ -75,9 +75,10 @@ export default function GamesPage() {
   const { data: allGames, isLoading } = useListGames(undefined, {
     query: {
       queryKey: getListGamesQueryKey(),
-      staleTime: 60_000,
-      gcTime: 2 * 60 * 60 * 1000,
-      refetchInterval: 8_000,
+      staleTime: 5 * 60_000,
+      gcTime: 24 * 60 * 60 * 1000,
+      refetchInterval: 60_000,
+      refetchOnWindowFocus: true,
     },
   });
   const allGamesList = (allGames ?? []) as any[];
