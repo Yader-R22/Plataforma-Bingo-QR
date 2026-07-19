@@ -962,9 +962,11 @@ export default function AdminPage() {
   const [activatorSaleRefunds, setActivatorSaleRefunds] = useState<Record<number, string>>({});
   const [activatorSaleSettings, setActivatorSaleSettings] = useState({ card_sale_enabled: true, card_sale_discount_type: "percentage" as "percentage" | "fixed", card_sale_discount_value: 10 });
   const [savingActivatorSettings, setSavingActivatorSettings] = useState(false);
+  const [activatorSaleSettingsLoaded, setActivatorSaleSettingsLoaded] = useState(false);
   const [receiptLightbox, setReceiptLightbox] = useState<string | null>(null);
   const [uploadingFallbackQr, setUploadingFallbackQr] = useState(false);
   const [savingSite, setSavingSite] = useState(false);
+  const [siteLoaded, setSiteLoaded] = useState(false);
   const [banners, setBanners] = useState<{ id: number; image_url: string; media_type: string; display_order: number; is_active: boolean }[]>([]);
   const [savingBanner, setSavingBanner] = useState(false);
   const [pwaForm, setPwaForm] = useState({
@@ -982,6 +984,7 @@ export default function AdminPage() {
     pwa_cache_version: 1,
   });
   const [savingPwa, setSavingPwa] = useState(false);
+  const [pwaLoaded, setPwaLoaded] = useState(false);
   const [pwaManifestPreview, setPwaManifestPreview] = useState<string | null>(null);
   const [pushTitle, setPushTitle] = useState("");
   const [pushBody, setPushBody] = useState("");
@@ -1277,6 +1280,7 @@ export default function AdminPage() {
             fallback_qr_image_url: s.fallback_qr_image_url ?? "",
             fallback_qr_force_enabled: !!s.fallback_qr_force_enabled,
           });
+          setSiteLoaded(true);
         }
         if (br.ok) { setBanners(await br.json()); }
       }
@@ -1298,6 +1302,7 @@ export default function AdminPage() {
             pwa_categories: s.pwa_categories ?? "games,entertainment",
             pwa_cache_version: s.pwa_cache_version ?? 1,
           });
+          setPwaLoaded(true);
         }
         // Load live manifest preview
         const mr = await fetch(`${BASE}/api/pwa/manifest.json`);
@@ -1343,7 +1348,7 @@ export default function AdminPage() {
             setActivatorSalesHasMore(data.has_more);
             setActivatorSalesOffset(data.sales.length);
           }
-          if (sr.ok) setActivatorSaleSettings(await sr.json());
+          if (sr.ok) { setActivatorSaleSettings(await sr.json()); setActivatorSaleSettingsLoaded(true); }
         } finally {
           setActivatorSalesLoading(false);
         }
@@ -7485,10 +7490,10 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     />
                   </div>
                 </div>
-                <button onClick={saveSettings} disabled={savingActivatorSettings}
+                <button onClick={saveSettings} disabled={savingActivatorSettings || !activatorSaleSettingsLoaded}
                   className="w-full py-2.5 rounded-xl font-bold text-sm text-white disabled:opacity-60"
                   style={{ background: "hsl(var(--primary))" }}>
-                  {savingActivatorSettings ? "Guardando..." : "💾 Guardar configuración"}
+                  {savingActivatorSettings ? "Guardando..." : !activatorSaleSettingsLoaded ? "Cargando..." : "💾 Guardar configuración"}
                 </button>
               </div>
 
@@ -8260,9 +8265,9 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 </div>
               </div>
 
-              <button onClick={saveSiteSettings} disabled={savingSite}
+              <button onClick={saveSiteSettings} disabled={savingSite || !siteLoaded}
                 className="btn-primary w-full">
-                {savingSite ? "Guardando..." : "💾 Guardar configuración del sitio"}
+                {savingSite ? "Guardando..." : !siteLoaded ? "Cargando..." : "💾 Guardar configuración del sitio"}
               </button>
             </div>
           );
@@ -8772,9 +8777,9 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 )}
               </div>
 
-              <button onClick={savePwaSettings} disabled={savingPwa}
+              <button onClick={savePwaSettings} disabled={savingPwa || !pwaLoaded}
                 className="btn-primary w-full text-base py-4">
-                {savingPwa ? "Guardando..." : "💾 Guardar configuración PWA"}
+                {savingPwa ? "Guardando..." : !pwaLoaded ? "Cargando..." : "💾 Guardar configuración PWA"}
               </button>
             </div>
           );
