@@ -585,13 +585,16 @@ router.delete("/:id", requireAdmin, async (req: AuthRequest, res) => {
   }
 
   await db.transaction(async (tx) => {
+    // 1. Desvincular referral_transactions del juego Y de los ganadores antes de borrarlos
+    await tx.update(referralTransactionsTable)
+      .set({ gameId: null, winnerId: null })
+      .where(eq(referralTransactionsTable.gameId, gameId));
+    // 2. Borrar ganadores (referral_transactions ya no los apunta)
     await tx.delete(winnersTable).where(eq(winnersTable.gameId, gameId));
+    // 3. Borrar solicitudes de pago manual y ventas de activadores
     await tx.delete(manualPaymentRequestsTable).where(eq(manualPaymentRequestsTable.gameId, gameId));
     await tx.delete(activatorCardSalesTable).where(eq(activatorCardSalesTable.gameId, gameId));
-    // referral_transactions.game_id es nullable — poner null para no perder el historial de referidos
-    await tx.update(referralTransactionsTable)
-      .set({ gameId: null })
-      .where(eq(referralTransactionsTable.gameId, gameId));
+    // 4. Borrar cartones y finalmente el juego
     await tx.delete(cardsTable).where(eq(cardsTable.gameId, gameId));
     await tx.delete(gamesTable).where(eq(gamesTable.id, gameId));
     await tx.insert(auditLogsTable).values({
