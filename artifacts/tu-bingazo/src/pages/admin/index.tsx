@@ -2900,7 +2900,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
       <div className="p-4 text-center py-20">
         <p className="text-5xl mb-3">🔒</p>
         <p className="font-bold text-xl">Acceso denegado</p>
-        <button className="btn-primary mt-6 max-w-xs mx-auto" onClick={() => navigate("/juegos")}>Volver</button>
+        <button className="btn-primary mt-6 max-w-xs mx-auto" onClick={() => navigate("/juego")}>Volver</button>
       </div>
     );
   }

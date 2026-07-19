@@ -223,7 +223,7 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
   sendPushToAll({
     title: "🎱 ¡Nuevo bingo disponible!",
     body: `${data.title} — Premio Bs ${data.prize_amount.toFixed(0)}. El ${dateStr}. ¡Compra tu cartón ahora!`,
-    url: `/juegos/${finalGame.slug ?? finalGame.id}`,
+    url: `/juego/${finalGame.slug ?? finalGame.id}`,
   }).catch(() => {});
 
   res.status(201).json(formatGame(finalGame));

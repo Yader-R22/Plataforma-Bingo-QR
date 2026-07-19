@@ -683,7 +683,7 @@ function FallbackPaymentModal({
 }
 
 export default function GameDetailPage() {
-  const [, params] = useRoute("/juegos/:id");
+  const [, params] = useRoute("/juego/:id");
   const [, navigate] = useLocation();
   const user = useAuthStore(s => s.user);
   const token = useAuthStore(s => s.token);
@@ -696,7 +696,7 @@ export default function GameDetailPage() {
   const [fallbackData, setFallbackData] = useState<{ cardIds: number[]; gameId: number; qty: number; amount: number } | null>(null);
   const [winners, setWinners] = useState<Winner[]>([]);
 
-  const [, paramsWithSlug] = useRoute("/juegos/:id/:slug");
+  const [, paramsWithSlug] = useRoute("/juego/:id/:slug");
   const resolvedParams = paramsWithSlug ?? params;
   const gameId = parseInt(resolvedParams?.id ?? "0");
 
@@ -763,7 +763,7 @@ export default function GameDetailPage() {
           .then(d => { if (d) setUser(d); })
           .catch(() => {});
         // If game is active, go directly to play; otherwise to my-cards
-        navigate(isActive ? `/juegos/${gameId}/jugar` : "/mis-cartones");
+        navigate(isActive ? `/juego/${gameId}/jugar` : "/mis-cartones");
       } else {
         const useFallback = site.fallback_qr_force_enabled || !!data.qr_error;
         if (useFallback) {
@@ -1025,7 +1025,7 @@ export default function GameDetailPage() {
 
             {/* Play button (active game) */}
             {isActive && (
-              <button className="btn-gold" onClick={() => navigate(`/juegos/${gameId}/jugar`)}>
+              <button className="btn-gold" onClick={() => navigate(`/juego/${gameId}/jugar`)}>
                 🎯 Ir a jugar ahora
               </button>
             )}

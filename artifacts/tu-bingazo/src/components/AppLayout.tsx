@@ -682,7 +682,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const navItems = [
     { href: "/", icon: IconHome, label: "Inicio" },
-    { href: "/juegos", icon: IconGames, label: "Juegos" },
+    { href: "/juego", icon: IconGames, label: "Juegos" },
     ...(user ? [
       { href: "/mis-cartones", icon: IconCards, label: "Cartones" },
       { href: "/billetera", icon: IconWallet, label: "Billetera" },

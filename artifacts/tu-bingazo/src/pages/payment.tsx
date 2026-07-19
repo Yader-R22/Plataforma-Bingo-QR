@@ -89,7 +89,7 @@ export default function PaymentPage() {
                 <Button variant="outline" className="w-full" onClick={() => navigate("/mis-cartones")}>
                   Ver mis cartones
                 </Button>
-                <Button variant="ghost" className="w-full text-sm" onClick={() => navigate("/juegos")}>
+                <Button variant="ghost" className="w-full text-sm" onClick={() => navigate("/juego")}>
                   Volver a juegos
                 </Button>
               </div>
@@ -120,7 +120,7 @@ export default function PaymentPage() {
                 No pudimos confirmar tu pago. Intenta de nuevo.
               </p>
               <div className="space-y-2">
-                <Button className="w-full" onClick={() => navigate("/juegos")}>
+                <Button className="w-full" onClick={() => navigate("/juego")}>
                   Volver a juegos
                 </Button>
               </div>

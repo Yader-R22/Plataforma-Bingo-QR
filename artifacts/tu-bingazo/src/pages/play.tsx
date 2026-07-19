@@ -177,7 +177,7 @@ interface LiveWinner {
 
 export default function PlayPage() {
   useSetLayoutConfig({ hideTopBar: true, hideNav: true });
-  const [, params] = useRoute("/juegos/:id/jugar");
+  const [, params] = useRoute("/juego/:id/jugar");
   const [, navigate] = useLocation();
   const token = useAuthStore(s => s.token);
 
@@ -359,7 +359,7 @@ export default function PlayPage() {
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 shrink-0"
         style={{ background: "rgba(255,255,255,0.05)", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-        <button onClick={() => navigate(`/juegos/${gameId}`)} className="text-white/70 text-sm flex items-center gap-1">
+        <button onClick={() => navigate(`/juego/${gameId}`)} className="text-white/70 text-sm flex items-center gap-1">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           Salir
         </button>
@@ -553,7 +553,7 @@ export default function PlayPage() {
           <div className="text-center py-10">
             <p className="text-4xl mb-3">🎱</p>
             <p className="text-white font-bold">No tienes cartones activos</p>
-            <button className="mt-4 btn-primary max-w-xs mx-auto" onClick={() => navigate(`/juegos/${gameId}`)}>
+            <button className="mt-4 btn-primary max-w-xs mx-auto" onClick={() => navigate(`/juego/${gameId}`)}>
               Comprar cartones
             </button>
           </div>

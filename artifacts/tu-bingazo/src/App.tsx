@@ -71,10 +71,10 @@ function Router() {
       <Route path="/" component={HomePage} />
       <Route path="/login" component={LoginPage} />
       <Route path="/registro" component={RegisterPage} />
-      <Route path="/juegos" component={GamesPage} />
-      <Route path="/juegos/:id/jugar" component={() => <PrivateRoute component={PlayPage} />} />
-      <Route path="/juegos/:id/:slug" component={GameDetailPage} />
-      <Route path="/juegos/:id" component={GameDetailPage} />
+      <Route path="/juego" component={GamesPage} />
+      <Route path="/juego/:id/jugar" component={() => <PrivateRoute component={PlayPage} />} />
+      <Route path="/juego/:id/:slug" component={GameDetailPage} />
+      <Route path="/juego/:id" component={GameDetailPage} />
       <Route path="/pago/:checkoutId" component={() => <PrivateRoute component={PaymentPage} />} />
       <Route path="/mis-cartones" component={() => <PrivateRoute component={MyCardsPage} />} />
       <Route path="/billetera" component={() => <PrivateRoute component={WalletPage} />} />

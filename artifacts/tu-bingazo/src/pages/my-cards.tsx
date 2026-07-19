@@ -183,7 +183,7 @@ export default function MyCardsPage() {
             <p className="text-sm mt-1 mb-6">Compra cartones en un juego para participar</p>
             <button
               className="btn-primary max-w-xs mx-auto"
-              onClick={() => navigate("/juegos")}
+              onClick={() => navigate("/juego")}
             >Ver juegos disponibles</button>
           </div>
         ) : (
@@ -269,7 +269,7 @@ export default function MyCardsPage() {
                     {isRejected && (
                       <button className="w-full py-2.5 rounded-xl text-sm font-bold text-white"
                         style={{ background: "hsl(var(--primary))" }}
-                        onClick={() => navigate(`/juegos/${req.game_id}`)}>
+                        onClick={() => navigate(`/juego/${req.game_id}`)}>
                         🔁 Reintentar pago
                       </button>
                     )}
@@ -337,14 +337,14 @@ export default function MyCardsPage() {
 
                   <div className="px-4 pb-4">
                     {status === "active" ? (
-                      <button className="btn-primary" onClick={() => navigate(`/juegos/${gameId}/jugar`)}>
+                      <button className="btn-primary" onClick={() => navigate(`/juego/${gameId}/jugar`)}>
                         🎯 Ir a jugar
                       </button>
                     ) : (
                       <button
                         className="w-full py-2.5 rounded-xl text-sm font-bold border"
                         style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}
-                        onClick={() => navigate(`/juegos/${gameId}/jugar`)}
+                        onClick={() => navigate(`/juego/${gameId}/jugar`)}
                       >
                         🃏 Ver mis cartones
                       </button>

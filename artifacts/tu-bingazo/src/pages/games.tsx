@@ -150,7 +150,7 @@ export default function GamesPage() {
               const isFinished = game.status === "finished";
               const coverImg = game.cover_image_url as string | null | undefined;
               return (
-                <Link key={game.id} href={`/juegos/${game.id}`}>
+                <Link key={game.id} href={`/juego/${game.id}`}>
                   {/* Outer wrapper: positioning context for the FINALIZADO badge — NO filter here */}
                   <div className="rounded-3xl cursor-pointer relative overflow-hidden stars-bg">
 
@@ -202,8 +202,8 @@ export default function GamesPage() {
                                 e.stopPropagation();
                                 const slug = (game as any).slug;
                                 const url = slug
-                                  ? `${window.location.origin}/juegos/${game.id}/${slug}`
-                                  : `${window.location.origin}/juegos/${game.id}`;
+                                  ? `${window.location.origin}/juego/${game.id}/${slug}`
+                                  : `${window.location.origin}/juego/${game.id}`;
                                 if (navigator.share) {
                                   navigator.share({ title: game.title as string, text: `¡Juega ${game.title} y gana Bs ${game.prize_amount}!`, url });
                                 } else {
