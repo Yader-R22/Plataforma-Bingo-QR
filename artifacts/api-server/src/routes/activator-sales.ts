@@ -44,8 +44,7 @@ function generateBingoCard(): number[][] {
 
 // ── GET /api/activator-sales/settings ────────────────────────────────────────
 router.get("/settings", requireAuth, async (_req: AuthRequest, res) => {
-  const [settings] = await db.select().from(activatorSettingsTable)
-    .where(eq(activatorSettingsTable.id, 1)).limit(1);
+  const [settings] = await db.select().from(activatorSettingsTable).limit(1);
   res.json({
     card_sale_enabled: settings?.cardSaleEnabled ?? true,
     card_sale_discount_type: settings?.cardSaleDiscountType ?? "percentage",
@@ -60,12 +59,18 @@ router.put("/settings", requireAdmin, async (req: AuthRequest, res) => {
     card_sale_discount_type?: "percentage" | "fixed";
     card_sale_discount_value?: number;
   };
-  await db.update(activatorSettingsTable).set({
+  const [existing] = await db.select({ id: activatorSettingsTable.id }).from(activatorSettingsTable).limit(1);
+  const patch = {
     cardSaleEnabled: card_sale_enabled,
     cardSaleDiscountType: card_sale_discount_type,
     cardSaleDiscountValue: card_sale_discount_value != null ? String(card_sale_discount_value) : undefined,
     updatedAt: new Date(),
-  }).where(eq(activatorSettingsTable.id, 1));
+  };
+  if (existing) {
+    await db.update(activatorSettingsTable).set(patch).where(eq(activatorSettingsTable.id, existing.id));
+  } else {
+    await db.insert(activatorSettingsTable).values(patch);
+  }
   res.json({ ok: true });
 });
 
@@ -193,8 +198,7 @@ router.post("/purchase", requireAuth, requireActivator, async (req: AuthRequest,
     res.status(400).json({ error: "El usuario destino no está activo/verificado" }); return;
   }
 
-  const [settings] = await db.select().from(activatorSettingsTable)
-    .where(eq(activatorSettingsTable.id, 1)).limit(1);
+  const [settings] = await db.select().from(activatorSettingsTable).limit(1);
   if (settings && !settings.cardSaleEnabled) {
     res.status(403).json({ error: "La venta de cartones por activadores está desactivada" }); return;
   }

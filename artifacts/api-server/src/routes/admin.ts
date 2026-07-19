@@ -1721,7 +1721,7 @@ router.post("/activator-requests/:id/unban", async (req: AuthRequest, res) => {
 // ── Activator settings ────────────────────────────────────────────────────────
 
 router.get("/activator-settings", async (_req, res) => {
-  const rows = await db.select().from(activatorSettingsTable).where(eq(activatorSettingsTable.id, 1)).limit(1);
+  const rows = await db.select().from(activatorSettingsTable).limit(1);
   if (!rows.length) {
     res.json({
       is_enabled: true,
@@ -1760,7 +1760,7 @@ router.put("/activator-settings", async (req: AuthRequest, res) => {
     commission_duration_months?: number | null;
   };
 
-  const existing = await db.select().from(activatorSettingsTable).where(eq(activatorSettingsTable.id, 1)).limit(1);
+  const existing = await db.select({ id: activatorSettingsTable.id }).from(activatorSettingsTable).limit(1);
   const patch: Record<string, any> = { updatedAt: new Date(), updatedById: req.userId! };
   if (is_enabled != null) patch.isEnabled = Boolean(is_enabled);
   if (whatsapp_group_link !== undefined) patch.whatsappGroupLink = whatsapp_group_link?.trim() || null;
@@ -1772,9 +1772,9 @@ router.put("/activator-settings", async (req: AuthRequest, res) => {
   if (commission_duration_months !== undefined) patch.commissionDurationMonths = commission_duration_months ?? null;
 
   if (existing.length) {
-    await db.update(activatorSettingsTable).set(patch).where(eq(activatorSettingsTable.id, 1));
+    await db.update(activatorSettingsTable).set(patch).where(eq(activatorSettingsTable.id, existing[0].id));
   } else {
-    await db.insert(activatorSettingsTable).values({ id: 1, ...patch });
+    await db.insert(activatorSettingsTable).values(patch);
   }
 
   // NOTE: bonus_amount changes only affect NEW registrations going forward.

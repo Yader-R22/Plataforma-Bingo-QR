@@ -24,7 +24,7 @@ router.get("/validate/:code", async (req, res) => {
     return;
   }
 
-  const settings = await db.select().from(activatorSettingsTable).where(eq(activatorSettingsTable.id, 1)).limit(1);
+  const settings = await db.select().from(activatorSettingsTable).limit(1);
   const bonusAmount = parseFloat(settings[0]?.bonusAmount ?? "5");
   const bonusTitle = settings[0]?.bonusTitle ?? "Bono de bienvenida";
   const activatorName = rows[0].activatorName.trim().split(/\s+/).slice(0, 2).join(" ");
@@ -40,7 +40,7 @@ router.get("/validate/:code", async (req, res) => {
 // ── POST /referrals/request — player requests to become activator ─────────────
 router.post("/request", requireAuth, async (req: AuthRequest, res) => {
   // Block if program is disabled
-  const settings = await db.select().from(activatorSettingsTable).where(eq(activatorSettingsTable.id, 1)).limit(1);
+  const settings = await db.select().from(activatorSettingsTable).limit(1);
   if (settings.length && settings[0].isEnabled === false) {
     res.status(403).json({ error: "El Programa de Activadores está temporalmente desactivado" });
     return;
@@ -89,7 +89,7 @@ router.post("/request", requireAuth, async (req: AuthRequest, res) => {
 router.get("/status", requireAuth, async (req: AuthRequest, res) => {
   const [requests, settingsRows] = await Promise.all([
     db.select().from(activatorRequestsTable).where(eq(activatorRequestsTable.userId, req.userId!)).limit(1),
-    db.select().from(activatorSettingsTable).where(eq(activatorSettingsTable.id, 1)).limit(1),
+    db.select().from(activatorSettingsTable).limit(1),
   ]);
 
   const programEnabled = settingsRows.length ? settingsRows[0].isEnabled : true;
