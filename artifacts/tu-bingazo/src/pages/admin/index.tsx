@@ -3757,13 +3757,15 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         <button onClick={() => startGame(g.id)} className="px-3 py-1.5 rounded-xl text-xs font-bold text-white" style={{ background: "#16a34a" }}>▶ Iniciar</button>
                         <button onClick={() => navigate(`/admin/editar-juego/${g.id}`)} className="text-xs font-bold" style={{ color: "hsl(var(--primary))" }}>✏ Editar</button>
                         <button onClick={() => toggleFeatured(g.id, g.is_featured)} className="text-xs font-bold" style={{ color: "hsl(42 98% 40%)" }}>{g.is_featured ? "Quitar destacado" : "⭐ Destacar"}</button>
-                        {deleteGameConfirm === g.id ? (
-                          <div className="flex gap-1 items-center">
-                            <button onClick={() => deleteGame(g.id)} className="px-2 py-1 rounded-lg text-xs font-black text-white" style={{ background: "hsl(0 75% 50%)" }}>Sí, borrar</button>
-                            <button onClick={() => setDeleteGameConfirm(null)} className="px-2 py-1 rounded-lg text-xs font-bold border">No</button>
-                          </div>
-                        ) : (
-                          <button onClick={() => setDeleteGameConfirm(g.id)} className="text-xs font-bold text-red-500">🗑 Eliminar</button>
+                        {(g.unique_participants ?? g.participant_count ?? 0) === 0 && (
+                          deleteGameConfirm === g.id ? (
+                            <div className="flex gap-1 items-center">
+                              <button onClick={() => deleteGame(g.id)} className="px-2 py-1 rounded-lg text-xs font-black text-white" style={{ background: "hsl(0 75% 50%)" }}>Sí, borrar</button>
+                              <button onClick={() => setDeleteGameConfirm(null)} className="px-2 py-1 rounded-lg text-xs font-bold border">No</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setDeleteGameConfirm(g.id)} className="text-xs font-bold text-red-500">🗑 Eliminar</button>
+                          )
                         )}
                       </>
                     )}

@@ -528,10 +528,8 @@ router.post("/:id/reset", requireAdmin, async (req: AuthRequest, res) => {
   }
 
   await db.transaction(async (tx) => {
-    // Marcar ganadores como históricos (preserva estadísticas del usuario)
-    await tx.update(winnersTable)
-      .set({ isHistorical: true })
-      .where(eq(winnersTable.gameId, gameId));
+    // Eliminar ganadores de esta partida — el juego se reinicia desde cero
+    await tx.delete(winnersTable).where(eq(winnersTable.gameId, gameId));
     // Marcar cartones como expirados — preserva historial de compras, pagos y ganadores
     await tx.update(cardsTable)
       .set({ status: "expired" })
@@ -587,10 +585,7 @@ router.delete("/:id", requireAdmin, async (req: AuthRequest, res) => {
   }
 
   await db.transaction(async (tx) => {
-    // Preservar ganadores como históricos para que las estadísticas del inicio no bajen
-    await tx.update(winnersTable)
-      .set({ isHistorical: true })
-      .where(eq(winnersTable.gameId, gameId));
+    await tx.delete(winnersTable).where(eq(winnersTable.gameId, gameId));
     await tx.delete(manualPaymentRequestsTable).where(eq(manualPaymentRequestsTable.gameId, gameId));
     await tx.delete(cardsTable).where(eq(cardsTable.gameId, gameId));
     await tx.delete(gamesTable).where(eq(gamesTable.id, gameId));
