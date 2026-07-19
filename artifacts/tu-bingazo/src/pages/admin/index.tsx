@@ -907,6 +907,8 @@ export default function AdminPage() {
   const [reqFilter, setReqFilter] = useState<"all" | "pending" | "accepted" | "hold" | "suspended" | "banned">("all");
   const [referidosSubTab, setReferidosSubTab] = useState<"solicitudes" | "movimientos" | "configuracion">("solicitudes");
   const [reqSearch, setReqSearch] = useState("");
+  const [reqPage, setReqPage] = useState(1);
+  const [reqPerPage, setReqPerPage] = useState(10);
   const [banModal, setBanModal] = useState<{ id: number; name: string } | null>(null);
   const [banReason, setBanReason] = useState("");
   const [togglingProgram, setTogglingProgram] = useState(false);
@@ -6062,7 +6064,13 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             (reqFilter === "all" || r.status === reqFilter) &&
             (!_q || r.user_full_name?.toLowerCase().includes(_q) || r.user_ci?.includes(_q) || r.user_phone?.includes(_q) || r.user_department?.toLowerCase().includes(_q))
           );
-
+          const reqSorted = [...reqFiltered].sort((a, b) => {
+            const _ord: Record<string, number> = { pending: 0, accepted: 1, hold: 2, suspended: 3, banned: 4, rejected: 5 };
+            return (_ord[a.status] ?? 9) - (_ord[b.status] ?? 9);
+          });
+          const reqPageCount = Math.max(1, Math.ceil(reqSorted.length / reqPerPage));
+          const reqSafePage = Math.min(reqPage, reqPageCount);
+          const reqPageItems = reqSorted.slice((reqSafePage - 1) * reqPerPage, reqSafePage * reqPerPage);
 
           async function reviewRequest(id: number, action: "accept" | "reject" | "hold" | "suspend", notes?: string) {
             const r = await fetch(`${BASE}/api/admin/activator-requests/${id}/review`, {
@@ -6162,12 +6170,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               {/* Buscador */}
               <div className="relative">
                 <input
-                  type="search" value={reqSearch} onChange={e => setReqSearch(e.target.value)}
+                  type="search" value={reqSearch} onChange={e => { setReqSearch(e.target.value); setReqPage(1); }}
                   placeholder="Buscar por nombre, CI, teléfono o depto…"
                   className="w-full bg-muted rounded-xl px-3 py-2 text-sm pr-8 outline-none"
                 />
                 {reqSearch && (
-                  <button onClick={() => setReqSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs">✕</button>
+                  <button onClick={() => { setReqSearch(""); setReqPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs">✕</button>
                 )}
               </div>
               {/* Requests — ordered: pending → accepted → hold → rejected */}
@@ -6197,7 +6205,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     };
                     const active = reqFilter === f;
                     return (
-                      <button key={f} onClick={() => setReqFilter(f)}
+                      <button key={f} onClick={() => { setReqFilter(f); setReqPage(1); }}
                         className="text-xs font-bold px-2.5 py-1 rounded-lg transition-all"
                         style={{
                           background: active ? "hsl(var(--primary))" : "hsl(var(--muted)/0.5)",
@@ -6211,16 +6219,13 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 </div>
 
                 {reqFiltered.length === 0 ? (
-                  <p className="text-muted-foreground text-sm py-4 text-center">No hay solicitudes en esta categoría</p>
+                  <p className="text-muted-foreground text-sm py-4 text-center">
+                    {_q ? `Sin resultados para "${reqSearch}"` : "No hay solicitudes en esta categoría"}
+                  </p>
                 ) : (
-                  <div className="overflow-y-auto pr-0.5" style={{ maxHeight: "62vh" }}>
+                  <>
                   <div className="space-y-2.5">
-                    {[...reqFiltered]
-                      .sort((a, b) => {
-                        const order: Record<string, number> = { pending: 0, accepted: 1, hold: 2, suspended: 3, banned: 4, rejected: 5 };
-                        return (order[a.status] ?? 9) - (order[b.status] ?? 9);
-                      })
-                      .map((req: any) => {
+                    {reqPageItems.map((req: any) => {
                       const sc = reqStatusConfig[req.status] ?? reqStatusConfig.pending;
                       const noteOpen = reqNoteOpen[req.id];
                       return (
@@ -6351,30 +6356,63 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       );
                     })}
                   </div>
+
+                  {/* Pagination controls */}
+                  <div className="flex items-center justify-between gap-2 pt-3 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-muted-foreground font-semibold">Por pág.:</span>
+                      {[5, 10, 20].map(n => (
+                        <button key={n} onClick={() => { setReqPerPage(n); setReqPage(1); }}
+                          className="w-7 h-6 rounded text-[11px] font-bold transition-all"
+                          style={{
+                            background: reqPerPage === n ? "hsl(var(--primary))" : "hsl(var(--muted))",
+                            color: reqPerPage === n ? "white" : "hsl(var(--muted-foreground))",
+                          }}>
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setReqPage(p => Math.max(1, p - 1))}
+                        disabled={reqSafePage <= 1}
+                        className="px-2.5 py-1 rounded-lg border text-xs font-bold disabled:opacity-35 transition-all"
+                        style={{ borderColor: "hsl(var(--border))" }}>← Ant.</button>
+                      <span className="text-xs font-bold text-muted-foreground px-1">
+                        Pág {reqSafePage} de {reqPageCount}
+                      </span>
+                      <button
+                        onClick={() => {
+                          if (reqSafePage >= reqPageCount && activatorReqHasMore) {
+                            setActivatorReqLoadingMore(true);
+                            fetch(`${BASE}/api/admin/activator-requests?offset=${activatorReqOffset}`, { headers: authH() })
+                              .then(r => r.ok ? r.json() : null)
+                              .then((d: any) => {
+                                if (d) {
+                                  setActivatorRequests(prev => [...prev, ...d.items]);
+                                  setActivatorReqHasMore(d.has_more);
+                                  setActivatorReqOffset((prev: number) => prev + d.items.length);
+                                  setReqPage(p => p + 1);
+                                }
+                              })
+                              .finally(() => setActivatorReqLoadingMore(false));
+                          } else {
+                            setReqPage(p => Math.min(reqPageCount, p + 1));
+                          }
+                        }}
+                        disabled={reqSafePage >= reqPageCount && !activatorReqHasMore}
+                        className="px-2.5 py-1 rounded-lg border text-xs font-bold disabled:opacity-35 transition-all"
+                        style={{ borderColor: "hsl(var(--border))" }}>
+                        {activatorReqLoadingMore ? "…" : "Sig. →"}
+                      </button>
+                    </div>
                   </div>
+                  <p className="text-[11px] text-muted-foreground text-center pt-0.5">
+                    {reqSorted.length} solicitud{reqSorted.length !== 1 ? "es" : ""} · mostrando {(reqSafePage - 1) * reqPerPage + 1}–{Math.min(reqSafePage * reqPerPage, reqSorted.length)}
+                  </p>
+                  </>
                 )}
               </div>
-
-              {activatorReqHasMore && (
-                <button
-                  onClick={async () => {
-                    setActivatorReqLoadingMore(true);
-                    try {
-                      const r = await fetch(`${BASE}/api/admin/activator-requests?offset=${activatorReqOffset}`, { headers: authH() });
-                      if (r.ok) {
-                        const d = await r.json() as { items: any[]; has_more: boolean };
-                        setActivatorRequests(prev => [...prev, ...d.items]);
-                        setActivatorReqHasMore(d.has_more);
-                        setActivatorReqOffset(prev => prev + d.items.length);
-                      }
-                    } finally { setActivatorReqLoadingMore(false); }
-                  }}
-                  disabled={activatorReqLoadingMore}
-                  className="w-full py-3 rounded-2xl text-sm font-bold border mt-1 disabled:opacity-60"
-                  style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}>
-                  {activatorReqLoadingMore ? "Cargando..." : "⬇️ Cargar más solicitudes de activador"}
-                </button>
-              )}
 
               </div>
               )}
