@@ -77,7 +77,6 @@ export default function GamesPage() {
       queryKey: getListGamesQueryKey(),
       staleTime: 5 * 60_000,
       gcTime: 24 * 60 * 60 * 1000,
-      refetchInterval: 60_000,
       refetchOnWindowFocus: true,
     },
   });
