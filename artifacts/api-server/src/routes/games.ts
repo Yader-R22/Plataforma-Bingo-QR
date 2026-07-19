@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable, manualPaymentRequestsTable } from "@workspace/db";
+import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable, manualPaymentRequestsTable, activatorCardSalesTable, referralTransactionsTable } from "@workspace/db";
 import { sendPushToAll, sendPushToUsers } from "../lib/push";
 import type { RoundConfig, RoundHistoryEntry } from "@workspace/db";
 import { eq, desc, asc, and, ne, sql } from "drizzle-orm";
@@ -587,6 +587,11 @@ router.delete("/:id", requireAdmin, async (req: AuthRequest, res) => {
   await db.transaction(async (tx) => {
     await tx.delete(winnersTable).where(eq(winnersTable.gameId, gameId));
     await tx.delete(manualPaymentRequestsTable).where(eq(manualPaymentRequestsTable.gameId, gameId));
+    await tx.delete(activatorCardSalesTable).where(eq(activatorCardSalesTable.gameId, gameId));
+    // referral_transactions.game_id es nullable — poner null para no perder el historial de referidos
+    await tx.update(referralTransactionsTable)
+      .set({ gameId: null })
+      .where(eq(referralTransactionsTable.gameId, gameId));
     await tx.delete(cardsTable).where(eq(cardsTable.gameId, gameId));
     await tx.delete(gamesTable).where(eq(gamesTable.id, gameId));
     await tx.insert(auditLogsTable).values({
