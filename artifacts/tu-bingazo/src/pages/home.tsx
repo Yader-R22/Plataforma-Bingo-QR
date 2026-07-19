@@ -91,6 +91,22 @@ function drawDateBadgeStyle(drawDate: string): React.CSSProperties {
   return { background: "hsl(42 98% 52%)", color: "#1a0050" };
 }
 
+function GameCardSkeleton() {
+  return (
+    <div className="rounded-3xl p-5 relative overflow-hidden animate-pulse"
+      style={{ background: "hsl(var(--muted))", minHeight: 120 }}>
+      <div className="flex items-start justify-between">
+        <div className="space-y-2 flex-1">
+          <div className="h-4 w-20 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.2)" }} />
+          <div className="h-6 w-36 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.2)" }} />
+          <div className="h-3 w-44 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.15)" }} />
+        </div>
+        <div className="h-10 w-20 rounded-xl ml-4" style={{ background: "hsl(var(--muted-foreground)/0.2)" }} />
+      </div>
+    </div>
+  );
+}
+
 function GameTypeSection({
   category,
   games,
@@ -294,17 +310,20 @@ export default function HomePage() {
     void vid.play();
   }, [activeBanner, heroBanners]);
 
-  const { data: games = [], refetch: refetchGames } = useListGames(undefined, {
-    query: { queryKey: getListGamesQueryKey(), staleTime: 60_000, gcTime: 10 * 60 * 1000 },
+  const { data: games = [], isLoading: gamesLoading } = useListGames(undefined, {
+    query: {
+      queryKey: getListGamesQueryKey(),
+      staleTime: 60_000,
+      gcTime: 2 * 60 * 60 * 1000,
+      refetchInterval: 20_000,
+    },
   });
-
-  // Poll game list every 20s so admin changes propagate without hammering the server
-  useEffect(() => {
-    const iv = setInterval(() => { void refetchGames(); }, 20_000);
-    return () => clearInterval(iv);
-  }, []);
-  const { data: categories = [] } = useListCategories({
-    query: { queryKey: getListCategoriesQueryKey(), staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 },
+  const { data: categories = [], isLoading: categoriesLoading } = useListCategories({
+    query: {
+      queryKey: getListCategoriesQueryKey(),
+      staleTime: 5 * 60 * 1000,
+      gcTime: 24 * 60 * 60 * 1000,
+    },
   });
   const { data: wallet } = useGetWallet({
     query: {
@@ -476,9 +495,12 @@ export default function HomePage() {
           Sorteos Disponibles
         </h2>
 
-        {(categories as any[]).filter((c: any) => c.is_active).map((c: any) => (
-          <GameTypeSection key={c.id} category={c} games={gamesList} onNavigate={navigate} />
-        ))}
+        {(categoriesLoading || gamesLoading) && categories.length === 0
+          ? [1, 2, 3].map(i => <GameCardSkeleton key={i} />)
+          : (categories as any[]).filter((c: any) => c.is_active).map((c: any) => (
+              <GameTypeSection key={c.id} category={c} games={gamesList} onNavigate={navigate} />
+            ))
+        }
 
       </div>
 
