@@ -6278,7 +6278,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 {activatorRequests.filter(r => reqFilter === "all" || r.status === reqFilter).length === 0 ? (
                   <p className="text-muted-foreground text-sm py-4 text-center">No hay solicitudes en esta categoría</p>
                 ) : (
-                  <div className="border rounded-2xl overflow-hidden divide-y">
+                  <div className="space-y-2.5">
                     {[...activatorRequests]
                       .filter(r => reqFilter === "all" || r.status === reqFilter)
                       .sort((a, b) => {
@@ -6289,98 +6289,39 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       const sc = reqStatusConfig[req.status] ?? reqStatusConfig.pending;
                       const noteOpen = reqNoteOpen[req.id];
                       return (
-                        <div key={req.id} className="bg-card">
-                          {/* Compact row */}
-                          <div className="flex items-center gap-2 px-3 py-2.5">
-                            {/* Avatar */}
-                            <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center text-xs font-black shrink-0"
+                        <div key={req.id} className="bg-card border rounded-2xl p-3.5">
+                          {/* Header row */}
+                          <div className="flex items-center gap-2.5 mb-2">
+                            <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-sm font-black shrink-0"
                               style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
                               {req.user_avatar_url
-                                ? <img src={req.user_avatar_url} className="w-7 h-7 object-cover" />
+                                ? <img src={req.user_avatar_url} className="w-9 h-9 object-cover" />
                                 : (req.user_full_name?.charAt(0) ?? "?")}
                             </div>
-                            {/* Info */}
                             <div className="flex-1 min-w-0">
-                              <p className="font-bold text-xs truncate leading-tight">{req.user_full_name}</p>
-                              <p className="text-[10px] text-muted-foreground truncate leading-tight">
-                                {req.user_ci} · {req.user_department} · {req.user_phone} · {new Date(req.created_at).toLocaleDateString("es-BO")}
-                              </p>
+                              <p className="font-bold text-sm truncate">{req.user_full_name}</p>
+                              <p className="text-[11px] text-muted-foreground truncate">CI: {req.user_ci} · {req.user_department} · {req.user_status === "active" ? "✅" : "⏳"}</p>
                             </div>
-                            {/* Status badge */}
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0" style={{ color: sc.color, background: sc.bg }}>{sc.label}</span>
-                            {/* Action buttons */}
-                            {(req.status === "pending" || req.status === "hold") && !noteOpen && (
-                              <div className="flex gap-1 shrink-0">
-                                <button onClick={() => reviewRequest(req.id, "accept")} title="Aceptar"
-                                  className="w-7 h-7 rounded-lg text-sm font-bold text-white flex items-center justify-center"
-                                  style={{ background: "hsl(142 70% 40%)" }}>✓</button>
-                                <button onClick={() => setReqNoteOpen(o => ({ ...o, [req.id]: "hold" }))} title="En espera"
-                                  className="w-7 h-7 rounded-lg text-sm font-bold border-2 flex items-center justify-center"
-                                  style={{ borderColor: "#7c3aed", color: "#7c3aed" }}>⏸</button>
-                                <button onClick={() => setReqNoteOpen(o => ({ ...o, [req.id]: "reject" }))} title="Rechazar"
-                                  className="w-7 h-7 rounded-lg text-sm font-bold border-2 flex items-center justify-center"
-                                  style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>✕</button>
-                                <button onClick={async () => {
-                                  if (!confirm(`¿Eliminar la solicitud de ${req.user_full_name}?`)) return;
-                                  const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}`, { method: "DELETE", headers: authH() });
-                                  if (r.ok) { loadTab("referidos"); toast.success("Solicitud eliminada"); }
-                                  else toast.error("Error al eliminar");
-                                }} title="Eliminar" className="w-7 h-7 rounded-lg text-sm font-bold border-2 flex items-center justify-center"
-                                  style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>🗑</button>
-                              </div>
-                            )}
-                            {req.status === "accepted" && (
-                              <div className="flex gap-1 shrink-0">
-                                <button onClick={async () => {
-                                  if (!confirm(`¿Eliminar a ${req.user_full_name} como activador?`)) return;
-                                  const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}`, { method: "DELETE", headers: authH() });
-                                  if (r.ok) { loadTab("referidos"); toast.success("Activador eliminado"); }
-                                  else toast.error("Error al eliminar");
-                                }} title="Eliminar" className="w-7 h-7 rounded-lg text-xs font-bold border-2 flex items-center justify-center"
-                                  style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>🗑</button>
-                                <button onClick={() => reviewRequest(req.id, "suspend")} title="Suspender"
-                                  className="w-7 h-7 rounded-lg text-sm font-bold border-2 flex items-center justify-center"
-                                  style={{ borderColor: "#d97706", color: "#d97706" }}>⏸</button>
-                                <button onClick={() => { setBanModal({ id: req.id, name: req.user_full_name }); setBanReason(""); }} title="Banear"
-                                  className="w-7 h-7 rounded-lg text-sm font-bold text-white flex items-center justify-center"
-                                  style={{ background: "hsl(0 75% 45%)" }}>🔴</button>
-                              </div>
-                            )}
-                            {req.status === "suspended" && (
-                              <div className="flex gap-1 shrink-0">
-                                <button onClick={() => reviewRequest(req.id, "accept")} title="Reactivar"
-                                  className="w-7 h-7 rounded-lg text-sm font-bold text-white flex items-center justify-center"
-                                  style={{ background: "hsl(142 70% 40%)" }}>✓</button>
-                                <button onClick={() => { setBanModal({ id: req.id, name: req.user_full_name }); setBanReason(""); }} title="Banear"
-                                  className="w-7 h-7 rounded-lg text-sm font-bold text-white flex items-center justify-center"
-                                  style={{ background: "hsl(0 75% 45%)" }}>🔴</button>
-                              </div>
-                            )}
-                            {req.status === "banned" && (
-                              <button onClick={async () => {
-                                if (!confirm(`¿Desbanear a ${req.user_full_name} del programa de activadores?`)) return;
-                                const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}/unban`, { method: "POST", headers: authH() });
-                                if (r.ok) { loadTab("referidos"); toast.success("✅ Activador desbaneado y reactivado"); }
-                                else toast.error("Error al desbanear");
-                              }} title="Desbanear"
-                                className="px-2 py-1 rounded-lg text-[10px] font-bold border-2 shrink-0"
-                                style={{ borderColor: "hsl(142 70% 45%)", color: "hsl(142 70% 30%)" }}>
-                                Desbanear
-                              </button>
-                            )}
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-md shrink-0" style={{ color: sc.color, background: sc.bg }}>{sc.label}</span>
                           </div>
 
-                          {/* Admin note */}
-                          {req.notes && !noteOpen && (
-                            <div className="mx-3 mb-2 rounded-lg px-2.5 py-1.5 text-[11px]"
+                          {/* Meta */}
+                          <div className="flex gap-3 text-[11px] text-muted-foreground mb-2">
+                            <span>📱 {req.user_phone}</span>
+                            <span>📅 {new Date(req.created_at).toLocaleDateString("es-BO")}</span>
+                          </div>
+
+                          {/* Admin note (rejection/hold reason) */}
+                          {req.notes && (
+                            <div className="rounded-lg px-2.5 py-1.5 mb-2 text-[11px]"
                               style={{ background: "hsl(var(--muted)/0.5)", borderLeft: `2px solid ${sc.color}` }}>
                               💬 {req.notes}
                             </div>
                           )}
 
-                          {/* Inline note input */}
+                          {/* Inline note input for reject/hold */}
                           {noteOpen && (
-                            <div className="px-3 pb-2.5 space-y-1.5">
+                            <div className="mb-2 space-y-1.5">
                               <textarea
                                 className="w-full rounded-xl border px-3 py-2 text-xs resize-none"
                                 rows={2}
@@ -6409,6 +6350,67 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                 </button>
                               </div>
                             </div>
+                          )}
+
+                          {/* Action buttons */}
+                          {(req.status === "pending" || req.status === "hold") && !noteOpen && (
+                            <div className="flex gap-1.5">
+                              <button onClick={() => reviewRequest(req.id, "accept")}
+                                className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
+                                style={{ background: "hsl(142 70% 40%)" }}>✅ Aceptar</button>
+                              <button onClick={() => setReqNoteOpen(o => ({ ...o, [req.id]: "hold" }))}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold border-2"
+                                style={{ borderColor: "#7c3aed", color: "#7c3aed" }}>⏸</button>
+                              <button onClick={() => setReqNoteOpen(o => ({ ...o, [req.id]: "reject" }))}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold border-2"
+                                style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>✖</button>
+                              <button onClick={async () => {
+                                if (!confirm(`¿Eliminar la solicitud de ${req.user_full_name}?`)) return;
+                                const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}`, { method: "DELETE", headers: authH() });
+                                if (r.ok) { loadTab("referidos"); toast.success("Solicitud eliminada"); }
+                                else toast.error("Error al eliminar");
+                              }} className="px-3 py-1.5 rounded-lg text-xs font-bold border-2"
+                                style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>🗑️</button>
+                            </div>
+                          )}
+                          {req.status === "accepted" && (
+                            <div className="flex gap-1.5">
+                              <button onClick={async () => {
+                                if (!confirm(`¿Eliminar a ${req.user_full_name} como activador?`)) return;
+                                const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}`, { method: "DELETE", headers: authH() });
+                                if (r.ok) { loadTab("referidos"); toast.success("Activador eliminado"); }
+                                else toast.error("Error al eliminar");
+                              }} className="px-3 py-1.5 rounded-lg text-xs font-bold border-2"
+                                style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}
+                                title="Eliminar activador">🗑️</button>
+                              <button onClick={() => reviewRequest(req.id, "suspend")}
+                                className="flex-1 py-1.5 rounded-lg text-xs font-bold border-2"
+                                style={{ borderColor: "#d97706", color: "#d97706" }}>⏸ Suspender</button>
+                              <button onClick={() => { setBanModal({ id: req.id, name: req.user_full_name }); setBanReason(""); }}
+                                className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
+                                style={{ background: "hsl(0 75% 45%)" }}>🔴 Banear</button>
+                            </div>
+                          )}
+                          {req.status === "suspended" && (
+                            <div className="flex gap-1.5">
+                              <button onClick={() => reviewRequest(req.id, "accept")}
+                                className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
+                                style={{ background: "hsl(142 70% 40%)" }}>✅ Reactivar</button>
+                              <button onClick={() => { setBanModal({ id: req.id, name: req.user_full_name }); setBanReason(""); }}
+                                className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
+                                style={{ background: "hsl(0 75% 45%)" }}>🔴 Banear</button>
+                            </div>
+                          )}
+                          {req.status === "banned" && (
+                            <button onClick={async () => {
+                              if (!confirm(`¿Desbanear a ${req.user_full_name} del programa de activadores?`)) return;
+                              const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}/unban`, { method: "POST", headers: authH() });
+                              if (r.ok) { loadTab("referidos"); toast.success("✅ Activador desbaneado y reactivado"); }
+                              else toast.error("Error al desbanear");
+                            }} className="w-full py-1.5 rounded-lg text-xs font-bold border-2"
+                              style={{ borderColor: "hsl(142 70% 45%)", color: "hsl(142 70% 30%)" }}>
+                              ✅ Desbanear activador
+                            </button>
                           )}
                         </div>
                       );
