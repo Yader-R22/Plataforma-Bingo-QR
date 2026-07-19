@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable, manualPaymentRequestsTable } from "@workspace/db";
 import { sendPushToAll, sendPushToUsers } from "../lib/push";
 import type { RoundConfig, RoundHistoryEntry } from "@workspace/db";
-import { eq, desc, asc, and, sql } from "drizzle-orm";
+import { eq, desc, asc, and, ne, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
 import {
   ListGamesQueryParams,
@@ -574,10 +574,14 @@ router.delete("/:id", requireAdmin, async (req: AuthRequest, res) => {
 
   if (game.status !== "finished") {
     const paidCards = await db.select({ id: cardsTable.id }).from(cardsTable)
-      .where(and(eq(cardsTable.gameId, gameId), eq(cardsTable.paymentStatus, "paid")))
+      .where(and(
+        eq(cardsTable.gameId, gameId),
+        eq(cardsTable.paymentStatus, "paid"),
+        ne(cardsTable.status, "expired"),
+      ))
       .limit(1);
     if (paidCards.length) {
-      res.status(409).json({ error: "No se puede eliminar: este juego tiene cartones pagados. Finalízalo primero antes de eliminar." });
+      res.status(409).json({ error: "No se puede eliminar: este juego tiene cartones pagados activos. Finalízalo primero antes de eliminar." });
       return;
     }
   }
