@@ -6082,7 +6082,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   bonus_amount: isNaN(parseFloat(actSettingsForm.bonus_amount)) ? 5 : parseFloat(actSettingsForm.bonus_amount),
                   bonus_title: actSettingsForm.bonus_title,
                   bonus_validity_hours: actSettingsForm.bonus_validity_hours ? parseInt(actSettingsForm.bonus_validity_hours) : null,
-                  commission_percentage: parseFloat(actSettingsForm.commission_percentage) || 5,
+                  commission_percentage: isNaN(parseFloat(actSettingsForm.commission_percentage)) ? 5 : parseFloat(actSettingsForm.commission_percentage),
                   commission_duration: actSettingsForm.commission_duration,
                   commission_duration_months: actSettingsForm.commission_duration === "monthly" && actSettingsForm.commission_duration_months ? parseInt(actSettingsForm.commission_duration_months) : null,
                 }),
