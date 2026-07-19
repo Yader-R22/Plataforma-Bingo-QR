@@ -6228,130 +6228,169 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     {reqPageItems.map((req: any) => {
                       const sc = reqStatusConfig[req.status] ?? reqStatusConfig.pending;
                       const noteOpen = reqNoteOpen[req.id];
+                      const initials = req.user_full_name?.split(" ").slice(0,2).map((w: string) => w[0]).join("") ?? "?";
                       return (
-                        <div key={req.id} className="bg-card border rounded-2xl p-3.5">
-                          {/* Header row */}
-                          <div className="flex items-center gap-2.5 mb-2">
-                            <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-sm font-black shrink-0"
-                              style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
-                              {req.user_avatar_url
-                                ? <img src={req.user_avatar_url} className="w-9 h-9 object-cover" />
-                                : (req.user_full_name?.charAt(0) ?? "?")}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-sm truncate">{req.user_full_name}</p>
-                              <p className="text-[11px] text-muted-foreground truncate">CI: {req.user_ci} · {req.user_department} · {req.user_status === "active" ? "✅" : "⏳"}</p>
-                            </div>
-                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-md shrink-0" style={{ color: sc.color, background: sc.bg }}>{sc.label}</span>
-                          </div>
+                        <div key={req.id} className="bg-card border rounded-2xl overflow-hidden flex">
+                          {/* Left accent bar */}
+                          <div className="w-1 shrink-0" style={{ background: sc.color }} />
 
-                          {/* Meta */}
-                          <div className="flex gap-3 text-[11px] text-muted-foreground mb-2">
-                            <span>📱 {req.user_phone}</span>
-                            <span>📅 {new Date(req.created_at).toLocaleDateString("es-BO")}</span>
-                          </div>
-
-                          {/* Admin note (rejection/hold reason) */}
-                          {req.notes && (
-                            <div className="rounded-lg px-2.5 py-1.5 mb-2 text-[11px]"
-                              style={{ background: "hsl(var(--muted)/0.5)", borderLeft: `2px solid ${sc.color}` }}>
-                              💬 {req.notes}
-                            </div>
-                          )}
-
-                          {/* Inline note input for reject/hold */}
-                          {noteOpen && (
-                            <div className="mb-2 space-y-1.5">
-                              <textarea
-                                className="w-full rounded-xl border px-3 py-2 text-xs resize-none"
-                                rows={2}
-                                placeholder={noteOpen === "reject" ? "Motivo del rechazo (visible para el usuario)..." : "Motivo de espera (visible para el usuario)..."}
-                                value={reqNoteInput[req.id] ?? ""}
-                                onChange={e => setReqNoteInput(n => ({ ...n, [req.id]: e.target.value }))}
-                                style={{ borderColor: noteOpen === "reject" ? "hsl(0 75% 52%)" : "#7c3aed" }}
-                                autoFocus
-                              />
-                              <div className="flex gap-1.5">
-                                <button
-                                  onClick={() => {
-                                    reviewRequest(req.id, noteOpen, reqNoteInput[req.id] || undefined);
-                                    setReqNoteOpen(o => ({ ...o, [req.id]: null }));
-                                    setReqNoteInput(n => ({ ...n, [req.id]: "" }));
-                                  }}
-                                  className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
-                                  style={{ background: noteOpen === "reject" ? "hsl(0 75% 45%)" : "#7c3aed" }}>
-                                  {noteOpen === "reject" ? "✖ Confirmar rechazo" : "⏸ Confirmar espera"}
-                                </button>
-                                <button
-                                  onClick={() => setReqNoteOpen(o => ({ ...o, [req.id]: null }))}
-                                  className="px-3 py-1.5 rounded-lg text-xs font-bold border"
-                                  style={{ borderColor: "hsl(var(--border))" }}>
-                                  Cancelar
-                                </button>
+                          <div className="flex-1 px-3.5 py-3 min-w-0">
+                            {/* Header */}
+                            <div className="flex items-center justify-between gap-2 mb-2.5">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0"
+                                  style={{ background: sc.color }}>
+                                  {req.user_avatar_url
+                                    ? <img src={req.user_avatar_url} className="w-9 h-9 object-cover rounded-full" />
+                                    : initials}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-[14px] leading-tight truncate" style={{ fontFamily: "'Poppins', sans-serif" }}>{req.user_full_name}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                                    {new Date(req.created_at).toLocaleDateString("es-BO")} · {req.user_department}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end gap-0.5 shrink-0">
+                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md tracking-wide"
+                                  style={{ color: sc.color, background: sc.bg }}>
+                                  {sc.label.toUpperCase()}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground font-medium">#{req.id}</span>
                               </div>
                             </div>
-                          )}
 
-                          {/* Action buttons */}
-                          {(req.status === "pending" || req.status === "hold") && !noteOpen && (
-                            <div className="flex gap-1.5">
-                              <button onClick={() => reviewRequest(req.id, "accept")}
-                                className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
-                                style={{ background: "hsl(142 70% 40%)" }}>✅ Aceptar</button>
-                              <button onClick={() => setReqNoteOpen(o => ({ ...o, [req.id]: "hold" }))}
-                                className="px-3 py-1.5 rounded-lg text-xs font-bold border-2"
-                                style={{ borderColor: "#7c3aed", color: "#7c3aed" }}>⏸</button>
-                              <button onClick={() => setReqNoteOpen(o => ({ ...o, [req.id]: "reject" }))}
-                                className="px-3 py-1.5 rounded-lg text-xs font-bold border-2"
-                                style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>✖</button>
+                            {/* Info grid */}
+                            <div className="rounded-xl px-3 py-2 mb-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5"
+                              style={{ background: "hsl(var(--muted)/0.4)" }}>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase w-5 shrink-0">CI</span>
+                                <span className="text-[12px] font-semibold truncate">{req.user_ci}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase w-6 shrink-0">Tel</span>
+                                <span className="text-[12px] font-semibold truncate">+591 {req.user_phone}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase w-5 shrink-0">Dto</span>
+                                <span className="text-[12px] font-semibold truncate">{req.user_department}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase w-6 shrink-0">Cta</span>
+                                <span className="text-[12px] font-semibold" style={{ color: req.user_status === "active" ? "hsl(142 70% 35%)" : "hsl(45 90% 40%)" }}>
+                                  {req.user_status === "active" ? "Activa ✓" : "Pendiente"}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Admin note */}
+                            {req.notes && (
+                              <div className="rounded-lg px-2.5 py-1.5 mb-2.5 text-[11px]"
+                                style={{ background: "hsl(var(--muted)/0.5)", borderLeft: `2px solid ${sc.color}` }}>
+                                💬 {req.notes}
+                              </div>
+                            )}
+
+                            {/* Inline note input */}
+                            {noteOpen && (
+                              <div className="mb-2.5 space-y-1.5">
+                                <textarea
+                                  className="w-full rounded-xl border px-3 py-2 text-xs resize-none bg-background"
+                                  rows={2}
+                                  placeholder={noteOpen === "reject" ? "Motivo del rechazo (visible para el usuario)..." : "Motivo de espera (visible para el usuario)..."}
+                                  value={reqNoteInput[req.id] ?? ""}
+                                  onChange={e => setReqNoteInput(n => ({ ...n, [req.id]: e.target.value }))}
+                                  style={{ borderColor: noteOpen === "reject" ? "hsl(0 75% 52%)" : "#7c3aed" }}
+                                  autoFocus
+                                />
+                                <div className="flex gap-1.5">
+                                  <button
+                                    onClick={() => {
+                                      reviewRequest(req.id, noteOpen, reqNoteInput[req.id] || undefined);
+                                      setReqNoteOpen(o => ({ ...o, [req.id]: null }));
+                                      setReqNoteInput(n => ({ ...n, [req.id]: "" }));
+                                    }}
+                                    className="flex-1 py-1.5 rounded-xl text-xs font-bold text-white"
+                                    style={{ background: noteOpen === "reject" ? "hsl(0 75% 45%)" : "#7c3aed" }}>
+                                    {noteOpen === "reject" ? "✖ Confirmar rechazo" : "⏸ Confirmar espera"}
+                                  </button>
+                                  <button
+                                    onClick={() => setReqNoteOpen(o => ({ ...o, [req.id]: null }))}
+                                    className="px-3 py-1.5 rounded-xl text-xs font-bold border"
+                                    style={{ borderColor: "hsl(var(--border))" }}>
+                                    Cancelar
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Actions — pending / hold */}
+                            {(req.status === "pending" || req.status === "hold") && !noteOpen && (
+                              <div className="flex gap-1.5">
+                                <button onClick={() => reviewRequest(req.id, "accept")}
+                                  className="flex-1 py-2 rounded-xl text-[12px] font-bold text-white"
+                                  style={{ background: "hsl(142 70% 40%)" }}>✓ Aceptar</button>
+                                <button onClick={() => setReqNoteOpen(o => ({ ...o, [req.id]: "hold" }))}
+                                  className="px-3 py-2 rounded-xl text-[12px] font-bold border-2"
+                                  style={{ borderColor: "#7c3aed", color: "#7c3aed" }}>⏸</button>
+                                <button onClick={() => setReqNoteOpen(o => ({ ...o, [req.id]: "reject" }))}
+                                  className="px-3 py-2 rounded-xl text-[12px] font-bold border-2"
+                                  style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>✕</button>
+                                <button onClick={async () => {
+                                  if (!confirm(`¿Eliminar la solicitud de ${req.user_full_name}?`)) return;
+                                  const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}`, { method: "DELETE", headers: authH() });
+                                  if (r.ok) { loadTab("referidos"); toast.success("Solicitud eliminada"); }
+                                  else toast.error("Error al eliminar");
+                                }} className="px-3 py-2 rounded-xl text-[12px] font-bold border-2"
+                                  style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>🗑</button>
+                              </div>
+                            )}
+
+                            {/* Actions — accepted */}
+                            {req.status === "accepted" && (
+                              <div className="flex gap-1.5">
+                                <button onClick={async () => {
+                                  if (!confirm(`¿Eliminar a ${req.user_full_name} como activador?`)) return;
+                                  const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}`, { method: "DELETE", headers: authH() });
+                                  if (r.ok) { loadTab("referidos"); toast.success("Activador eliminado"); }
+                                  else toast.error("Error al eliminar");
+                                }} className="px-3 py-2 rounded-xl text-[12px] font-bold border-2"
+                                  style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}
+                                  title="Eliminar activador">🗑</button>
+                                <button onClick={() => reviewRequest(req.id, "suspend")}
+                                  className="flex-1 py-2 rounded-xl text-[12px] font-bold border-2"
+                                  style={{ borderColor: "#d97706", color: "#d97706" }}>⏸ Suspender</button>
+                                <button onClick={() => { setBanModal({ id: req.id, name: req.user_full_name }); setBanReason(""); }}
+                                  className="flex-1 py-2 rounded-xl text-[12px] font-bold text-white"
+                                  style={{ background: "hsl(0 75% 45%)" }}>🔴 Banear</button>
+                              </div>
+                            )}
+
+                            {/* Actions — suspended */}
+                            {req.status === "suspended" && (
+                              <div className="flex gap-1.5">
+                                <button onClick={() => reviewRequest(req.id, "accept")}
+                                  className="flex-1 py-2 rounded-xl text-[12px] font-bold text-white"
+                                  style={{ background: "hsl(142 70% 40%)" }}>✓ Reactivar</button>
+                                <button onClick={() => { setBanModal({ id: req.id, name: req.user_full_name }); setBanReason(""); }}
+                                  className="flex-1 py-2 rounded-xl text-[12px] font-bold text-white"
+                                  style={{ background: "hsl(0 75% 45%)" }}>🔴 Banear</button>
+                              </div>
+                            )}
+
+                            {/* Actions — banned */}
+                            {req.status === "banned" && (
                               <button onClick={async () => {
-                                if (!confirm(`¿Eliminar la solicitud de ${req.user_full_name}?`)) return;
-                                const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}`, { method: "DELETE", headers: authH() });
-                                if (r.ok) { loadTab("referidos"); toast.success("Solicitud eliminada"); }
-                                else toast.error("Error al eliminar");
-                              }} className="px-3 py-1.5 rounded-lg text-xs font-bold border-2"
-                                style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}>🗑️</button>
-                            </div>
-                          )}
-                          {req.status === "accepted" && (
-                            <div className="flex gap-1.5">
-                              <button onClick={async () => {
-                                if (!confirm(`¿Eliminar a ${req.user_full_name} como activador?`)) return;
-                                const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}`, { method: "DELETE", headers: authH() });
-                                if (r.ok) { loadTab("referidos"); toast.success("Activador eliminado"); }
-                                else toast.error("Error al eliminar");
-                              }} className="px-3 py-1.5 rounded-lg text-xs font-bold border-2"
-                                style={{ borderColor: "hsl(0 75% 52%)", color: "hsl(0 75% 40%)" }}
-                                title="Eliminar activador">🗑️</button>
-                              <button onClick={() => reviewRequest(req.id, "suspend")}
-                                className="flex-1 py-1.5 rounded-lg text-xs font-bold border-2"
-                                style={{ borderColor: "#d97706", color: "#d97706" }}>⏸ Suspender</button>
-                              <button onClick={() => { setBanModal({ id: req.id, name: req.user_full_name }); setBanReason(""); }}
-                                className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
-                                style={{ background: "hsl(0 75% 45%)" }}>🔴 Banear</button>
-                            </div>
-                          )}
-                          {req.status === "suspended" && (
-                            <div className="flex gap-1.5">
-                              <button onClick={() => reviewRequest(req.id, "accept")}
-                                className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
-                                style={{ background: "hsl(142 70% 40%)" }}>✅ Reactivar</button>
-                              <button onClick={() => { setBanModal({ id: req.id, name: req.user_full_name }); setBanReason(""); }}
-                                className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white"
-                                style={{ background: "hsl(0 75% 45%)" }}>🔴 Banear</button>
-                            </div>
-                          )}
-                          {req.status === "banned" && (
-                            <button onClick={async () => {
-                              if (!confirm(`¿Desbanear a ${req.user_full_name} del programa de activadores?`)) return;
-                              const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}/unban`, { method: "POST", headers: authH() });
-                              if (r.ok) { loadTab("referidos"); toast.success("✅ Activador desbaneado y reactivado"); }
-                              else toast.error("Error al desbanear");
-                            }} className="w-full py-1.5 rounded-lg text-xs font-bold border-2"
-                              style={{ borderColor: "hsl(142 70% 45%)", color: "hsl(142 70% 30%)" }}>
-                              ✅ Desbanear activador
-                            </button>
-                          )}
+                                if (!confirm(`¿Desbanear a ${req.user_full_name} del programa de activadores?`)) return;
+                                const r = await fetch(`${BASE}/api/admin/activator-requests/${req.id}/unban`, { method: "POST", headers: authH() });
+                                if (r.ok) { loadTab("referidos"); toast.success("✅ Activador desbaneado y reactivado"); }
+                                else toast.error("Error al desbanear");
+                              }} className="w-full py-2 rounded-xl text-[12px] font-bold border-2"
+                                style={{ borderColor: "hsl(142 70% 45%)", color: "hsl(142 70% 30%)" }}>
+                                ✓ Desbanear activador
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
