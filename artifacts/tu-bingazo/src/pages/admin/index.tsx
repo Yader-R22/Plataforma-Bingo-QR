@@ -1402,7 +1402,11 @@ export default function AdminPage() {
     }
   }
 
-  useEffect(() => { loadStats(); loadTab("overview"); }, []);
+  useEffect(() => {
+    loadStats();
+    loadTab("overview");
+    if (tab !== "overview") loadTab(tab);
+  }, []);
 
   async function createUser() {
     const { full_name, ci, phone, password, department, is_admin, permissions, skip_ci } = createForm;
