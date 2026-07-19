@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useSearch, useLocation } from "wouter";
-import { useListGames } from "@workspace/api-client-react";
+import { useListGames, getListGamesQueryKey } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSetLayoutConfig } from "@/components/AppLayout";
 
@@ -71,13 +71,14 @@ export default function GamesPage() {
 
   const user = useAuthStore(s => s.user);
   useSetLayoutConfig({ hideTopBar: true });
-  const { data: allGames, isLoading, refetch: refetchGames } = useListGames();
-
-  // Poll game list every 8s so status changes from admin are reflected immediately
-  useEffect(() => {
-    const iv = setInterval(() => { void refetchGames(); }, 8000);
-    return () => clearInterval(iv);
-  }, []);
+  const { data: allGames, isLoading } = useListGames(undefined, {
+    query: {
+      queryKey: getListGamesQueryKey(),
+      staleTime: 60_000,
+      gcTime: 2 * 60 * 60 * 1000,
+      refetchInterval: 8_000,
+    },
+  });
   const allGamesList = (allGames ?? []) as any[];
   const existingTypes = new Set(allGamesList.map((g: any) => g.type));
   const TYPE_FILTERS = ALL_TYPE_FILTERS.filter(f => f.value === "all" || existingTypes.has(f.value));

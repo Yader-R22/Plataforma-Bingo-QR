@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useState } from "react";
 import { useLocation } from "wouter";
-import { useListMyCards, useListGames } from "@workspace/api-client-react";
+import { useListMyCards, getListMyCardsQueryKey, useListGames, getListGamesQueryKey } from "@workspace/api-client-react";
 import { useSetLayoutConfig } from "@/components/AppLayout";
 import { useAuthStore } from "@/hooks/useAuth";
 
@@ -43,8 +43,22 @@ export default function MyCardsPage() {
   const [, navigate] = useLocation();
   useSetLayoutConfig({ hideTopBar: true });
   const token = useAuthStore(s => s.token);
-  const { data: rawCards, isLoading, refetch: refetchCards } = useListMyCards();
-  const { data: games = [], refetch: refetchGames } = useListGames();
+  const { data: rawCards, isLoading, refetch: refetchCards } = useListMyCards(undefined, {
+    query: {
+      queryKey: getListMyCardsQueryKey(),
+      staleTime: 30_000,
+      gcTime: 2 * 60 * 60 * 1000,
+      refetchInterval: 8_000,
+    },
+  });
+  const { data: games = [], refetch: refetchGames } = useListGames(undefined, {
+    query: {
+      queryKey: getListGamesQueryKey(),
+      staleTime: 60_000,
+      gcTime: 2 * 60 * 60 * 1000,
+      refetchInterval: 8_000,
+    },
+  });
   const [manualRequests, setManualRequests] = useState<ManualPaymentRequest[]>([]);
   const [receiptLightbox, setReceiptLightbox] = useState<string | null>(null);
 
@@ -60,19 +74,13 @@ export default function MyCardsPage() {
 
   useEffect(() => { void fetchManualRequests(); }, [fetchManualRequests]);
 
-  // Adaptive polling: 8s when any of the user's games is upcoming (waiting to go live),
-  // 20s when everything is active or finished (numbers already polled separately in /jugar).
-  const hasUpcoming = (games as any[]).some((g: any) => g.status === "upcoming");
-  const pollInterval = hasUpcoming ? 8_000 : 20_000;
-
+  // TanStack Query handles refetch for cards/games via refetchInterval.
+  // Only manual payment requests need their own polling (custom fetch, not a query).
   useEffect(() => {
-    const iv = setInterval(() => {
-      void refetchCards();
-      void refetchGames();
-      void fetchManualRequests();
-    }, pollInterval);
+    const iv = setInterval(() => { void fetchManualRequests(); }, 15_000);
     return () => clearInterval(iv);
-  }, [pollInterval, fetchManualRequests]);
+  }, [fetchManualRequests]);
+
 
   // Only show cards that are paid AND not expired (expired = game was reset)
   const cards = (rawCards as any[] ?? []).filter((c: any) =>
