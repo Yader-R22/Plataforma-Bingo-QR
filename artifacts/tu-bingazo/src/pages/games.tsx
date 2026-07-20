@@ -201,12 +201,20 @@ export default function GamesPage() {
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                const slug = (game as any).slug;
-                                const url = slug
-                                  ? `${window.location.origin}/juego/${game.id}/${slug}`
-                                  : `${window.location.origin}/juego/${game.id}`;
+                                let url: string;
+                                let text: string;
+                                if (isPrivate) {
+                                  url = window.location.origin;
+                                  text = "¡Regístrate en El Bingote y gana premios en efectivo desde tu celular! La plataforma de bingo en vivo más grande de Bolivia. 🎱🇧🇴";
+                                } else {
+                                  const slug = (game as any).slug;
+                                  url = slug
+                                    ? `${window.location.origin}/juego/${game.id}/${slug}`
+                                    : `${window.location.origin}/juego/${game.id}`;
+                                  text = `¡Juega ${game.title} y gana Bs ${game.prize_amount}!`;
+                                }
                                 if (navigator.share) {
-                                  navigator.share({ title: game.title as string, text: `¡Juega ${game.title} y gana Bs ${game.prize_amount}!`, url });
+                                  navigator.share({ title: "El Bingote", text, url });
                                 } else {
                                   navigator.clipboard.writeText(url).then(() => toast.success("¡Enlace copiado!"));
                                 }
