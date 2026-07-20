@@ -909,6 +909,7 @@ export default function AdminPage() {
   const [reqNoteOpen, setReqNoteOpen] = useState<Record<number, "reject" | "hold" | null>>({});
   const [reqFilter, setReqFilter] = useState<"all" | "pending" | "accepted" | "hold" | "suspended" | "banned">("all");
   const [referidosSubTab, setReferidosSubTab] = useState<"solicitudes" | "movimientos" | "configuracion">("solicitudes");
+  const [pwaSubTab, setPwaSubTab] = useState<"identidad" | "apariencia" | "push" | "avanzado">("identidad");
   const [reqSearch, setReqSearch] = useState("");
   const [reqPage, setReqPage] = useState(1);
   const [reqPerPage, setReqPerPage] = useState(10);
@@ -8475,144 +8476,191 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           ];
 
           return (
-            <div className="space-y-5 pb-10 max-w-3xl mx-auto">
+            <div className="space-y-5 pb-6 max-w-3xl mx-auto">
 
-              {/* ── Header ───────────────────────────────────────────────── */}
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h1 className="text-2xl font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>📱 Configurar PWA</h1>
-                  <p className="text-sm text-muted-foreground mt-0.5">Controlá la app instalable en celulares y PC</p>
-                </div>
-                <span className="text-sm font-black px-3 py-1.5 rounded-xl shrink-0"
-                  style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
-                  Caché v{pf.pwa_cache_version}
-                </span>
+              {/* ── Header ─────────────────────────────────────────────── */}
+              <div>
+                <h1 className="text-2xl font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>📱 Configurar PWA</h1>
+                <p className="text-sm text-muted-foreground mt-0.5">Controlá la app instalable en celulares y PC</p>
+              </div>
+
+              {/* ── Stats strip ────────────────────────────────────────── */}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { icon: "🔄", value: `v${pf.pwa_cache_version}`, label: "Versión de caché" },
+                  { icon: "🔔", value: pushSubCount != null ? String(pushSubCount) : "—", label: "Dispositivos suscritos" },
+                ].map(item => (
+                  <div key={item.label} className="bg-card border rounded-2xl p-4">
+                    <p className="text-xl">{item.icon}</p>
+                    <p className="font-black text-xl mt-1" style={{ fontFamily: "'Poppins', sans-serif" }}>{item.value}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{item.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── Sub-tab nav ────────────────────────────────────────── */}
+              <div className="flex gap-1 bg-muted rounded-xl p-1">
+                {(["identidad", "apariencia", "push", "avanzado"] as const).map(st => (
+                  <button key={st} onClick={() => setPwaSubTab(st)}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                      pwaSubTab === st ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                    }`}>
+                    {st === "identidad" ? "📛 Identidad"
+                      : st === "apariencia" ? "🎨 Apariencia"
+                      : st === "push" ? "🔔 Push"
+                      : "⚙️ Avanzado"}
+                  </button>
+                ))}
               </div>
 
               {/* ── Separador: CONFIGURACIÓN ─────────────────────────────── */}
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px" style={{ background: "hsl(var(--border))" }} />
-                <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">Configuración</span>
-                <div className="flex-1 h-px" style={{ background: "hsl(var(--border))" }} />
-              </div>
+              {/* ══ IDENTIDAD sub-tab ═════════════════════════════════════ */}
+              {pwaSubTab === "identidad" && (
+              <div className="space-y-4">
 
-              {/* 1 — Identidad */}
-              <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">📛</span>
-                  <div>
-                    <h2 className="font-black text-base leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>Identidad de la app</h2>
-                    <p className="text-xs text-muted-foreground">Nombre, descripción y URL de inicio</p>
+                {/* Nombre y descripción */}
+                <div className="bg-card border rounded-2xl p-5 space-y-4">
+                  <h3 className="font-black text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>📛 Nombre y descripción</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Nombre completo</label>
+                      <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
+                        placeholder="Tu Bingazo" value={pf.pwa_name}
+                        onChange={e => setPwaForm(f => ({ ...f, pwa_name: e.target.value }))} />
+                      <p className="text-xs text-muted-foreground mt-1">Al instalar y en la tienda</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">
+                        Nombre corto{" "}
+                        <span className={pf.pwa_short_name.length > 12 ? "text-red-500" : "text-muted-foreground"}>
+                          ({pf.pwa_short_name.length}/12)
+                        </span>
+                      </label>
+                      <input className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold bg-background"
+                        maxLength={12} placeholder="Bingazo" value={pf.pwa_short_name}
+                        onChange={e => setPwaForm(f => ({ ...f, pwa_short_name: e.target.value }))} />
+                      <p className="text-xs text-muted-foreground mt-1">Bajo el ícono en el celular</p>
+                    </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Nombre completo</label>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Descripción / Tagline</label>
                     <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
-                      placeholder="Tu Bingazo" value={pf.pwa_name}
-                      onChange={e => setPwaForm(f => ({ ...f, pwa_name: e.target.value }))} />
-                    <p className="text-xs text-muted-foreground mt-1">Al instalar y en la tienda</p>
+                      placeholder="Bingo en Vivo Bolivia" value={pf.pwa_tagline}
+                      onChange={e => setPwaForm(f => ({ ...f, pwa_tagline: e.target.value }))} />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">
-                      Nombre corto{" "}
-                      <span className={pf.pwa_short_name.length > 12 ? "text-red-500" : "text-muted-foreground"}>
-                        ({pf.pwa_short_name.length}/12)
-                      </span>
-                    </label>
-                    <input className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold bg-background"
-                      maxLength={12} placeholder="Bingazo" value={pf.pwa_short_name}
-                      onChange={e => setPwaForm(f => ({ ...f, pwa_short_name: e.target.value }))} />
-                    <p className="text-xs text-muted-foreground mt-1">Bajo el ícono en el celular</p>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">URL de inicio</label>
+                    <input className="w-full rounded-xl border px-3 py-2.5 text-sm font-mono bg-background"
+                      placeholder="/" value={pf.pwa_start_url}
+                      onChange={e => setPwaForm(f => ({ ...f, pwa_start_url: e.target.value }))} />
+                    <p className="text-xs text-muted-foreground mt-1">Página que se abre al lanzar la app (normalmente <code>/</code>)</p>
                   </div>
                 </div>
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Descripción / Tagline</label>
-                  <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
-                    placeholder="Bingo en Vivo Bolivia" value={pf.pwa_tagline}
-                    onChange={e => setPwaForm(f => ({ ...f, pwa_tagline: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">URL de inicio</label>
-                  <input className="w-full rounded-xl border px-3 py-2.5 text-sm font-mono bg-background"
-                    placeholder="/" value={pf.pwa_start_url}
-                    onChange={e => setPwaForm(f => ({ ...f, pwa_start_url: e.target.value }))} />
-                  <p className="text-xs text-muted-foreground mt-1">Página que se abre al lanzar la app (normalmente <code>/</code>)</p>
-                </div>
-              </div>
 
-              {/* 2 — Íconos */}
-              <div className="rounded-2xl p-5 space-y-5" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🖼️</span>
+                {/* Íconos */}
+                <div className="bg-card border rounded-2xl p-5 space-y-4">
                   <div>
-                    <h2 className="font-black text-base leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>Íconos de la app</h2>
-                    <p className="text-xs text-muted-foreground">PNG con fondo transparente da mejores resultados. El de 512px se usa al instalar.</p>
+                    <h3 className="font-black text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>🖼️ Íconos de la app</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">PNG con fondo transparente da mejores resultados. El 512px se usa al instalar.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block">512×512 — Principal</label>
+                      <div className="flex flex-col items-center gap-3 rounded-xl p-4"
+                        style={{ background: "hsl(var(--muted)/0.4)", border: "2px dashed hsl(var(--border))" }}>
+                        {pf.pwa_icon_512
+                          ? <img src={pf.pwa_icon_512} alt="512" className="w-24 h-24 rounded-2xl object-contain border" />
+                          : <div className="w-24 h-24 rounded-2xl flex items-center justify-center text-3xl"
+                              style={{ background: pf.pwa_bg_color }}>{pf.pwa_name?.[0] ?? "A"}</div>}
+                        <input id="upload-512" type="file" accept="image/*" className="hidden" onChange={e => pwaImgUpload("pwa_icon_512", e)} />
+                        <div className="flex gap-2">
+                          <label htmlFor="upload-512" className="px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer"
+                            style={{ background: "hsl(var(--primary))", color: "white" }}>📁 Subir</label>
+                          {pf.pwa_icon_512 && (
+                            <button onClick={() => setPwaForm(f => ({ ...f, pwa_icon_512: "" }))}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-500 border border-red-200">Quitar</button>
+                          )}
+                        </div>
+                      </div>
+                      <input className="w-full rounded-xl border px-3 py-2 text-xs font-mono bg-background"
+                        placeholder="https://... o subí arriba" value={pf.pwa_icon_512}
+                        onChange={e => setPwaForm(f => ({ ...f, pwa_icon_512: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block">192×192 — Android / Notif.</label>
+                      <div className="flex flex-col items-center gap-3 rounded-xl p-4"
+                        style={{ background: "hsl(var(--muted)/0.4)", border: "2px dashed hsl(var(--border))" }}>
+                        {pf.pwa_icon_192
+                          ? <img src={pf.pwa_icon_192} alt="192" className="w-24 h-24 rounded-2xl object-contain border" />
+                          : <div className="w-24 h-24 rounded-2xl flex items-center justify-center text-3xl"
+                              style={{ background: pf.pwa_bg_color }}>{pf.pwa_name?.[0] ?? "A"}</div>}
+                        <input id="upload-192" type="file" accept="image/*" className="hidden" onChange={e => pwaImgUpload("pwa_icon_192", e)} />
+                        <div className="flex gap-2">
+                          <label htmlFor="upload-192" className="px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer"
+                            style={{ background: "hsl(var(--primary))", color: "white" }}>📁 Subir</label>
+                          {pf.pwa_icon_192 && (
+                            <button onClick={() => setPwaForm(f => ({ ...f, pwa_icon_192: "" }))}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-500 border border-red-200">Quitar</button>
+                          )}
+                        </div>
+                      </div>
+                      <input className="w-full rounded-xl border px-3 py-2 text-xs font-mono bg-background"
+                        placeholder="https://... o subí arriba" value={pf.pwa_icon_192}
+                        onChange={e => setPwaForm(f => ({ ...f, pwa_icon_192: e.target.value }))} />
+                    </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {/* 512px */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block">512×512 — Principal</label>
-                    <div className="flex flex-col items-center gap-3 rounded-xl p-4"
-                      style={{ background: "hsl(var(--muted)/0.4)", border: "2px dashed hsl(var(--border))" }}>
-                      {pf.pwa_icon_512
-                        ? <img src={pf.pwa_icon_512} alt="512" className="w-24 h-24 rounded-2xl object-contain border" />
-                        : <div className="w-24 h-24 rounded-2xl flex items-center justify-center text-3xl"
-                            style={{ background: pf.pwa_bg_color }}>{pf.pwa_name?.[0] ?? "A"}</div>}
-                      <input id="upload-512" type="file" accept="image/*" className="hidden" onChange={e => pwaImgUpload("pwa_icon_512", e)} />
-                      <div className="flex gap-2">
-                        <label htmlFor="upload-512" className="px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer"
-                          style={{ background: "hsl(var(--primary))", color: "white" }}>📁 Subir</label>
-                        {pf.pwa_icon_512 && (
-                          <button onClick={() => setPwaForm(f => ({ ...f, pwa_icon_512: "" }))}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-500 border border-red-200">Quitar</button>
-                        )}
-                      </div>
-                    </div>
-                    <input className="w-full rounded-xl border px-3 py-2 text-xs font-mono bg-background"
-                      placeholder="https://... o subí arriba" value={pf.pwa_icon_512}
-                      onChange={e => setPwaForm(f => ({ ...f, pwa_icon_512: e.target.value }))} />
-                  </div>
-                  {/* 192px */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block">192×192 — Android / Notif.</label>
-                    <div className="flex flex-col items-center gap-3 rounded-xl p-4"
-                      style={{ background: "hsl(var(--muted)/0.4)", border: "2px dashed hsl(var(--border))" }}>
-                      {pf.pwa_icon_192
-                        ? <img src={pf.pwa_icon_192} alt="192" className="w-24 h-24 rounded-2xl object-contain border" />
-                        : <div className="w-24 h-24 rounded-2xl flex items-center justify-center text-3xl"
-                            style={{ background: pf.pwa_bg_color }}>{pf.pwa_name?.[0] ?? "A"}</div>}
-                      <input id="upload-192" type="file" accept="image/*" className="hidden" onChange={e => pwaImgUpload("pwa_icon_192", e)} />
-                      <div className="flex gap-2">
-                        <label htmlFor="upload-192" className="px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer"
-                          style={{ background: "hsl(var(--primary))", color: "white" }}>📁 Subir</label>
-                        {pf.pwa_icon_192 && (
-                          <button onClick={() => setPwaForm(f => ({ ...f, pwa_icon_192: "" }))}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-500 border border-red-200">Quitar</button>
-                        )}
-                      </div>
-                    </div>
-                    <input className="w-full rounded-xl border px-3 py-2 text-xs font-mono bg-background"
-                      placeholder="https://... o subí arriba" value={pf.pwa_icon_192}
-                      onChange={e => setPwaForm(f => ({ ...f, pwa_icon_192: e.target.value }))} />
-                  </div>
-                </div>
-              </div>
 
-              {/* 3 — Apariencia */}
-              <div className="rounded-2xl p-5 space-y-5" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🎨</span>
+                {/* Categorías */}
+                <div className="bg-card border rounded-2xl p-5 space-y-3">
                   <div>
-                    <h2 className="font-black text-base leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>Apariencia y comportamiento</h2>
-                    <p className="text-xs text-muted-foreground">Modo de pantalla, orientación y colores</p>
+                    <h3 className="font-black text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>🗂️ Categorías de la app</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Usadas al listar la app en tiendas y catálogos del navegador</p>
                   </div>
+                  <div className="flex flex-wrap gap-2">
+                    {ALL_CATEGORIES.map(cat => {
+                      const active = pf.pwa_categories.split(",").map(c => c.trim()).includes(cat.value);
+                      return (
+                        <button key={cat.value}
+                          onClick={() => {
+                            const current = pf.pwa_categories.split(",").map(c => c.trim()).filter(Boolean);
+                            const next = active ? current.filter(c => c !== cat.value) : [...current, cat.value];
+                            setPwaForm(f => ({ ...f, pwa_categories: next.join(",") }));
+                          }}
+                          className="px-3 py-1.5 rounded-full text-xs font-bold transition-all border-2"
+                          style={{
+                            borderColor: active ? "hsl(var(--primary))" : "hsl(var(--border))",
+                            background: active ? "hsl(var(--primary))" : "transparent",
+                            color: active ? "white" : "hsl(var(--muted-foreground))",
+                          }}>
+                          {cat.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Seleccionadas: <span className="font-mono font-bold text-foreground">{pf.pwa_categories || "(ninguna)"}</span>
+                  </p>
                 </div>
+
+                {/* Guardar */}
+                <button onClick={savePwaSettings} disabled={savingPwa || !pwaLoaded}
+                  className="btn-primary w-full text-base py-4">
+                  {savingPwa ? "⏳ Guardando..." : !pwaLoaded ? "Cargando..." : "💾 Guardar configuración PWA"}
+                </button>
+              </div>
+              )}
+
+              {/* ══ APARIENCIA sub-tab ══════════════════════════════════════ */}
+              {pwaSubTab === "apariencia" && (
+              <div className="space-y-4">
 
                 {/* Modo de pantalla */}
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-2">Modo de pantalla</label>
+                <div className="bg-card border rounded-2xl p-5 space-y-3">
+                  <div>
+                    <h3 className="font-black text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>📱 Modo de pantalla</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Cómo se muestra la app al abrirse desde el ícono</p>
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     {DISPLAY_MODES.map(m => (
                       <button key={m.value} onClick={() => setPwaForm(f => ({ ...f, pwa_display_mode: m.value }))}
@@ -8636,8 +8684,11 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 </div>
 
                 {/* Orientación */}
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-2">Orientación de pantalla</label>
+                <div className="bg-card border rounded-2xl p-5 space-y-3">
+                  <div>
+                    <h3 className="font-black text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>↕ Orientación de pantalla</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Cómo se rota la app en el dispositivo</p>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {ORIENTATIONS.map(o => (
                       <button key={o.value} onClick={() => setPwaForm(f => ({ ...f, pwa_orientation: o.value }))}
@@ -8652,176 +8703,95 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     ))}
                   </div>
                   {ORIENTATIONS.find(o => o.value === pf.pwa_orientation) && (
-                    <p className="text-xs text-muted-foreground mt-1.5">
+                    <p className="text-xs text-muted-foreground">
                       {ORIENTATIONS.find(o => o.value === pf.pwa_orientation)!.desc}
                     </p>
                   )}
                 </div>
 
-                {/* Colores */}
-                <div className="grid grid-cols-2 gap-4">
+                {/* Colores + Preview */}
+                <div className="bg-card border rounded-2xl p-5 space-y-4">
                   <div>
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-2">
-                      Color de tema <span className="normal-case font-normal">(barra del navegador)</span>
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <input type="color" value={pf.pwa_theme_color}
-                        onChange={e => setPwaForm(f => ({ ...f, pwa_theme_color: e.target.value }))}
-                        className="w-12 h-12 rounded-xl border cursor-pointer p-1" />
-                      <div>
-                        <p className="text-sm font-mono font-bold">{pf.pwa_theme_color}</p>
-                        <p className="text-xs text-muted-foreground">Barra del sistema</p>
-                      </div>
-                    </div>
+                    <h3 className="font-black text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>🎨 Colores de la app</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Se aplican en la barra del sistema y en el splash screen</p>
                   </div>
-                  <div>
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-2">
-                      Color de fondo <span className="normal-case font-normal">(splash screen)</span>
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <input type="color" value={pf.pwa_bg_color}
-                        onChange={e => setPwaForm(f => ({ ...f, pwa_bg_color: e.target.value }))}
-                        className="w-12 h-12 rounded-xl border cursor-pointer p-1" />
-                      <div>
-                        <p className="text-sm font-mono font-bold">{pf.pwa_bg_color}</p>
-                        <p className="text-xs text-muted-foreground">Pantalla de carga</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Preview */}
-                <div className="rounded-xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))" }}>
-                  <div className="h-8 flex items-center px-3 gap-2" style={{ background: pf.pwa_theme_color }}>
-                    <div className="w-2 h-2 rounded-full bg-white/40" />
-                    <div className="w-2 h-2 rounded-full bg-white/40" />
-                    <div className="w-2 h-2 rounded-full bg-white/40" />
-                    <span className="text-xs text-white/70 ml-auto font-mono">vista previa</span>
-                  </div>
-                  <div className="h-20 flex items-center justify-center gap-3" style={{ background: pf.pwa_bg_color }}>
-                    {pf.pwa_icon_512 && <img src={pf.pwa_icon_512} className="w-10 h-10 rounded-xl object-contain" alt="" />}
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-white font-black text-sm">{pf.pwa_name || "Tu App"}</p>
-                      <p className="text-white/50 text-xs">{pf.pwa_tagline || "Tagline"}</p>
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-2">
+                        Color de tema <span className="normal-case font-normal">(barra del nav)</span>
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <input type="color" value={pf.pwa_theme_color}
+                          onChange={e => setPwaForm(f => ({ ...f, pwa_theme_color: e.target.value }))}
+                          className="w-12 h-12 rounded-xl border cursor-pointer p-1" />
+                        <div>
+                          <p className="text-sm font-mono font-bold">{pf.pwa_theme_color}</p>
+                          <p className="text-xs text-muted-foreground">Barra del sistema</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-2">
+                        Color de fondo <span className="normal-case font-normal">(splash screen)</span>
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <input type="color" value={pf.pwa_bg_color}
+                          onChange={e => setPwaForm(f => ({ ...f, pwa_bg_color: e.target.value }))}
+                          className="w-12 h-12 rounded-xl border cursor-pointer p-1" />
+                        <div>
+                          <p className="text-sm font-mono font-bold">{pf.pwa_bg_color}</p>
+                          <p className="text-xs text-muted-foreground">Pantalla de carga</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              {/* 4 — Categorías */}
-              <div className="rounded-2xl p-5 space-y-3" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🗂️</span>
-                  <div>
-                    <h2 className="font-black text-base leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>Categorías de la app</h2>
-                    <p className="text-xs text-muted-foreground">Usadas al listar la app en tiendas y catálogos del navegador</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {ALL_CATEGORIES.map(cat => {
-                    const active = pf.pwa_categories.split(",").map(c => c.trim()).includes(cat.value);
-                    return (
-                      <button key={cat.value}
-                        onClick={() => {
-                          const current = pf.pwa_categories.split(",").map(c => c.trim()).filter(Boolean);
-                          const next = active ? current.filter(c => c !== cat.value) : [...current, cat.value];
-                          setPwaForm(f => ({ ...f, pwa_categories: next.join(",") }));
-                        }}
-                        className="px-3 py-1.5 rounded-full text-xs font-bold transition-all border-2"
-                        style={{
-                          borderColor: active ? "hsl(var(--primary))" : "hsl(var(--border))",
-                          background: active ? "hsl(var(--primary))" : "transparent",
-                          color: active ? "white" : "hsl(var(--muted-foreground))",
-                        }}>
-                        {cat.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Seleccionadas: <span className="font-mono font-bold text-foreground">{pf.pwa_categories || "(ninguna)"}</span>
-                </p>
-              </div>
-
-              {/* 5 — Caché */}
-              <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🔄</span>
-                  <div>
-                    <h2 className="font-black text-base leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>Control de caché</h2>
-                    <p className="text-xs text-muted-foreground">Forzá la actualización en todos los dispositivos</p>
-                  </div>
-                </div>
-                <div className="rounded-xl p-4" style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-black"
-                        style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
-                        v{pf.pwa_cache_version}
-                      </div>
+                  {/* Preview */}
+                  <div className="rounded-xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))" }}>
+                    <div className="h-8 flex items-center px-3 gap-2" style={{ background: pf.pwa_theme_color }}>
+                      <div className="w-2 h-2 rounded-full bg-white/40" />
+                      <div className="w-2 h-2 rounded-full bg-white/40" />
+                      <div className="w-2 h-2 rounded-full bg-white/40" />
+                      <span className="text-xs text-white/70 ml-auto font-mono">vista previa</span>
+                    </div>
+                    <div className="h-20 flex items-center justify-center gap-3" style={{ background: pf.pwa_bg_color }}>
+                      {pf.pwa_icon_512 && <img src={pf.pwa_icon_512} className="w-10 h-10 rounded-xl object-contain" alt="" />}
                       <div>
-                        <p className="text-sm font-black">Versión de caché actual</p>
-                        <p className="text-xs text-muted-foreground">Todos los usuarios usan esta versión</p>
+                        <p className="text-white font-black text-sm">{pf.pwa_name || "Tu App"}</p>
+                        <p className="text-white/50 text-xs">{pf.pwa_tagline || "Tagline"}</p>
                       </div>
                     </div>
-                    <button onClick={bumpCache}
-                      className="shrink-0 px-4 py-2.5 rounded-xl text-sm font-black transition-all active:scale-95"
-                      style={{ background: "hsl(var(--primary))", color: "white" }}>
-                      ⬆ Forzar v{pf.pwa_cache_version + 1}
+                  </div>
+                </div>
+
+                {/* Guardar */}
+                <button onClick={savePwaSettings} disabled={savingPwa || !pwaLoaded}
+                  className="btn-primary w-full text-base py-4">
+                  {savingPwa ? "⏳ Guardando..." : !pwaLoaded ? "Cargando..." : "💾 Guardar configuración PWA"}
+                </button>
+              </div>
+              )}
+
+              {/* ══ PUSH sub-tab ════════════════════════════════════════════ */}
+              {pwaSubTab === "push" && (
+              <div className="space-y-4">
+                <div className="bg-card border rounded-2xl p-5 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-black text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>🔔 Enviar notificación push</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">Llega a todos los usuarios aunque tengan el navegador cerrado</p>
+                    </div>
+                    <button onClick={fetchPushSubCount}
+                      className="shrink-0 flex flex-col items-center rounded-xl px-3 py-1.5 text-center transition-all active:scale-95"
+                      style={{ background: "hsl(var(--muted))", minWidth: 64 }}>
+                      <span className="text-lg font-black leading-none">{pushSubCount ?? "—"}</span>
+                      <span className="text-[10px] text-muted-foreground leading-tight">dispositivos</span>
                     </button>
                   </div>
-                </div>
-                <div className="space-y-1.5">
-                  {[
-                    "Después de subir nuevos íconos o cambiar colores",
-                    "Cuando actualizás el nombre o descripción de la app",
-                    "Después de cambios importantes en el frontend",
-                    "Si los usuarios reportan que ven una versión vieja de la app",
-                  ].map((tip, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                      <span className="text-green-500 mt-0.5 shrink-0">✓</span>
-                      <span>{tip}</span>
+                  {pushSubCount === 0 && (
+                    <div className="rounded-xl p-3 text-xs" style={{ background: "hsl(var(--destructive)/0.1)", color: "hsl(var(--destructive))" }}>
+                      ⚠️ No hay dispositivos suscritos. Los usuarios deben abrir la app y aceptar las notificaciones.
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* ── Botón guardar configuración ───────────────────────────── */}
-              <button onClick={savePwaSettings} disabled={savingPwa || !pwaLoaded}
-                className="btn-primary w-full text-base py-4">
-                {savingPwa ? "⏳ Guardando..." : !pwaLoaded ? "Cargando..." : "💾 Guardar configuración PWA"}
-              </button>
-
-              {/* ── Separador: HERRAMIENTAS ───────────────────────────────── */}
-              <div className="flex items-center gap-3 pt-2">
-                <div className="flex-1 h-px" style={{ background: "hsl(var(--border))" }} />
-                <span className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">Herramientas</span>
-                <div className="flex-1 h-px" style={{ background: "hsl(var(--border))" }} />
-              </div>
-
-              {/* 6 — Notificaciones push */}
-              <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">🔔</span>
-                    <div>
-                      <h2 className="font-black text-base leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>Enviar notificación push</h2>
-                      <p className="text-xs text-muted-foreground">Llega aunque el usuario tenga el navegador cerrado</p>
-                    </div>
-                  </div>
-                  <button onClick={fetchPushSubCount}
-                    className="shrink-0 flex flex-col items-center rounded-xl px-3 py-1.5 text-center transition-all active:scale-95"
-                    style={{ background: "hsl(var(--muted))", minWidth: 64 }}>
-                    <span className="text-lg font-black leading-none">{pushSubCount ?? "—"}</span>
-                    <span className="text-[10px] text-muted-foreground leading-tight">dispositivos</span>
-                  </button>
-                </div>
-                {pushSubCount === 0 && (
-                  <div className="rounded-xl p-3 text-xs" style={{ background: "hsl(var(--destructive)/0.1)", color: "hsl(var(--destructive))" }}>
-                    ⚠️ No hay dispositivos suscritos. Los usuarios deben abrir la app y aceptar las notificaciones.
-                  </div>
-                )}
-                <div className="grid grid-cols-1 gap-3">
+                  )}
                   <div>
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Título</label>
                     <input className="w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
@@ -8839,7 +8809,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     <input className="w-full rounded-xl border px-3 py-2.5 text-sm font-mono bg-background"
                       placeholder="/games" value={pushUrl}
                       onChange={e => setPushUrl(e.target.value)} />
-                    <p className="text-xs text-muted-foreground mt-1">Ejemplo: <code>/games</code>, <code>/wallet</code></p>
+                    <p className="text-xs text-muted-foreground mt-1">Ej: <code>/games</code>, <code>/wallet</code></p>
                   </div>
                   <div>
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Imagen (opcional)</label>
@@ -8859,7 +8829,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         <button onClick={() => setPushImage("")} className="text-xs text-muted-foreground hover:text-destructive">✕ Quitar</button>
                       </div>
                     )}
-                    <p className="text-xs text-muted-foreground mt-1">Se comprime automáticamente antes de subir. Ratio recomendado 2:1.</p>
+                    <p className="text-xs text-muted-foreground mt-1">Se comprime automáticamente. Ratio recomendado 2:1.</p>
                   </div>
                   <div>
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Destinatarios</label>
@@ -8929,78 +8899,123 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       </div>
                     )}
                   </div>
-                </div>
-                {pushProgress && !pushProgress.done && pushProgress.total > 0 && (
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Enviando...</span>
-                      <span>{pushProgress.sent + pushProgress.failed} / {pushProgress.total}</span>
+                  {pushProgress && !pushProgress.done && pushProgress.total > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Enviando...</span>
+                        <span>{pushProgress.sent + pushProgress.failed} / {pushProgress.total}</span>
+                      </div>
+                      <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "hsl(var(--muted))" }}>
+                        <div className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${Math.round(((pushProgress.sent + pushProgress.failed) / pushProgress.total) * 100)}%`, background: "hsl(var(--primary))" }} />
+                      </div>
                     </div>
-                    <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "hsl(var(--muted))" }}>
-                      <div className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${Math.round(((pushProgress.sent + pushProgress.failed) / pushProgress.total) * 100)}%`, background: "hsl(var(--primary))" }} />
-                    </div>
+                  )}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <button onClick={sendBroadcast}
+                      disabled={pushSending || pushUploading || (pushTarget === "ci" && !pushSelectedUser)}
+                      className="px-5 py-2.5 rounded-xl text-sm font-black text-white transition-all active:scale-95"
+                      style={{
+                        background: (pushResult && !pushSending && pushTarget === "ci" && pushSelectedUser)
+                          ? (pushResult.sent > 0 ? "hsl(142 70% 35%)" : "hsl(var(--destructive))")
+                          : "hsl(var(--primary))",
+                        opacity: (pushSending || pushUploading || (pushTarget === "ci" && !pushSelectedUser)) ? 0.5 : 1
+                      }}>
+                      {pushSending
+                        ? (pushProgress && !pushProgress.done ? `Enviando ${pushProgress.sent}/${pushProgress.total}...` : "Procesando...")
+                        : pushResult && pushTarget === "ci" && pushSelectedUser
+                          ? (pushResult.sent > 0 ? `✅ Enviado a ${pushSelectedUser.full_name}` : `⚠️ Sin push activo`)
+                        : pushTarget === "all" ? "📤 Enviar a todos"
+                        : pushTarget === "ci" ? (pushSelectedUser ? `📤 Enviar a ${pushSelectedUser.full_name}` : "📤 Enviar al usuario")
+                        : `📤 Enviar a ${pushDepartment}`}
+                    </button>
+                    {pushResult && pushResult.sent > 0 && (
+                      <p className="text-xs text-green-600 font-semibold">
+                        {pushTarget === "ci" && pushSelectedUser
+                          ? `✅ Enviado a ${pushSelectedUser.full_name}`
+                          : `✅ ${pushResult.sent} enviado${pushResult.sent !== 1 ? "s" : ""}${pushResult.failed > 0 ? ` · ${pushResult.failed} fallidos` : ""}`}
+                      </p>
+                    )}
+                    {pushResult && pushResult.sent === 0 && (
+                      <p className="text-xs font-semibold" style={{ color: "hsl(var(--destructive))" }}>
+                        {pushTarget === "ci" && pushSelectedUser
+                          ? `⚠️ ${pushSelectedUser.full_name} no tiene notificaciones activadas`
+                          : "⚠️ Sin dispositivos suscritos"}
+                      </p>
+                    )}
                   </div>
-                )}
-                <div className="flex items-center gap-3 flex-wrap">
-                  <button onClick={sendBroadcast}
-                    disabled={pushSending || pushUploading || (pushTarget === "ci" && !pushSelectedUser)}
-                    className="px-5 py-2.5 rounded-xl text-sm font-black text-white transition-all active:scale-95"
-                    style={{
-                      background: (pushResult && !pushSending && pushTarget === "ci" && pushSelectedUser)
-                        ? (pushResult.sent > 0 ? "hsl(142 70% 35%)" : "hsl(var(--destructive))")
-                        : "hsl(var(--primary))",
-                      opacity: (pushSending || pushUploading || (pushTarget === "ci" && !pushSelectedUser)) ? 0.5 : 1
-                    }}>
-                    {pushSending
-                      ? (pushProgress && !pushProgress.done ? `Enviando ${pushProgress.sent}/${pushProgress.total}...` : "Procesando...")
-                      : pushResult && pushTarget === "ci" && pushSelectedUser
-                        ? (pushResult.sent > 0 ? `✅ Enviado a ${pushSelectedUser.full_name}` : `⚠️ Sin push activo`)
-                      : pushTarget === "all" ? "📤 Enviar a todos"
-                      : pushTarget === "ci" ? (pushSelectedUser ? `📤 Enviar a ${pushSelectedUser.full_name}` : "📤 Enviar al usuario")
-                      : `📤 Enviar a ${pushDepartment}`}
-                  </button>
-                  {pushResult && pushResult.sent > 0 && (
-                    <p className="text-xs text-green-600 font-semibold">
-                      {pushTarget === "ci" && pushSelectedUser
-                        ? `✅ Enviado a ${pushSelectedUser.full_name}`
-                        : `✅ ${pushResult.sent} enviado${pushResult.sent !== 1 ? "s" : ""}${pushResult.failed > 0 ? ` · ${pushResult.failed} fallidos` : ""}`}
-                    </p>
-                  )}
-                  {pushResult && pushResult.sent === 0 && (
-                    <p className="text-xs font-semibold" style={{ color: "hsl(var(--destructive))" }}>
-                      {pushTarget === "ci" && pushSelectedUser
-                        ? `⚠️ ${pushSelectedUser.full_name} no tiene notificaciones activadas`
-                        : "⚠️ Sin dispositivos suscritos"}
-                    </p>
-                  )}
                 </div>
               </div>
+              )}
 
-              {/* 7 — Manifiesto generado */}
-              <div className="rounded-2xl p-5 space-y-3" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">👁️</span>
-                    <div>
-                      <h2 className="font-black text-base leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>Manifiesto generado</h2>
-                      <p className="text-xs text-muted-foreground">Lo que el navegador lee al instalar la app</p>
+              {/* ══ AVANZADO sub-tab ════════════════════════════════════════ */}
+              {pwaSubTab === "avanzado" && (
+              <div className="space-y-4">
+
+                {/* Caché */}
+                <div className="bg-card border rounded-2xl p-5 space-y-4">
+                  <div>
+                    <h3 className="font-black text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>🔄 Control de caché</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Forzá la actualización en todos los dispositivos cuando cambiás algo importante</p>
+                  </div>
+                  <div className="rounded-xl p-4" style={{ background: "hsl(var(--muted)/0.4)", border: "1px solid hsl(var(--border))" }}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-black"
+                          style={{ background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))" }}>
+                          v{pf.pwa_cache_version}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black">Versión actual</p>
+                          <p className="text-xs text-muted-foreground">Todos los usuarios usan esta versión</p>
+                        </div>
+                      </div>
+                      <button onClick={bumpCache}
+                        className="shrink-0 px-4 py-2.5 rounded-xl text-sm font-black transition-all active:scale-95"
+                        style={{ background: "hsl(var(--primary))", color: "white" }}>
+                        ⬆ Forzar v{pf.pwa_cache_version + 1}
+                      </button>
                     </div>
                   </div>
-                  <a href="/api/pwa/manifest.json" target="_blank" rel="noopener noreferrer"
-                    className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-                    style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
-                    🔗 Abrir
-                  </a>
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">¿Cuándo forzar actualización?</p>
+                    {[
+                      "Después de subir nuevos íconos o cambiar colores",
+                      "Cuando actualizás el nombre o descripción de la app",
+                      "Después de cambios importantes en el frontend",
+                      "Si los usuarios reportan que ven una versión vieja de la app",
+                    ].map((tip, i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                        <span className="text-green-500 mt-0.5 shrink-0">✓</span>
+                        <span>{tip}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                {pwaManifestPreview
-                  ? <pre className="text-xs font-mono rounded-xl p-3 overflow-auto max-h-72"
-                      style={{ background: "hsl(var(--muted)/0.5)", color: "hsl(var(--foreground))" }}>
-                      {pwaManifestPreview}
-                    </pre>
-                  : <p className="text-xs text-muted-foreground">Guardá la configuración para ver el manifiesto actualizado.</p>
-                }
+
+                {/* Manifiesto */}
+                <div className="bg-card border rounded-2xl p-5 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-black text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>👁️ Manifiesto generado</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">El JSON que el navegador lee al instalar la app</p>
+                    </div>
+                    <a href="/api/pwa/manifest.json" target="_blank" rel="noopener noreferrer"
+                      className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                      style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
+                      🔗 Abrir
+                    </a>
+                  </div>
+                  {pwaManifestPreview
+                    ? <pre className="text-xs font-mono rounded-xl p-3 overflow-auto max-h-72"
+                        style={{ background: "hsl(var(--muted)/0.5)", color: "hsl(var(--foreground))" }}>
+                        {pwaManifestPreview}
+                      </pre>
+                    : <p className="text-xs text-muted-foreground">Guardá la configuración en "Identidad" para ver el manifiesto actualizado.</p>
+                  }
+                </div>
               </div>
+              )}
 
             </div>
           );
