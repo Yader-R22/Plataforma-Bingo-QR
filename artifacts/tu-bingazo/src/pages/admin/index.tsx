@@ -8476,7 +8476,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           ];
 
           return (
-            <div className="space-y-5 pb-6 max-w-3xl mx-auto">
+            <div className="space-y-5 pb-6 max-w-3xl mx-auto overflow-x-hidden">
 
               {/* ── Header ─────────────────────────────────────────────── */}
               <div>
@@ -8639,7 +8639,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     })}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Seleccionadas: <span className="font-mono font-bold text-foreground">{pf.pwa_categories || "(ninguna)"}</span>
+                    Seleccionadas: <span className="font-mono font-bold text-foreground break-all">{pf.pwa_categories || "(ninguna)"}</span>
                   </p>
                 </div>
 

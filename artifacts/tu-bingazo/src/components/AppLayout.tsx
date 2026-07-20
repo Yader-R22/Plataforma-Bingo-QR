@@ -276,7 +276,7 @@ function CiUploadScreen({ rejectionReason }: { rejectionReason?: string | null }
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "hsl(var(--background))" }}>
+    <div className="min-h-screen flex flex-col overflow-x-hidden" style={{ background: "hsl(var(--background))" }}>
       <div className="px-4 py-5 text-white text-center"
         style={{ background: isResubmit ? "linear-gradient(135deg, #5a0000, #b80000)" : "linear-gradient(135deg, #1a0050, #3b00b8)" }}>
         <p className="text-3xl mb-1">{isResubmit ? "⚠️" : "📄"}</p>
@@ -767,7 +767,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
       {/* Top bar */}
       {!hideTopBar && <header
         className="sticky top-0 z-40 flex items-center px-4 gap-3"
