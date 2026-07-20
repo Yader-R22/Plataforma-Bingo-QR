@@ -4802,7 +4802,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           ] as const;
 
           return (
-            <div className="space-y-3">
+            <div className="space-y-3 overflow-x-hidden">
               {/* ── Top header ── */}
               <div className="flex items-center justify-between gap-2">
                 <h2 className="font-black text-lg">💰 Finanzas</h2>
@@ -6239,7 +6239,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           };
 
           return (
-            <div className="space-y-5">
+            <div className="space-y-5 overflow-x-hidden">
               {/* Stats strip */}
               {referralStats && (
                 <div className="grid grid-cols-2 gap-3">
@@ -6986,7 +6986,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           const barColor = heapPct >= 80 ? "#dc2626" : heapPct >= 60 ? "#d97706" : "#16a34a";
 
           return (
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-x-hidden">
               {/* Refresh */}
               <div className="flex items-center justify-between">
                 <p className="text-sm font-bold text-muted-foreground">Estado del servidor</p>
@@ -7243,7 +7243,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           }
 
           return (
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-x-hidden">
               <div className="flex items-center justify-between">
                 <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>🧾 Pagos Manuales</h2>
                 <button onClick={refreshManualPayments} disabled={manualPaymentsLoading}
@@ -7541,7 +7541,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           };
 
           return (
-            <div className="space-y-5">
+            <div className="space-y-5 overflow-x-hidden">
               <div className="flex items-center justify-between">
                 <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>🛒 Ventas de Activadores</h2>
                 <button onClick={() => void refreshSales()} disabled={activatorSalesLoading}
@@ -7896,7 +7896,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           const sf = siteForm;
 
           return (
-            <div className="space-y-6">
+            <div className="space-y-6 overflow-x-hidden">
               <div className="rounded-2xl p-5 space-y-5" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
                 <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>🌐 Identidad del Sitio</h2>
 
@@ -7933,12 +7933,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     <input className="w-full rounded-xl border px-3 py-2.5 text-2xl bg-background"
                       value={sf.site_emoji} onChange={e => setSiteForm(f => ({ ...f, site_emoji: e.target.value }))} maxLength={4} />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Color principal</label>
-                    <div className="flex items-center gap-2">
-                      <input type="color" className="w-10 h-10 rounded-lg border cursor-pointer"
+                    <div className="flex items-center gap-2 min-w-0">
+                      <input type="color" className="w-10 h-10 shrink-0 rounded-lg border cursor-pointer"
                         value={sf.primary_color} onChange={e => setSiteForm(f => ({ ...f, primary_color: e.target.value }))} />
-                      <input className="flex-1 rounded-xl border px-3 py-2.5 text-sm font-mono bg-background"
+                      <input className="flex-1 min-w-0 rounded-xl border px-3 py-2.5 text-sm font-mono bg-background"
                         value={sf.primary_color} onChange={e => setSiteForm(f => ({ ...f, primary_color: e.target.value }))} />
                     </div>
                   </div>
