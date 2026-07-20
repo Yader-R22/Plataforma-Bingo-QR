@@ -59,12 +59,17 @@ export function startAutoRestartWatcher(): void {
     if (!config.enabled) return;
 
     const mem = process.memoryUsage();
-    const heapPct = Math.round((mem.heapUsed / mem.heapTotal) * 100);
+    const heapPct  = Math.round((mem.heapUsed / mem.heapTotal) * 100);
+    // RSS vs memoria total del sistema (más representativo en producción)
+    const totalMem = (process as NodeJS.Process & { constrainedMemory?: () => number }).constrainedMemory?.() ?? 0;
+    const rssPct   = totalMem > 0 ? Math.round((mem.rss / totalMem) * 100) : 0;
 
-    if (heapPct >= config.threshold) {
+    const triggered = heapPct >= config.threshold || (rssPct > 0 && rssPct >= config.threshold);
+
+    if (triggered) {
       logger.warn(
-        { heapPct, threshold: config.threshold },
-        "Auto-restart triggered: heap threshold exceeded"
+        { heapPct, rssPct, threshold: config.threshold },
+        "Auto-restart triggered: memory threshold exceeded"
       );
       // Exit cleanly — pm2 will restart the process
       setTimeout(() => process.exit(0), 500);
