@@ -130,6 +130,7 @@ export const ListGamesResponseItem = zod.object({
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
   "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
+  "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
 export const ListGamesResponse = zod.array(ListGamesResponseItem)
@@ -158,7 +159,8 @@ export const CreateGameBody = zod.object({
   "prize_amount": zod.number(),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).nullish().describe('Configuración de múltiples rondas (null = juego de una sola ronda)'),
-  "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)')
+  "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
+  "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones')
 })
 
 
@@ -198,6 +200,7 @@ export const GetGameResponse = zod.object({
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
   "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
+  "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
 
@@ -258,6 +261,7 @@ export const UpdateGameResponse = zod.object({
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
   "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
+  "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
 
@@ -378,6 +382,7 @@ export const StartGameResponse = zod.object({
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
   "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
+  "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
 
@@ -418,6 +423,7 @@ export const FinishGameResponse = zod.object({
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
   "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
+  "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
 
@@ -458,6 +464,7 @@ export const NextRoundResponse = zod.object({
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
   "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
+  "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
 

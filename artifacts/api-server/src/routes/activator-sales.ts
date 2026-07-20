@@ -10,6 +10,7 @@ import {
   activatorCardSalesTable,
   auditLogsTable,
   withdrawalsTable,
+  gameAuthorizedActivatorsTable,
 } from "@workspace/db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
@@ -75,23 +76,33 @@ router.put("/settings", requireAdmin, async (req: AuthRequest, res) => {
 });
 
 // ── GET /api/activator-sales/games ────────────────────────────────────────────
-router.get("/games", requireAuth, requireActivator, async (_req: AuthRequest, res) => {
+router.get("/games", requireAuth, requireActivator, async (req: AuthRequest, res) => {
   const games = await db.select({
     id: gamesTable.id,
     title: gamesTable.title,
     status: gamesTable.status,
     cardPrice: gamesTable.cardPrice,
     drawDate: gamesTable.drawDate,
+    isPrivate: gamesTable.isPrivate,
   }).from(gamesTable)
     .where(sql`${gamesTable.status} IN ('upcoming', 'active')`)
     .orderBy(gamesTable.drawDate);
 
-  res.json(games.map(g => ({
+  // Para juegos privados, solo mostrar aquellos donde el activador está autorizado
+  const authorizedRows = await db.select({ gameId: gameAuthorizedActivatorsTable.gameId })
+    .from(gameAuthorizedActivatorsTable)
+    .where(eq(gameAuthorizedActivatorsTable.activatorUserId, req.userId!));
+  const authorizedGameIds = new Set(authorizedRows.map(r => r.gameId));
+
+  const visible = games.filter(g => !g.isPrivate || authorizedGameIds.has(g.id));
+
+  res.json(visible.map(g => ({
     id: g.id,
     title: g.title,
     status: g.status,
     card_price: parseFloat(String(g.cardPrice)),
     scheduled_at: g.drawDate,
+    is_private: g.isPrivate,
   })));
 });
 
@@ -191,6 +202,20 @@ router.post("/purchase", requireAuth, requireActivator, async (req: AuthRequest,
   const [game] = await db.select().from(gamesTable).where(eq(gamesTable.id, game_id)).limit(1);
   if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
   if (game.status === "finished") { res.status(400).json({ error: "El juego ya finalizó" }); return; }
+
+  // Verificar autorización para juegos privados
+  if (game.isPrivate) {
+    const auth = await db.select({ id: gameAuthorizedActivatorsTable.id })
+      .from(gameAuthorizedActivatorsTable)
+      .where(and(
+        eq(gameAuthorizedActivatorsTable.gameId, game_id),
+        eq(gameAuthorizedActivatorsTable.activatorUserId, req.userId!),
+      )).limit(1);
+    if (!auth.length) {
+      res.status(403).json({ error: "No estás autorizado para vender cartones en este juego privado" });
+      return;
+    }
+  }
 
   const [targetUser] = await db.select().from(usersTable).where(eq(usersTable.id, target_user_id)).limit(1);
   if (!targetUser) { res.status(404).json({ error: "Usuario destino no encontrado" }); return; }

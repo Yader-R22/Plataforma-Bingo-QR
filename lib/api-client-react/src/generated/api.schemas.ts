@@ -204,6 +204,8 @@ export interface Game {
      * @nullable
      */
   cover_image_url?: string | null;
+  /** Si es true, solo activadores autorizados pueden vender cartones */
+  is_private?: boolean;
   created_at: string;
 }
 
@@ -245,6 +247,8 @@ export interface GameInput {
      * @nullable
      */
   cover_image_url?: string | null;
+  /** Si es true, solo activadores autorizados pueden vender cartones */
+  is_private?: boolean;
 }
 
 export type GameUpdateGameMode = typeof GameUpdateGameMode[keyof typeof GameUpdateGameMode];

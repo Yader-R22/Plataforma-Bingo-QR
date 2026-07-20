@@ -161,6 +161,13 @@ export default function CreateGamePage() {
 
   const [coverImage, setCoverImage] = useState<string | null>(null);
 
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [authorizedActivators, setAuthorizedActivators] = useState<UserResult[]>([]);
+  const [activatorQuery, setActivatorQuery] = useState("");
+  const [activatorResults, setActivatorResults] = useState<UserResult[]>([]);
+  const [activatorSearching, setActivatorSearching] = useState(false);
+  const activatorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [multiRound, setMultiRound] = useState(false);
   const emptyRound = (): RoundRow => ({
     game_mode: "full_card",
@@ -191,6 +198,18 @@ export default function CreateGamePage() {
           max_winners: String(g.max_winners ?? "1"),
         });
         setCoverImage(g.cover_image_url ?? null);
+        setIsPrivate(g.is_private ?? false);
+        if (g.is_private) {
+          try {
+            const aRes = await fetch(`${BASE}/api/admin/games/${editId}/authorized-activators`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (aRes.ok) {
+              const aData = await aRes.json();
+              setAuthorizedActivators(aData.map((u: any) => ({ id: u.id, full_name: u.full_name, ci: u.ci })));
+            }
+          } catch { /* ignore */ }
+        }
         if (g.rounds?.length > 1) {
           setMultiRound(true);
           setRounds(g.rounds.map((r: any) => ({
@@ -250,6 +269,8 @@ export default function CreateGamePage() {
         stream_url_facebook: form.stream_url_facebook || undefined,
         cover_image_url: coverImage ?? null,
         rounds: roundsPayload,
+        is_private: isPrivate,
+        authorized_activator_ids: isPrivate ? authorizedActivators.map(a => a.id) : [],
       };
       const url = isEdit ? `${BASE}/api/games/${editId}` : `${BASE}/api/games`;
       const method = isEdit ? "PATCH" : "POST";
@@ -317,6 +338,82 @@ export default function CreateGamePage() {
               <span className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform"
                 style={{ left: multiRound ? "calc(100% - 22px)" : "2px" }} />
             </button>
+          </div>
+
+          {/* ── Juego privado toggle ── */}
+          <div className="rounded-xl border p-3 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold">🔒 Juego privado</p>
+                <p className="text-xs text-muted-foreground">Solo activadores autorizados pueden vender cartones</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setIsPrivate(v => !v); if (isPrivate) { setAuthorizedActivators([]); setActivatorQuery(""); setActivatorResults([]); } }}
+                className="shrink-0 relative w-11 h-6 rounded-full transition-colors"
+                style={{ background: isPrivate ? "hsl(var(--primary))" : "hsl(var(--muted))" }}>
+                <span className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform"
+                  style={{ left: isPrivate ? "calc(100% - 22px)" : "2px" }} />
+              </button>
+            </div>
+
+            {isPrivate && (
+              <div className="space-y-2 pt-1 border-t" style={{ borderColor: "hsl(var(--border))" }}>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider pt-2">Activadores autorizados</p>
+
+                {authorizedActivators.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {authorizedActivators.map(a => (
+                      <span key={a.id} className="flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium"
+                        style={{ background: "hsl(var(--primary) / 0.12)", color: "hsl(var(--primary))" }}>
+                        {a.full_name} <span className="opacity-60">CI:{a.ci}</span>
+                        <button type="button" className="ml-0.5 hover:opacity-60 cursor-pointer"
+                          onClick={() => setAuthorizedActivators(list => list.filter(x => x.id !== a.id))}>✕</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <Input
+                  placeholder="Buscar activador por CI…"
+                  value={activatorQuery}
+                  onChange={e => {
+                    const q = e.target.value;
+                    setActivatorQuery(q);
+                    if (activatorDebounceRef.current) clearTimeout(activatorDebounceRef.current);
+                    if (q.trim().length < 3) { setActivatorResults([]); return; }
+                    activatorDebounceRef.current = setTimeout(async () => {
+                      setActivatorSearching(true);
+                      try {
+                        const r = await fetch(`${BASE}/api/admin/activators/search?ci=${encodeURIComponent(q.trim())}`, {
+                          headers: { Authorization: `Bearer ${token}` },
+                        });
+                        if (r.ok) {
+                          const d = await r.json();
+                          setActivatorResults(
+                            (d as any[]).map(u => ({ id: u.id, full_name: u.full_name, ci: u.ci }))
+                              .filter(u => !authorizedActivators.some(a => a.id === u.id))
+                          );
+                        }
+                      } catch { /* ignore */ } finally { setActivatorSearching(false); }
+                    }, 350);
+                  }}
+                />
+
+                {activatorSearching && <p className="text-[11px] text-muted-foreground px-1">Buscando…</p>}
+                {!activatorSearching && activatorQuery.trim().length >= 3 && activatorResults.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground px-1">Sin activadores para "{activatorQuery}"</p>
+                )}
+                {activatorResults.map(u => (
+                  <button key={u.id} type="button"
+                    className="w-full text-left rounded-lg border px-3 py-2 text-sm hover:bg-muted/60 transition-colors cursor-pointer"
+                    onClick={() => { setAuthorizedActivators(list => [...list, u]); setActivatorResults([]); setActivatorQuery(""); }}>
+                    <span className="font-medium">{u.full_name}</span>
+                    <span className="text-muted-foreground ml-2 text-xs">CI: {u.ci}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* ── Single-round fields (shown when multi-round OFF) ── */}

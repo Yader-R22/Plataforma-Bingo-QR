@@ -1114,6 +1114,9 @@ components:
         cover_image_url:
           type: ["string", "null"]
           description: URL o base64 de imagen de portada del juego (opcional)
+        is_private:
+          type: boolean
+          description: Si es true, solo activadores autorizados pueden vender cartones
         created_at:
           type: string
           format: date-time
@@ -1165,6 +1168,9 @@ components:
         cover_image_url:
           type: ["string", "null"]
           description: URL o base64 de imagen de portada del juego (opcional)
+        is_private:
+          type: boolean
+          description: Si es true, solo activadores autorizados pueden vender cartones
 
     GameUpdate:
       type: object

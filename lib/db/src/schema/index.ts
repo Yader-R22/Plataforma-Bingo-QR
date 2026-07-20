@@ -19,3 +19,4 @@ export * from "./banners";
 export * from "./manual_payment_requests";
 export * from "./push_subscriptions";
 export * from "./activator_card_sales";
+export * from "./game_authorized_activators";

@@ -149,6 +149,7 @@ export default function GamesPage() {
               const cfg = typeConfig(game.type);
               const isLive = game.status === "active";
               const isFinished = game.status === "finished";
+              const isPrivate = !!(game as any).is_private;
               const coverImg = game.cover_image_url as string | null | undefined;
               return (
                 <Link key={game.id} href={`/juego/${game.id}`}>
@@ -235,17 +236,24 @@ export default function GamesPage() {
                             <span className="flex items-center gap-1"><Users size={13} className="opacity-70" />{game.unique_participants.toLocaleString("es-BO")} {game.unique_participants === 1 ? "participante" : "participantes"}</span>
                             <span className="font-bold" style={{ color: "hsl(42 98% 65%)" }}>Bs {Number(game.card_price).toLocaleString("es-BO")}/cartón</span>
                           </div>
-                          <div
-                            className="flex-shrink-0 text-xs font-bold px-4 py-2 rounded-xl whitespace-nowrap"
-                            style={isLive
-                              ? { background: "#22c55e", color: "white" }
-                              : isFinished
-                              ? { background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.6)" }
-                              : { background: "hsl(42 98% 52%)", color: "#1a0050" }}
-                            onClick={!isFinished && !user ? (e) => { e.preventDefault(); e.stopPropagation(); navigate("/login"); } : undefined}
-                          >
-                            {isLive ? "Jugar ahora →" : isFinished ? "Ver" : "Comprar →"}
-                          </div>
+                          {isPrivate && !isLive && !isFinished ? (
+                            <div className="flex-shrink-0 text-xs font-bold px-3 py-2 rounded-xl whitespace-nowrap flex items-center gap-1"
+                              style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.55)" }}>
+                              🔒 Privado
+                            </div>
+                          ) : (
+                            <div
+                              className="flex-shrink-0 text-xs font-bold px-4 py-2 rounded-xl whitespace-nowrap"
+                              style={isLive
+                                ? { background: "#22c55e", color: "white" }
+                                : isFinished
+                                ? { background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.6)" }
+                                : { background: "hsl(42 98% 52%)", color: "#1a0050" }}
+                              onClick={!isFinished && !user ? (e) => { e.preventDefault(); e.stopPropagation(); navigate("/login"); } : undefined}
+                            >
+                              {isLive ? "Jugar ahora →" : isFinished ? "Ver" : "Comprar →"}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -255,6 +263,13 @@ export default function GamesPage() {
                       <div className="absolute top-5 left-5 z-20">
                         <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
                           style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>FINALIZADO</span>
+                      </div>
+                    )}
+                    {/* PRIVADO badge */}
+                    {isPrivate && !isFinished && (
+                      <div className="absolute top-5 right-5 z-20">
+                        <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1"
+                          style={{ background: "rgba(0,0,0,0.55)", color: "rgba(255,255,255,0.85)", backdropFilter: "blur(4px)" }}>🔒 PRIVADO</span>
                       </div>
                     )}
                   </div>

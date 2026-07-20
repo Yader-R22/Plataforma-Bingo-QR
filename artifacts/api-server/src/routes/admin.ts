@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { db, usersTable, nameChangeRequestsTable, ciChangeRequestsTable, withdrawalsTable, winnersTable, auditLogsTable, gamesTable, feedItemsTable, cardsTable, partnersTable, partnerPaymentsTable, operatingExpensesTable, activatorRequestsTable, referralCodesTable, activatorSettingsTable, referralTransactionsTable } from "@workspace/db";
 import { sendPushToUser, sendPushToUsers } from "../lib/push";
-import { eq, and, like, sql, desc, gte, lte, or } from "drizzle-orm";
+import { eq, and, like, sql, desc, gte, lte, or, inArray } from "drizzle-orm";
 import { requireAdmin, type AuthRequest } from "../middlewares/auth";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { gameAuthorizedActivatorsTable } from "@workspace/db";
 import {
   AdminListUsersQueryParams,
   AdminVerifyUserParams,
@@ -44,6 +45,37 @@ router.get("/users/search", async (req: AuthRequest, res) => {
   if (!ci || ci.length < 3) { res.status(400).json({ error: "Ingresa al menos 3 caracteres" }); return; }
   const users = await db.select().from(usersTable)
     .where(sql`${usersTable.ci} ILIKE ${"%" + ci + "%"}`)
+    .limit(10);
+  res.json(users.map(formatUser));
+});
+
+// Activadores autorizados de un juego (para cargar en edición)
+router.get("/games/:id/authorized-activators", async (req: AuthRequest, res) => {
+  const gameId = parseInt(String(req.params.id));
+  if (isNaN(gameId)) { res.status(400).json({ error: "ID inválido" }); return; }
+  const rows = await db.select({ userId: gameAuthorizedActivatorsTable.activatorUserId })
+    .from(gameAuthorizedActivatorsTable)
+    .where(eq(gameAuthorizedActivatorsTable.gameId, gameId));
+  const userIds = rows.map(r => r.userId);
+  if (!userIds.length) { res.json([]); return; }
+  const users = await db.select().from(usersTable).where(inArray(usersTable.id, userIds));
+  res.json(users.map(formatUser));
+});
+
+// Buscar solo activadores aceptados por CI (para juegos privados)
+router.get("/activators/search", async (req: AuthRequest, res) => {
+  const ci = String(req.query.ci ?? "").trim();
+  if (!ci || ci.length < 3) { res.status(400).json({ error: "Ingresa al menos 3 caracteres" }); return; }
+  const acceptedRows = await db.select({ userId: activatorRequestsTable.userId })
+    .from(activatorRequestsTable)
+    .where(eq(activatorRequestsTable.status, "accepted"));
+  const activatorIds = acceptedRows.map(r => r.userId);
+  if (!activatorIds.length) { res.json([]); return; }
+  const users = await db.select().from(usersTable)
+    .where(and(
+      sql`${usersTable.ci} ILIKE ${"%" + ci + "%"}`,
+      inArray(usersTable.id, activatorIds),
+    ))
     .limit(10);
   res.json(users.map(formatUser));
 });

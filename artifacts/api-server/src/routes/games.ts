@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable, manualPaymentRequestsTable, activatorCardSalesTable, referralTransactionsTable } from "@workspace/db";
+import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable, manualPaymentRequestsTable, activatorCardSalesTable, referralTransactionsTable, gameAuthorizedActivatorsTable } from "@workspace/db";
 import { sendPushToAll, sendPushToUsers } from "../lib/push";
 import type { RoundConfig, RoundHistoryEntry } from "@workspace/db";
-import { eq, desc, asc, and, ne, sql } from "drizzle-orm";
+import { eq, desc, asc, and, ne, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
 import {
   ListGamesQueryParams,
@@ -116,6 +116,7 @@ function formatGame(
     round_history: (game.roundHistory as RoundHistoryEntry[] | null) ?? [],
     slug: game.slug ?? null,
     cover_image_url: game.coverImageUrl ?? null,
+    is_private: game.isPrivate ?? false,
     called_numbers: game.calledNumbers ?? [],
     created_at: game.createdAt,
   };
@@ -203,6 +204,11 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
   const data = parsed.data;
   const rounds = (data.rounds as RoundConfig[] | undefined) ?? null;
 
+  const isPrivate = Boolean((req.body as any).is_private ?? false);
+  const authorizedActivatorIds: number[] = Array.isArray((req.body as any).authorized_activator_ids)
+    ? (req.body as any).authorized_activator_ids.map(Number).filter(Boolean)
+    : [];
+
   const [game] = await db.insert(gamesTable).values({
     title: data.title,
     type: computeGameType(new Date(data.draw_date)),
@@ -218,6 +224,7 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
     rounds,
     currentRound: 1,
     coverImageUrl: data.cover_image_url ?? null,
+    isPrivate,
   }).returning();
   const [gameWithSlug] = await db.update(gamesTable)
     .set({ slug: generateSlug(game.title) })
@@ -226,6 +233,13 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
 
   if (rounds?.length) {
     await syncPredefinedCards(game.id, rounds);
+  }
+
+  // Guardar activadores autorizados para juegos privados
+  if (isPrivate && authorizedActivatorIds.length) {
+    await db.insert(gameAuthorizedActivatorsTable).values(
+      authorizedActivatorIds.map(uid => ({ gameId: game.id, activatorUserId: uid }))
+    );
   }
 
   // Push automático a todos los usuarios sobre el nuevo juego
@@ -283,17 +297,30 @@ router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
   if (data.status) updateData.status = data.status as "upcoming" | "active" | "finished";
   if (data.cover_image_url !== undefined) updateData.coverImageUrl = data.cover_image_url ?? null;
   if (data.rounds !== undefined) updateData.rounds = (data.rounds as RoundConfig[]) ?? null;
+  const patchIsPrivate = (req.body as any).is_private;
+  if (patchIsPrivate !== undefined) updateData.isPrivate = Boolean(patchIsPrivate);
   const [game] = await db.update(gamesTable).set(updateData).where(eq(gamesTable.id, p.data.id)).returning();
   if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
 
   if (data.rounds !== undefined) {
-    // Eliminar cartones predefinidos activos anteriores (no ganados) y recrear
     await db.execute(
       sql`DELETE FROM cards WHERE game_id = ${p.data.id} AND is_predefined = true AND status != 'winner'`
     );
     const newRounds = (data.rounds as RoundConfig[] | null) ?? [];
     if (newRounds.length) {
       await syncPredefinedCards(p.data.id, newRounds);
+    }
+  }
+
+  // Sincronizar activadores autorizados si se enviaron
+  const patchActivatorIds = (req.body as any).authorized_activator_ids;
+  if (Array.isArray(patchActivatorIds)) {
+    await db.delete(gameAuthorizedActivatorsTable).where(eq(gameAuthorizedActivatorsTable.gameId, p.data.id));
+    const ids = patchActivatorIds.map(Number).filter(Boolean);
+    if (ids.length) {
+      await db.insert(gameAuthorizedActivatorsTable).values(
+        ids.map(uid => ({ gameId: p.data.id, activatorUserId: uid }))
+      );
     }
   }
 
