@@ -402,41 +402,53 @@ export default function RegisterPage() {
                   : <>📍 Detectar mi ubicación automáticamente</>}
               </button>
 
-              {/* Resultado de detección */}
-              {geoAttempted && !geoLoading && form.department && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold"
-                  style={{ background: "hsl(var(--primary)/0.08)", color: "hsl(var(--primary))" }}>
-                  ✓ Detectado: <span className="font-black">{form.department}</span>
-                  <span className="text-muted-foreground font-normal ml-1">— podés cambiarlo abajo</span>
-                </div>
-              )}
-
-              {geoAttempted && !geoLoading && !form.department && (
-                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm"
-                  style={{ background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }}>
-                  <span>⚠️</span>
-                  <span>No se pudo detectar. Seleccioná tu departamento:</span>
-                </div>
-              )}
-
-              {/* Grid siempre visible */}
-              <div className="grid grid-cols-3 gap-2">
-                {DEPARTMENTS.map(d => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => update("department", d)}
-                    className="py-2.5 px-2 rounded-xl text-xs font-bold border-2 transition-all"
-                    style={{
-                      borderColor: form.department === d ? "hsl(var(--primary))" : "hsl(var(--border))",
-                      background: form.department === d ? "hsl(var(--primary) / 0.1)" : "transparent",
-                      color: form.department === d ? "hsl(var(--primary))" : "hsl(var(--foreground))",
-                    }}
-                  >
-                    {d}
+              {/* Detectado con éxito */}
+              {geoAttempted && !geoLoading && form.department && !showManualPicker && (
+                <div
+                  className="flex items-center justify-between px-4 py-3.5 rounded-2xl"
+                  style={{ background: "hsl(var(--primary) / 0.1)", border: "2px solid hsl(var(--primary))" }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">📍</span>
+                    <div>
+                      <p className="text-xs text-muted-foreground leading-none mb-0.5">Departamento detectado</p>
+                      <p className="font-black text-base" style={{ color: "hsl(var(--primary))" }}>{form.department}</p>
+                    </div>
+                  </div>
+                  <button type="button" className="text-xs font-bold underline"
+                    style={{ color: "hsl(var(--primary))" }}
+                    onClick={() => setShowManualPicker(true)}>
+                    Cambiar
                   </button>
-                ))}
-              </div>
+                </div>
+              )}
+
+              {/* Falló detección o usuario quiere cambiar → mostrar grid */}
+              {!geoLoading && (showManualPicker || (geoAttempted && !form.department)) && (
+                <div className="space-y-3">
+                  {geoAttempted && !form.department && (
+                    <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm"
+                      style={{ background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }}>
+                      <span>⚠️</span>
+                      <span>No se pudo detectar. Seleccioná tu departamento:</span>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-3 gap-2">
+                    {DEPARTMENTS.map(d => (
+                      <button key={d} type="button"
+                        onClick={() => { update("department", d); setShowManualPicker(false); }}
+                        className="py-2.5 px-2 rounded-xl text-xs font-bold border-2 transition-all"
+                        style={{
+                          borderColor: form.department === d ? "hsl(var(--primary))" : "hsl(var(--border))",
+                          background: form.department === d ? "hsl(var(--primary) / 0.1)" : "transparent",
+                          color: form.department === d ? "hsl(var(--primary))" : "hsl(var(--foreground))",
+                        }}>
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* T&C checkbox — solo aparece si el admin definió los términos */}
               {hasTerms && (
