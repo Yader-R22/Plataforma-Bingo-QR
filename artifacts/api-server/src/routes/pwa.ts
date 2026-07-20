@@ -183,7 +183,7 @@ router.put("/settings", requireAdmin, async (req: AuthRequest, res) => {
       ...(pwa_bg_color !== undefined && { pwaBgColor: pwa_bg_color }),
       ...(pwa_icon_512 !== undefined && { pwaIconUrl: pwa_icon_512 }),
       ...(pwa_icon_192 !== undefined && { pwaIcon192Url: pwa_icon_192 }),
-      ...(pwa_categories !== undefined && pwa_categories && { pwaCategories: pwa_categories }),
+      ...(pwa_categories !== undefined && { pwaCategories: pwa_categories ?? "" }),
       updatedAt: new Date(),
       updatedById: req.userId!,
     })
@@ -191,6 +191,7 @@ router.put("/settings", requireAdmin, async (req: AuthRequest, res) => {
 
   req.log.info({ admin_id: req.userId }, "PWA settings updated");
 
+  invalidatePwaSettingsCache();
   const updated = await getSettings();
   res.json({
     pwa_name: updated.siteName,
