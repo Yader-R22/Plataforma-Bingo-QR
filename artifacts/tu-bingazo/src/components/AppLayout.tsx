@@ -560,34 +560,67 @@ export default function AppLayout({ children }: AppLayoutProps) {
   // the server so stale localStorage never shows a wrong screen.
 
   // Reproduce sonido de notificación cuando llega un push (app abierta)
+  // IMPORTANTE: los navegadores bloquean AudioContext hasta que el usuario
+  // interactúa con la página. Se desbloquea en el primer toque/clic.
+  const audioCtxRef = useRef<AudioContext | null>(null);
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
-    function playPushSound() {
+
+    // Desbloquear AudioContext en el primer gesto del usuario
+    function unlockAudio() {
+      if (audioCtxRef.current) return;
       try {
         const ctx = new AudioContext();
-        const t = ctx.currentTime;
-        // Ding doble suave
-        [0, 0.18].forEach((delay, i) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.type = "sine";
-          osc.frequency.setValueAtTime(i === 0 ? 1046 : 880, t + delay);
-          gain.gain.setValueAtTime(0, t + delay);
-          gain.gain.linearRampToValueAtTime(0.25, t + delay + 0.03);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.55);
-          osc.start(t + delay);
-          osc.stop(t + delay + 0.6);
-        });
-        setTimeout(() => ctx.close(), 1500);
+        // Buffer silencioso para forzar el desbloqueo
+        const buf = ctx.createBuffer(1, 1, 22050);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        src.start(0);
+        audioCtxRef.current = ctx;
       } catch {}
     }
+
+    function playPushSound() {
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+      try {
+        const resume = ctx.state === "suspended" ? ctx.resume() : Promise.resolve();
+        resume.then(() => {
+          const t = ctx.currentTime;
+          // Ding doble suave (Do5 → La4)
+          [0, 0.2].forEach((delay, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(i === 0 ? 1046 : 880, t + delay);
+            gain.gain.setValueAtTime(0, t + delay);
+            gain.gain.linearRampToValueAtTime(0.28, t + delay + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.6);
+            osc.start(t + delay);
+            osc.stop(t + delay + 0.65);
+          });
+        }).catch(() => {});
+      } catch {}
+    }
+
     function onSwMessage(e: MessageEvent) {
       if (e.data?.type === "PUSH_SOUND") playPushSound();
     }
+
+    document.addEventListener("click", unlockAudio, { once: true });
+    document.addEventListener("touchstart", unlockAudio, { once: true });
+    document.addEventListener("keydown", unlockAudio, { once: true });
     navigator.serviceWorker.addEventListener("message", onSwMessage);
-    return () => navigator.serviceWorker.removeEventListener("message", onSwMessage);
+
+    return () => {
+      document.removeEventListener("click", unlockAudio);
+      document.removeEventListener("touchstart", unlockAudio);
+      document.removeEventListener("keydown", unlockAudio);
+      navigator.serviceWorker.removeEventListener("message", onSwMessage);
+    };
   }, []);
 
   // the server so stale localStorage never shows a wrong screen.
