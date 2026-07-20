@@ -4,6 +4,7 @@ import { useListGames, getListGamesQueryKey } from "@workspace/api-client-react"
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSetLayoutConfig } from "@/components/AppLayout";
 import { toast } from "sonner";
+import { Users } from "lucide-react";
 
 const ALL_TYPE_FILTERS = [
   { value: "all", label: "Todos" },
@@ -231,7 +232,7 @@ export default function GamesPage() {
                         {/* Footer row */}
                         <div className="flex items-center justify-between gap-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.2)" }}>
                           <div className="flex flex-wrap gap-x-3 gap-y-0.5 min-w-0 text-sm text-white/80">
-                            <span>👥 {game.unique_participants.toLocaleString("es-BO")} participantes</span>
+                            <span className="flex items-center gap-1"><Users size={13} className="opacity-70" />{game.unique_participants.toLocaleString("es-BO")} participantes</span>
                             <span className="font-bold" style={{ color: "hsl(42 98% 65%)" }}>Bs {Number(game.card_price).toLocaleString("es-BO")}/cartón</span>
                           </div>
                           <div
