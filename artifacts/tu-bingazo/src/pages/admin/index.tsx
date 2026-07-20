@@ -990,10 +990,13 @@ export default function AdminPage() {
   const [pushBody, setPushBody] = useState("");
   const [pushUrl, setPushUrl] = useState("/");
   const [pushImage, setPushImage] = useState("");
-  const [pushTarget, setPushTarget] = useState<"all" | "department">("all");
+  const [pushUploading, setPushUploading] = useState(false);
+  const [pushTarget, setPushTarget] = useState<"all" | "department" | "ci">("all");
   const [pushDepartment, setPushDepartment] = useState("La Paz");
+  const [pushCi, setPushCi] = useState("");
   const [pushSending, setPushSending] = useState(false);
   const [pushResult, setPushResult] = useState<{ sent: number; failed: number } | null>(null);
+  const [pushProgress, setPushProgress] = useState<{ total: number; sent: number; failed: number; done: boolean } | null>(null);
   const [pushSubCount, setPushSubCount] = useState<number | null>(null);
 
   const authH = useCallback(() => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }), [token]);
@@ -1005,32 +1008,80 @@ export default function AdminPage() {
     } catch { /* ignore */ }
   }
 
+  async function handlePushImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPushUploading(true);
+    try {
+      const dataUrl = await compressImage(file, 1200, 0.82);
+      const blob = await fetch(dataUrl).then(r => r.blob());
+      const form = new FormData();
+      form.append("image", blob, "push-image.jpg");
+      const r = await fetch(`${BASE}/api/push/upload-image`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      if (r.ok) { const d = await r.json() as { url: string }; setPushImage(d.url); toast.success("Imagen subida"); }
+      else toast.error("Error al subir imagen");
+    } catch { toast.error("Error al comprimir imagen"); }
+    finally { setPushUploading(false); e.target.value = ""; }
+  }
+
   async function sendBroadcast() {
     if (!pushTitle.trim() || !pushBody.trim()) { toast.error("Título y mensaje son requeridos"); return; }
-    setPushSending(true); setPushResult(null);
+    if (pushTarget === "ci" && !pushCi.trim()) { toast.error("Ingresa la CI del usuario"); return; }
+    setPushSending(true); setPushResult(null); setPushProgress(null);
     try {
       const payload: Record<string, string> = { title: pushTitle, body: pushBody, url: pushUrl };
       if (pushImage.trim()) payload.image = pushImage.trim();
       if (pushTarget === "department") payload.department = pushDepartment;
+      if (pushTarget === "ci") payload.ci = pushCi.trim();
       const r = await fetch(`${BASE}/api/push/broadcast`, {
         method: "POST",
         headers: authH(),
         body: JSON.stringify(payload),
       });
       if (r.ok) {
-        const d = await r.json() as { sent: number; failed: number };
-        setPushResult(d);
-        if (d.sent === 0) {
-          toast.error("No hay dispositivos suscritos. Los usuarios deben abrir la app y activar las notificaciones cuando se les solicite.");
-        } else {
-          toast.success(`📤 Enviado a ${d.sent} dispositivo${d.sent !== 1 ? "s" : ""}`);
-          setPushTitle(""); setPushBody(""); setPushUrl("/");
+        const d = await r.json() as { jobId?: string; total?: number; sent?: number; done?: boolean; ci?: boolean };
+
+        // CI: respuesta inmediata
+        if (d.ci) {
+          setPushResult({ sent: d.sent ?? 0, failed: 0 });
+          if ((d.sent ?? 0) === 0) toast.error("Usuario encontrado pero sin dispositivos suscritos");
+          else toast.success(`📤 Enviado al usuario`);
+          setPushSending(false);
+          return;
         }
-        await fetchPushSubCount();
-      } else { toast.error("Error al enviar"); }
+
+        // Broadcast: poll por jobId
+        const { jobId } = d;
+        if (!jobId) { setPushSending(false); return; }
+        setPushProgress({ total: d.total ?? 0, sent: 0, failed: 0, done: false });
+        const poll = setInterval(async () => {
+          try {
+            const sr = await fetch(`${BASE}/api/push/broadcast/status/${jobId}`, { headers: authH() });
+            if (!sr.ok) { clearInterval(poll); setPushSending(false); return; }
+            const status = await sr.json() as { total: number; sent: number; failed: number; done: boolean };
+            setPushProgress(status);
+            if (status.done) {
+              clearInterval(poll);
+              setPushSending(false);
+              setPushResult({ sent: status.sent, failed: status.failed });
+              if (status.sent === 0) toast.error("No hay dispositivos suscritos");
+              else toast.success(`📤 Enviado a ${status.sent} dispositivo${status.sent !== 1 ? "s" : ""}`);
+            }
+          } catch { clearInterval(poll); setPushSending(false); }
+        }, 2000);
+        return; // no caer al finally
+      } else {
+        const err = await r.json() as { error?: string };
+        toast.error(err.error ?? "Error al enviar");
+      }
     } catch { toast.error("Error de conexión"); }
-    finally { setPushSending(false); }
+    setPushSending(false);
   }
+
 
   // Auto-cargar conteo de suscriptores push al entrar al tab pwa
   useEffect(() => {
@@ -8739,15 +8790,28 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     </div>
                     <div>
                       <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Imagen (opcional)</label>
-                      <input className="w-full rounded-xl border px-3 py-2.5 text-sm font-mono bg-background"
-                        placeholder="https://..." value={pushImage}
-                        onChange={e => setPushImage(e.target.value)} />
-                      <p className="text-xs text-muted-foreground mt-1">URL de imagen que aparece como banner en Android. Ratio recomendado 2:1.</p>
+                      <div className="flex gap-2">
+                        <input className="flex-1 rounded-xl border px-3 py-2.5 text-sm font-mono bg-background"
+                          placeholder="https://... o sube un archivo →" value={pushImage}
+                          onChange={e => setPushImage(e.target.value)} />
+                        <label className="shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all active:scale-95"
+                          style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))", opacity: pushUploading ? 0.6 : 1, pointerEvents: pushUploading ? "none" : "auto" }}>
+                          {pushUploading ? "⏳" : "📎 Subir"}
+                          <input type="file" accept="image/*" className="hidden" onChange={handlePushImageUpload} disabled={pushUploading} />
+                        </label>
+                      </div>
+                      {pushImage && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <img src={pushImage} alt="preview" className="h-10 rounded-lg object-cover" style={{ maxWidth: 120 }} onError={e => (e.currentTarget.style.display = "none")} />
+                          <button onClick={() => setPushImage("")} className="text-xs text-muted-foreground hover:text-destructive">✕ Quitar</button>
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">Se comprime automáticamente a max 1200×600px antes de subir. Ratio recomendado 2:1.</p>
                     </div>
                     <div>
                       <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Destinatarios</label>
                       <div className="flex gap-2 flex-wrap">
-                        {(["all", "department"] as const).map(t => (
+                        {(["all", "department", "ci"] as const).map(t => (
                           <button key={t} onClick={() => setPushTarget(t)}
                             className="px-4 py-2 rounded-xl text-xs font-bold transition-all border"
                             style={{
@@ -8755,7 +8819,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                               color: pushTarget === t ? "#fff" : "hsl(var(--foreground))",
                               borderColor: pushTarget === t ? "transparent" : "hsl(var(--border))",
                             }}>
-                            {t === "all" ? "🌎 Todos" : "📍 Por departamento"}
+                            {t === "all" ? "🌎 Todos" : t === "department" ? "📍 Departamento" : "👤 Por CI"}
                           </button>
                         ))}
                       </div>
@@ -8767,12 +8831,33 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           ))}
                         </select>
                       )}
+                      {pushTarget === "ci" && (
+                        <input className="mt-2 w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
+                          placeholder="Cédula de identidad del usuario"
+                          value={pushCi} onChange={e => setPushCi(e.target.value)} />
+                      )}
                     </div>
+                    {pushProgress && !pushProgress.done && pushProgress.total > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Enviando...</span>
+                          <span>{pushProgress.sent + pushProgress.failed} / {pushProgress.total}</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "hsl(var(--muted))" }}>
+                          <div className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${Math.round(((pushProgress.sent + pushProgress.failed) / pushProgress.total) * 100)}%`, background: "hsl(var(--primary))" }} />
+                        </div>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3 flex-wrap">
-                      <button onClick={sendBroadcast} disabled={pushSending}
+                      <button onClick={sendBroadcast} disabled={pushSending || pushUploading}
                         className="px-5 py-2.5 rounded-xl text-sm font-black text-white transition-all active:scale-95"
-                        style={{ background: "hsl(var(--primary))", opacity: pushSending ? 0.7 : 1 }}>
-                        {pushSending ? "Enviando..." : pushTarget === "all" ? "📤 Enviar a todos" : `📤 Enviar a ${pushDepartment}`}
+                        style={{ background: "hsl(var(--primary))", opacity: (pushSending || pushUploading) ? 0.7 : 1 }}>
+                        {pushSending
+                          ? (pushProgress && !pushProgress.done ? `Enviando ${pushProgress.sent}/${pushProgress.total}...` : "Procesando...")
+                          : pushTarget === "all" ? "📤 Enviar a todos"
+                          : pushTarget === "ci" ? "📤 Enviar al usuario"
+                          : `📤 Enviar a ${pushDepartment}`}
                       </button>
                       {pushResult && pushResult.sent > 0 && (
                         <p className="text-xs text-green-600 font-semibold">
@@ -8781,7 +8866,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       )}
                       {pushResult && pushResult.sent === 0 && (
                         <p className="text-xs font-semibold" style={{ color: "hsl(var(--destructive))" }}>
-                          ⚠️ Sin dispositivos suscritos — nadie recibirá esta notificación
+                          ⚠️ Sin dispositivos suscritos
                         </p>
                       )}
                     </div>
