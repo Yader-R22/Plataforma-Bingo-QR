@@ -701,7 +701,7 @@ export default function GameDetailPage() {
   const gameId = parseInt(resolvedParams?.id ?? "0");
 
   const { data: game, isLoading, refetch: refetchGame } = useGetGame(gameId);
-  useSetLayoutConfig({ showBack: true, title: (game as any)?.title ?? '' }, [(game as any)?.title]);
+  useSetLayoutConfig({ hideTopBar: true }, []);
 
   // Poll game data every 8s so any admin change (reset, start, finish) is reflected immediately
   useEffect(() => {
