@@ -8933,12 +8933,16 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       </button>
                       {pushResult && pushResult.sent > 0 && (
                         <p className="text-xs text-green-600 font-semibold">
-                          ✅ {pushResult.sent} enviado{pushResult.sent !== 1 ? "s" : ""}{pushResult.failed > 0 ? ` · ${pushResult.failed} fallidos` : ""}
+                          {pushTarget === "ci" && pushSelectedUser
+                            ? `✅ Enviado a ${pushSelectedUser.full_name}`
+                            : `✅ ${pushResult.sent} enviado${pushResult.sent !== 1 ? "s" : ""}${pushResult.failed > 0 ? ` · ${pushResult.failed} fallidos` : ""}`}
                         </p>
                       )}
                       {pushResult && pushResult.sent === 0 && (
                         <p className="text-xs font-semibold" style={{ color: "hsl(var(--destructive))" }}>
-                          ⚠️ Sin dispositivos suscritos
+                          {pushTarget === "ci" && pushSelectedUser
+                            ? `⚠️ ${pushSelectedUser.full_name} no tiene notificaciones activadas`
+                            : "⚠️ Sin dispositivos suscritos"}
                         </p>
                       )}
                     </div>
