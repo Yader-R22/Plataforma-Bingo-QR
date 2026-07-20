@@ -7,6 +7,8 @@ import { objectStorageClient } from "../lib/objectStorage";
 import { randomUUID } from "crypto";
 import multer from "multer";
 import { z } from "zod";
+import fs from "fs";
+import path from "path";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
@@ -114,34 +116,63 @@ router.get("/broadcast/status/:jobId", requireAuth, requireAdmin, (req, res) => 
   res.json(status);
 });
 
+// Directorio local para imágenes push (fallback cuando no hay object storage)
+const LOCAL_PUSH_IMAGES_DIR = path.resolve(process.cwd(), "push-images");
+
+// GET /api/push/images/:filename — sirve imágenes push almacenadas localmente
+router.get("/images/:filename", (req, res) => {
+  const filename = (req.params["filename"] as string).replace(/[^a-zA-Z0-9._-]/g, "");
+  if (!filename) { res.status(400).end(); return; }
+  const filePath = path.join(LOCAL_PUSH_IMAGES_DIR, filename);
+  if (!filePath.startsWith(LOCAL_PUSH_IMAGES_DIR)) { res.status(403).end(); return; }
+  res.sendFile(filePath, err => {
+    if (err) res.status(404).json({ error: "Imagen no encontrada" });
+  });
+});
+
 // POST /api/push/upload-image — sube imagen comprimida para usar en push notifications
+// Intenta object storage (Replit); si falla o no está configurado, guarda en filesystem local.
 router.post("/upload-image", requireAuth, requireAdmin, upload.single("image"), async (req: AuthRequest, res) => {
   if (!req.file) { res.status(400).json({ error: "Imagen requerida" }); return; }
 
-  const pathsStr = process.env["PUBLIC_OBJECT_SEARCH_PATHS"] ?? "";
-  const firstPath = pathsStr.split(",")[0]?.trim().replace(/^\//, "");
-  if (!firstPath) { res.status(503).json({ error: "Object storage no configurado" }); return; }
-
-  const parts = firstPath.split("/");
-  const bucketName = parts[0];
-  const folderPrefix = parts.slice(1).join("/");
   const mime = req.file.mimetype ?? "image/jpeg";
   const ext = mime === "image/webp" ? "webp" : mime === "image/png" ? "png" : "jpg";
   const filename = `${randomUUID()}.${ext}`;
-  const objectName = folderPrefix ? `${folderPrefix}/push-images/${filename}` : `push-images/${filename}`;
 
+  const fwdProto = req.headers["x-forwarded-proto"];
+  const proto = (Array.isArray(fwdProto) ? fwdProto[0] : fwdProto)?.split(",")[0]?.trim() ?? req.protocol;
+  const host = req.get("host") ?? "elbingote.com";
+
+  // Intento 1: Object storage (disponible en Replit)
+  const pathsStr = process.env["PUBLIC_OBJECT_SEARCH_PATHS"] ?? "";
+  const firstPath = pathsStr.split(",")[0]?.trim().replace(/^\//, "");
+  if (firstPath) {
+    try {
+      const parts = firstPath.split("/");
+      const bucketName = parts[0];
+      const folderPrefix = parts.slice(1).join("/");
+      const objectName = folderPrefix ? `${folderPrefix}/push-images/${filename}` : `push-images/${filename}`;
+      const file = objectStorageClient.bucket(bucketName).file(objectName);
+      await file.save(req.file.buffer, { contentType: mime, resumable: false });
+      const publicUrl = `${proto}://${host}/api/storage/public-objects/push-images/${filename}`;
+      res.json({ url: publicUrl });
+      return;
+    } catch (err) {
+      req.log.warn({ err }, "Object storage falló, usando almacenamiento local");
+    }
+  }
+
+  // Fallback: filesystem local (VPS / producción sin object storage)
   try {
-    const file = objectStorageClient.bucket(bucketName).file(objectName);
-    await file.save(req.file.buffer, { contentType: mime, resumable: false });
-
-    const fwdProto2 = req.headers["x-forwarded-proto"];
-    const proto = (Array.isArray(fwdProto2) ? fwdProto2[0] : fwdProto2)?.split(",")[0]?.trim() ?? req.protocol;
-    const host = req.get("host") ?? "elbingote.com";
-    const publicUrl = `${proto}://${host}/api/storage/public-objects/push-images/${filename}`;
+    if (!fs.existsSync(LOCAL_PUSH_IMAGES_DIR)) {
+      fs.mkdirSync(LOCAL_PUSH_IMAGES_DIR, { recursive: true });
+    }
+    fs.writeFileSync(path.join(LOCAL_PUSH_IMAGES_DIR, filename), req.file.buffer);
+    const publicUrl = `${proto}://${host}/api/push/images/${filename}`;
     res.json({ url: publicUrl });
   } catch (err) {
-    req.log.error({ err }, "Error subiendo imagen push");
-    res.status(500).json({ error: "Error al subir la imagen" });
+    req.log.error({ err }, "Error al guardar imagen push localmente");
+    res.status(500).json({ error: "Error al guardar la imagen" });
   }
 });
 
