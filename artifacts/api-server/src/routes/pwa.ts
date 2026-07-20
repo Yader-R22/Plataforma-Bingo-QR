@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { Router } from "express";
 import { db, siteSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -50,56 +51,53 @@ function dataUrlToBuffer(dataUrl: string): { buf: Buffer; mime: string } {
   return { buf, mime };
 }
 
-// Serve PWA icon as binary — Chrome on Android rejects data: URLs in manifests
-router.get("/icon/512", async (_req, res) => {
-  const s = await getSettings();
-  const raw = s.pwaIconUrl;
+// Serve PWA icon as binary with ETag — Chrome uses ETag to confirm icon unchanged
+// (no-store caused Chrome to re-download and compare on every launch → false "icon changed" warnings)
+function serveIcon(raw: string | null | undefined, req: import("express").Request, res: import("express").Response, fallback: string) {
   if (raw && raw.startsWith("data:")) {
     const { buf, mime } = dataUrlToBuffer(raw);
+    const etag = `"${createHash("md5").update(buf).digest("hex")}"`;
+    if (req.headers["if-none-match"] === etag) { res.status(304).end(); return; }
     res.setHeader("Content-Type", mime);
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("ETag", etag);
+    res.setHeader("Cache-Control", "no-cache"); // revalidate with ETag, don't force re-download
     res.send(buf);
     return;
   }
-  res.redirect(raw || "/favicon.svg");
+  res.redirect(raw || fallback);
+}
+
+router.get("/icon/512", async (req, res) => {
+  const s = await getSettings();
+  serveIcon(s.pwaIconUrl, req, res, "/favicon.svg");
 });
 
-router.get("/icon/192", async (_req, res) => {
+router.get("/icon/192", async (req, res) => {
   const s = await getSettings();
-  const raw = s.pwaIcon192Url || s.pwaIconUrl;
-  if (raw && raw.startsWith("data:")) {
-    const { buf, mime } = dataUrlToBuffer(raw);
-    res.setHeader("Content-Type", mime);
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.send(buf);
-    return;
-  }
-  res.redirect(raw || "/favicon.svg");
+  serveIcon(s.pwaIcon192Url || s.pwaIconUrl, req, res, "/favicon.svg");
 });
 
 // Dynamic manifest served from DB — no-cache so admin changes reflect immediately
 router.get("/manifest.json", async (req, res) => {
   const s = await getSettings();
 
-  // Build absolute base URL so icons work from any origin
-  const proto = (req.headers["x-forwarded-proto"] as string | undefined) || "https";
-  const rawHost = (req.headers["x-forwarded-host"] as string | undefined) || req.headers["host"] || "";
-  const host = rawHost && !rawHost.startsWith("localhost") && !rawHost.startsWith("127.") ? rawHost : "elbingote.com";
-  const base = `${proto}://${host}`;
-
+  // Use root-relative paths — never absolute URLs built from request headers.
+  // Absolute URLs constructed from x-forwarded-host can vary between Chrome's
+  // background manifest checks and normal page loads, making Chrome think the
+  // icon changed → spurious "icon identity" security warnings on Android.
   const icons: { src: string; sizes: string; type: string; purpose: string }[] = [];
 
   if (s.pwaIconUrl) {
-    const src = s.pwaIconUrl.startsWith("data:") ? `${base}/api/pwa/icon/512` : s.pwaIconUrl;
-    icons.push({ src, sizes: "512x512", type: "image/png", purpose: "any maskable" });
+    const src = s.pwaIconUrl.startsWith("data:") ? "/api/pwa/icon/512" : s.pwaIconUrl;
+    icons.push({ src, sizes: "512x512", type: iconType(s.pwaIconUrl), purpose: "any maskable" });
   }
   if (s.pwaIcon192Url) {
-    const src = s.pwaIcon192Url.startsWith("data:") ? `${base}/api/pwa/icon/192` : s.pwaIcon192Url;
-    icons.push({ src, sizes: "192x192", type: "image/png", purpose: "any maskable" });
+    const src = s.pwaIcon192Url.startsWith("data:") ? "/api/pwa/icon/192" : s.pwaIcon192Url;
+    icons.push({ src, sizes: "192x192", type: iconType(s.pwaIcon192Url), purpose: "any maskable" });
   } else if (s.pwaIconUrl) {
     // Reuse 512 icon at 192 slot if no separate 192 uploaded
-    const src = s.pwaIconUrl.startsWith("data:") ? `${base}/api/pwa/icon/192` : s.pwaIconUrl;
-    icons.push({ src, sizes: "192x192", type: "image/png", purpose: "any maskable" });
+    const src = s.pwaIconUrl.startsWith("data:") ? "/api/pwa/icon/192" : s.pwaIconUrl;
+    icons.push({ src, sizes: "192x192", type: iconType(s.pwaIconUrl), purpose: "any maskable" });
   }
   if (icons.length === 0) {
     const fallback = s.logoUrl || s.faviconUrl || "/favicon.svg";
