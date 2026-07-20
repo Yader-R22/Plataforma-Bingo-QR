@@ -229,13 +229,13 @@ export default function GamesPage() {
                         </p>
 
                         {/* Footer row */}
-                        <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.2)" }}>
-                          <div className="flex items-center gap-3 text-white/80 text-sm">
-                            <span>👥 {game.unique_participants} participantes</span>
-                            <span className="font-bold" style={{ color: "hsl(42 98% 65%)" }}>Bs {game.card_price as number}/cartón</span>
+                        <div className="flex items-center justify-between gap-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.2)" }}>
+                          <div className="flex flex-col gap-0.5 min-w-0 text-sm text-white/80">
+                            <span className="truncate">👥 {game.unique_participants.toLocaleString("es-BO")} participantes</span>
+                            <span className="font-bold truncate" style={{ color: "hsl(42 98% 65%)" }}>Bs {Number(game.card_price).toLocaleString("es-BO")}/cartón</span>
                           </div>
                           <div
-                            className="text-xs font-bold px-4 py-2 rounded-xl"
+                            className="flex-shrink-0 text-xs font-bold px-4 py-2 rounded-xl whitespace-nowrap"
                             style={isLive
                               ? { background: "#22c55e", color: "white", boxShadow: "0 0 10px rgba(34,197,94,0.6)" }
                               : isFinished
