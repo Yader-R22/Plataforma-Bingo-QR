@@ -125,12 +125,14 @@ router.post("/upload-image", requireAuth, requireAdmin, upload.single("image"), 
   const parts = firstPath.split("/");
   const bucketName = parts[0];
   const folderPrefix = parts.slice(1).join("/");
-  const filename = `${randomUUID()}.jpg`;
+  const mime = req.file.mimetype ?? "image/jpeg";
+  const ext = mime === "image/webp" ? "webp" : mime === "image/png" ? "png" : "jpg";
+  const filename = `${randomUUID()}.${ext}`;
   const objectName = folderPrefix ? `${folderPrefix}/push-images/${filename}` : `push-images/${filename}`;
 
   try {
     const file = objectStorageClient.bucket(bucketName).file(objectName);
-    await file.save(req.file.buffer, { contentType: "image/jpeg", resumable: false });
+    await file.save(req.file.buffer, { contentType: mime, resumable: false });
 
     const fwdProto2 = req.headers["x-forwarded-proto"];
     const proto = (Array.isArray(fwdProto2) ? fwdProto2[0] : fwdProto2)?.split(",")[0]?.trim() ?? req.protocol;

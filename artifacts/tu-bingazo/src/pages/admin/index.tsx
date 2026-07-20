@@ -995,6 +995,7 @@ export default function AdminPage() {
   const [pushDepartment, setPushDepartment] = useState("La Paz");
   const [pushCi, setPushCi] = useState("");
   const [pushFoundUser, setPushFoundUser] = useState<{ full_name: string; ci: string; status: string } | null>(null);
+  const [pushSelectedUser, setPushSelectedUser] = useState<{ full_name: string; ci: string; status: string } | null>(null);
   const [pushSearching, setPushSearching] = useState(false);
   const [pushSending, setPushSending] = useState(false);
   const [pushResult, setPushResult] = useState<{ sent: number; failed: number } | null>(null);
@@ -1059,13 +1060,13 @@ export default function AdminPage() {
 
   async function sendBroadcast() {
     if (!pushTitle.trim() || !pushBody.trim()) { toast.error("Título y mensaje son requeridos"); return; }
-    if (pushTarget === "ci" && !pushCi.trim()) { toast.error("Ingresa la CI del usuario"); return; }
+    if (pushTarget === "ci" && !pushSelectedUser) { toast.error("Primero buscá y seleccioná un usuario"); return; }
     setPushSending(true); setPushResult(null); setPushProgress(null);
     try {
       const payload: Record<string, string> = { title: pushTitle, body: pushBody, url: pushUrl };
       if (pushImage.trim()) payload.image = pushImage.trim();
       if (pushTarget === "department") payload.department = pushDepartment;
-      if (pushTarget === "ci") payload.ci = pushCi.trim();
+      if (pushTarget === "ci" && pushSelectedUser) payload.ci = pushSelectedUser.ci;
       const r = await fetch(`${BASE}/api/push/broadcast`, {
         method: "POST",
         headers: authH(),
@@ -8841,7 +8842,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Destinatarios</label>
                       <div className="flex gap-2 flex-wrap">
                         {(["all", "department", "ci"] as const).map(t => (
-                          <button key={t} onClick={() => { setPushTarget(t); setPushFoundUser(null); setPushCi(""); }}
+                          <button key={t} onClick={() => { setPushTarget(t); setPushFoundUser(null); setPushSelectedUser(null); setPushCi(""); }}
                             className="px-4 py-2 rounded-xl text-xs font-bold transition-all border"
                             style={{
                               background: pushTarget === t ? "hsl(var(--primary))" : "transparent",
@@ -8866,7 +8867,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                             <input className="flex-1 rounded-xl border px-3 py-2.5 text-sm bg-background"
                               placeholder="Cédula de identidad del usuario"
                               value={pushCi}
-                              onChange={e => { setPushCi(e.target.value); setPushFoundUser(null); }}
+                              onChange={e => { setPushCi(e.target.value); setPushFoundUser(null); setPushSelectedUser(null); }}
                               onKeyDown={e => e.key === "Enter" && searchUserByCi()} />
                             <button onClick={searchUserByCi} disabled={pushSearching || !pushCi.trim()}
                               className="shrink-0 px-4 py-2.5 rounded-xl text-xs font-black transition-all active:scale-95"
@@ -8874,16 +8875,34 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                               {pushSearching ? "..." : "🔍 Buscar"}
                             </button>
                           </div>
-                          {pushFoundUser && (
-                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm"
-                              style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.25)" }}>
+                          {pushFoundUser && !pushSelectedUser && (
+                            <button onClick={() => setPushSelectedUser(pushFoundUser)}
+                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-left transition-all active:scale-[0.98]"
+                              style={{ background: "hsl(var(--muted))", border: "2px dashed hsl(var(--border))" }}>
                               <span>👤</span>
-                              <span className="font-bold" style={{ color: "hsl(var(--primary))" }}>{pushFoundUser.full_name}</span>
-                              <span className="text-xs text-muted-foreground">CI {pushFoundUser.ci}</span>
-                              <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
-                                style={{ background: pushFoundUser.status === "active" ? "hsl(142 70% 45% / 0.15)" : "hsl(var(--muted))", color: pushFoundUser.status === "active" ? "hsl(142 70% 35%)" : "hsl(var(--muted-foreground))" }}>
-                                {pushFoundUser.status === "active" ? "Activo" : pushFoundUser.status === "pending" ? "Pendiente" : pushFoundUser.status}
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold truncate">{pushFoundUser.full_name}</p>
+                                <p className="text-xs text-muted-foreground">CI {pushFoundUser.ci}</p>
+                              </div>
+                              <span className="shrink-0 text-xs px-3 py-1 rounded-full font-black text-white"
+                                style={{ background: "hsl(var(--primary))" }}>
+                                ✓ Seleccionar
                               </span>
+                            </button>
+                          )}
+                          {pushSelectedUser && (
+                            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm"
+                              style={{ background: "hsl(142 70% 45% / 0.1)", border: "2px solid hsl(142 70% 45% / 0.5)" }}>
+                              <span className="text-base">✅</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold truncate" style={{ color: "hsl(142 70% 30%)" }}>{pushSelectedUser.full_name}</p>
+                                <p className="text-xs text-muted-foreground">CI {pushSelectedUser.ci} · seleccionado</p>
+                              </div>
+                              <button onClick={() => { setPushSelectedUser(null); setPushFoundUser(null); setPushCi(""); }}
+                                className="shrink-0 text-xs px-2 py-1 rounded-lg font-semibold"
+                                style={{ background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }}>
+                                ✕ Cambiar
+                              </button>
                             </div>
                           )}
                         </div>
@@ -8902,13 +8921,14 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       </div>
                     )}
                     <div className="flex items-center gap-3 flex-wrap">
-                      <button onClick={sendBroadcast} disabled={pushSending || pushUploading}
+                      <button onClick={sendBroadcast}
+                        disabled={pushSending || pushUploading || (pushTarget === "ci" && !pushSelectedUser)}
                         className="px-5 py-2.5 rounded-xl text-sm font-black text-white transition-all active:scale-95"
-                        style={{ background: "hsl(var(--primary))", opacity: (pushSending || pushUploading) ? 0.7 : 1 }}>
+                        style={{ background: "hsl(var(--primary))", opacity: (pushSending || pushUploading || (pushTarget === "ci" && !pushSelectedUser)) ? 0.5 : 1 }}>
                         {pushSending
                           ? (pushProgress && !pushProgress.done ? `Enviando ${pushProgress.sent}/${pushProgress.total}...` : "Procesando...")
                           : pushTarget === "all" ? "📤 Enviar a todos"
-                          : pushTarget === "ci" ? "📤 Enviar al usuario"
+                          : pushTarget === "ci" ? (pushSelectedUser ? `📤 Enviar a ${pushSelectedUser.full_name}` : "📤 Enviar al usuario")
                           : `📤 Enviar a ${pushDepartment}`}
                       </button>
                       {pushResult && pushResult.sent > 0 && (
