@@ -859,49 +859,35 @@ export default function GameDetailPage() {
                 </div>
               </div>
             </div>
+            {/* Stats strip — integrado al pie del hero */}
+            <div className="relative z-10 px-5 pb-5">
+              <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)" }}>
+                <div className="grid grid-cols-4 divide-x divide-white/10">
+                  {([
+                    { icon: "💳", label: "Cartón", value: `Bs ${game.card_price as number}` },
+                    { icon: "👥", label: "Jugadores", value: `${(game as any).unique_participants ?? game.participant_count}` },
+                    { icon: "🏆", label: "Ganadores", value: `${(game.max_winners as number) * ((game as any).total_rounds ?? 1)}` },
+                    { icon: "🎱", label: "Rondas", value: `${(game as any).total_rounds ?? 1}` },
+                  ] as { icon: string; label: string; value: string }[]).map(item => (
+                    <div key={item.label} className="py-3 px-2 text-center">
+                      <p className="text-base leading-none mb-1">{item.icon}</p>
+                      <p className="font-black text-sm text-white leading-none">{item.value}</p>
+                      <p className="text-[9px] text-white/40 mt-0.5 leading-none">{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
           );
           })()}
 
           <div className="px-4 py-4 space-y-4">
-            {/* Details grid */}
-            <div className="grid grid-cols-2 gap-2">
-              {([
-                { icon: "💳", label: "Precio cartón", value: `Bs ${game.card_price as number}` },
-                { icon: "👥", label: "Participantes", value: `${(game as any).unique_participants ?? game.participant_count}` },
-                {
-                  icon: "🎯", label: "Modalidad", value: (() => {
-                    const rounds = (game as any).rounds as Array<{ game_mode: string }> | null;
-                    if (rounds && rounds.length > 1) {
-                      return (
-                        <span className="flex flex-col gap-px">
-                          {rounds.map((r, i) => (
-                            <span key={i} className="font-bold leading-snug text-[11px]" style={{ color: "hsl(var(--primary))" }}>
-                              R{i + 1}: {gameModeLabel(r.game_mode)}
-                            </span>
-                          ))}
-                        </span>
-                      );
-                    }
-                    return gameModeLabel(game.game_mode ?? "full_card");
-                  })()
-                },
-                { icon: "🏆", label: "Ganadores máx.", value: `${(game.max_winners as number) * ((game as any).total_rounds ?? 1)}` },
-              ] as { icon: string; label: string; value: React.ReactNode }[]).map(item => (
-                <div key={item.label} className="bg-card border rounded-xl p-3">
-                  <span className="text-base">{item.icon}</span>
-                  <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{item.label}</p>
-                  {typeof item.value === "string"
-                    ? <p className="font-bold text-sm mt-0.5 leading-tight" style={{ color: "hsl(var(--primary))" }}>{item.value}</p>
-                    : <div className="mt-0.5">{item.value}</div>}
-                </div>
-              ))}
-            </div>
 
             {/* Stream links */}
             {(game.stream_url_youtube || game.stream_url_tiktok || game.stream_url_facebook) && (
-              <div className="bg-card border rounded-2xl p-4">
-                <p className="font-bold text-sm mb-3">📺 Ver en vivo</p>
+              <div>
+                <p className="text-xs font-bold mb-2 uppercase tracking-widest text-muted-foreground">📺 Ver en vivo</p>
                 <div className="flex gap-2 flex-wrap">
                   {game.stream_url_youtube && (
                     <a href={String(game.stream_url_youtube)} target="_blank" rel="noopener noreferrer">
@@ -946,37 +932,43 @@ export default function GameDetailPage() {
 
             {/* Buy section */}
             {!isFinished && (
-              <div className="bg-card border rounded-2xl p-5 space-y-4">
-                <h3 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>
+              <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border) / 0.5)" }}>
+                <p className="font-black text-xs uppercase tracking-widest" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(var(--muted-foreground))" }}>
                   🃏 {isActive ? "Comprar Cartones (EN VIVO)" : "Comprar Cartones"}
-                </h3>
+                </p>
 
-                {/* Quantity selector */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1 rounded-2xl overflow-hidden border-2" style={{ borderColor: "hsl(var(--primary))" }}>
-                    <button className="w-11 h-11 text-xl font-black flex items-center justify-center hover:bg-muted" onClick={() => setQty(q => Math.max(1, q - 1))}>−</button>
-                    <span className="w-10 text-center font-black text-lg">{qty}</span>
-                    <button className="w-11 h-11 text-xl font-black flex items-center justify-center hover:bg-muted" onClick={() => setQty(q => Math.min(10, q + 1))}>+</button>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-3xl font-black" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(var(--primary))" }}>
-                      Bs {totalPrice.toFixed(0)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{qty} cartón{qty > 1 ? "es" : ""}</p>
+                {/* Cantidad + precio combinados */}
+                <div className="rounded-2xl p-4" style={{ background: "hsl(var(--muted) / 0.4)", border: "1px solid hsl(var(--border) / 0.4)" }}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-2">Cantidad</p>
+                      <div className="flex items-center gap-0 rounded-xl overflow-hidden border-2" style={{ borderColor: "hsl(var(--primary))" }}>
+                        <button className="w-11 h-11 text-xl font-black flex items-center justify-center hover:bg-muted" onClick={() => setQty(q => Math.max(1, q - 1))}>−</button>
+                        <span className="w-10 text-center font-black text-lg">{qty}</span>
+                        <button className="w-11 h-11 text-xl font-black flex items-center justify-center hover:bg-muted" onClick={() => setQty(q => Math.min(10, q + 1))}>+</button>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground mb-1">Total</p>
+                      <p className="font-black text-3xl leading-none" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(var(--primary))" }}>
+                        Bs {totalPrice.toFixed(0)}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{qty} cartón{qty > 1 ? "es" : ""}</p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Payment method selector */}
+                {/* Método de pago */}
                 <div>
                   <p className="text-sm font-bold mb-2">Método de pago</p>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => setPayWith("qr")}
-                      className="py-3 px-3 rounded-xl border-2 text-sm font-bold transition-all flex items-center justify-center gap-1.5"
+                      className="py-3 px-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-1.5"
                       style={{
-                        borderColor: payWith === "qr" ? "hsl(var(--primary))" : "hsl(var(--border))",
-                        background: payWith === "qr" ? "hsl(var(--primary) / 0.08)" : "transparent",
-                        color: payWith === "qr" ? "hsl(var(--primary))" : "hsl(var(--foreground))",
+                        border: `1px solid ${payWith === "qr" ? "hsl(var(--primary))" : "hsl(var(--border))"}`,
+                        background: payWith === "qr" ? "hsl(var(--primary) / 0.12)" : "transparent",
+                        color: payWith === "qr" ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
                       }}
                     >
                       📱 Pagar por QR
@@ -984,11 +976,11 @@ export default function GameDetailPage() {
                     <button
                       onClick={() => setPayWith("wallet")}
                       disabled={!canPayWithWallet}
-                      className="py-3 px-3 rounded-xl border-2 text-sm font-bold transition-all flex flex-col items-center justify-center gap-0.5 disabled:opacity-40"
+                      className="py-3 px-3 rounded-xl text-sm font-bold transition-all flex flex-col items-center justify-center gap-0.5 disabled:opacity-40"
                       style={{
-                        borderColor: payWith === "wallet" ? "hsl(42 98% 52%)" : "hsl(var(--border))",
+                        border: `1px solid ${payWith === "wallet" ? "hsl(42 98% 52%)" : "hsl(var(--border))"}`,
                         background: payWith === "wallet" ? "hsl(42 98% 52% / 0.12)" : "transparent",
-                        color: payWith === "wallet" ? "hsl(42 98% 35%)" : "hsl(var(--foreground))",
+                        color: payWith === "wallet" ? "hsl(42 98% 35%)" : "hsl(var(--muted-foreground))",
                       }}
                     >
                       <span>💰 Mi Saldo</span>
@@ -997,7 +989,17 @@ export default function GameDetailPage() {
                   </div>
                 </div>
 
-                <button className="btn-primary" onClick={handleBuy} disabled={buying || !user}>
+                <button
+                  onClick={handleBuy}
+                  disabled={buying || !user}
+                  className="w-full py-4 rounded-2xl font-black text-base disabled:opacity-50 transition-all"
+                  style={{
+                    fontFamily: "'Poppins', sans-serif",
+                    background: buying || !user ? "hsl(var(--muted))" : "linear-gradient(135deg, hsl(42 98% 52%), hsl(38 95% 45%))",
+                    color: buying || !user ? "hsl(var(--muted-foreground))" : "#1a0050",
+                    boxShadow: buying || !user ? "none" : "0 8px 24px hsl(42 98% 52% / 0.3)",
+                  }}
+                >
                   {buying ? (
                     <span className="flex items-center justify-center gap-2">
                       <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
