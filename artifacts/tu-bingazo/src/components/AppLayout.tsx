@@ -610,15 +610,22 @@ export default function AppLayout({ children }: AppLayoutProps) {
       if (e.data?.type === "PUSH_SOUND") playPushSound();
     }
 
+    // También desbloquear cuando la app se hace visible (ej: el usuario tocó la notificación push)
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") unlockAudio();
+    }
+
     document.addEventListener("click", unlockAudio, { once: true });
     document.addEventListener("touchstart", unlockAudio, { once: true });
     document.addEventListener("keydown", unlockAudio, { once: true });
+    document.addEventListener("visibilitychange", onVisibilityChange);
     navigator.serviceWorker.addEventListener("message", onSwMessage);
 
     return () => {
       document.removeEventListener("click", unlockAudio);
       document.removeEventListener("touchstart", unlockAudio);
       document.removeEventListener("keydown", unlockAudio);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       navigator.serviceWorker.removeEventListener("message", onSwMessage);
     };
   }, []);

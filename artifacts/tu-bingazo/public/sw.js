@@ -151,6 +151,8 @@ self.addEventListener("notificationclick", (e) => {
       if (existing) {
         existing.focus();
         existing.navigate(url);
+        // El usuario tocó la notificación → avisar para reproducir sonido
+        existing.postMessage({ type: "PUSH_SOUND" });
       } else {
         self.clients.openWindow(url);
       }
