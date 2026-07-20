@@ -151,10 +151,9 @@ export default function GamesPage() {
               const isFinished = game.status === "finished";
               const isPrivate = !!(game as any).is_private;
               const coverImg = game.cover_image_url as string | null | undefined;
-              return (
-                <Link key={game.id} href={`/juego/${game.id}`}>
-                  {/* Outer wrapper: positioning context for the FINALIZADO badge — NO filter here */}
-                  <div className="rounded-3xl cursor-pointer relative overflow-hidden stars-bg">
+              const cardIsPrivateBlocked = isPrivate && !isLive && !isFinished;
+              const cardContent = (
+                <div className={`rounded-3xl relative overflow-hidden stars-bg${cardIsPrivateBlocked ? "" : " cursor-pointer"}`}>
 
                     {/* Inner wrapper: grayscale applies to background + all content except badge */}
                     <div className="relative" style={isFinished ? { filter: "grayscale(100%)", opacity: 0.75 } : undefined}>
@@ -238,9 +237,8 @@ export default function GamesPage() {
                           </div>
                           {isPrivate && !isLive && !isFinished ? (
                             <div
-                              className="flex-shrink-0 text-xs font-bold px-3 py-2 rounded-xl whitespace-nowrap flex items-center gap-1"
-                              style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.55)" }}
-                              onClick={e => { e.preventDefault(); e.stopPropagation(); }}
+                              className="flex-shrink-0 text-xs font-bold px-3 py-2 rounded-xl whitespace-nowrap flex items-center gap-1.5"
+                              style={{ background: "rgba(255,255,255,0.92)", color: "#1a0050" }}
                             >
                               🔒 Privado
                             </div>
@@ -268,9 +266,11 @@ export default function GamesPage() {
                           style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>FINALIZADO</span>
                       </div>
                     )}
-                  </div>
-                </Link>
+                </div>
               );
+              return cardIsPrivateBlocked
+                ? <div key={game.id}>{cardContent}</div>
+                : <Link key={game.id} href={`/juego/${game.id}`}>{cardContent}</Link>;
             })}
           </div>
         )}
