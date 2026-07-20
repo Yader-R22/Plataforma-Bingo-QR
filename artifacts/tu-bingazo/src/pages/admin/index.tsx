@@ -1219,6 +1219,7 @@ export default function AdminPage() {
         }
       }
       if (t === "referidos") {
+        setActSettingsLoaded(false);
         const [rR, sR, stR, perfR] = await Promise.all([
           fetch(`${BASE}/api/admin/activator-requests`, { headers: authH() }),
           fetch(`${BASE}/api/admin/activator-settings`, { headers: authH() }),
@@ -1447,7 +1448,12 @@ export default function AdminPage() {
     } else { const d = await r.json(); toast.error(d.error || "Error al crear usuario"); }
   }
 
-  function handleTab(t: Tab) { setTab(t); loadTab(t); window.location.hash = t; }
+  function handleTab(t: Tab) {
+    setTab(t);
+    if (t === "referidos") loadedTabsRef.current.delete("referidos");
+    loadTab(t);
+    window.location.hash = t;
+  }
 
   async function verifyUser(userId: number, approved: boolean) {
     const r = await fetch(`${BASE}/api/admin/users/${userId}/verify`, {
