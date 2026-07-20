@@ -140,25 +140,46 @@ export default function RegisterPage() {
     setForm(f => ({ ...f, [field]: value }));
   }
 
-  // No auto-trigger: geolocation must come from a direct user gesture
-  // or iOS/Android silently blocks the permission prompt.
+  // Auto-detect via IP when entering step 3 (no user permission needed)
+  useEffect(() => {
+    if (step === 3 && !geoAttempted) {
+      void detectByIp();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
-  // Auto-detect department from geolocation (local lookup, no external API)
-  function detectDepartment() {
+  // Primary: IP-based detection — automatic, no permission dialog
+  async function detectByIp() {
+    setGeoLoading(true);
+    try {
+      const res = await fetch("https://ipwho.is/", { signal: AbortSignal.timeout(6000) });
+      const data = await res.json() as { success: boolean; latitude?: number; longitude?: number; country_code?: string };
+      if (data.success && typeof data.latitude === "number" && typeof data.longitude === "number") {
+        const dept = detectDepartmentFromCoords(data.latitude, data.longitude);
+        if (dept) {
+          update("department", dept);
+          setGeoAttempted(true);
+          setGeoLoading(false);
+          return;
+        }
+      }
+    } catch { /* fall through to GPS */ }
+    // Fallback: try GPS
+    detectByGps();
+  }
+
+  // Fallback: GPS (requires user gesture on mobile — only called after IP fails)
+  function detectByGps() {
     if (!navigator.geolocation) {
       setGeoAttempted(true);
+      setGeoLoading(false);
       setShowManualPicker(true);
       return;
     }
-    setGeoLoading(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const dept = detectDepartmentFromCoords(pos.coords.latitude, pos.coords.longitude);
-        if (dept) {
-          update("department", dept);
-        } else {
-          setShowManualPicker(true);
-        }
+        if (dept) { update("department", dept); } else { setShowManualPicker(true); }
         setGeoAttempted(true);
         setGeoLoading(false);
       },
@@ -385,22 +406,15 @@ export default function RegisterPage() {
                 <p className="text-muted-foreground text-sm">¿En qué departamento de Bolivia te encontrás?</p>
               </div>
 
-              {/* Botón detectar — debe ser un gesto directo del usuario */}
-              <button
-                type="button"
-                onClick={detectDepartment}
-                disabled={geoLoading}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 font-bold text-sm transition-all active:scale-95"
-                style={{
-                  borderColor: geoLoading ? "hsl(var(--border))" : "hsl(var(--primary) / 0.5)",
-                  background: geoLoading ? "hsl(var(--muted))" : "hsl(var(--primary) / 0.06)",
-                  color: geoLoading ? "hsl(var(--muted-foreground))" : "hsl(var(--primary))",
-                }}
-              >
-                {geoLoading
-                  ? <><div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: "hsl(var(--primary))", borderTopColor: "transparent" }} /> Detectando...</>
-                  : <>📍 Detectar mi ubicación automáticamente</>}
-              </button>
+              {/* Estado: detectando automáticamente */}
+              {geoLoading && (
+                <div className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl border-2"
+                  style={{ borderColor: "hsl(var(--primary)/0.3)", background: "hsl(var(--primary)/0.05)" }}>
+                  <div className="w-4 h-4 border-2 rounded-full animate-spin"
+                    style={{ borderColor: "hsl(var(--primary))", borderTopColor: "transparent" }} />
+                  <span className="font-bold text-sm" style={{ color: "hsl(var(--primary))" }}>Detectando tu ubicación...</span>
+                </div>
+              )}
 
               {/* Detectado con éxito */}
               {geoAttempted && !geoLoading && form.department && !showManualPicker && (
