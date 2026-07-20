@@ -237,8 +237,11 @@ export default function GamesPage() {
                             <span className="font-bold" style={{ color: "hsl(42 98% 65%)" }}>Bs {Number(game.card_price).toLocaleString("es-BO")}/cartón</span>
                           </div>
                           {isPrivate && !isLive && !isFinished ? (
-                            <div className="flex-shrink-0 text-xs font-bold px-3 py-2 rounded-xl whitespace-nowrap flex items-center gap-1"
-                              style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.55)" }}>
+                            <div
+                              className="flex-shrink-0 text-xs font-bold px-3 py-2 rounded-xl whitespace-nowrap flex items-center gap-1"
+                              style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.55)" }}
+                              onClick={e => { e.preventDefault(); e.stopPropagation(); }}
+                            >
                               🔒 Privado
                             </div>
                           ) : (
@@ -263,13 +266,6 @@ export default function GamesPage() {
                       <div className="absolute top-5 left-5 z-20">
                         <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
                           style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>FINALIZADO</span>
-                      </div>
-                    )}
-                    {/* PRIVADO badge */}
-                    {isPrivate && !isFinished && (
-                      <div className="absolute top-5 right-5 z-20">
-                        <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1"
-                          style={{ background: "rgba(0,0,0,0.55)", color: "rgba(255,255,255,0.85)", backdropFilter: "blur(4px)" }}>🔒 PRIVADO</span>
                       </div>
                     )}
                   </div>
