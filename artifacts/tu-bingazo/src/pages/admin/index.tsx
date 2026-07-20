@@ -8924,9 +8924,16 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       <button onClick={sendBroadcast}
                         disabled={pushSending || pushUploading || (pushTarget === "ci" && !pushSelectedUser)}
                         className="px-5 py-2.5 rounded-xl text-sm font-black text-white transition-all active:scale-95"
-                        style={{ background: "hsl(var(--primary))", opacity: (pushSending || pushUploading || (pushTarget === "ci" && !pushSelectedUser)) ? 0.5 : 1 }}>
+                        style={{
+                          background: (pushResult && !pushSending && pushTarget === "ci" && pushSelectedUser)
+                            ? (pushResult.sent > 0 ? "hsl(142 70% 35%)" : "hsl(var(--destructive))")
+                            : "hsl(var(--primary))",
+                          opacity: (pushSending || pushUploading || (pushTarget === "ci" && !pushSelectedUser)) ? 0.5 : 1
+                        }}>
                         {pushSending
                           ? (pushProgress && !pushProgress.done ? `Enviando ${pushProgress.sent}/${pushProgress.total}...` : "Procesando...")
+                          : pushResult && pushTarget === "ci" && pushSelectedUser
+                            ? (pushResult.sent > 0 ? `✅ Enviado a ${pushSelectedUser.full_name}` : `⚠️ Sin push activo`)
                           : pushTarget === "all" ? "📤 Enviar a todos"
                           : pushTarget === "ci" ? (pushSelectedUser ? `📤 Enviar a ${pushSelectedUser.full_name}` : "📤 Enviar al usuario")
                           : `📤 Enviar a ${pushDepartment}`}
