@@ -148,48 +148,58 @@ export default function RegisterPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  // Primary: IP-based detection — automatic, no permission dialog
-  async function detectByIp() {
-    setGeoLoading(true);
-    try {
-      const res = await fetch("https://ipwho.is/", { signal: AbortSignal.timeout(6000) });
-      const data = await res.json() as { success: boolean; latitude?: number; longitude?: number; country_code?: string };
-      if (data.success && typeof data.latitude === "number" && typeof data.longitude === "number") {
-        const dept = detectDepartmentFromCoords(data.latitude, data.longitude);
-        if (dept) {
-          update("department", dept);
-          setGeoAttempted(true);
-          setGeoLoading(false);
-          return;
-        }
-      }
-    } catch { /* fall through to GPS */ }
-    // Fallback: try GPS
-    detectByGps();
+  // Match region name from IP API to one of our departments
+  function matchRegionName(region: string): string | null {
+    if (!region) return null;
+    const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const r = norm(region);
+    for (const dept of DEPARTMENTS) {
+      if (r.includes(norm(dept))) return dept;
+    }
+    return null;
   }
 
-  // Fallback: GPS (requires user gesture on mobile — only called after IP fails)
-  function detectByGps() {
-    if (!navigator.geolocation) {
-      setGeoAttempted(true);
-      setGeoLoading(false);
-      setShowManualPicker(true);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const dept = detectDepartmentFromCoords(pos.coords.latitude, pos.coords.longitude);
-        if (dept) { update("department", dept); } else { setShowManualPicker(true); }
-        setGeoAttempted(true);
-        setGeoLoading(false);
-      },
-      () => {
-        setGeoAttempted(true);
-        setGeoLoading(false);
-        setShowManualPicker(true);
-      },
-      { timeout: 8000 }
-    );
+  // Primary: try two IP services, match by region name first then coords
+  async function detectByIp() {
+    setGeoLoading(true);
+
+    // Service 1: ipapi.co
+    try {
+      const res = await fetch("https://ipapi.co/json/", { signal: AbortSignal.timeout(5000) });
+      const d = await res.json() as { country_code?: string; region?: string; latitude?: number; longitude?: number };
+      if (d.country_code === "BO") {
+        const dept = matchRegionName(d.region ?? "")
+          ?? (d.latitude && d.longitude ? detectDepartmentFromCoords(d.latitude, d.longitude) : null);
+        if (dept) { update("department", dept); setGeoAttempted(true); setGeoLoading(false); return; }
+      }
+    } catch { /* next service */ }
+
+    // Service 2: ipwho.is
+    try {
+      const res = await fetch("https://ipwho.is/", { signal: AbortSignal.timeout(5000) });
+      const d = await res.json() as { success?: boolean; country_code?: string; region?: string; latitude?: number; longitude?: number };
+      if (d.success && d.country_code === "BO") {
+        const dept = matchRegionName(d.region ?? "")
+          ?? (d.latitude && d.longitude ? detectDepartmentFromCoords(d.latitude, d.longitude) : null);
+        if (dept) { update("department", dept); setGeoAttempted(true); setGeoLoading(false); return; }
+      }
+    } catch { /* next service */ }
+
+    // Service 3: freeipapi.com
+    try {
+      const res = await fetch("https://freeipapi.com/api/json", { signal: AbortSignal.timeout(5000) });
+      const d = await res.json() as { countryCode?: string; regionName?: string; latitude?: number; longitude?: number };
+      if (d.countryCode === "BO") {
+        const dept = matchRegionName(d.regionName ?? "")
+          ?? (d.latitude && d.longitude ? detectDepartmentFromCoords(d.latitude, d.longitude) : null);
+        if (dept) { update("department", dept); setGeoAttempted(true); setGeoLoading(false); return; }
+      }
+    } catch { /* fall through to manual */ }
+
+    // All services failed — show manual picker
+    setGeoAttempted(true);
+    setGeoLoading(false);
+    setShowManualPicker(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
