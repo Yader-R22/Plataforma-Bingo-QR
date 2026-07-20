@@ -116,20 +116,21 @@ self.addEventListener("message", async (e) => {
 
 // ── Push Notifications ────────────────────────────────────────────────────────
 self.addEventListener("push", (e) => {
-  let data = { title: "El Bingote", body: "Tienes una nueva notificación", url: "/", icon: "" };
+  let data = { title: "El Bingote", body: "Tienes una nueva notificación", url: "/", icon: "", image: "" };
   try {
     if (e.data) data = { ...data, ...e.data.json() };
   } catch {}
 
-  e.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: data.icon || "/notif-icon.png",
-      badge: "/badge-96.png",
-      data: { url: data.url ?? "/" },
-      vibrate: [200, 100, 200],
-    })
-  );
+  const notifOptions = {
+    body: data.body,
+    icon: data.icon || "/notif-icon.png",
+    badge: "/badge-96.png",
+    data: { url: data.url ?? "/" },
+    vibrate: [200, 100, 200],
+  };
+  if (data.image) notifOptions.image = data.image;
+
+  e.waitUntil(self.registration.showNotification(data.title, notifOptions));
 });
 
 self.addEventListener("notificationclick", (e) => {

@@ -1,6 +1,6 @@
 import webpush from "web-push";
-import { db, pushSubscriptionsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, pushSubscriptionsTable, usersTable } from "@workspace/db";
+import { eq, inArray } from "drizzle-orm";
 import { logger } from "./logger";
 
 let initialized = false;
@@ -23,6 +23,7 @@ export interface PushPayload {
   body: string;
   url?: string;
   icon?: string;
+  image?: string;
 }
 
 async function send(endpoint: string, p256dh: string, auth: string, payload: PushPayload): Promise<boolean> {
@@ -57,6 +58,24 @@ export async function sendPushToUsers(userIds: number[], payload: PushPayload): 
   const { inArray } = await import("drizzle-orm");
   const subs = await db.select().from(pushSubscriptionsTable).where(inArray(pushSubscriptionsTable.userId, userIds));
   await Promise.allSettled(subs.map((s) => send(s.endpoint, s.p256dh, s.auth, payload)));
+}
+
+export async function sendPushToDepartment(department: string, payload: PushPayload): Promise<{ sent: number; failed: number }> {
+  const subs = await db
+    .select({ endpoint: pushSubscriptionsTable.endpoint, p256dh: pushSubscriptionsTable.p256dh, auth: pushSubscriptionsTable.auth })
+    .from(pushSubscriptionsTable)
+    .innerJoin(usersTable, eq(pushSubscriptionsTable.userId, usersTable.id))
+    .where(eq(usersTable.department, department));
+  let sent = 0;
+  let failed = 0;
+  const BATCH = 20;
+  for (let i = 0; i < subs.length; i += BATCH) {
+    const batch = subs.slice(i, i + BATCH);
+    const results = await Promise.allSettled(batch.map((s) => send(s.endpoint, s.p256dh, s.auth, payload)));
+    sent  += results.filter((r) => r.status === "fulfilled" && r.value).length;
+    failed += results.filter((r) => r.status !== "fulfilled" || !r.value).length;
+  }
+  return { sent, failed };
 }
 
 export async function sendPushToAll(payload: PushPayload): Promise<{ sent: number; failed: number }> {

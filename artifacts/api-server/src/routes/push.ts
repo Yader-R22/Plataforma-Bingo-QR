@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, pushSubscriptionsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/auth";
-import { sendPushToAll } from "../lib/push";
+import { sendPushToAll, sendPushToDepartment } from "../lib/push";
 import { z } from "zod";
 
 const router = Router();
@@ -57,26 +57,37 @@ router.get("/subscribers/count", requireAuth, requireAdmin, async (_req, res) =>
   res.json({ count: rows.length });
 });
 
-// POST /api/push/broadcast — enviar push a todos los usuarios (solo admin)
+const VALID_DEPARTMENTS = ["Beni","Chuquisaca","Cochabamba","La Paz","Oruro","Pando","Potosí","Santa Cruz","Tarija"];
+
+// POST /api/push/broadcast — enviar push a todos o por departamento (solo admin)
 router.post("/broadcast", requireAuth, requireAdmin, async (req: AuthRequest, res) => {
-  const { title, body, url } = req.body as { title?: string; body?: string; url?: string };
+  const { title, body, url, image, department } = req.body as {
+    title?: string; body?: string; url?: string; image?: string; department?: string;
+  };
   if (!title?.trim() || !body?.trim()) {
     res.status(400).json({ error: "title y body son requeridos" });
     return;
   }
+  if (department && !VALID_DEPARTMENTS.includes(department)) {
+    res.status(400).json({ error: "Departamento inválido" });
+    return;
+  }
 
-  // Incluir URL del logo como ícono de la notificación
-  // Usar x-forwarded-proto porque en producción Express está detrás de nginx
   const proto = (req.headers["x-forwarded-proto"] as string | undefined)?.split(",")[0]?.trim() ?? req.protocol;
   const host = req.get("host") ?? "elbingote.com";
   const icon = `${proto}://${host}/api/site-settings/logo`;
 
-  const result = await sendPushToAll({
+  const payload = {
     title: title.trim(),
     body: body.trim(),
     url: url?.trim() ?? "/",
     icon,
-  });
+    ...(image?.trim() ? { image: image.trim() } : {}),
+  };
+
+  const result = department
+    ? await sendPushToDepartment(department, payload)
+    : await sendPushToAll(payload);
   res.json(result);
 });
 

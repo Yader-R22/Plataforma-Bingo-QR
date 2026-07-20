@@ -989,6 +989,9 @@ export default function AdminPage() {
   const [pushTitle, setPushTitle] = useState("");
   const [pushBody, setPushBody] = useState("");
   const [pushUrl, setPushUrl] = useState("/");
+  const [pushImage, setPushImage] = useState("");
+  const [pushTarget, setPushTarget] = useState<"all" | "department">("all");
+  const [pushDepartment, setPushDepartment] = useState("La Paz");
   const [pushSending, setPushSending] = useState(false);
   const [pushResult, setPushResult] = useState<{ sent: number; failed: number } | null>(null);
   const [pushSubCount, setPushSubCount] = useState<number | null>(null);
@@ -1006,10 +1009,13 @@ export default function AdminPage() {
     if (!pushTitle.trim() || !pushBody.trim()) { toast.error("Título y mensaje son requeridos"); return; }
     setPushSending(true); setPushResult(null);
     try {
+      const payload: Record<string, string> = { title: pushTitle, body: pushBody, url: pushUrl };
+      if (pushImage.trim()) payload.image = pushImage.trim();
+      if (pushTarget === "department") payload.department = pushDepartment;
       const r = await fetch(`${BASE}/api/push/broadcast`, {
         method: "POST",
         headers: authH(),
-        body: JSON.stringify({ title: pushTitle, body: pushBody, url: pushUrl }),
+        body: JSON.stringify(payload),
       });
       if (r.ok) {
         const d = await r.json() as { sent: number; failed: number };
@@ -8731,11 +8737,42 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         onChange={e => setPushUrl(e.target.value)} />
                       <p className="text-xs text-muted-foreground mt-1">Ejemplo: <code>/games</code>, <code>/wallet</code></p>
                     </div>
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Imagen (opcional)</label>
+                      <input className="w-full rounded-xl border px-3 py-2.5 text-sm font-mono bg-background"
+                        placeholder="https://..." value={pushImage}
+                        onChange={e => setPushImage(e.target.value)} />
+                      <p className="text-xs text-muted-foreground mt-1">URL de imagen que aparece como banner en Android. Ratio recomendado 2:1.</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Destinatarios</label>
+                      <div className="flex gap-2 flex-wrap">
+                        {(["all", "department"] as const).map(t => (
+                          <button key={t} onClick={() => setPushTarget(t)}
+                            className="px-4 py-2 rounded-xl text-xs font-bold transition-all border"
+                            style={{
+                              background: pushTarget === t ? "hsl(var(--primary))" : "transparent",
+                              color: pushTarget === t ? "#fff" : "hsl(var(--foreground))",
+                              borderColor: pushTarget === t ? "transparent" : "hsl(var(--border))",
+                            }}>
+                            {t === "all" ? "🌎 Todos" : "📍 Por departamento"}
+                          </button>
+                        ))}
+                      </div>
+                      {pushTarget === "department" && (
+                        <select className="mt-2 w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
+                          value={pushDepartment} onChange={e => setPushDepartment(e.target.value)}>
+                          {["Beni","Chuquisaca","Cochabamba","La Paz","Oruro","Pando","Potosí","Santa Cruz","Tarija"].map(d => (
+                            <option key={d} value={d}>{d}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                     <div className="flex items-center gap-3 flex-wrap">
                       <button onClick={sendBroadcast} disabled={pushSending}
                         className="px-5 py-2.5 rounded-xl text-sm font-black text-white transition-all active:scale-95"
                         style={{ background: "hsl(var(--primary))", opacity: pushSending ? 0.7 : 1 }}>
-                        {pushSending ? "Enviando..." : "📤 Enviar a todos"}
+                        {pushSending ? "Enviando..." : pushTarget === "all" ? "📤 Enviar a todos" : `📤 Enviar a ${pushDepartment}`}
                       </button>
                       {pushResult && pushResult.sent > 0 && (
                         <p className="text-xs text-green-600 font-semibold">
