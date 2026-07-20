@@ -994,6 +994,8 @@ export default function AdminPage() {
   const [pushTarget, setPushTarget] = useState<"all" | "department" | "ci">("all");
   const [pushDepartment, setPushDepartment] = useState("La Paz");
   const [pushCi, setPushCi] = useState("");
+  const [pushFoundUser, setPushFoundUser] = useState<{ full_name: string; ci: string; status: string } | null>(null);
+  const [pushSearching, setPushSearching] = useState(false);
   const [pushSending, setPushSending] = useState(false);
   const [pushResult, setPushResult] = useState<{ sent: number; failed: number } | null>(null);
   const [pushProgress, setPushProgress] = useState<{ total: number; sent: number; failed: number; done: boolean } | null>(null);
@@ -1006,6 +1008,33 @@ export default function AdminPage() {
       const r = await fetch(`${BASE}/api/push/subscribers/count`, { headers: authH() });
       if (r.ok) { const d = await r.json() as { count: number }; setPushSubCount(d.count); }
     } catch { /* ignore */ }
+  }
+
+  async function searchUserByCi() {
+    const ci = pushCi.trim();
+    if (!ci) { toast.error("Ingresa una CI para buscar"); return; }
+    setPushSearching(true);
+    setPushFoundUser(null);
+    try {
+      // Busca primero en el array ya cargado
+      let found = users.find((u: any) => u.ci === ci);
+      if (!found && users.length === 0) {
+        // Carga usuarios si aún no se han cargado
+        const r = await fetch(`${BASE}/api/admin/users`, { headers: authH() });
+        if (r.ok) {
+          const all: any[] = await r.json();
+          setUsers(all);
+          found = all.find((u: any) => u.ci === ci);
+        }
+      }
+      if (found) {
+        setPushFoundUser({ full_name: found.full_name, ci: found.ci, status: found.status });
+      } else {
+        setPushFoundUser(null);
+        toast.error("No se encontró ningún usuario con esa CI");
+      }
+    } catch { toast.error("Error al buscar usuario"); }
+    finally { setPushSearching(false); }
   }
 
   async function handlePushImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -8812,14 +8841,14 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Destinatarios</label>
                       <div className="flex gap-2 flex-wrap">
                         {(["all", "department", "ci"] as const).map(t => (
-                          <button key={t} onClick={() => setPushTarget(t)}
+                          <button key={t} onClick={() => { setPushTarget(t); setPushFoundUser(null); setPushCi(""); }}
                             className="px-4 py-2 rounded-xl text-xs font-bold transition-all border"
                             style={{
                               background: pushTarget === t ? "hsl(var(--primary))" : "transparent",
                               color: pushTarget === t ? "#fff" : "hsl(var(--foreground))",
                               borderColor: pushTarget === t ? "transparent" : "hsl(var(--border))",
                             }}>
-                            {t === "all" ? "🌎 Todos" : t === "department" ? "📍 Departamento" : "👤 Por CI"}
+                            {t === "all" ? "🌎 Todos" : t === "department" ? "📍 Departamento" : "👤 Buscar usuario"}
                           </button>
                         ))}
                       </div>
@@ -8832,9 +8861,32 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         </select>
                       )}
                       {pushTarget === "ci" && (
-                        <input className="mt-2 w-full rounded-xl border px-3 py-2.5 text-sm bg-background"
-                          placeholder="Cédula de identidad del usuario"
-                          value={pushCi} onChange={e => setPushCi(e.target.value)} />
+                        <div className="mt-2 space-y-2">
+                          <div className="flex gap-2">
+                            <input className="flex-1 rounded-xl border px-3 py-2.5 text-sm bg-background"
+                              placeholder="Cédula de identidad del usuario"
+                              value={pushCi}
+                              onChange={e => { setPushCi(e.target.value); setPushFoundUser(null); }}
+                              onKeyDown={e => e.key === "Enter" && searchUserByCi()} />
+                            <button onClick={searchUserByCi} disabled={pushSearching || !pushCi.trim()}
+                              className="shrink-0 px-4 py-2.5 rounded-xl text-xs font-black transition-all active:scale-95"
+                              style={{ background: "hsl(var(--primary))", color: "#fff", opacity: (pushSearching || !pushCi.trim()) ? 0.6 : 1 }}>
+                              {pushSearching ? "..." : "🔍 Buscar"}
+                            </button>
+                          </div>
+                          {pushFoundUser && (
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm"
+                              style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.25)" }}>
+                              <span>👤</span>
+                              <span className="font-bold" style={{ color: "hsl(var(--primary))" }}>{pushFoundUser.full_name}</span>
+                              <span className="text-xs text-muted-foreground">CI {pushFoundUser.ci}</span>
+                              <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
+                                style={{ background: pushFoundUser.status === "active" ? "hsl(142 70% 45% / 0.15)" : "hsl(var(--muted))", color: pushFoundUser.status === "active" ? "hsl(142 70% 35%)" : "hsl(var(--muted-foreground))" }}>
+                                {pushFoundUser.status === "active" ? "Activo" : pushFoundUser.status === "pending" ? "Pendiente" : pushFoundUser.status}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                     {pushProgress && !pushProgress.done && pushProgress.total > 0 && (
