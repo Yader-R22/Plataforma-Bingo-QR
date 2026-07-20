@@ -96,7 +96,7 @@ router.get("/earnings", requireAuth, async (req: AuthRequest, res) => {
       credited_at: winnersTable.createdAt,
     })
     .from(winnersTable)
-    .innerJoin(gamesTable, eq(winnersTable.gameId, gamesTable.id))
+    .leftJoin(gamesTable, eq(winnersTable.gameId, gamesTable.id))
     .where(and(eq(winnersTable.userId, req.userId!), eq(winnersTable.validated, true)))
     .orderBy(desc(winnersTable.createdAt));
 

@@ -16,7 +16,7 @@ import { cardsTable } from "./cards";
 
 export const winnersTable = pgTable("winners", {
   id: serial("id").primaryKey(),
-  gameId: integer("game_id").notNull().references(() => gamesTable.id),
+  gameId: integer("game_id").references(() => gamesTable.id),
   userId: integer("user_id").notNull().references(() => usersTable.id),
   cardId: integer("card_id").references(() => cardsTable.id),
   round: integer("round").notNull().default(1),

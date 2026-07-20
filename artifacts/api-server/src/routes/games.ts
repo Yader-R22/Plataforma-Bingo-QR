@@ -589,8 +589,8 @@ router.post("/:id/reset", requireAdmin, async (req: AuthRequest, res) => {
   }
 
   await db.transaction(async (tx) => {
-    // Eliminar ganadores de esta partida — el juego se reinicia desde cero
-    await tx.delete(winnersTable).where(eq(winnersTable.gameId, gameId));
+    // Desvincular ganadores del juego — preserva historial para stats/billetera
+    await tx.update(winnersTable).set({ gameId: null }).where(eq(winnersTable.gameId, gameId));
     // Marcar cartones como expirados — preserva historial de compras, pagos y ganadores
     await tx.update(cardsTable)
       .set({ status: "expired" })
@@ -650,8 +650,8 @@ router.delete("/:id", requireAdmin, async (req: AuthRequest, res) => {
     await tx.update(referralTransactionsTable)
       .set({ gameId: null, winnerId: null })
       .where(eq(referralTransactionsTable.gameId, gameId));
-    // 2. Borrar ganadores (referral_transactions ya no los apunta)
-    await tx.delete(winnersTable).where(eq(winnersTable.gameId, gameId));
+    // 2. Desvincular ganadores del juego — preserva historial para stats/billetera
+    await tx.update(winnersTable).set({ gameId: null }).where(eq(winnersTable.gameId, gameId));
     // 3. Borrar solicitudes de pago manual y ventas de activadores
     await tx.delete(manualPaymentRequestsTable).where(eq(manualPaymentRequestsTable.gameId, gameId));
     await tx.delete(activatorCardSalesTable).where(eq(activatorCardSalesTable.gameId, gameId));
