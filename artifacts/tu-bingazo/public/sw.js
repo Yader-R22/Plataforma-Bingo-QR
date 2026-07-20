@@ -130,13 +130,15 @@ self.addEventListener("push", (e) => {
   };
   if (data.image) notifOptions.image = data.image;
 
+  // Separar en Promise.all para que showNotification nunca dependa de clients.matchAll
+  // (en algunos browsers showNotification() retorna undefined, rompiendo .then())
   e.waitUntil(
-    self.registration.showNotification(data.title, notifOptions).then(() => {
-      // Avisa a las pestañas abiertas para reproducir sonido (cuando la app está visible)
-      return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(clients => {
+    Promise.all([
+      self.registration.showNotification(data.title, notifOptions),
+      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(clients => {
         clients.forEach(client => client.postMessage({ type: "PUSH_SOUND" }));
-      });
-    })
+      }).catch(() => {}),
+    ])
   );
 });
 
