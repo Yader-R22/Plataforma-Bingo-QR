@@ -558,6 +558,39 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   // On every mount (including page reloads) re-fetch the real user state from
   // the server so stale localStorage never shows a wrong screen.
+
+  // Reproduce sonido de notificación cuando llega un push (app abierta)
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    function playPushSound() {
+      try {
+        const ctx = new AudioContext();
+        const t = ctx.currentTime;
+        // Ding doble suave
+        [0, 0.18].forEach((delay, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(i === 0 ? 1046 : 880, t + delay);
+          gain.gain.setValueAtTime(0, t + delay);
+          gain.gain.linearRampToValueAtTime(0.25, t + delay + 0.03);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.55);
+          osc.start(t + delay);
+          osc.stop(t + delay + 0.6);
+        });
+        setTimeout(() => ctx.close(), 1500);
+      } catch {}
+    }
+    function onSwMessage(e: MessageEvent) {
+      if (e.data?.type === "PUSH_SOUND") playPushSound();
+    }
+    navigator.serviceWorker.addEventListener("message", onSwMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onSwMessage);
+  }, []);
+
+  // the server so stale localStorage never shows a wrong screen.
   useEffect(() => {
     if (!token) return;
     fetch(`${BASE}/api/auth/me`, {

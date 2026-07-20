@@ -130,7 +130,14 @@ self.addEventListener("push", (e) => {
   };
   if (data.image) notifOptions.image = data.image;
 
-  e.waitUntil(self.registration.showNotification(data.title, notifOptions));
+  e.waitUntil(
+    self.registration.showNotification(data.title, notifOptions).then(() => {
+      // Avisa a las pestañas abiertas para reproducir sonido (cuando la app está visible)
+      return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(clients => {
+        clients.forEach(client => client.postMessage({ type: "PUSH_SOUND" }));
+      });
+    })
+  );
 });
 
 self.addEventListener("notificationclick", (e) => {
