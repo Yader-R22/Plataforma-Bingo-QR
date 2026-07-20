@@ -38,7 +38,6 @@ export * from './gameCategoryUpdate';
 export * from './gameGameMode';
 export * from './gameInput';
 export * from './gameInputGameMode';
-export * from './gameInputType';
 export * from './gameSession';
 export * from './gameSessionGameMode';
 export * from './gameStatus';

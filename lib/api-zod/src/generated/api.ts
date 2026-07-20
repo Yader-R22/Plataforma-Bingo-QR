@@ -140,7 +140,6 @@ export const ListGamesResponse = zod.array(ListGamesResponseItem)
  */
 export const CreateGameBody = zod.object({
   "title": zod.string(),
-  "type": zod.enum(['daily', 'weekly', 'monthly']),
   "prize_amount": zod.number(),
   "card_price": zod.number(),
   "draw_date": zod.coerce.date(),

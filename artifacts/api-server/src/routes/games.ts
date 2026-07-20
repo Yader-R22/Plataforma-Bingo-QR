@@ -46,6 +46,16 @@ function getOnlineCount(gameId: number): number {
   return count;
 }
 
+function computeGameType(drawDate: Date): "daily" | "weekly" | "monthly" {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+  const weekEnd = new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+  if (drawDate < tomorrowStart) return "daily";
+  if (drawDate < weekEnd) return "weekly";
+  return "monthly";
+}
+
 function generateSlug(title: string): string {
   return title
     .toLowerCase()
@@ -86,7 +96,7 @@ function formatGame(
   return {
     id: game.id,
     title: game.title,
-    type: game.type,
+    type: computeGameType(new Date(game.drawDate)),
     status: game.status,
     prize_amount: parseFloat(game.prizeAmount),
     card_price: parseFloat(game.cardPrice),
@@ -113,13 +123,13 @@ function formatGame(
 
 router.get("/", async (req: AuthRequest, res) => {
   const query = ListGamesQueryParams.safeParse(req.query);
-  let conditions = [];
+  let statusConditions = [];
+  const filterType = query.success && query.data.type ? query.data.type : null;
   if (query.success) {
-    if (query.data.type) conditions.push(eq(gamesTable.type, query.data.type as "daily" | "weekly" | "monthly"));
-    if (query.data.status) conditions.push(eq(gamesTable.status, query.data.status as "upcoming" | "active" | "finished"));
+    if (query.data.status) statusConditions.push(eq(gamesTable.status, query.data.status as "upcoming" | "active" | "finished"));
   }
-  const games = conditions.length
-    ? await db.select().from(gamesTable).where(and(...conditions)).orderBy(desc(gamesTable.drawDate))
+  const games = statusConditions.length
+    ? await db.select().from(gamesTable).where(and(...statusConditions)).orderBy(desc(gamesTable.drawDate))
     : await db.select().from(gamesTable).orderBy(desc(gamesTable.drawDate));
 
   // Unique participants per game (one query for all games)
@@ -129,10 +139,12 @@ router.get("/", async (req: AuthRequest, res) => {
   const uniqueMap = new Map<number, number>();
   for (const row of uniqueRows.rows) uniqueMap.set(row.game_id as number, row.cnt as number);
 
-  res.json(games.map(g => formatGame(g, {
+  let result = games.map(g => formatGame(g, {
     uniqueParticipants: uniqueMap.get(g.id) ?? 0,
     onlineCount: getOnlineCount(g.id),
-  })));
+  }));
+  if (filterType) result = result.filter(g => g.type === filterType);
+  res.json(result);
 });
 
 async function syncPredefinedCards(gameId: number, rounds: RoundConfig[]) {
@@ -193,7 +205,7 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
 
   const [game] = await db.insert(gamesTable).values({
     title: data.title,
-    type: data.type as "daily" | "weekly" | "monthly",
+    type: computeGameType(new Date(data.draw_date)),
     prizeAmount: String(data.prize_amount),
     cardPrice: String(data.card_price),
     drawDate: new Date(data.draw_date),

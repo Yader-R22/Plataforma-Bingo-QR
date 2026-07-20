@@ -6,13 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { GameInputGameMode } from './gameInputGameMode';
-import type { GameInputType } from './gameInputType';
 import type { PrizeTier } from './prizeTier';
 import type { RoundConfig } from './roundConfig';
 
 export interface GameInput {
   title: string;
-  type: GameInputType;
   prize_amount: number;
   card_price: number;
   draw_date: Date;

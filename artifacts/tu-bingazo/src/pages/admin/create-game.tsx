@@ -149,7 +149,6 @@ export default function CreateGamePage() {
 
   const [form, setForm] = useState({
     title: "",
-    type: "daily",
     prize_amount: "",
     card_price: "",
     draw_date: "",
@@ -182,7 +181,6 @@ export default function CreateGamePage() {
         const g = await res.json();
         setForm({
           title: g.title ?? "",
-          type: g.type ?? "daily",
           prize_amount: String(g.prize_amount ?? ""),
           card_price: String(g.card_price ?? ""),
           draw_date: g.draw_date ? toDatetimeLocal(g.draw_date) : "",
@@ -255,7 +253,7 @@ export default function CreateGamePage() {
       };
       const url = isEdit ? `${BASE}/api/games/${editId}` : `${BASE}/api/games`;
       const method = isEdit ? "PATCH" : "POST";
-      const body = isEdit ? common : { ...common, type: form.type };
+      const body = common;
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -295,22 +293,9 @@ export default function CreateGamePage() {
             <Input placeholder="Ej: Bingo Martes — 3 Rondas" value={form.title} onChange={e => upd("title", e.target.value)} required />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Tipo {isEdit && <span className="text-xs text-muted-foreground">(no editable)</span>}</Label>
-              <Select value={form.type} onValueChange={v => upd("type", v)} disabled={isEdit}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">Diario</SelectItem>
-                  <SelectItem value="weekly">Semanal</SelectItem>
-                  <SelectItem value="monthly">Mensual</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Fecha y hora del sorteo</Label>
-              <Input type="datetime-local" value={form.draw_date} onChange={e => upd("draw_date", e.target.value)} required />
-            </div>
+          <div className="space-y-1.5">
+            <Label>Fecha y hora del sorteo</Label>
+            <Input type="datetime-local" value={form.draw_date} onChange={e => upd("draw_date", e.target.value)} required />
           </div>
 
           <div className="space-y-1.5">

@@ -207,15 +207,6 @@ export interface Game {
   created_at: string;
 }
 
-export type GameInputType = typeof GameInputType[keyof typeof GameInputType];
-
-
-export const GameInputType = {
-  daily: 'daily',
-  weekly: 'weekly',
-  monthly: 'monthly',
-} as const;
-
 export type GameInputGameMode = typeof GameInputGameMode[keyof typeof GameInputGameMode];
 
 
@@ -232,7 +223,6 @@ export const GameInputGameMode = {
 
 export interface GameInput {
   title: string;
-  type: GameInputType;
   prize_amount: number;
   card_price: number;
   draw_date: string;

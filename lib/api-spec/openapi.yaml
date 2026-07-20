@@ -1131,13 +1131,10 @@ components:
 
     GameInput:
       type: object
-      required: [title, type, prize_amount, card_price, draw_date, game_mode]
+      required: [title, prize_amount, card_price, draw_date, game_mode]
       properties:
         title:
           type: string
-        type:
-          type: string
-          enum: [daily, weekly, monthly]
         prize_amount:
           type: number
         card_price:
