@@ -206,6 +206,10 @@ export default function GamesPage() {
                                 if (isPrivate) {
                                   url = window.location.origin;
                                   text = "¡Regístrate en El Bingote y gana premios en efectivo desde tu celular! La plataforma de bingo en vivo más grande de Bolivia. 🎱🇧🇴";
+                                } else if ((game as any).cover_image_url) {
+                                  // Con imagen de portada → usar endpoint OG para preview enriquecido
+                                  url = `${window.location.origin}/api/og/game/${game.id}`;
+                                  text = `¡Juega ${game.title} y gana Bs ${game.prize_amount}!`;
                                 } else {
                                   const slug = (game as any).slug;
                                   url = slug

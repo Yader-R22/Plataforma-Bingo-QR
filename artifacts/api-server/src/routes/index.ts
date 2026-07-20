@@ -18,6 +18,7 @@ import { manualPaymentsRouter } from "./manual-payments";
 import storageRouter from "./storage";
 import { pushRouter } from "./push";
 import { activatorSalesRouter } from "./activator-sales";
+import { ogRouter } from "./og";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use("/manual-payments", manualPaymentsRouter);
 router.use("/storage", storageRouter);
 router.use("/push", pushRouter);
 router.use("/activator-sales", activatorSalesRouter);
+router.use("/og", ogRouter);
 
 export default router;
