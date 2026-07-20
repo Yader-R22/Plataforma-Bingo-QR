@@ -140,13 +140,8 @@ export default function RegisterPage() {
     setForm(f => ({ ...f, [field]: value }));
   }
 
-  // Auto-trigger geo detection when entering step 3
-  useEffect(() => {
-    if (step === 3 && !geoAttempted) {
-      detectDepartment();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  // No auto-trigger: geolocation must come from a direct user gesture
+  // or iOS/Android silently blocks the permission prompt.
 
   // Auto-detect department from geolocation (local lookup, no external API)
   function detectDepartment() {
@@ -387,80 +382,61 @@ export default function RegisterPage() {
             <div className="space-y-4">
               <div>
                 <h2 className="font-black text-lg mb-1" style={{ fontFamily: "'Poppins', sans-serif" }}>Tu Ubicación</h2>
-                <p className="text-muted-foreground text-sm">¿En qué departamento de Bolivia te encuentras?</p>
+                <p className="text-muted-foreground text-sm">¿En qué departamento de Bolivia te encontrás?</p>
               </div>
 
-              {/* Estado: detectando */}
-              {geoLoading && (
-                <div
-                  className="w-full flex items-center justify-center gap-3 py-5 rounded-2xl border-2"
-                  style={{ borderColor: "hsl(var(--primary) / 0.3)", background: "hsl(var(--primary) / 0.05)" }}
-                >
-                  <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: "hsl(var(--primary))", borderTopColor: "transparent" }} />
-                  <span className="font-bold text-sm" style={{ color: "hsl(var(--primary))" }}>Detectando tu ubicación...</span>
+              {/* Botón detectar — debe ser un gesto directo del usuario */}
+              <button
+                type="button"
+                onClick={detectDepartment}
+                disabled={geoLoading}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 font-bold text-sm transition-all active:scale-95"
+                style={{
+                  borderColor: geoLoading ? "hsl(var(--border))" : "hsl(var(--primary) / 0.5)",
+                  background: geoLoading ? "hsl(var(--muted))" : "hsl(var(--primary) / 0.06)",
+                  color: geoLoading ? "hsl(var(--muted-foreground))" : "hsl(var(--primary))",
+                }}
+              >
+                {geoLoading
+                  ? <><div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: "hsl(var(--primary))", borderTopColor: "transparent" }} /> Detectando...</>
+                  : <>📍 Detectar mi ubicación automáticamente</>}
+              </button>
+
+              {/* Resultado de detección */}
+              {geoAttempted && !geoLoading && form.department && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold"
+                  style={{ background: "hsl(var(--primary)/0.08)", color: "hsl(var(--primary))" }}>
+                  ✓ Detectado: <span className="font-black">{form.department}</span>
+                  <span className="text-muted-foreground font-normal ml-1">— podés cambiarlo abajo</span>
                 </div>
               )}
 
-              {/* Estado: detectado exitosamente y no quiere cambiar */}
-              {!geoLoading && form.department && !showManualPicker && (
-                <div className="space-y-3">
-                  <div
-                    className="flex items-center justify-between px-4 py-3.5 rounded-2xl"
-                    style={{ background: "hsl(var(--primary) / 0.1)", border: "2px solid hsl(var(--primary))" }}
+              {geoAttempted && !geoLoading && !form.department && (
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm"
+                  style={{ background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }}>
+                  <span>⚠️</span>
+                  <span>No se pudo detectar. Seleccioná tu departamento:</span>
+                </div>
+              )}
+
+              {/* Grid siempre visible */}
+              <div className="grid grid-cols-3 gap-2">
+                {DEPARTMENTS.map(d => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => update("department", d)}
+                    className="py-2.5 px-2 rounded-xl text-xs font-bold border-2 transition-all"
+                    style={{
+                      borderColor: form.department === d ? "hsl(var(--primary))" : "hsl(var(--border))",
+                      background: form.department === d ? "hsl(var(--primary) / 0.1)" : "transparent",
+                      color: form.department === d ? "hsl(var(--primary))" : "hsl(var(--foreground))",
+                    }}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">📍</span>
-                      <div>
-                        <p className="text-xs text-muted-foreground leading-none mb-0.5">Departamento detectado</p>
-                        <p className="font-black text-base" style={{ color: "hsl(var(--primary))" }}>{form.department}</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="text-xs font-bold underline"
-                      style={{ color: "hsl(var(--primary))" }}
-                      onClick={() => setShowManualPicker(true)}
-                    >
-                      Cambiar
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Estado: fallo o usuario quiere cambiar — mostrar picker manual */}
-              {!geoLoading && (showManualPicker || (!form.department && geoAttempted)) && (
-                <div className="space-y-3">
-                  {geoAttempted && !form.department && (
-                    <div
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm"
-                      style={{ background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }}
-                    >
-                      <span>⚠️</span>
-                      <span>No pudimos detectar tu ubicación. Selecciona tu departamento:</span>
-                    </div>
-                  )}
-                  {showManualPicker && form.department && (
-                    <p className="text-xs text-muted-foreground text-center">Selecciona tu departamento:</p>
-                  )}
-                  <div className="grid grid-cols-3 gap-2">
-                    {DEPARTMENTS.map(d => (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => { update("department", d); setShowManualPicker(false); }}
-                        className="py-2.5 px-2 rounded-xl text-xs font-bold border-2 transition-all"
-                        style={{
-                          borderColor: form.department === d ? "hsl(var(--primary))" : "hsl(var(--border))",
-                          background: form.department === d ? "hsl(var(--primary) / 0.1)" : "transparent",
-                          color: form.department === d ? "hsl(var(--primary))" : "hsl(var(--foreground))",
-                        }}
-                      >
-                        {d}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    {d}
+                  </button>
+                ))}
+              </div>
 
               {/* T&C checkbox — solo aparece si el admin definió los términos */}
               {hasTerms && (
