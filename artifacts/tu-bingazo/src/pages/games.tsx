@@ -243,7 +243,7 @@ export default function GamesPage() {
                               : { background: "hsl(42 98% 52%)", color: "#1a0050" }}
                             onClick={!isFinished && !user ? (e) => { e.preventDefault(); e.stopPropagation(); navigate("/login"); } : undefined}
                           >
-                            {isLive ? "Jugar ahora" : isFinished ? "Ver" : "Comprar →"}
+                            {isLive ? "Jugar ahora →" : isFinished ? "Ver" : "Comprar →"}
                           </div>
                         </div>
                       </div>
