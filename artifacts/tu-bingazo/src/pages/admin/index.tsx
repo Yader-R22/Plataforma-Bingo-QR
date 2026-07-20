@@ -8459,9 +8459,19 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             { value: "portrait-primary", label: "Retrato fijo", desc: "Vertical bloqueado" },
             { value: "landscape-primary", label: "Paisaje fijo", desc: "Horizontal bloqueado" },
           ];
-          const ALL_CATEGORIES = [
-            "games","entertainment","sports","finance","lifestyle","utilities",
-            "music","news","productivity","social","travel","education",
+          const ALL_CATEGORIES: { value: string; label: string }[] = [
+            { value: "games",         label: "Juegos" },
+            { value: "entertainment", label: "Entretenimiento" },
+            { value: "sports",        label: "Deportes" },
+            { value: "finance",       label: "Finanzas" },
+            { value: "lifestyle",     label: "Estilo de vida" },
+            { value: "utilities",     label: "Utilidades" },
+            { value: "music",         label: "Música" },
+            { value: "news",          label: "Noticias" },
+            { value: "productivity",  label: "Productividad" },
+            { value: "social",        label: "Social" },
+            { value: "travel",        label: "Viajes" },
+            { value: "education",     label: "Educación" },
           ];
 
           return (
@@ -8711,12 +8721,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {ALL_CATEGORIES.map(cat => {
-                    const active = pf.pwa_categories.split(",").map(c => c.trim()).includes(cat);
+                    const active = pf.pwa_categories.split(",").map(c => c.trim()).includes(cat.value);
                     return (
-                      <button key={cat}
+                      <button key={cat.value}
                         onClick={() => {
                           const current = pf.pwa_categories.split(",").map(c => c.trim()).filter(Boolean);
-                          const next = active ? current.filter(c => c !== cat) : [...current, cat];
+                          const next = active ? current.filter(c => c !== cat.value) : [...current, cat.value];
                           setPwaForm(f => ({ ...f, pwa_categories: next.join(",") }));
                         }}
                         className="px-3 py-1.5 rounded-full text-xs font-bold transition-all border-2"
@@ -8725,7 +8735,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           background: active ? "hsl(var(--primary))" : "transparent",
                           color: active ? "white" : "hsl(var(--muted-foreground))",
                         }}>
-                        {cat}
+                        {cat.label}
                       </button>
                     );
                   })}
