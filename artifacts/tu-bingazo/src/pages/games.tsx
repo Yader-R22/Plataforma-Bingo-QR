@@ -21,7 +21,8 @@ function drawDatePriority(game: any): number {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const drawStart = new Date(draw.getFullYear(), draw.getMonth(), draw.getDate());
   const diffDays = Math.round((drawStart.getTime() - todayStart.getTime()) / 86400000);
-  if (diffDays <= 0) return 1;   // HOY
+  if (diffDays < 0) return 90;   // EN ESPERA (pasó su fecha, va al fondo)
+  if (diffDays === 0) return 1;  // HOY
   if (diffDays === 1) return 2;  // MAÑANA
   if (diffDays <= 6) return 3;   // ESTA SEMANA
   if (diffDays <= 13) return 4;  // LA OTRA SEMANA
@@ -90,6 +91,8 @@ export default function GamesPage() {
       const pa = drawDatePriority(a);
       const pb = drawDatePriority(b);
       if (pa !== pb) return pa - pb;
+      // EN ESPERA: más reciente primero (menor atraso arriba)
+      if (pa === 90) return new Date(b.draw_date).getTime() - new Date(a.draw_date).getTime();
       return new Date(a.draw_date).getTime() - new Date(b.draw_date).getTime();
     });
 
