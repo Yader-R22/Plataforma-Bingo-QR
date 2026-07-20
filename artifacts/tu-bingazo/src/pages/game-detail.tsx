@@ -831,16 +831,19 @@ export default function GameDetailPage() {
             <div className="relative z-10 px-5 py-6">
               <div className="flex items-start justify-between">
                 <div>
-                  {isActive && <div className="live-badge mb-3"><div className="live-dot" />EN VIVO</div>}
+                  {isActive && <div className="live-badge mb-2"><div className="live-dot" />EN VIVO</div>}
                   {!isActive && !isFinished && (
-                    <div className="mb-3 inline-block text-xs font-bold px-3 py-1 rounded-full"
+                    <div className="mb-2 inline-block text-xs font-bold px-3 py-1 rounded-full"
                       style={drawDateBadgeStyle(game.draw_date)}>
                       {drawDateLabel(game.draw_date)}
                     </div>
                   )}
                   {isFinished && (
-                    <div className="mb-3 inline-block bg-white/20 text-white/60 text-xs font-bold px-3 py-1 rounded-full">FINALIZADO</div>
+                    <div className="mb-2 inline-block bg-white/20 text-white/60 text-xs font-bold px-3 py-1 rounded-full">FINALIZADO</div>
                   )}
+                  <p className="text-white font-black text-xl leading-tight mb-2" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                    {game.title}
+                  </p>
                   <p className="text-white/80 text-sm">
                     📅 {new Date(game.draw_date).toLocaleDateString("es-BO", {
                       weekday: "long", day: "numeric", month: "long",
@@ -863,12 +866,17 @@ export default function GameDetailPage() {
             <div className="relative z-10 px-5 pb-5">
               <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)" }}>
                 <div className="grid grid-cols-4 divide-x divide-white/10">
-                  {([
-                    { icon: "💳", label: "Cartón", value: `Bs ${game.card_price as number}` },
-                    { icon: "👥", label: "Jugadores", value: `${(game as any).unique_participants ?? game.participant_count}` },
-                    { icon: "🏆", label: "Ganadores", value: `${(game.max_winners as number) * ((game as any).total_rounds ?? 1)}` },
-                    { icon: "🎱", label: "Rondas", value: `${(game as any).total_rounds ?? 1}` },
-                  ] as { icon: string; label: string; value: string }[]).map(item => (
+                  {(() => {
+                    const jugadores = (game as any).unique_participants ?? game.participant_count;
+                    const ganadores = (game.max_winners as number) * ((game as any).total_rounds ?? 1);
+                    const rondas = (game as any).total_rounds ?? 1;
+                    return ([
+                      { icon: "💳", label: "Cartón", value: `Bs ${game.card_price as number}` },
+                      { icon: "👥", label: jugadores === 1 ? "jugador" : "jugadores", value: `${jugadores}` },
+                      { icon: "🏆", label: ganadores === 1 ? "ganador" : "ganadores", value: `${ganadores}` },
+                      { icon: "🎱", label: rondas === 1 ? "ronda" : "rondas", value: `${rondas}` },
+                    ] as { icon: string; label: string; value: string }[]);
+                  })().map(item => (
                     <div key={item.label} className="py-3 px-2 text-center">
                       <p className="text-base leading-none mb-1">{item.icon}</p>
                       <p className="font-black text-sm text-white leading-none">{item.value}</p>
