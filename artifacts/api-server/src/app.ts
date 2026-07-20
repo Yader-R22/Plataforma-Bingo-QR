@@ -6,7 +6,7 @@ import pinoHttp from "pino-http";
 import path from "path";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { db, siteSettingsTable } from "@workspace/db";
+import { db, siteSettingsTable, gamesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { UPLOADS_DIR } from "./config";
 
@@ -58,14 +58,78 @@ app.use(async (req, res, next) => {
     next(); return;
   }
   try {
-    const rows = await db.select().from(siteSettingsTable).where(eq(siteSettingsTable.id, 1));
-    const s = rows[0];
-    if (!s) { next(); return; }
-
     const proto = (req.headers["x-forwarded-proto"] as string | undefined) || "https";
     const rawHost = (req.headers["x-forwarded-host"] as string | undefined) || req.headers["host"] || "";
     const host = rawHost && !rawHost.startsWith("localhost") && !rawHost.startsWith("127.") ? rawHost : "elbingote.com";
     const base = `${proto}://${host}`;
+
+    // ── Página de juego específico → OG con imagen de portada del juego ──────
+    const gameMatch = req.path.match(/^\/juego\/(\d+)/);
+    if (gameMatch) {
+      const gameId = parseInt(gameMatch[1]);
+      const [game] = await db.select({
+        id: gamesTable.id,
+        title: gamesTable.title,
+        prizeAmount: gamesTable.prizeAmount,
+        cardPrice: gamesTable.cardPrice,
+        drawDate: gamesTable.drawDate,
+        coverImageUrl: gamesTable.coverImageUrl,
+        slug: gamesTable.slug,
+      }).from(gamesTable).where(eq(gamesTable.id, gameId)).limit(1);
+
+      if (game) {
+        const gameUrl = game.slug
+          ? `${base}/juego/${game.id}/${game.slug}`
+          : `${base}/juego/${game.id}`;
+        const ogImage = game.coverImageUrl
+          ? `${base}/api/og/game/${game.id}/image`
+          : `${base}/api/site-settings/og-image`;
+        const prize = Number(game.prizeAmount).toLocaleString("es-BO");
+        const cardPrice = Number(game.cardPrice).toLocaleString("es-BO");
+        const drawDate = game.drawDate
+          ? new Date(game.drawDate).toLocaleDateString("es-BO", {
+              weekday: "long", day: "numeric", month: "long",
+              hour: "2-digit", minute: "2-digit",
+            })
+          : "";
+        const title = escHtml(`${game.title} — Bs ${prize} en premios`);
+        const desc = escHtml(`🎱 Sorteo: ${drawDate} · Cartón Bs ${cardPrice} · ¡Juega desde tu celular!`);
+        const url = escHtml(gameUrl);
+        const img = escHtml(ogImage);
+
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.setHeader("Cache-Control", "public, max-age=300");
+        res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<title>${title}</title>
+<meta name="description" content="${desc}"/>
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="El Bingote"/>
+<meta property="og:title" content="${title}"/>
+<meta property="og:description" content="${desc}"/>
+<meta property="og:url" content="${url}"/>
+<meta property="og:image" content="${img}"/>
+<meta property="og:image:width" content="1200"/>
+<meta property="og:image:height" content="630"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="${title}"/>
+<meta name="twitter:description" content="${desc}"/>
+<meta name="twitter:image" content="${img}"/>
+<script>window.location.replace(${JSON.stringify(gameUrl)});</script>
+</head>
+<body><p><a href="${url}">${title}</a></p></body>
+</html>`);
+        return;
+      }
+    }
+
+    // ── Resto de rutas → OG genérico del sitio ───────────────────────────────
+    const rows = await db.select().from(siteSettingsTable).where(eq(siteSettingsTable.id, 1));
+    const s = rows[0];
+    if (!s) { next(); return; }
+
     const ogImage = `${base}/api/site-settings/og-image`;
     const siteName = escHtml(s.siteName);
     const title = escHtml(s.seoTitle || s.siteName);
