@@ -1251,6 +1251,7 @@ export default function AdminPage() {
         if (perfR.ok) setActivatorPerformance(await perfR.json());
       }
       if (t === "sitio") {
+        setSiteLoaded(false);
         const [r, br] = await Promise.all([
           fetch(`${BASE}/api/site-settings`),
           fetch(`${BASE}/api/banners`, { headers: authH() }),
@@ -1286,6 +1287,7 @@ export default function AdminPage() {
         if (br.ok) { setBanners(await br.json()); }
       }
       if (t === "pwa") {
+        setPwaLoaded(false);
         const r = await fetch(`${BASE}/api/pwa/settings`, { headers: authH() });
         if (r.ok) {
           const s = await r.json();
@@ -1336,6 +1338,7 @@ export default function AdminPage() {
         }
       }
       if (t === "ventas-activador") {
+        setActivatorSaleSettingsLoaded(false);
         setActivatorSalesLoading(true);
         try {
           const statusParam = activatorSalesFilter !== "all" ? `&status=${activatorSalesFilter}` : "";
@@ -1450,7 +1453,9 @@ export default function AdminPage() {
 
   function handleTab(t: Tab) {
     setTab(t);
-    if (t === "referidos") loadedTabsRef.current.delete("referidos");
+    if (t === "referidos" || t === "sitio" || t === "pwa" || t === "ventas-activador") {
+      loadedTabsRef.current.delete(t);
+    }
     loadTab(t);
     window.location.hash = t;
   }
