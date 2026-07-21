@@ -657,7 +657,7 @@ router.post("/:id/start", requireAdmin, async (req: AuthRequest, res) => {
   sendPushToUsers(playerIds, {
     title: "🎱 ¡El bingo empezó!",
     body: `${game.title} ya está en vivo. ¡Entrá a jugar ahora!`,
-    url: `/play/${game.id}`,
+    url: `/juego/${game.id}/jugar`,
   }).catch(() => {});
 });
 

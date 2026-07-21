@@ -8814,9 +8814,9 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   <div>
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">URL destino (opcional)</label>
                     <input className="w-full rounded-xl border px-3 py-2.5 text-sm font-mono bg-background"
-                      placeholder="/games" value={pushUrl}
+                      placeholder="/juego" value={pushUrl}
                       onChange={e => setPushUrl(e.target.value)} />
-                    <p className="text-xs text-muted-foreground mt-1">Ej: <code>/games</code>, <code>/wallet</code></p>
+                    <p className="text-xs text-muted-foreground mt-1">Ej: <code>/juego</code>, <code>/billetera</code></p>
                   </div>
                   <div>
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1.5">Imagen (opcional)</label>
