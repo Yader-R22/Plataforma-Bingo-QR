@@ -77,6 +77,38 @@ router.get("/icon/192", async (req, res) => {
   serveIcon(s.pwaIcon192Url || s.pwaIconUrl, req, res, "/favicon.svg");
 });
 
+// ── Maskable icon (SVG) — fondo del color de la app + logo centrado con 18% safe zone ──
+// El ícono "maskable" es recortado por Android al shape del dispositivo (squircle/círculo).
+// Para que no queden bordes negros visibles y el recorte sea limpio, necesita:
+//   1. Fondo de color sólido que llene TODO el cuadrado (no transparencia en las esquinas)
+//   2. Safe zone: el logo debe caber en el 80% central (idealmente 64%)
+// Usamos SVG en vez de PNG para no depender de procesamiento de imágenes en el servidor.
+router.get("/icon/maskable", async (req, res) => {
+  const s = await getSettings();
+  const bgColor = s.pwaBgColor || s.primaryColor || "#1a0050";
+
+  // Logo source: data URL inline o URL externa
+  const iconSrc = s.pwaIconUrl || s.pwaIcon192Url;
+  let imageTag = "";
+  if (iconSrc) {
+    // Logo ocupa el 64% central (328px de 512) — safe zone de 18% (92px) en cada lado
+    const href = iconSrc.startsWith("data:") ? iconSrc : iconSrc;
+    imageTag = `<image href="${href}" x="92" y="92" width="328" height="328" preserveAspectRatio="xMidYMid meet"/>`;
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="${bgColor}"/>
+  ${imageTag}
+</svg>`;
+
+  const etag = `"maskable-${createHash("md5").update(svg).digest("hex").slice(0, 8)}"`;
+  if (req.headers["if-none-match"] === etag) { res.status(304).end(); return; }
+  res.setHeader("Content-Type", "image/svg+xml");
+  res.setHeader("ETag", etag);
+  res.setHeader("Cache-Control", "no-cache");
+  res.send(svg);
+});
+
 // Dynamic manifest served from DB — no-cache so admin changes reflect immediately
 router.get("/manifest.json", async (req, res) => {
   const s = await getSettings();
@@ -88,21 +120,30 @@ router.get("/manifest.json", async (req, res) => {
   const icons: { src: string; sizes: string; type: string; purpose: string }[] = [];
 
   if (s.pwaIconUrl) {
+    // purpose "any" → el PNG original se muestra SIN recorte en diálogos de instalación,
+    // notificaciones y cualquier contexto donde el SO no aplica máscara.
     const src = s.pwaIconUrl.startsWith("data:") ? "/api/pwa/icon/512" : s.pwaIconUrl;
-    icons.push({ src, sizes: "512x512", type: iconType(s.pwaIconUrl), purpose: "any maskable" });
+    icons.push({ src, sizes: "512x512", type: iconType(s.pwaIconUrl), purpose: "any" });
   }
   if (s.pwaIcon192Url) {
     const src = s.pwaIcon192Url.startsWith("data:") ? "/api/pwa/icon/192" : s.pwaIcon192Url;
-    icons.push({ src, sizes: "192x192", type: iconType(s.pwaIcon192Url), purpose: "any maskable" });
+    icons.push({ src, sizes: "192x192", type: iconType(s.pwaIcon192Url), purpose: "any" });
   } else if (s.pwaIconUrl) {
     // Reuse 512 icon at 192 slot if no separate 192 uploaded
     const src = s.pwaIconUrl.startsWith("data:") ? "/api/pwa/icon/192" : s.pwaIconUrl;
-    icons.push({ src, sizes: "192x192", type: iconType(s.pwaIconUrl), purpose: "any maskable" });
+    icons.push({ src, sizes: "192x192", type: iconType(s.pwaIconUrl), purpose: "any" });
   }
-  if (icons.length === 0) {
+
+  // purpose "maskable" → SVG generado con fondo de color + logo centrado con 18% safe zone.
+  // Android lo recorta al shape del dispositivo (squircle): el fondo llena los bordes,
+  // el logo queda en el centro sin cortarse.
+  icons.push({ src: "/api/pwa/icon/maskable", sizes: "512x512", type: "image/svg+xml", purpose: "maskable" });
+
+  if (icons.length === 1) {
+    // Solo el maskable (sin ícono configurado) → agregar fallback any
     const fallback = s.logoUrl || s.faviconUrl || "/favicon.svg";
-    icons.push({ src: fallback, sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" });
-    icons.push({ src: fallback, sizes: "192x192", type: "image/svg+xml", purpose: "any maskable" });
+    icons.unshift({ src: fallback, sizes: "512x512", type: "image/svg+xml", purpose: "any" });
+    icons.unshift({ src: fallback, sizes: "192x192", type: "image/svg+xml", purpose: "any" });
   }
 
   const manifest = {
