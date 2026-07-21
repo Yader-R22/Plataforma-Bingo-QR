@@ -89,20 +89,20 @@ router.get("/manifest.json", async (req, res) => {
 
   if (s.pwaIconUrl) {
     const src = s.pwaIconUrl.startsWith("data:") ? "/api/pwa/icon/512" : s.pwaIconUrl;
-    icons.push({ src, sizes: "512x512", type: iconType(s.pwaIconUrl), purpose: "any maskable" });
+    icons.push({ src, sizes: "512x512", type: iconType(s.pwaIconUrl), purpose: "any" });
   }
   if (s.pwaIcon192Url) {
     const src = s.pwaIcon192Url.startsWith("data:") ? "/api/pwa/icon/192" : s.pwaIcon192Url;
-    icons.push({ src, sizes: "192x192", type: iconType(s.pwaIcon192Url), purpose: "any maskable" });
+    icons.push({ src, sizes: "192x192", type: iconType(s.pwaIcon192Url), purpose: "any" });
   } else if (s.pwaIconUrl) {
     // Reuse 512 icon at 192 slot if no separate 192 uploaded
     const src = s.pwaIconUrl.startsWith("data:") ? "/api/pwa/icon/192" : s.pwaIconUrl;
-    icons.push({ src, sizes: "192x192", type: iconType(s.pwaIconUrl), purpose: "any maskable" });
+    icons.push({ src, sizes: "192x192", type: iconType(s.pwaIconUrl), purpose: "any" });
   }
   if (icons.length === 0) {
     const fallback = s.logoUrl || s.faviconUrl || "/favicon.svg";
-    icons.push({ src: fallback, sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" });
-    icons.push({ src: fallback, sizes: "192x192", type: "image/svg+xml", purpose: "any maskable" });
+    icons.push({ src: fallback, sizes: "512x512", type: "image/svg+xml", purpose: "any" });
+    icons.push({ src: fallback, sizes: "192x192", type: "image/svg+xml", purpose: "any" });
   }
 
   const manifest = {
