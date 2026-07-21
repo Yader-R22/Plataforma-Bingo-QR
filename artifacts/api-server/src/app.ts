@@ -90,6 +90,7 @@ app.use(async (req, res, next) => {
           ? new Date(game.drawDate).toLocaleDateString("es-BO", {
               weekday: "long", day: "numeric", month: "long",
               hour: "2-digit", minute: "2-digit",
+              timeZone: "America/La_Paz",
             })
           : "";
         const title = escHtml(`${game.title} — Bs ${prize} en premios`);
