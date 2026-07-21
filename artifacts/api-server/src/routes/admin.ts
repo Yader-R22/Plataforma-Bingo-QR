@@ -22,20 +22,103 @@ import { formatUser } from "./auth";
 
 const router = Router();
 
+// ── Avatar público (sin auth — foto de perfil, no es dato sensible) ──────────
+// Debe registrarse ANTES de router.use(requireAdmin) para que no requiera auth.
+// El <img src> del frontend no puede enviar headers de autorización.
+router.get("/users/:id/avatar", async (req, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).end(); return; }
+  const rows = await db.select({ avatarUrl: usersTable.avatarUrl })
+    .from(usersTable).where(eq(usersTable.id, id)).limit(1);
+  const raw = rows[0]?.avatarUrl;
+  if (!raw) { res.status(404).end(); return; }
+  if (raw.startsWith("data:")) {
+    const commaIdx = raw.indexOf(",");
+    const mimeMatch = raw.slice(0, commaIdx).match(/data:([^;]+)/);
+    const mime = mimeMatch?.[1] ?? "image/webp";
+    const buf = Buffer.from(raw.slice(commaIdx + 1), "base64");
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(buf);
+    return;
+  }
+  if (raw.startsWith("http")) { res.redirect(raw); return; }
+  res.status(404).end();
+});
+
 // All admin routes require admin auth
 router.use(requireAdmin);
 
-function formatUserList(user: typeof usersTable.$inferSelect) {
-  return formatUser(user);
+// ── List formatter — excluye avatar base64, usa URL en su lugar ───────────────
+// Evita cargar ~80KB × 2000 usuarios = ~160MB en una sola query de lista.
+type UserListRow = {
+  id: number; fullName: string; ci: string; phone: string; department: string | null;
+  balance: string; bonusBalance: string; bonusExpiresAt: Date | null;
+  status: typeof usersTable.$inferSelect["status"]; isAdmin: boolean;
+  hasAvatar: boolean; hasIdPhotos: boolean; needsCiUpload: boolean | null;
+  rejectionReason: string | null; mustChangePassword: boolean | null;
+  tempPasswordExpiresAt: Date | null; isBanned: boolean | null; banReason: string | null;
+  adminPermissions: typeof usersTable.$inferSelect["adminPermissions"];
+  lastKnownIp: string | null; createdAt: Date;
+};
+function formatUserList(user: UserListRow) {
+  return {
+    id: user.id,
+    full_name: user.fullName,
+    ci: user.ci,
+    phone: user.phone,
+    department: user.department,
+    balance: parseFloat(user.balance),
+    bonus_balance: parseFloat(user.bonusBalance),
+    bonus_expires_at: user.bonusExpiresAt ?? null,
+    status: user.status,
+    is_admin: user.isAdmin,
+    avatar_url: user.hasAvatar ? `/api/admin/users/${user.id}/avatar` : null,
+    has_id_photos: user.hasIdPhotos,
+    needs_ci_upload: user.needsCiUpload,
+    rejection_reason: user.rejectionReason ?? null,
+    must_change_password: user.mustChangePassword,
+    temp_password_expires_at: user.tempPasswordExpiresAt ?? null,
+    is_banned: user.isBanned,
+    ban_reason: user.banReason ?? null,
+    admin_permissions: user.adminPermissions ?? [],
+    last_known_ip: user.lastKnownIp ?? null,
+    created_at: user.createdAt,
+  };
 }
 
 router.get("/users", async (req: AuthRequest, res) => {
   const query = AdminListUsersQueryParams.safeParse(req.query);
+  // Select solo campos necesarios — excluye avatarUrl, idPhotoFrontUrl, idPhotoBackUrl,
+  // resetPhotoFront/Back/Selfie (base64 grandes). La foto se sirve via /avatar endpoint.
+  const listCols = {
+    id: usersTable.id,
+    fullName: usersTable.fullName,
+    ci: usersTable.ci,
+    phone: usersTable.phone,
+    department: usersTable.department,
+    balance: usersTable.balance,
+    bonusBalance: usersTable.bonusBalance,
+    bonusExpiresAt: usersTable.bonusExpiresAt,
+    status: usersTable.status,
+    isAdmin: usersTable.isAdmin,
+    hasAvatar: sql<boolean>`(avatar_url IS NOT NULL)`,
+    hasIdPhotos: sql<boolean>`(id_photo_front_url IS NOT NULL AND id_photo_back_url IS NOT NULL)`,
+    needsCiUpload: usersTable.needsCiUpload,
+    rejectionReason: usersTable.rejectionReason,
+    mustChangePassword: usersTable.mustChangePassword,
+    tempPasswordExpiresAt: usersTable.tempPasswordExpiresAt,
+    isBanned: usersTable.isBanned,
+    banReason: usersTable.banReason,
+    adminPermissions: usersTable.adminPermissions,
+    lastKnownIp: usersTable.lastKnownIp,
+    createdAt: usersTable.createdAt,
+  };
   let users;
   if (query.success && query.data.status) {
-    users = await db.select().from(usersTable).where(eq(usersTable.status, query.data.status as "pending" | "active" | "rejected")).limit(2000);
+    users = await db.select(listCols).from(usersTable).where(eq(usersTable.status, query.data.status as "pending" | "active" | "rejected")).limit(2000);
   } else {
-    users = await db.select().from(usersTable).orderBy(desc(usersTable.createdAt)).limit(2000);
+    users = await db.select(listCols).from(usersTable).orderBy(desc(usersTable.createdAt)).limit(2000);
   }
   res.json(users.map(formatUserList));
 });
@@ -764,7 +847,7 @@ router.get("/users/:id", async (req: AuthRequest, res) => {
     db.select({ count: sql<number>`count(*)` }).from(winnersTable).where(eq(winnersTable.userId, id)),
   ]);
 
-  const base = formatUserList(u);
+  const base = formatUser(u);
   res.json({
     ...base,
     has_photos: !!(u.idPhotoFrontUrl || u.idPhotoBackUrl),
