@@ -599,11 +599,11 @@ export default function PlayPage() {
                             ? "linear-gradient(135deg, hsl(42 98% 50%), hsl(38 98% 40%))"
                             : isMarked && !isFree ? undefined
                             : isFree ? undefined
-                            : isCalled ? "rgba(255,220,0,0.12)"
+                            : (isCalled && autoMark) ? "rgba(255,220,0,0.12)"
                             : "rgba(255,255,255,0.04)",
                           color: isWinning ? "#1a0050"
                             : isMarked && !isFree ? undefined
-                            : isCalled ? "hsl(42 98% 65%)"
+                            : (isCalled && autoMark) ? "hsl(42 98% 65%)"
                             : "rgba(255,255,255,0.7)",
                           fontSize: "1rem",
                           fontWeight: isWinning ? 900 : undefined,
