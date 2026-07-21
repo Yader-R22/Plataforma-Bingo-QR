@@ -477,23 +477,6 @@ export default function PlayPage() {
           </div>
         )}
 
-        {/* Premio del juego — banner informativo */}
-        {session && (session.prize_type === "physical" || session.prize_type === "mixed") && session.prize_physical_name && (
-          <div className="rounded-2xl px-4 py-3 flex items-center gap-3"
-            style={{ background: "rgba(124,58,237,0.18)", border: "1px solid rgba(124,58,237,0.35)" }}>
-            <span className="text-2xl shrink-0">📦</span>
-            <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-wider mb-0.5" style={{ color: "#c4b5fd" }}>
-                Premio {session.prize_type === "mixed" ? "mixto" : "físico"}
-              </p>
-              <p className="text-white font-black text-sm leading-tight truncate">{session.prize_physical_name}</p>
-              {session.prize_type === "mixed" && (session.prize_amount ?? 0) > 0 && (
-                <p className="text-purple-300 text-xs mt-0.5">+ Bs {(session.prize_amount ?? 0).toFixed(0)} en efectivo</p>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Live Winners — solo ganadores de la ronda actual */}
         {(() => {
           const currentRound = session?.current_round ?? 1;
