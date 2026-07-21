@@ -144,15 +144,14 @@ export default function WalletPage() {
   const numAmount = parseFloat(amount) || 0;
 
   async function submitAddress() {
-    if (!addrLine.trim()) { toast.error("Ingresa tu dirección"); return; }
-    if (!addrPhone.trim()) { toast.error("Ingresa tu teléfono"); return; }
+    if (!addrLine.trim()) { toast.error("Ingresa las especificaciones de envío"); return; }
     if (!addressModal) return;
     setAddrLoading(true);
     try {
       const res = await fetch(`${BASE}/api/wallet/physical-prizes/${addressModal}/address`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ delivery_address: addrLine.trim(), delivery_phone: addrPhone.trim() }),
+        body: JSON.stringify({ delivery_address: addrLine.trim(), delivery_phone: user?.phone ?? "" }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Error al enviar dirección"); return; }
@@ -178,27 +177,27 @@ export default function WalletPage() {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
               </button>
             </div>
-            <p className="text-sm text-muted-foreground -mt-2">El administrador usará estos datos para coordinar la entrega de tu premio.</p>
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <label className="text-sm font-bold">Dirección completa</label>
-                <input
-                  className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400"
-                  placeholder="Ej: Av. Blanco Galindo Km 3, Cochabamba"
-                  value={addrLine}
-                  onChange={e => setAddrLine(e.target.value)}
-                />
+            <p className="text-sm text-muted-foreground -mt-2">El administrador coordinará la entrega usando tu WhatsApp registrado.</p>
+            {user?.phone && (
+              <div className="rounded-xl px-3 py-2.5 flex items-center gap-2"
+                style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
+                <span className="text-base">📱</span>
+                <div>
+                  <p className="text-[11px] text-green-700 font-bold">WhatsApp registrado</p>
+                  <p className="text-sm font-black">{user.phone}</p>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-bold">Teléfono / WhatsApp</label>
-                <input
-                  className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400"
-                  placeholder="Ej: 70000000"
-                  type="tel"
-                  value={addrPhone}
-                  onChange={e => setAddrPhone(e.target.value)}
-                />
-              </div>
+            )}
+            <div className="space-y-1.5">
+              <label className="text-sm font-bold">Especificaciones de envío</label>
+              <textarea
+                className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 resize-none"
+                placeholder="Ej: Envíenme a Santa Cruz de la Sierra. Puedo recogerlo en la zona norte de la ciudad."
+                rows={3}
+                value={addrLine}
+                onChange={e => setAddrLine(e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">Indica cómo o dónde prefieres recibir tu premio.</p>
             </div>
             <button
               onClick={submitAddress}
