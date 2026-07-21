@@ -142,7 +142,7 @@ function formatGameForList(
     rounds: typeof gamesTable.$inferSelect["rounds"];
     currentRound: number | null; slug: string | null;
     hasCoverImage: boolean; hasPrizeImage: boolean; isPrivate: boolean | null;
-    calledNumbers: number[] | null; createdAt: Date; updatedAt: Date;
+    calledNumbers: number[] | null; createdAt: Date; updatedAt: Date | null;
     prizeType: typeof gamesTable.$inferSelect["prizeType"];
     prizePhysicalName: string | null;
   },
@@ -182,8 +182,8 @@ function formatGameForList(
     total_rounds: totalRounds,
     round_history: [],
     slug: game.slug ?? null,
-    cover_image_url: game.hasCoverImage ? `/api/games/${game.id}/cover-image?v=${game.updatedAt.getTime()}` : null,
-    prize_image_url: game.hasPrizeImage ? `/api/games/${game.id}/prize-image?v=${game.updatedAt.getTime()}` : null,
+    cover_image_url: game.hasCoverImage ? `/api/games/${game.id}/cover-image?v=${(game.updatedAt ?? game.createdAt).getTime()}` : null,
+    prize_image_url: game.hasPrizeImage ? `/api/games/${game.id}/prize-image?v=${(game.updatedAt ?? game.createdAt).getTime()}` : null,
     prize_type: game.prizeType ?? "cash",
     prize_physical_name: game.prizePhysicalName ?? null,
     is_private: game.isPrivate ?? false,
