@@ -122,6 +122,69 @@ function formatGame(
   };
 }
 
+// ── List formatter ────────────────────────────────────────────────────────────
+// Usa un select parcial que excluye coverImageUrl (base64, hasta ~100KB/juego)
+// y roundHistory (JSON que crece). La cover se sirve como URL via /cover-image.
+// El endpoint de lista se consulta cada 5 s desde el frontend — sin esto la heap
+// se llena rápidamente y dispara el auto-restart antes de que corra el GC.
+function formatGameForList(
+  game: {
+    id: number; title: string;
+    status: typeof gamesTable.$inferSelect["status"];
+    prizeAmount: string; cardPrice: string; drawDate: Date; participantCount: number;
+    streamUrlYoutube: string | null; streamUrlTiktok: string | null; streamUrlFacebook: string | null;
+    gameMode: typeof gamesTable.$inferSelect["gameMode"]; maxWinners: number;
+    prizes: typeof gamesTable.$inferSelect["prizes"];
+    rounds: typeof gamesTable.$inferSelect["rounds"];
+    currentRound: number | null; slug: string | null;
+    hasCoverImage: boolean; isPrivate: boolean | null;
+    calledNumbers: number[] | null; createdAt: Date;
+  },
+  extras: { uniqueParticipants?: number; onlineCount?: number } = {}
+) {
+  const rounds = game.rounds as RoundConfig[] | null | undefined;
+  const totalRounds = rounds?.length ?? 1;
+  const currentRound = game.currentRound ?? 1;
+  let gameModeOut = game.gameMode as string;
+  let maxWinnersOut = game.maxWinners;
+  let prizeAmountOut = parseFloat(game.prizeAmount);
+  if (rounds?.length) {
+    const r = rounds[(currentRound - 1)];
+    if (r) {
+      gameModeOut = r.game_mode as string;
+      maxWinnersOut = r.max_winners;
+      prizeAmountOut = r.prize_amount;
+    }
+  }
+  return {
+    id: game.id,
+    title: game.title,
+    type: computeGameType(new Date(game.drawDate)),
+    status: game.status,
+    prize_amount: prizeAmountOut,
+    card_price: parseFloat(game.cardPrice),
+    draw_date: game.drawDate,
+    participant_count: game.participantCount,
+    unique_participants: extras.uniqueParticipants ?? game.participantCount,
+    online_count: extras.onlineCount ?? 0,
+    stream_url_youtube: game.streamUrlYoutube ?? null,
+    stream_url_tiktok: game.streamUrlTiktok ?? null,
+    stream_url_facebook: game.streamUrlFacebook ?? null,
+    game_mode: gameModeOut,
+    max_winners: maxWinnersOut,
+    prizes: (game.prizes as Array<{ place: number; amount: number }>) ?? [],
+    rounds: rounds ?? null,
+    current_round: currentRound,
+    total_rounds: totalRounds,
+    round_history: [],
+    slug: game.slug ?? null,
+    cover_image_url: game.hasCoverImage ? `/api/games/${game.id}/cover-image` : null,
+    is_private: game.isPrivate ?? false,
+    called_numbers: game.calledNumbers ?? [],
+    created_at: game.createdAt,
+  };
+}
+
 router.get("/", async (req: AuthRequest, res) => {
   const query = ListGamesQueryParams.safeParse(req.query);
   let statusConditions = [];
@@ -129,9 +192,34 @@ router.get("/", async (req: AuthRequest, res) => {
   if (query.success) {
     if (query.data.status) statusConditions.push(eq(gamesTable.status, query.data.status as "upcoming" | "active" | "finished"));
   }
+
+  // Select solo los campos necesarios — excluye coverImageUrl y roundHistory
+  const listCols = {
+    id: gamesTable.id,
+    title: gamesTable.title,
+    status: gamesTable.status,
+    prizeAmount: gamesTable.prizeAmount,
+    cardPrice: gamesTable.cardPrice,
+    drawDate: gamesTable.drawDate,
+    participantCount: gamesTable.participantCount,
+    streamUrlYoutube: gamesTable.streamUrlYoutube,
+    streamUrlTiktok: gamesTable.streamUrlTiktok,
+    streamUrlFacebook: gamesTable.streamUrlFacebook,
+    gameMode: gamesTable.gameMode,
+    maxWinners: gamesTable.maxWinners,
+    prizes: gamesTable.prizes,
+    rounds: gamesTable.rounds,
+    currentRound: gamesTable.currentRound,
+    slug: gamesTable.slug,
+    hasCoverImage: sql<boolean>`(cover_image_url IS NOT NULL)`,
+    isPrivate: gamesTable.isPrivate,
+    calledNumbers: gamesTable.calledNumbers,
+    createdAt: gamesTable.createdAt,
+  };
+
   const games = statusConditions.length
-    ? await db.select().from(gamesTable).where(and(...statusConditions)).orderBy(desc(gamesTable.drawDate))
-    : await db.select().from(gamesTable).orderBy(desc(gamesTable.drawDate));
+    ? await db.select(listCols).from(gamesTable).where(and(...statusConditions)).orderBy(desc(gamesTable.drawDate))
+    : await db.select(listCols).from(gamesTable).orderBy(desc(gamesTable.drawDate));
 
   // Unique participants per game (one query for all games)
   const uniqueRows = await db.execute(
@@ -140,7 +228,7 @@ router.get("/", async (req: AuthRequest, res) => {
   const uniqueMap = new Map<number, number>();
   for (const row of uniqueRows.rows) uniqueMap.set(row.game_id as number, row.cnt as number);
 
-  let result = games.map(g => formatGame(g, {
+  let result = games.map(g => formatGameForList(g, {
     uniqueParticipants: uniqueMap.get(g.id) ?? 0,
     onlineCount: getOnlineCount(g.id),
   }));
@@ -272,6 +360,28 @@ router.get("/:id", async (req: AuthRequest, res) => {
   );
   const uniqueParticipants = (uniq.rows[0]?.cnt as number) ?? 0;
   res.json(formatGame(games[0], { uniqueParticipants, onlineCount: getOnlineCount(gameId) }));
+});
+
+// ── Cover image — sirve el binario sin pasar la base64 por JSON ───────────────
+router.get("/:id/cover-image", async (req, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).end(); return; }
+  const rows = await db.select({ coverImageUrl: gamesTable.coverImageUrl })
+    .from(gamesTable).where(eq(gamesTable.id, id)).limit(1);
+  const raw = rows[0]?.coverImageUrl;
+  if (!raw) { res.status(404).end(); return; }
+  if (raw.startsWith("data:")) {
+    const commaIdx = raw.indexOf(",");
+    const mimeMatch = raw.slice(0, commaIdx).match(/data:([^;]+)/);
+    const mime = mimeMatch?.[1] ?? "image/webp";
+    const buf = Buffer.from(raw.slice(commaIdx + 1), "base64");
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(buf);
+    return;
+  }
+  if (raw.startsWith("http")) { res.redirect(raw); return; }
+  res.status(404).end();
 });
 
 router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
