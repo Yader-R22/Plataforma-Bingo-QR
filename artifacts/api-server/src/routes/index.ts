@@ -34,7 +34,8 @@ router.use("/feed", feedRouter);
 router.use("/admin", adminRouter);
 router.use("/categories", categoriesRouter);
 router.use("/referrals", referralsRouter);
-router.use("/site-settings", siteSettingsRouter);
+// Site-settings needs higher limit — admin uploads images as base64 (logo, QR, OG image)
+router.use("/site-settings", express.json({ limit: "8mb" }), siteSettingsRouter);
 router.use("/banners", bannersRouter);
 router.use("/pwa", pwaRouter);
 router.use("/manual-payments", manualPaymentsRouter);
