@@ -98,7 +98,7 @@ function formatGame(
     title: game.title,
     type: computeGameType(new Date(game.drawDate)),
     status: game.status,
-    prize_amount: parseFloat(game.prizeAmount),
+    prize_amount: roundCfg.prize_amount,
     card_price: parseFloat(game.cardPrice),
     draw_date: game.drawDate,
     participant_count: game.participantCount,
