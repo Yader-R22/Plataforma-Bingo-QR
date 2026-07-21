@@ -1977,7 +1977,7 @@ export default function AdminPage() {
     const s = financeSummary;
     const PERIOD_LABELS: Record<string, string> = { today: "Hoy", week: "Últimos 7 días", month: "Últimos 30 días", year: "Último año", all: "Todo el tiempo", custom: `${financeFrom || "—"} al ${financeTo || "hoy"}` };
     const fmt = (v: number) => `Bs ${v.toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-    const fmtDate = (d: string) => new Date(d).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const fmtDate = (d: string) => new Date(d).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/La_Paz" });
     const typeColor: Record<string, string> = { ingreso: "#16a34a", premio: "#b45309", retiro: "#dc2626", comision: "#7c3aed" };
     const typeLabel: Record<string, string> = { ingreso: "Ingreso", premio: "Premio", retiro: "Retiro", admin_credit: "✅ Crédito admin", admin_debit: "➖ Débito admin", comision: "🔗 Comisión activador" };
     const statusLabel: Record<string, string> = { upcoming: "Próximo", active: "Activo", finished: "Finalizado" };
@@ -5103,7 +5103,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                             <p className="text-xs font-bold truncate">{t.user_name}</p>
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.description}{t.game_title ? ` · ${t.game_title}` : ""}</p>
-                          <p className="text-xs text-muted-foreground">{new Date(t.date).toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(t.date).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/La_Paz" })}</p>
                         </div>
                         <p className="shrink-0 font-black text-sm" style={{ color: typeStyle[t.type] ?? "#64748b" }}>
                           {["ingreso", "admin_debit"].includes(t.type) ? "+" : "−"}{fmt(Math.abs(t.amount))}
@@ -7633,7 +7633,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           <div className="min-w-0">
                             <p className="font-bold text-sm truncate">🎱 {s.game_title}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              {new Date(s.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                              {new Date(s.created_at).toLocaleString("es-BO", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/La_Paz" })}
                             </p>
                           </div>
                           <span className="text-[10px] px-2 py-1 rounded-full font-bold shrink-0"

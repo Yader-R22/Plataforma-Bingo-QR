@@ -845,9 +845,10 @@ export default function GameDetailPage() {
                     {game.title}
                   </p>
                   <p className="text-white/80 text-sm">
-                    📅 {new Date(game.draw_date).toLocaleDateString("es-BO", {
+                    📅 {new Date(game.draw_date).toLocaleString("es-BO", {
                       weekday: "long", day: "numeric", month: "long",
                       hour: "2-digit", minute: "2-digit",
+                      timeZone: "America/La_Paz",
                     })}
                   </p>
                 </div>

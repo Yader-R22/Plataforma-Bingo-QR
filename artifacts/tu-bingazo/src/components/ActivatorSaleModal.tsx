@@ -469,7 +469,7 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
                       <p className="font-bold text-sm">✅ {selectedGame.title}</p>
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-xs text-muted-foreground">
-                          {selectedGame.scheduled_at ? new Date(selectedGame.scheduled_at).toLocaleDateString("es-BO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+                          {selectedGame.scheduled_at ? new Date(selectedGame.scheduled_at).toLocaleString("es-BO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/La_Paz" }) : "—"}
                         </span>
                         <span className="text-xs font-black" style={{ color: "hsl(var(--primary))" }}>
                           Bs {selectedGame.card_price.toFixed(2)} / cartón
@@ -496,7 +496,7 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
                       <p className="font-bold text-sm">{g.title}</p>
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-xs text-muted-foreground">
-                          {g.scheduled_at ? new Date(g.scheduled_at).toLocaleDateString("es-BO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+                          {g.scheduled_at ? new Date(g.scheduled_at).toLocaleString("es-BO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/La_Paz" }) : "—"}
                         </span>
                         <span className="text-xs font-black" style={{ color: "hsl(var(--primary))" }}>
                           Bs {g.card_price.toFixed(2)} / cartón
