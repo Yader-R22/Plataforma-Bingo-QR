@@ -3,10 +3,10 @@ type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 export const modules: ModuleMap = {
   "./components/mockups/game-detail/CleanStats.tsx": () => import("../components/mockups/game-detail/CleanStats.tsx"),
   "./components/mockups/game-detail/PremiumDark.tsx": () => import("../components/mockups/game-detail/PremiumDark.tsx"),
-  "./components/mockups/share-btn/VariantA.tsx": () => import("../components/mockups/share-btn/VariantA.tsx"),
-  "./components/mockups/share-btn/VariantB.tsx": () => import("../components/mockups/share-btn/VariantB.tsx"),
-  "./components/mockups/share-btn/VariantC.tsx": () => import("../components/mockups/share-btn/VariantC.tsx"),
   "./components/mockups/req-cards/VarianteA.tsx": () => import("../components/mockups/req-cards/VarianteA.tsx"),
   "./components/mockups/req-cards/VarianteB.tsx": () => import("../components/mockups/req-cards/VarianteB.tsx"),
-  "./components/mockups/req-cards/VarianteC.tsx": () => import("../components/mockups/req-cards/VarianteC.tsx")
+  "./components/mockups/req-cards/VarianteC.tsx": () => import("../components/mockups/req-cards/VarianteC.tsx"),
+  "./components/mockups/share-btn/VariantA.tsx": () => import("../components/mockups/share-btn/VariantA.tsx"),
+  "./components/mockups/share-btn/VariantB.tsx": () => import("../components/mockups/share-btn/VariantB.tsx"),
+  "./components/mockups/share-btn/VariantC.tsx": () => import("../components/mockups/share-btn/VariantC.tsx")
 };
