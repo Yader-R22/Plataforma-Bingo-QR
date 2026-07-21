@@ -287,7 +287,7 @@ router.get("/:id/receipt-image", requireAdmin, async (req: AuthRequest, res) => 
       const response = await objectStorageService.downloadObject(objectFile);
       res.status(response.status);
       response.headers.forEach((value, key) => res.setHeader(key, value));
-      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
       if (response.body) {
         const nodeStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
         nodeStream.pipe(res);

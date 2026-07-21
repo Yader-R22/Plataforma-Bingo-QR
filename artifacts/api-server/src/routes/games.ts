@@ -115,11 +115,11 @@ function formatGame(
     total_rounds: totalRounds,
     round_history: (game.roundHistory as RoundHistoryEntry[] | null) ?? [],
     slug: game.slug ?? null,
-    cover_image_url: game.coverImageUrl ?? null,
+    cover_image_url: game.coverImageUrl ? `/api/games/${game.id}/cover-image?v=${game.updatedAt.getTime()}` : null,
     prize_type: game.prizeType ?? "cash",
     prize_physical_name: game.prizePhysicalName ?? null,
     prize_physical_description: game.prizePhysicalDescription ?? null,
-    has_prize_image: !!(game.prizeImageUrl),
+    prize_image_url: game.prizeImageUrl ? `/api/games/${game.id}/prize-image?v=${game.updatedAt.getTime()}` : null,
     is_private: game.isPrivate ?? false,
     called_numbers: game.calledNumbers ?? [],
     created_at: game.createdAt,
@@ -141,8 +141,10 @@ function formatGameForList(
     prizes: typeof gamesTable.$inferSelect["prizes"];
     rounds: typeof gamesTable.$inferSelect["rounds"];
     currentRound: number | null; slug: string | null;
-    hasCoverImage: boolean; isPrivate: boolean | null;
-    calledNumbers: number[] | null; createdAt: Date;
+    hasCoverImage: boolean; hasPrizeImage: boolean; isPrivate: boolean | null;
+    calledNumbers: number[] | null; createdAt: Date; updatedAt: Date;
+    prizeType: typeof gamesTable.$inferSelect["prizeType"];
+    prizePhysicalName: string | null;
   },
   extras: { uniqueParticipants?: number; onlineCount?: number } = {}
 ) {
@@ -180,9 +182,10 @@ function formatGameForList(
     total_rounds: totalRounds,
     round_history: [],
     slug: game.slug ?? null,
-    cover_image_url: game.hasCoverImage ? `/api/games/${game.id}/cover-image` : null,
-    prize_type: (game as any).prizeType ?? "cash",
-    prize_physical_name: (game as any).prizePhysicalName ?? null,
+    cover_image_url: game.hasCoverImage ? `/api/games/${game.id}/cover-image?v=${game.updatedAt.getTime()}` : null,
+    prize_image_url: game.hasPrizeImage ? `/api/games/${game.id}/prize-image?v=${game.updatedAt.getTime()}` : null,
+    prize_type: game.prizeType ?? "cash",
+    prize_physical_name: game.prizePhysicalName ?? null,
     is_private: game.isPrivate ?? false,
     called_numbers: game.calledNumbers ?? [],
     created_at: game.createdAt,
@@ -216,9 +219,11 @@ router.get("/", async (req: AuthRequest, res) => {
     currentRound: gamesTable.currentRound,
     slug: gamesTable.slug,
     hasCoverImage: sql<boolean>`(cover_image_url IS NOT NULL)`,
+    hasPrizeImage: sql<boolean>`(prize_image_url IS NOT NULL)`,
     isPrivate: gamesTable.isPrivate,
     calledNumbers: gamesTable.calledNumbers,
     createdAt: gamesTable.createdAt,
+    updatedAt: gamesTable.updatedAt,
     prizeType: gamesTable.prizeType,
     prizePhysicalName: gamesTable.prizePhysicalName,
   };
@@ -387,7 +392,7 @@ router.get("/:id/cover-image", async (req, res) => {
     const mime = mimeMatch?.[1] ?? "image/webp";
     const buf = Buffer.from(raw.slice(commaIdx + 1), "base64");
     res.setHeader("Content-Type", mime);
-    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     res.send(buf);
     return;
   }
@@ -409,7 +414,7 @@ router.get("/:id/prize-image", async (req, res) => {
     const mime = mimeMatch?.[1] ?? "image/webp";
     const buf = Buffer.from(raw.slice(commaIdx + 1), "base64");
     res.setHeader("Content-Type", mime);
-    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     res.send(buf);
     return;
   }

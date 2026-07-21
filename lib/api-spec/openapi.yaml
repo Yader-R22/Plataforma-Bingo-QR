@@ -1232,9 +1232,9 @@ components:
         prize_physical_description:
           type: ["string", "null"]
           description: Descripción corta del objeto físico
-        has_prize_image:
-          type: boolean
-          description: true si el juego tiene imagen de premio cargada (usar /api/games/:id/prize-image para obtenerla)
+        prize_image_url:
+          type: ["string", "null"]
+          description: URL versionada de la imagen del premio físico (null si no hay imagen)
         is_private:
           type: boolean
           description: Si es true, solo activadores autorizados pueden vender cartones
@@ -1297,9 +1297,9 @@ components:
           type: ["string", "null"]
         prize_physical_description:
           type: ["string", "null"]
-        has_prize_image:
-          type: boolean
-          description: true si el juego tiene imagen de premio cargada (usar /api/games/:id/prize-image para obtenerla)
+        prize_image_url:
+          type: ["string", "null"]
+          description: URL versionada de la imagen del premio físico (null si no hay imagen)
         is_private:
           type: boolean
           description: Si es true, solo activadores autorizados pueden vender cartones

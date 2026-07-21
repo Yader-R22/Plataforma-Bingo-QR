@@ -257,8 +257,11 @@ export interface Game {
      * @nullable
      */
   prize_physical_description?: string | null;
-  /** true si el juego tiene imagen de premio cargada (usar /api/games/:id/prize-image para obtenerla) */
-  has_prize_image?: boolean;
+  /**
+     * URL versionada de la imagen del premio físico (null si no hay imagen)
+     * @nullable
+     */
+  prize_image_url?: string | null;
   /** Si es true, solo activadores autorizados pueden vender cartones */
   is_private?: boolean;
   created_at: string;
@@ -320,8 +323,11 @@ export interface GameInput {
   prize_physical_name?: string | null;
   /** @nullable */
   prize_physical_description?: string | null;
-  /** true si el juego tiene imagen de premio cargada (usar /api/games/:id/prize-image para obtenerla) */
-  has_prize_image?: boolean;
+  /**
+     * URL versionada de la imagen del premio físico (null si no hay imagen)
+     * @nullable
+     */
+  prize_image_url?: string | null;
   /** Si es true, solo activadores autorizados pueden vender cartones */
   is_private?: boolean;
 }

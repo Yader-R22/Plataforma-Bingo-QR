@@ -196,13 +196,15 @@ export default function GamesPage() {
                             <div className="text-right">
                               {(game as any).prize_type === "physical" ? (
                                 <div className="flex flex-col items-end gap-1">
-                                  <img
-                                    src={`${BASE}/api/games/${game.id}/prize-image`}
-                                    alt={(game as any).prize_physical_name ?? "Premio"}
-                                    onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                                    className="w-14 h-14 rounded-xl object-cover shadow-lg"
-                                    style={{ border: "2px solid rgba(255,255,255,0.25)" }}
-                                  />
+                                  {(game as any).prize_image_url && (
+                                    <img
+                                      src={`${BASE}${(game as any).prize_image_url}`}
+                                      alt={(game as any).prize_physical_name ?? "Premio"}
+                                      onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                      className="w-14 h-14 rounded-xl object-cover shadow-lg"
+                                      style={{ border: "2px solid rgba(255,255,255,0.25)" }}
+                                    />
+                                  )}
                                   <p className="text-white/60 text-[10px] font-bold">📦 Premio físico</p>
                                   {(game as any).prize_physical_name && (
                                     <p className="text-white text-[10px] font-black leading-tight text-right max-w-[100px]">

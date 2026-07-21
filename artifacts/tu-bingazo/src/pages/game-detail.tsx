@@ -855,10 +855,10 @@ export default function GameDetailPage() {
                 <div className="text-right shrink-0 ml-4">
                   {(game as any).prize_type === "physical" ? (
                     <div className="flex flex-col items-end gap-1">
-                      {(game as any).prize_physical_name && (
+                      {(game as any).prize_image_url && (
                         <img
-                          src={`${BASE}/api/games/${game.id}/prize-image`}
-                          alt={(game as any).prize_physical_name}
+                          src={`${BASE}${(game as any).prize_image_url}`}
+                          alt={(game as any).prize_physical_name ?? "Premio"}
                           onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
                           className="w-16 h-16 rounded-xl object-cover shadow-lg"
                           style={{ border: "2px solid rgba(255,255,255,0.25)" }}
