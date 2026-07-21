@@ -72,6 +72,7 @@ ogRouter.get("/game/:id", async (req, res) => {
     ? new Date(game.drawDate).toLocaleDateString("es-BO", {
         weekday: "long", day: "numeric", month: "long",
         hour: "2-digit", minute: "2-digit",
+        timeZone: "America/La_Paz",
       })
     : "";
 
