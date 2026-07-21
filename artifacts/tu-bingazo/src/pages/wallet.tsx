@@ -661,17 +661,12 @@ export default function WalletPage() {
                               <p className="text-xs font-medium">Tu premio está en camino 🚚</p>
                               {item.delivery_notes && <p className="text-xs text-muted-foreground">{item.delivery_notes}</p>}
                               {item.delivery_receipt_url && (
-                                <div className="space-y-1">
-                                  <p className="text-[11px] text-muted-foreground font-medium">Comprobante de envío:</p>
-                                  <img
-                                    src={item.delivery_receipt_url}
-                                    alt="Comprobante de envío"
-                                    className="w-full rounded-xl object-cover cursor-pointer max-h-40"
-                                    style={{ border: "1px solid rgba(0,0,0,0.1)" }}
-                                    onClick={() => setProofModal(item.delivery_receipt_url!)}
-                                  />
-                                  <p className="text-[10px] text-muted-foreground text-center">Toca para ampliar</p>
-                                </div>
+                                <button
+                                  onClick={() => setProofModal(item.delivery_receipt_url!)}
+                                  className="w-full py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-colors"
+                                  style={{ background: "rgba(124,58,237,0.1)", border: "1px solid rgba(124,58,237,0.25)", color: "hsl(262 80% 40%)" }}>
+                                  🧾 Ver boleta de envío
+                                </button>
                               )}
                             </div>
                           )}
@@ -679,17 +674,12 @@ export default function WalletPage() {
                             <div className="space-y-2">
                               <p className="text-xs font-medium">¡Premio entregado! ✅</p>
                               {item.delivery_receipt_url && (
-                                <div className="space-y-1">
-                                  <p className="text-[11px] text-muted-foreground font-medium">Comprobante de envío:</p>
-                                  <img
-                                    src={item.delivery_receipt_url}
-                                    alt="Comprobante de envío"
-                                    className="w-full rounded-xl object-cover cursor-pointer max-h-40"
-                                    style={{ border: "1px solid rgba(0,0,0,0.1)" }}
-                                    onClick={() => setProofModal(item.delivery_receipt_url!)}
-                                  />
-                                  <p className="text-[10px] text-muted-foreground text-center">Toca para ampliar</p>
-                                </div>
+                                <button
+                                  onClick={() => setProofModal(item.delivery_receipt_url!)}
+                                  className="w-full py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-colors"
+                                  style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)", color: "hsl(142 70% 30%)" }}>
+                                  🧾 Ver boleta de envío
+                                </button>
                               )}
                             </div>
                           )}
