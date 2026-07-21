@@ -657,13 +657,41 @@ export default function WalletPage() {
                             <p className="text-xs text-muted-foreground">Tu dirección fue enviada. El administrador coordinará la entrega.</p>
                           )}
                           {item.delivery_status === "shipped" && (
-                            <div className="space-y-1">
+                            <div className="space-y-2">
                               <p className="text-xs font-medium">Tu premio está en camino 🚚</p>
                               {item.delivery_notes && <p className="text-xs text-muted-foreground">{item.delivery_notes}</p>}
+                              {item.delivery_receipt_url && (
+                                <div className="space-y-1">
+                                  <p className="text-[11px] text-muted-foreground font-medium">Comprobante de envío:</p>
+                                  <img
+                                    src={item.delivery_receipt_url}
+                                    alt="Comprobante de envío"
+                                    className="w-full rounded-xl object-cover cursor-pointer max-h-40"
+                                    style={{ border: "1px solid rgba(0,0,0,0.1)" }}
+                                    onClick={() => setProofModal(item.delivery_receipt_url!)}
+                                  />
+                                  <p className="text-[10px] text-muted-foreground text-center">Toca para ampliar</p>
+                                </div>
+                              )}
                             </div>
                           )}
                           {item.delivery_status === "delivered" && (
-                            <p className="text-xs font-medium">¡Premio entregado! ✅</p>
+                            <div className="space-y-2">
+                              <p className="text-xs font-medium">¡Premio entregado! ✅</p>
+                              {item.delivery_receipt_url && (
+                                <div className="space-y-1">
+                                  <p className="text-[11px] text-muted-foreground font-medium">Comprobante de envío:</p>
+                                  <img
+                                    src={item.delivery_receipt_url}
+                                    alt="Comprobante de envío"
+                                    className="w-full rounded-xl object-cover cursor-pointer max-h-40"
+                                    style={{ border: "1px solid rgba(0,0,0,0.1)" }}
+                                    onClick={() => setProofModal(item.delivery_receipt_url!)}
+                                  />
+                                  <p className="text-[10px] text-muted-foreground text-center">Toca para ampliar</p>
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
                       )}
