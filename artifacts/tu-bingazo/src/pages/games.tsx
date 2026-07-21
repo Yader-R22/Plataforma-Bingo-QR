@@ -6,6 +6,8 @@ import { useSetLayoutConfig } from "@/components/AppLayout";
 import { toast } from "sonner";
 import { Users } from "lucide-react";
 
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 const ALL_TYPE_FILTERS = [
   { value: "all", label: "Todos" },
   { value: "daily", label: "🌅 Diario" },
@@ -192,10 +194,37 @@ export default function GamesPage() {
                           </div>
                           <div className="flex flex-row gap-3 items-start shrink-0">
                             <div className="text-right">
-                              <p className="font-black text-3xl leading-none" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 65%)", textShadow: "0 0 12px rgba(255,180,0,0.5)" }}>
-                                Bs {(game.prize_amount as number).toLocaleString("es-BO")}
-                              </p>
-                              <p className="text-white/60 text-xs mt-0.5">Premio</p>
+                              {(game as any).prize_type === "physical" ? (
+                                <div className="flex flex-col items-end gap-1">
+                                  <img
+                                    src={`${BASE}/api/games/${game.id}/prize-image`}
+                                    alt={(game as any).prize_physical_name ?? "Premio"}
+                                    onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                    className="w-14 h-14 rounded-xl object-cover shadow-lg"
+                                    style={{ border: "2px solid rgba(255,255,255,0.25)" }}
+                                  />
+                                  <p className="text-white/60 text-[10px] font-bold">📦 Premio físico</p>
+                                  {(game as any).prize_physical_name && (
+                                    <p className="text-white text-[10px] font-black leading-tight text-right max-w-[100px]">
+                                      {(game as any).prize_physical_name}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (game as any).prize_type === "mixed" ? (
+                                <div>
+                                  <p className="font-black text-3xl leading-none" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 65%)", textShadow: "0 0 12px rgba(255,180,0,0.5)" }}>
+                                    Bs {(game.prize_amount as number).toLocaleString("es-BO")}
+                                  </p>
+                                  <p className="text-white/60 text-[10px] mt-0.5">+ Premio físico</p>
+                                </div>
+                              ) : (
+                                <div>
+                                  <p className="font-black text-3xl leading-none" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 65%)", textShadow: "0 0 12px rgba(255,180,0,0.5)" }}>
+                                    Bs {(game.prize_amount as number).toLocaleString("es-BO")}
+                                  </p>
+                                  <p className="text-white/60 text-xs mt-0.5">Premio</p>
+                                </div>
+                              )}
                             </div>
                             <button
                               className="p-1.5 rounded-lg flex-shrink-0 text-white transition-colors"
