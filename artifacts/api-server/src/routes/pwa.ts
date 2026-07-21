@@ -6,12 +6,31 @@ import { requireAdmin, type AuthRequest } from "../middlewares/auth";
 
 const router = Router();
 
-// ── Settings cache ────────────────────────────────────────────────────────────
-// getSettings() es llamado por /manifest.json, /icon/512, /icon/192, /cache-version.
-// Sin caché, cada request hace un SELECT * completo (incluye iconos en base64 de
-// hasta 500 KB). Con TTL de 60 s prácticamente eliminamos esas queries repetidas.
-type SiteSettings = typeof siteSettingsTable.$inferSelect;
-let settingsCache: SiteSettings | null = null;
+// ── Settings cache (slim — sin datos binarios) ────────────────────────────────
+// getSettings() es llamado por /manifest.json, /cache-version y los endpoints admin.
+// La caché almacena solo campos pequeños; los campos binarios (base64) se cargan bajo
+// demanda en /icon/512 e /icon/192 para no acumular megas en el heap del proceso.
+type PwaManifestSettings = {
+  siteName: string;
+  siteTagline: string;
+  pwaShortName: string;
+  pwaCacheVersion: number;
+  pwaDisplayMode: string;
+  pwaOrientation: string;
+  pwaThemeColor: string | null;
+  pwaBgColor: string | null;
+  primaryColor: string;
+  pwaStartUrl: string;
+  pwaCategories: string;
+  /** Cabecera del data: URL (ej. "data:image/png;base64") o URL externa completa o null */
+  pwaIconHeader: string | null;
+  pwaIcon192Header: string | null;
+  /** Solo URLs externas — null si es data: URL o no hay imagen */
+  logoFallbackUrl: string | null;
+  faviconFallbackUrl: string | null;
+};
+
+let settingsCache: PwaManifestSettings | null = null;
 let settingsCacheAt = 0;
 const SETTINGS_TTL_MS = 60_000;
 
@@ -20,20 +39,57 @@ export function invalidatePwaSettingsCache(): void {
   settingsCacheAt = 0;
 }
 
-async function getSettings(): Promise<SiteSettings> {
+/** Para data: URLs devuelve solo la cabecera (sin los datos binarios); para URLs externas devuelve la URL completa. */
+function extractIconHeader(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith("data:")) {
+    const commaIdx = url.indexOf(",");
+    return commaIdx > 0 ? url.slice(0, commaIdx) : url.slice(0, 50);
+  }
+  return url;
+}
+
+/** Devuelve la URL solo si es externa — las data: URL son demasiado grandes para usarse como fallback en el manifest. */
+function externalOnly(url: string | null | undefined): string | null {
+  if (!url || url.startsWith("data:")) return null;
+  return url;
+}
+
+async function getSettings(): Promise<PwaManifestSettings> {
   const now = Date.now();
   if (settingsCache && now - settingsCacheAt < SETTINGS_TTL_MS) return settingsCache;
 
   const rows = await db.select().from(siteSettingsTable).where(eq(siteSettingsTable.id, 1));
+  let full: typeof siteSettingsTable.$inferSelect;
   if (rows.length === 0) {
     await db.insert(siteSettingsTable).values({ id: 1 });
     const fresh = await db.select().from(siteSettingsTable).where(eq(siteSettingsTable.id, 1));
-    settingsCache = fresh[0]!;
+    full = fresh[0]!;
   } else {
-    settingsCache = rows[0]!;
+    full = rows[0]!;
   }
+
+  // Construir caché slim: excluye todos los campos binarios grandes.
+  // La fila completa (full) queda elegible para GC inmediatamente.
+  settingsCache = {
+    siteName: full.siteName,
+    siteTagline: full.siteTagline,
+    pwaShortName: full.pwaShortName,
+    pwaCacheVersion: full.pwaCacheVersion,
+    pwaDisplayMode: full.pwaDisplayMode,
+    pwaOrientation: full.pwaOrientation,
+    pwaThemeColor: full.pwaThemeColor,
+    pwaBgColor: full.pwaBgColor,
+    primaryColor: full.primaryColor,
+    pwaStartUrl: full.pwaStartUrl,
+    pwaCategories: full.pwaCategories,
+    pwaIconHeader: extractIconHeader(full.pwaIconUrl),
+    pwaIcon192Header: extractIconHeader(full.pwaIcon192Url),
+    logoFallbackUrl: externalOnly(full.logoUrl),
+    faviconFallbackUrl: externalOnly(full.faviconUrl),
+  };
   settingsCacheAt = now;
-  return settingsCache!;
+  return settingsCache;
 }
 
 function iconType(src: string): string {
@@ -68,13 +124,15 @@ function serveIcon(raw: string | null | undefined, req: import("express").Reques
 }
 
 router.get("/icon/512", async (req, res) => {
-  const s = await getSettings();
-  serveIcon(s.pwaIconUrl, req, res, "/favicon.svg");
+  const [row] = await db.select({ url: siteSettingsTable.pwaIconUrl })
+    .from(siteSettingsTable).where(eq(siteSettingsTable.id, 1));
+  serveIcon(row?.url ?? null, req, res, "/favicon.svg");
 });
 
 router.get("/icon/192", async (req, res) => {
-  const s = await getSettings();
-  serveIcon(s.pwaIcon192Url || s.pwaIconUrl, req, res, "/favicon.svg");
+  const [row] = await db.select({ url: siteSettingsTable.pwaIcon192Url, fallback: siteSettingsTable.pwaIconUrl })
+    .from(siteSettingsTable).where(eq(siteSettingsTable.id, 1));
+  serveIcon((row?.url || row?.fallback) ?? null, req, res, "/favicon.svg");
 });
 
 // Dynamic manifest served from DB — no-cache so admin changes reflect immediately
@@ -89,20 +147,20 @@ router.get("/manifest.json", async (req, res) => {
   const cv = s.pwaCacheVersion ?? 1;
   const vq = `?v=${cv}`; // appended to icon URLs so Chrome re-downloads when version bumps
 
-  if (s.pwaIconUrl) {
-    const base = s.pwaIconUrl.startsWith("data:") ? "/api/pwa/icon/512" : s.pwaIconUrl;
-    icons.push({ src: `${base}${vq}`, sizes: "512x512", type: iconType(s.pwaIconUrl), purpose: "any" });
+  if (s.pwaIconHeader) {
+    const base = s.pwaIconHeader.startsWith("data:") ? "/api/pwa/icon/512" : s.pwaIconHeader;
+    icons.push({ src: `${base}${vq}`, sizes: "512x512", type: iconType(s.pwaIconHeader), purpose: "any" });
   }
-  if (s.pwaIcon192Url) {
-    const base = s.pwaIcon192Url.startsWith("data:") ? "/api/pwa/icon/192" : s.pwaIcon192Url;
-    icons.push({ src: `${base}${vq}`, sizes: "192x192", type: iconType(s.pwaIcon192Url), purpose: "any" });
-  } else if (s.pwaIconUrl) {
+  if (s.pwaIcon192Header) {
+    const base = s.pwaIcon192Header.startsWith("data:") ? "/api/pwa/icon/192" : s.pwaIcon192Header;
+    icons.push({ src: `${base}${vq}`, sizes: "192x192", type: iconType(s.pwaIcon192Header), purpose: "any" });
+  } else if (s.pwaIconHeader) {
     // Reuse 512 icon at 192 slot if no separate 192 uploaded
-    const base = s.pwaIconUrl.startsWith("data:") ? "/api/pwa/icon/192" : s.pwaIconUrl;
-    icons.push({ src: `${base}${vq}`, sizes: "192x192", type: iconType(s.pwaIconUrl), purpose: "any" });
+    const base = s.pwaIconHeader.startsWith("data:") ? "/api/pwa/icon/192" : s.pwaIconHeader;
+    icons.push({ src: `${base}${vq}`, sizes: "192x192", type: iconType(s.pwaIconHeader), purpose: "any" });
   }
   if (icons.length === 0) {
-    const fallback = s.logoUrl || s.faviconUrl || "/favicon.svg";
+    const fallback = s.logoFallbackUrl || s.faviconFallbackUrl || "/favicon.svg";
     icons.push({ src: `${fallback}${vq}`, sizes: "512x512", type: "image/svg+xml", purpose: "any" });
     icons.push({ src: `${fallback}${vq}`, sizes: "192x192", type: "image/svg+xml", purpose: "any" });
   }
@@ -136,7 +194,11 @@ router.get("/cache-version", async (_req, res) => {
 
 // Admin: read all PWA settings
 router.get("/settings", requireAdmin, async (_req, res) => {
-  const s = await getSettings();
+  const [s, icons] = await Promise.all([
+    getSettings(),
+    db.select({ pwaIconUrl: siteSettingsTable.pwaIconUrl, pwaIcon192Url: siteSettingsTable.pwaIcon192Url })
+      .from(siteSettingsTable).where(eq(siteSettingsTable.id, 1)),
+  ]);
   res.json({
     pwa_name: s.siteName,
     pwa_short_name: s.pwaShortName,
@@ -146,8 +208,8 @@ router.get("/settings", requireAdmin, async (_req, res) => {
     pwa_orientation: s.pwaOrientation,
     pwa_theme_color: s.pwaThemeColor,
     pwa_bg_color: s.pwaBgColor,
-    pwa_icon_512: s.pwaIconUrl,
-    pwa_icon_192: s.pwaIcon192Url,
+    pwa_icon_512: icons[0]?.pwaIconUrl ?? null,
+    pwa_icon_192: icons[0]?.pwaIcon192Url ?? null,
     pwa_categories: s.pwaCategories,
     pwa_cache_version: s.pwaCacheVersion,
   });
@@ -192,7 +254,11 @@ router.put("/settings", requireAdmin, async (req: AuthRequest, res) => {
   req.log.info({ admin_id: req.userId }, "PWA settings updated");
 
   invalidatePwaSettingsCache();
-  const updated = await getSettings();
+  const [updated, updIcons] = await Promise.all([
+    getSettings(),
+    db.select({ pwaIconUrl: siteSettingsTable.pwaIconUrl, pwaIcon192Url: siteSettingsTable.pwaIcon192Url })
+      .from(siteSettingsTable).where(eq(siteSettingsTable.id, 1)),
+  ]);
   res.json({
     pwa_name: updated.siteName,
     pwa_short_name: updated.pwaShortName,
@@ -202,8 +268,8 @@ router.put("/settings", requireAdmin, async (req: AuthRequest, res) => {
     pwa_orientation: updated.pwaOrientation,
     pwa_theme_color: updated.pwaThemeColor,
     pwa_bg_color: updated.pwaBgColor,
-    pwa_icon_512: updated.pwaIconUrl,
-    pwa_icon_192: updated.pwaIcon192Url,
+    pwa_icon_512: updIcons[0]?.pwaIconUrl ?? null,
+    pwa_icon_192: updIcons[0]?.pwaIcon192Url ?? null,
     pwa_categories: updated.pwaCategories,
     pwa_cache_version: updated.pwaCacheVersion,
   });
