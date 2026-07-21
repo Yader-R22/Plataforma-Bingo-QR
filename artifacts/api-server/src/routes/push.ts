@@ -125,8 +125,8 @@ router.get("/images/:filename", (req, res) => {
   if (!filename) { res.status(400).end(); return; }
   const filePath = path.join(LOCAL_PUSH_IMAGES_DIR, filename);
   if (!filePath.startsWith(LOCAL_PUSH_IMAGES_DIR)) { res.status(403).end(); return; }
-  res.sendFile(filePath, err => {
-    if (err) res.status(404).json({ error: "Imagen no encontrada" });
+  res.sendFile(filePath, { maxAge: 86_400_000 }, err => {
+    if (err && !res.headersSent) res.status(404).json({ error: "Imagen no encontrada" });
   });
 });
 
