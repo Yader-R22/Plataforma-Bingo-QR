@@ -36,6 +36,8 @@ import type {
   ClaimBingoInput,
   CreateCheckoutInput,
   DeleteGame200,
+  DeliverPhysicalPrizeInput,
+  DeliveryAddressInput,
   ForgotPasswordInput,
   Game,
   GameCategory,
@@ -51,11 +53,13 @@ import type {
   NameChangeInput,
   NameChangeRequest,
   PaymentStatus,
+  PhysicalPrize,
   PlatformStats,
   RecentFeed,
   RegisterInput,
   ResetPasswordInput,
   ResolveNameChangeInput,
+  ShipPhysicalPrizeInput,
   User,
   ValidateWinnerInput,
   VerifyUserInput,
@@ -2222,6 +2226,78 @@ export function useListCommissions<TData = Awaited<ReturnType<typeof listCommiss
 
 
 
+export const getSubmitDeliveryAddressUrl = (id: number,) => {
+
+
+
+
+  return `/api/wallet/physical-prizes/${id}/address`
+}
+
+/**
+ * @summary El ganador envía sus datos de envío para premio físico
+ */
+export const submitDeliveryAddress = async (id: number,
+    deliveryAddressInput: DeliveryAddressInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getSubmitDeliveryAddressUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      deliveryAddressInput,)
+  }
+);}
+
+
+
+
+export const getSubmitDeliveryAddressMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitDeliveryAddress>>, TError,{id: number;data: BodyType<DeliveryAddressInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitDeliveryAddress>>, TError,{id: number;data: BodyType<DeliveryAddressInput>}, TContext> => {
+
+const mutationKey = ['submitDeliveryAddress'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitDeliveryAddress>>, {id: number;data: BodyType<DeliveryAddressInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  submitDeliveryAddress(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitDeliveryAddressMutationResult = NonNullable<Awaited<ReturnType<typeof submitDeliveryAddress>>>
+    export type SubmitDeliveryAddressMutationBody = BodyType<DeliveryAddressInput>
+    export type SubmitDeliveryAddressMutationError = ErrorType<unknown>
+
+    /**
+ * @summary El ganador envía sus datos de envío para premio físico
+ */
+export const useSubmitDeliveryAddress = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitDeliveryAddress>>, TError,{id: number;data: BodyType<DeliveryAddressInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitDeliveryAddress>>,
+        TError,
+        {id: number;data: BodyType<DeliveryAddressInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitDeliveryAddressMutationOptions(options));
+    }
+
 export const getListWithdrawalsUrl = () => {
 
 
@@ -3200,6 +3276,227 @@ export const useAdminMarkWithdrawalPaid = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getAdminMarkWithdrawalPaidMutationOptions(options));
+    }
+
+export const getAdminListPhysicalPrizesUrl = () => {
+
+
+
+
+  return `/api/admin/physical-prizes`
+}
+
+/**
+ * @summary Lista de premios físicos pendientes de entrega (admin)
+ */
+export const adminListPhysicalPrizes = async ( options?: RequestInit): Promise<PhysicalPrize[]> => {
+
+  return customFetch<PhysicalPrize[]>(getAdminListPhysicalPrizesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAdminListPhysicalPrizesQueryKey = () => {
+    return [
+    `/api/admin/physical-prizes`
+    ] as const;
+    }
+
+
+export const getAdminListPhysicalPrizesQueryOptions = <TData = Awaited<ReturnType<typeof adminListPhysicalPrizes>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof adminListPhysicalPrizes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAdminListPhysicalPrizesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof adminListPhysicalPrizes>>> = ({ signal }) => adminListPhysicalPrizes({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof adminListPhysicalPrizes>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type AdminListPhysicalPrizesQueryResult = NonNullable<Awaited<ReturnType<typeof adminListPhysicalPrizes>>>
+export type AdminListPhysicalPrizesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Lista de premios físicos pendientes de entrega (admin)
+ */
+
+export function useAdminListPhysicalPrizes<TData = Awaited<ReturnType<typeof adminListPhysicalPrizes>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof adminListPhysicalPrizes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getAdminListPhysicalPrizesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getAdminShipPhysicalPrizeUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/physical-prizes/${id}/ship`
+}
+
+/**
+ * @summary Admin marca como enviado y sube boleta de envío
+ */
+export const adminShipPhysicalPrize = async (id: number,
+    shipPhysicalPrizeInput: ShipPhysicalPrizeInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getAdminShipPhysicalPrizeUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      shipPhysicalPrizeInput,)
+  }
+);}
+
+
+
+
+export const getAdminShipPhysicalPrizeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adminShipPhysicalPrize>>, TError,{id: number;data: BodyType<ShipPhysicalPrizeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof adminShipPhysicalPrize>>, TError,{id: number;data: BodyType<ShipPhysicalPrizeInput>}, TContext> => {
+
+const mutationKey = ['adminShipPhysicalPrize'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof adminShipPhysicalPrize>>, {id: number;data: BodyType<ShipPhysicalPrizeInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  adminShipPhysicalPrize(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AdminShipPhysicalPrizeMutationResult = NonNullable<Awaited<ReturnType<typeof adminShipPhysicalPrize>>>
+    export type AdminShipPhysicalPrizeMutationBody = BodyType<ShipPhysicalPrizeInput>
+    export type AdminShipPhysicalPrizeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Admin marca como enviado y sube boleta de envío
+ */
+export const useAdminShipPhysicalPrize = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adminShipPhysicalPrize>>, TError,{id: number;data: BodyType<ShipPhysicalPrizeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof adminShipPhysicalPrize>>,
+        TError,
+        {id: number;data: BodyType<ShipPhysicalPrizeInput>},
+        TContext
+      > => {
+      return useMutation(getAdminShipPhysicalPrizeMutationOptions(options));
+    }
+
+export const getAdminDeliverPhysicalPrizeUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/physical-prizes/${id}/deliver`
+}
+
+/**
+ * @summary Admin marca como entregado
+ */
+export const adminDeliverPhysicalPrize = async (id: number,
+    deliverPhysicalPrizeInput?: DeliverPhysicalPrizeInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getAdminDeliverPhysicalPrizeUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      deliverPhysicalPrizeInput,)
+  }
+);}
+
+
+
+
+export const getAdminDeliverPhysicalPrizeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adminDeliverPhysicalPrize>>, TError,{id: number;data?: BodyType<DeliverPhysicalPrizeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof adminDeliverPhysicalPrize>>, TError,{id: number;data?: BodyType<DeliverPhysicalPrizeInput>}, TContext> => {
+
+const mutationKey = ['adminDeliverPhysicalPrize'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof adminDeliverPhysicalPrize>>, {id: number;data?: BodyType<DeliverPhysicalPrizeInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  adminDeliverPhysicalPrize(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AdminDeliverPhysicalPrizeMutationResult = NonNullable<Awaited<ReturnType<typeof adminDeliverPhysicalPrize>>>
+    export type AdminDeliverPhysicalPrizeMutationBody = BodyType<DeliverPhysicalPrizeInput> | undefined
+    export type AdminDeliverPhysicalPrizeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Admin marca como entregado
+ */
+export const useAdminDeliverPhysicalPrize = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adminDeliverPhysicalPrize>>, TError,{id: number;data?: BodyType<DeliverPhysicalPrizeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof adminDeliverPhysicalPrize>>,
+        TError,
+        {id: number;data?: BodyType<DeliverPhysicalPrizeInput>},
+        TContext
+      > => {
+      return useMutation(getAdminDeliverPhysicalPrizeMutationOptions(options));
     }
 
 export const getAdminValidateWinnerUrl = (id: number,) => {

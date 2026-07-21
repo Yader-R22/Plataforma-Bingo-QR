@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { GameUpdateGameMode } from './gameUpdateGameMode';
+import type { GameUpdatePrizeType } from './gameUpdatePrizeType';
 import type { GameUpdateStatus } from './gameUpdateStatus';
 import type { RoundConfig } from './roundConfig';
 
@@ -33,4 +34,14 @@ export interface GameUpdate {
      * @nullable
      */
   cover_image_url?: string | null;
+  prize_type?: GameUpdatePrizeType;
+  /** @nullable */
+  prize_physical_name?: string | null;
+  /** @nullable */
+  prize_physical_description?: string | null;
+  /**
+     * URL o base64 de imagen del premio físico
+     * @nullable
+     */
+  prize_image_url?: string | null;
 }

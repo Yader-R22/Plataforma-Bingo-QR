@@ -26,6 +26,13 @@ export const winnersTable = pgTable("winners", {
   validated: boolean("validated").notNull().default(false),
   isHistorical: boolean("is_historical").notNull().default(false),
   adminNotes: text("admin_notes"),
+  prizeType: text("prize_type", { enum: ["cash", "physical", "mixed"] }),
+  prizePhysicalName: text("prize_physical_name"),
+  deliveryStatus: text("delivery_status", { enum: ["pending", "address_submitted", "shipped", "delivered"] }),
+  deliveryAddress: text("delivery_address"),
+  deliveryPhone: text("delivery_phone"),
+  deliveryReceiptUrl: text("delivery_receipt_url"),
+  deliveryNotes: text("delivery_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex("winners_card_round_uniq").on(table.cardId, table.round),

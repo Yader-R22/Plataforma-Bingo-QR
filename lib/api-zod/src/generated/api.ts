@@ -123,6 +123,9 @@ export const ListGamesResponseItem = zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
   "prize_amount": zod.number(),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
+  "prize_physical_name": zod.string().nullish(),
+  "prize_physical_description": zod.string().nullish(),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
@@ -130,6 +133,10 @@ export const ListGamesResponseItem = zod.object({
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
   "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional().describe('Tipo de premio — efectivo, físico u objeto+efectivo'),
+  "prize_physical_name": zod.string().nullish().describe('Nombre del objeto físico (ej. Samsung Galaxy A55)'),
+  "prize_physical_description": zod.string().nullish().describe('Descripción corta del objeto físico'),
+  "prize_image_url": zod.string().nullish().describe('URL o base64 de imagen del premio físico'),
   "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
@@ -157,9 +164,16 @@ export const CreateGameBody = zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
   "prize_amount": zod.number(),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
+  "prize_physical_name": zod.string().nullish(),
+  "prize_physical_description": zod.string().nullish(),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).nullish().describe('Configuración de múltiples rondas (null = juego de una sola ronda)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional().describe('Tipo de premio'),
+  "prize_physical_name": zod.string().nullish(),
+  "prize_physical_description": zod.string().nullish(),
+  "prize_image_url": zod.string().nullish().describe('URL o base64 de imagen del premio físico'),
   "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones')
 })
 
@@ -193,6 +207,9 @@ export const GetGameResponse = zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
   "prize_amount": zod.number(),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
+  "prize_physical_name": zod.string().nullish(),
+  "prize_physical_description": zod.string().nullish(),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
@@ -200,6 +217,10 @@ export const GetGameResponse = zod.object({
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
   "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional().describe('Tipo de premio — efectivo, físico u objeto+efectivo'),
+  "prize_physical_name": zod.string().nullish().describe('Nombre del objeto físico (ej. Samsung Galaxy A55)'),
+  "prize_physical_description": zod.string().nullish().describe('Descripción corta del objeto físico'),
+  "prize_image_url": zod.string().nullish().describe('URL o base64 de imagen del premio físico'),
   "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
@@ -227,9 +248,16 @@ export const UpdateGameBody = zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
   "prize_amount": zod.number(),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
+  "prize_physical_name": zod.string().nullish(),
+  "prize_physical_description": zod.string().nullish(),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).nullish().describe('Actualizar configuración de rondas (null = quitar multi-ronda)'),
-  "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)')
+  "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
+  "prize_physical_name": zod.string().nullish(),
+  "prize_physical_description": zod.string().nullish(),
+  "prize_image_url": zod.string().nullish().describe('URL o base64 de imagen del premio físico')
 })
 
 export const UpdateGameResponse = zod.object({
@@ -254,6 +282,9 @@ export const UpdateGameResponse = zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
   "prize_amount": zod.number(),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
+  "prize_physical_name": zod.string().nullish(),
+  "prize_physical_description": zod.string().nullish(),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
@@ -261,6 +292,10 @@ export const UpdateGameResponse = zod.object({
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
   "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional().describe('Tipo de premio — efectivo, físico u objeto+efectivo'),
+  "prize_physical_name": zod.string().nullish().describe('Nombre del objeto físico (ej. Samsung Galaxy A55)'),
+  "prize_physical_description": zod.string().nullish().describe('Descripción corta del objeto físico'),
+  "prize_image_url": zod.string().nullish().describe('URL o base64 de imagen del premio físico'),
   "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
@@ -375,6 +410,9 @@ export const StartGameResponse = zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
   "prize_amount": zod.number(),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
+  "prize_physical_name": zod.string().nullish(),
+  "prize_physical_description": zod.string().nullish(),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
@@ -382,6 +420,10 @@ export const StartGameResponse = zod.object({
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
   "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional().describe('Tipo de premio — efectivo, físico u objeto+efectivo'),
+  "prize_physical_name": zod.string().nullish().describe('Nombre del objeto físico (ej. Samsung Galaxy A55)'),
+  "prize_physical_description": zod.string().nullish().describe('Descripción corta del objeto físico'),
+  "prize_image_url": zod.string().nullish().describe('URL o base64 de imagen del premio físico'),
   "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
@@ -416,6 +458,9 @@ export const FinishGameResponse = zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
   "prize_amount": zod.number(),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
+  "prize_physical_name": zod.string().nullish(),
+  "prize_physical_description": zod.string().nullish(),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
@@ -423,6 +468,10 @@ export const FinishGameResponse = zod.object({
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
   "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional().describe('Tipo de premio — efectivo, físico u objeto+efectivo'),
+  "prize_physical_name": zod.string().nullish().describe('Nombre del objeto físico (ej. Samsung Galaxy A55)'),
+  "prize_physical_description": zod.string().nullish().describe('Descripción corta del objeto físico'),
+  "prize_image_url": zod.string().nullish().describe('URL o base64 de imagen del premio físico'),
   "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
@@ -457,6 +506,9 @@ export const NextRoundResponse = zod.object({
   "game_mode": zod.enum(['horizontal', 'vertical', 'diagonal', 'quina', 'full_card', 'esquinas', 'cruz', 'x_doble']),
   "max_winners": zod.number(),
   "prize_amount": zod.number(),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
+  "prize_physical_name": zod.string().nullish(),
+  "prize_physical_description": zod.string().nullish(),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
@@ -464,6 +516,10 @@ export const NextRoundResponse = zod.object({
   "called_numbers": zod.array(zod.number()).optional().describe('Números cantados en la ronda actual'),
   "slug": zod.string().nullish().describe('Identificador amigable para URL (ej. bingo-aniversario-pano)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional().describe('Tipo de premio — efectivo, físico u objeto+efectivo'),
+  "prize_physical_name": zod.string().nullish().describe('Nombre del objeto físico (ej. Samsung Galaxy A55)'),
+  "prize_physical_description": zod.string().nullish().describe('Descripción corta del objeto físico'),
+  "prize_image_url": zod.string().nullish().describe('URL o base64 de imagen del premio físico'),
   "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
@@ -630,7 +686,13 @@ export const ListEarningsResponseItem = zod.object({
   "place": zod.number(),
   "credited_at": zod.coerce.date(),
   "commission_deducted": zod.number().nullish(),
-  "commission_pct": zod.number().nullish()
+  "commission_pct": zod.number().nullish(),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).nullish(),
+  "prize_physical_name": zod.string().nullish(),
+  "delivery_status": zod.enum(['pending', 'address_submitted', 'shipped', 'delivered']).nullish(),
+  "delivery_address": zod.string().nullish(),
+  "delivery_phone": zod.string().nullish(),
+  "delivery_receipt_url": zod.string().nullish()
 })
 export const ListEarningsResponse = zod.array(ListEarningsResponseItem)
 
@@ -648,6 +710,19 @@ export const ListCommissionsResponseItem = zod.object({
   "credited_at": zod.coerce.date()
 })
 export const ListCommissionsResponse = zod.array(ListCommissionsResponseItem)
+
+
+/**
+ * @summary El ganador envía sus datos de envío para premio físico
+ */
+export const SubmitDeliveryAddressParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SubmitDeliveryAddressBody = zod.object({
+  "delivery_address": zod.string(),
+  "delivery_phone": zod.string()
+})
 
 
 /**
@@ -887,6 +962,54 @@ export const AdminMarkWithdrawalPaidResponse = zod.object({
   "notes": zod.string().nullish(),
   "created_at": zod.coerce.date(),
   "paid_at": zod.string().nullish()
+})
+
+
+/**
+ * @summary Lista de premios físicos pendientes de entrega (admin)
+ */
+export const AdminListPhysicalPrizesResponseItem = zod.object({
+  "id": zod.number(),
+  "game_id": zod.number(),
+  "game_title": zod.string(),
+  "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
+  "prize_amount": zod.number(),
+  "prize_physical_name": zod.string(),
+  "delivery_status": zod.enum(['pending', 'address_submitted', 'shipped', 'delivered']).nullish(),
+  "delivery_address": zod.string().nullish(),
+  "delivery_phone": zod.string().nullish(),
+  "delivery_receipt_url": zod.string().nullish(),
+  "delivery_notes": zod.string().nullish(),
+  "created_at": zod.coerce.date(),
+  "user_id": zod.number().nullish(),
+  "user_name": zod.string().nullish(),
+  "user_ci": zod.string().nullish()
+})
+export const AdminListPhysicalPrizesResponse = zod.array(AdminListPhysicalPrizesResponseItem)
+
+
+/**
+ * @summary Admin marca como enviado y sube boleta de envío
+ */
+export const AdminShipPhysicalPrizeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AdminShipPhysicalPrizeBody = zod.object({
+  "delivery_receipt_url": zod.string().optional().describe('Base64 o URL de la boleta de envío'),
+  "delivery_notes": zod.string().optional()
+})
+
+
+/**
+ * @summary Admin marca como entregado
+ */
+export const AdminDeliverPhysicalPrizeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AdminDeliverPhysicalPrizeBody = zod.object({
+  "delivery_notes": zod.string().optional()
 })
 
 

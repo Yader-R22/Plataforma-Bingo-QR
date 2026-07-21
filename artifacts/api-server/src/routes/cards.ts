@@ -13,6 +13,8 @@ function getCurrentRoundConfig(game: typeof gamesTable.$inferSelect) {
         game_mode: r.game_mode as "horizontal" | "vertical" | "diagonal" | "quina" | "full_card" | "esquinas" | "cruz" | "x_doble",
         max_winners: r.max_winners,
         prize_amount: r.prize_amount,
+        prize_type: r.prize_type ?? null,
+        prize_physical_name: r.prize_physical_name ?? null,
       };
     }
   }
@@ -20,6 +22,8 @@ function getCurrentRoundConfig(game: typeof gamesTable.$inferSelect) {
     game_mode: game.gameMode,
     max_winners: game.maxWinners,
     prize_amount: parseFloat(game.prizeAmount),
+    prize_type: null as string | null,
+    prize_physical_name: null as string | null,
   };
 }
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
@@ -508,6 +512,7 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
         const nextPlace = existingWinners.length + 1;
         const prizeAmount = roundCfg.prize_amount;
 
+        const predPrizeType = (roundCfg.prize_type ?? game.prizeType ?? "cash") as "cash" | "physical" | "mixed";
         [winner] = await tx.insert(winnersTable).values({
           gameId: game.id,
           userId: req.userId!,
@@ -517,6 +522,9 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
           prizeAmount: String(prizeAmount),
           claimedAtMs: String(b.data.claimed_at_ms),
           validated: true,
+          prizeType: predPrizeType,
+          prizePhysicalName: roundCfg.prize_physical_name ?? game.prizePhysicalName ?? null,
+          deliveryStatus: predPrizeType === "cash" ? null : "pending",
         }).returning();
 
         // Ganador predefinido NO recibe crédito real — el premio es de la plataforma
@@ -706,6 +714,7 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
       const nextPlace = existingWinners.length + 1;
       const prizeAmount = roundCfg.prize_amount;
 
+      const regPrizeType = (roundCfg.prize_type ?? game.prizeType ?? "cash") as "cash" | "physical" | "mixed";
       [winner] = await tx.insert(winnersTable).values({
         gameId: game.id,
         userId: req.userId!,
@@ -715,6 +724,9 @@ router.post("/:id/claim-bingo", requireAuth, async (req: AuthRequest, res) => {
         prizeAmount: String(prizeAmount),
         claimedAtMs: String(b.data.claimed_at_ms),
         validated: true,
+        prizeType: regPrizeType,
+        prizePhysicalName: roundCfg.prize_physical_name ?? game.prizePhysicalName ?? null,
+        deliveryStatus: regPrizeType === "cash" ? null : "pending",
       }).returning();
 
       // Deduct commission from prize — winner receives net amount, activator gets the rest

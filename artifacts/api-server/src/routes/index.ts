@@ -19,6 +19,7 @@ import storageRouter from "./storage";
 import { pushRouter } from "./push";
 import { activatorSalesRouter } from "./activator-sales";
 import { ogRouter } from "./og";
+import { physicalPrizesRouter } from "./physical-prizes";
 
 const router: IRouter = Router();
 
@@ -43,5 +44,7 @@ router.use("/storage", storageRouter);
 router.use("/push", pushRouter);
 router.use("/activator-sales", activatorSalesRouter);
 router.use("/og", ogRouter);
+// Higher body limit for physical-prizes ship — admin may upload receipt image as base64
+router.use("/admin/physical-prizes", express.json({ limit: "8mb" }), physicalPrizesRouter);
 
 export default router;

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { GameInputGameMode } from './gameInputGameMode';
+import type { GameInputPrizeType } from './gameInputPrizeType';
 import type { PrizeTier } from './prizeTier';
 import type { RoundConfig } from './roundConfig';
 
@@ -33,6 +34,17 @@ export interface GameInput {
      * @nullable
      */
   cover_image_url?: string | null;
+  /** Tipo de premio */
+  prize_type?: GameInputPrizeType;
+  /** @nullable */
+  prize_physical_name?: string | null;
+  /** @nullable */
+  prize_physical_description?: string | null;
+  /**
+     * URL o base64 de imagen del premio físico
+     * @nullable
+     */
+  prize_image_url?: string | null;
   /** Si es true, solo activadores autorizados pueden vender cartones */
   is_private?: boolean;
 }

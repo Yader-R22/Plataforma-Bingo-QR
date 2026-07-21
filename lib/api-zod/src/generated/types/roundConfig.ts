@@ -6,11 +6,17 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { RoundConfigGameMode } from './roundConfigGameMode';
+import type { RoundConfigPrizeType } from './roundConfigPrizeType';
 
 export interface RoundConfig {
   game_mode: RoundConfigGameMode;
   max_winners: number;
   prize_amount: number;
+  prize_type?: RoundConfigPrizeType;
+  /** @nullable */
+  prize_physical_name?: string | null;
+  /** @nullable */
+  prize_physical_description?: string | null;
   /**
      * ID del usuario asignado como ganador predefinido de esta ronda
      * @nullable

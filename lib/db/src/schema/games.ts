@@ -15,6 +15,9 @@ export type RoundConfig = {
   game_mode: "horizontal" | "vertical" | "diagonal" | "quina" | "full_card" | "esquinas" | "cruz" | "x_doble";
   max_winners: number;
   prize_amount: number;
+  prize_type?: "cash" | "physical" | "mixed";
+  prize_physical_name?: string;
+  prize_physical_description?: string;
   predefined_winner_user_id?: number | null;
 };
 
@@ -46,6 +49,10 @@ export const gamesTable = pgTable("games", {
   participantCount: integer("participant_count").notNull().default(0),
   slug: text("slug"),
   coverImageUrl: text("cover_image_url"),
+  prizeType: text("prize_type", { enum: ["cash", "physical", "mixed"] }).notNull().default("cash"),
+  prizePhysicalName: text("prize_physical_name"),
+  prizePhysicalDescription: text("prize_physical_description"),
+  prizeImageUrl: text("prize_image_url"),
   isFeatured: boolean("is_featured").notNull().default(false),
   isPrivate: boolean("is_private").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -96,6 +96,21 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface DeliveryAddressInput {
+  delivery_address: string;
+  delivery_phone: string;
+}
+
+export interface ShipPhysicalPrizeInput {
+  /** Base64 o URL de la boleta de envío */
+  delivery_receipt_url?: string;
+  delivery_notes?: string;
+}
+
+export interface DeliverPhysicalPrizeInput {
+  delivery_notes?: string;
+}
+
 export type RoundConfigGameMode = typeof RoundConfigGameMode[keyof typeof RoundConfigGameMode];
 
 
@@ -110,10 +125,24 @@ export const RoundConfigGameMode = {
   x_doble: 'x_doble',
 } as const;
 
+export type RoundConfigPrizeType = typeof RoundConfigPrizeType[keyof typeof RoundConfigPrizeType];
+
+
+export const RoundConfigPrizeType = {
+  cash: 'cash',
+  physical: 'physical',
+  mixed: 'mixed',
+} as const;
+
 export interface RoundConfig {
   game_mode: RoundConfigGameMode;
   max_winners: number;
   prize_amount: number;
+  prize_type?: RoundConfigPrizeType;
+  /** @nullable */
+  prize_physical_name?: string | null;
+  /** @nullable */
+  prize_physical_description?: string | null;
   /**
      * ID del usuario asignado como ganador predefinido de esta ronda
      * @nullable
@@ -154,6 +183,18 @@ export const GameGameMode = {
   esquinas: 'esquinas',
   cruz: 'cruz',
   x_doble: 'x_doble',
+} as const;
+
+/**
+ * Tipo de premio — efectivo, físico u objeto+efectivo
+ */
+export type GamePrizeType = typeof GamePrizeType[keyof typeof GamePrizeType];
+
+
+export const GamePrizeType = {
+  cash: 'cash',
+  physical: 'physical',
+  mixed: 'mixed',
 } as const;
 
 export interface PrizeTier {
@@ -204,6 +245,23 @@ export interface Game {
      * @nullable
      */
   cover_image_url?: string | null;
+  /** Tipo de premio — efectivo, físico u objeto+efectivo */
+  prize_type?: GamePrizeType;
+  /**
+     * Nombre del objeto físico (ej. Samsung Galaxy A55)
+     * @nullable
+     */
+  prize_physical_name?: string | null;
+  /**
+     * Descripción corta del objeto físico
+     * @nullable
+     */
+  prize_physical_description?: string | null;
+  /**
+     * URL o base64 de imagen del premio físico
+     * @nullable
+     */
+  prize_image_url?: string | null;
   /** Si es true, solo activadores autorizados pueden vender cartones */
   is_private?: boolean;
   created_at: string;
@@ -221,6 +279,18 @@ export const GameInputGameMode = {
   esquinas: 'esquinas',
   cruz: 'cruz',
   x_doble: 'x_doble',
+} as const;
+
+/**
+ * Tipo de premio
+ */
+export type GameInputPrizeType = typeof GameInputPrizeType[keyof typeof GameInputPrizeType];
+
+
+export const GameInputPrizeType = {
+  cash: 'cash',
+  physical: 'physical',
+  mixed: 'mixed',
 } as const;
 
 export interface GameInput {
@@ -247,6 +317,17 @@ export interface GameInput {
      * @nullable
      */
   cover_image_url?: string | null;
+  /** Tipo de premio */
+  prize_type?: GameInputPrizeType;
+  /** @nullable */
+  prize_physical_name?: string | null;
+  /** @nullable */
+  prize_physical_description?: string | null;
+  /**
+     * URL o base64 de imagen del premio físico
+     * @nullable
+     */
+  prize_image_url?: string | null;
   /** Si es true, solo activadores autorizados pueden vender cartones */
   is_private?: boolean;
 }
@@ -274,6 +355,15 @@ export const GameUpdateStatus = {
   finished: 'finished',
 } as const;
 
+export type GameUpdatePrizeType = typeof GameUpdatePrizeType[keyof typeof GameUpdatePrizeType];
+
+
+export const GameUpdatePrizeType = {
+  cash: 'cash',
+  physical: 'physical',
+  mixed: 'mixed',
+} as const;
+
 export interface GameUpdate {
   title?: string;
   prize_amount?: number;
@@ -298,6 +388,16 @@ export interface GameUpdate {
      * @nullable
      */
   cover_image_url?: string | null;
+  prize_type?: GameUpdatePrizeType;
+  /** @nullable */
+  prize_physical_name?: string | null;
+  /** @nullable */
+  prize_physical_description?: string | null;
+  /**
+     * URL o base64 de imagen del premio físico
+     * @nullable
+     */
+  prize_image_url?: string | null;
 }
 
 export type GameCategoryType = typeof GameCategoryType[keyof typeof GameCategoryType];
@@ -586,6 +686,25 @@ export interface Withdrawal {
   paid_at?: string | null;
 }
 
+export type WalletEarningPrizeType = typeof WalletEarningPrizeType[keyof typeof WalletEarningPrizeType] | null;
+
+
+export const WalletEarningPrizeType = {
+  cash: 'cash',
+  physical: 'physical',
+  mixed: 'mixed',
+} as const;
+
+export type WalletEarningDeliveryStatus = typeof WalletEarningDeliveryStatus[keyof typeof WalletEarningDeliveryStatus] | null;
+
+
+export const WalletEarningDeliveryStatus = {
+  pending: 'pending',
+  address_submitted: 'address_submitted',
+  shipped: 'shipped',
+  delivered: 'delivered',
+} as const;
+
 export interface WalletEarning {
   id: number;
   game_id: number;
@@ -596,6 +715,49 @@ export interface WalletEarning {
   credited_at: string;
   commission_deducted?: number | null;
   commission_pct?: number | null;
+  prize_type?: WalletEarningPrizeType;
+  prize_physical_name?: string | null;
+  delivery_status?: WalletEarningDeliveryStatus;
+  delivery_address?: string | null;
+  delivery_phone?: string | null;
+  delivery_receipt_url?: string | null;
+}
+
+export type PhysicalPrizePrizeType = typeof PhysicalPrizePrizeType[keyof typeof PhysicalPrizePrizeType];
+
+
+export const PhysicalPrizePrizeType = {
+  cash: 'cash',
+  physical: 'physical',
+  mixed: 'mixed',
+} as const;
+
+export type PhysicalPrizeDeliveryStatus = typeof PhysicalPrizeDeliveryStatus[keyof typeof PhysicalPrizeDeliveryStatus] | null;
+
+
+export const PhysicalPrizeDeliveryStatus = {
+  pending: 'pending',
+  address_submitted: 'address_submitted',
+  shipped: 'shipped',
+  delivered: 'delivered',
+} as const;
+
+export interface PhysicalPrize {
+  id: number;
+  game_id: number;
+  game_title: string;
+  prize_type?: PhysicalPrizePrizeType;
+  prize_amount: number;
+  prize_physical_name: string;
+  delivery_status?: PhysicalPrizeDeliveryStatus;
+  delivery_address?: string | null;
+  delivery_phone?: string | null;
+  delivery_receipt_url?: string | null;
+  delivery_notes?: string | null;
+  created_at: string;
+  user_id?: number | null;
+  user_name?: string | null;
+  user_ci?: string | null;
 }
 
 export interface WalletCommission {

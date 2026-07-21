@@ -5,6 +5,8 @@
  * Tu Bingazo - Plataforma de Bingo en Vivo Bolivia
  * OpenAPI spec version: 0.1.0
  */
+import type { WalletEarningDeliveryStatus } from './walletEarningDeliveryStatus';
+import type { WalletEarningPrizeType } from './walletEarningPrizeType';
 
 export interface WalletEarning {
   id: number;
@@ -16,4 +18,10 @@ export interface WalletEarning {
   credited_at: Date;
   commission_deducted?: number | null;
   commission_pct?: number | null;
+  prize_type?: WalletEarningPrizeType;
+  prize_physical_name?: string | null;
+  delivery_status?: WalletEarningDeliveryStatus;
+  delivery_address?: string | null;
+  delivery_phone?: string | null;
+  delivery_receipt_url?: string | null;
 }

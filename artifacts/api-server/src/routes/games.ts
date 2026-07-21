@@ -116,6 +116,10 @@ function formatGame(
     round_history: (game.roundHistory as RoundHistoryEntry[] | null) ?? [],
     slug: game.slug ?? null,
     cover_image_url: game.coverImageUrl ?? null,
+    prize_type: game.prizeType ?? "cash",
+    prize_physical_name: game.prizePhysicalName ?? null,
+    prize_physical_description: game.prizePhysicalDescription ?? null,
+    prize_image_url: game.prizeImageUrl ?? null,
     is_private: game.isPrivate ?? false,
     called_numbers: game.calledNumbers ?? [],
     created_at: game.createdAt,
@@ -177,6 +181,8 @@ function formatGameForList(
     round_history: [],
     slug: game.slug ?? null,
     cover_image_url: game.hasCoverImage ? `/api/games/${game.id}/cover-image` : null,
+    prize_type: (game as any).prizeType ?? "cash",
+    prize_physical_name: (game as any).prizePhysicalName ?? null,
     is_private: game.isPrivate ?? false,
     called_numbers: game.calledNumbers ?? [],
     created_at: game.createdAt,
@@ -191,7 +197,7 @@ router.get("/", async (req: AuthRequest, res) => {
     if (query.data.status) statusConditions.push(eq(gamesTable.status, query.data.status as "upcoming" | "active" | "finished"));
   }
 
-  // Select solo los campos necesarios — excluye coverImageUrl y roundHistory
+  // Select solo los campos necesarios — excluye coverImageUrl/prizeImageUrl (base64) y roundHistory
   const listCols = {
     id: gamesTable.id,
     title: gamesTable.title,
@@ -213,6 +219,8 @@ router.get("/", async (req: AuthRequest, res) => {
     isPrivate: gamesTable.isPrivate,
     calledNumbers: gamesTable.calledNumbers,
     createdAt: gamesTable.createdAt,
+    prizeType: gamesTable.prizeType,
+    prizePhysicalName: gamesTable.prizePhysicalName,
   };
 
   const games = statusConditions.length
@@ -295,6 +303,7 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
     ? (req.body as any).authorized_activator_ids.map(Number).filter(Boolean)
     : [];
 
+  const bodyAny = req.body as any;
   const [game] = await db.insert(gamesTable).values({
     title: data.title,
     type: computeGameType(new Date(data.draw_date)),
@@ -310,6 +319,10 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
     rounds,
     currentRound: 1,
     coverImageUrl: data.cover_image_url ?? null,
+    prizeType: (bodyAny.prize_type ?? "cash") as "cash" | "physical" | "mixed",
+    prizePhysicalName: bodyAny.prize_physical_name ?? null,
+    prizePhysicalDescription: bodyAny.prize_physical_description ?? null,
+    prizeImageUrl: bodyAny.prize_image_url ?? null,
     isPrivate,
   }).returning();
   const [gameWithSlug] = await db.update(gamesTable)
@@ -382,6 +395,28 @@ router.get("/:id/cover-image", async (req, res) => {
   res.status(404).end();
 });
 
+// ── Prize image ───────────────────────────────────────────────────────────────
+router.get("/:id/prize-image", async (req, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).end(); return; }
+  const rows = await db.select({ prizeImageUrl: gamesTable.prizeImageUrl })
+    .from(gamesTable).where(eq(gamesTable.id, id)).limit(1);
+  const raw = rows[0]?.prizeImageUrl;
+  if (!raw) { res.status(404).end(); return; }
+  if (raw.startsWith("data:")) {
+    const commaIdx = raw.indexOf(",");
+    const mimeMatch = raw.slice(0, commaIdx).match(/data:([^;]+)/);
+    const mime = mimeMatch?.[1] ?? "image/webp";
+    const buf = Buffer.from(raw.slice(commaIdx + 1), "base64");
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(buf);
+    return;
+  }
+  if (raw.startsWith("http")) { res.redirect(raw); return; }
+  res.status(404).end();
+});
+
 router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
   const p = UpdateGameParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
@@ -404,6 +439,11 @@ router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
   if (data.max_winners !== undefined) updateData.maxWinners = data.max_winners;
   if (data.status) updateData.status = data.status as "upcoming" | "active" | "finished";
   if (data.cover_image_url !== undefined) updateData.coverImageUrl = data.cover_image_url ?? null;
+  const patchAny = req.body as any;
+  if (patchAny.prize_type !== undefined) updateData.prizeType = patchAny.prize_type as "cash" | "physical" | "mixed";
+  if (patchAny.prize_physical_name !== undefined) updateData.prizePhysicalName = patchAny.prize_physical_name ?? null;
+  if (patchAny.prize_physical_description !== undefined) updateData.prizePhysicalDescription = patchAny.prize_physical_description ?? null;
+  if (patchAny.prize_image_url !== undefined) updateData.prizeImageUrl = patchAny.prize_image_url ?? null;
   if (data.rounds !== undefined) updateData.rounds = (data.rounds as RoundConfig[]) ?? null;
   const patchIsPrivate = (req.body as any).is_private;
   if (patchIsPrivate !== undefined) updateData.isPrivate = Boolean(patchIsPrivate);

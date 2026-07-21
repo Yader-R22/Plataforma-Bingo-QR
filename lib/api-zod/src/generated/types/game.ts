@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { GameGameMode } from './gameGameMode';
+import type { GamePrizeType } from './gamePrizeType';
 import type { GameStatus } from './gameStatus';
 import type { GameType } from './gameType';
 import type { PrizeTier } from './prizeTier';
@@ -52,6 +53,23 @@ export interface Game {
      * @nullable
      */
   cover_image_url?: string | null;
+  /** Tipo de premio — efectivo, físico u objeto+efectivo */
+  prize_type?: GamePrizeType;
+  /**
+     * Nombre del objeto físico (ej. Samsung Galaxy A55)
+     * @nullable
+     */
+  prize_physical_name?: string | null;
+  /**
+     * Descripción corta del objeto físico
+     * @nullable
+     */
+  prize_physical_description?: string | null;
+  /**
+     * URL o base64 de imagen del premio físico
+     * @nullable
+     */
+  prize_image_url?: string | null;
   /** Si es true, solo activadores autorizados pueden vender cartones */
   is_private?: boolean;
   created_at: Date;

@@ -32,6 +32,11 @@ export default function WalletPage() {
   const [bank, setBank] = useState(BANKS[0]);
   const [loading, setLoading] = useState(false);
   const [proofModal, setProofModal] = useState<string | null>(null);
+  const [addressModal, setAddressModal] = useState<number | null>(null);
+  const [addrLine, setAddrLine] = useState("");
+  const [addrPhone, setAddrPhone] = useState("");
+  const [addrLoading, setAddrLoading] = useState(false);
+  const { data: earnings, refetch: refetchEarnings } = useListEarnings();
   const fileRef = useRef<HTMLInputElement>(null);
 
   // History filter state
@@ -46,7 +51,7 @@ export default function WalletPage() {
 
   const { data: wallet, refetch: refetchWallet } = useGetWallet();
   const { data: withdrawals, refetch: refetchWithdrawals } = useListWithdrawals();
-  const { data: earnings } = useListEarnings();
+  // earnings moved above (declared with refetch)
   const { data: commissions } = useListCommissions();
 
   // Auto-poll balance + withdrawals every 6s so the user sees paid/rejected changes in real time
@@ -523,6 +528,14 @@ export default function WalletPage() {
                   const commDeducted: number | null = item.commission_deducted ?? null;
                   const commPct: number | null = item.commission_pct ?? null;
                   const netAmount = commDeducted ? item.prize_amount - commDeducted : item.prize_amount;
+                  const isPhysical = item.prize_type === "physical" || item.prize_type === "mixed";
+                  const deliveryStatusConfig: Record<string, { label: string; bg: string; border: string; color: string }> = {
+                    pending: { label: "📦 Pendiente dirección", bg: "hsl(42 98% 52% / 0.1)", border: "hsl(42 98% 52% / 0.3)", color: "hsl(42 98% 30%)" },
+                    address_submitted: { label: "⏳ Dirección enviada", bg: "hsl(217 91% 50% / 0.1)", border: "hsl(217 91% 50% / 0.3)", color: "hsl(217 91% 35%)" },
+                    shipped: { label: "🚚 En camino", bg: "hsl(262 80% 50% / 0.1)", border: "hsl(262 80% 50% / 0.3)", color: "hsl(262 80% 35%)" },
+                    delivered: { label: "✅ Entregado", bg: "hsl(142 70% 45% / 0.1)", border: "hsl(142 70% 45% / 0.3)", color: "hsl(142 70% 30%)" },
+                  };
+                  const dsCfg = item.delivery_status ? deliveryStatusConfig[item.delivery_status] : null;
                   return (
                     <div key={`p-${item.id}`} className="bg-card border rounded-2xl p-4 space-y-2">
                       <div className="flex items-center justify-between">
@@ -534,6 +547,9 @@ export default function WalletPage() {
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {typeLabel[item.game_type] ?? item.game_type} · {new Date(item.credited_at).toLocaleDateString("es-BO")}
                           </p>
+                          {isPhysical && item.prize_physical_name && (
+                            <p className="text-xs font-bold mt-0.5" style={{ color: "hsl(262 80% 40%)" }}>📦 {item.prize_physical_name}</p>
+                          )}
                         </div>
                         <div className="text-xs font-bold px-3 py-1.5 rounded-full shrink-0"
                           style={{ background: "hsl(142 70% 45% / 0.12)", border: "1px solid hsl(142 70% 45% / 0.3)", color: "hsl(142 70% 30%)" }}>
@@ -555,6 +571,36 @@ export default function WalletPage() {
                               Bs {netAmount.toLocaleString("es-BO", { maximumFractionDigits: 2, minimumFractionDigits: 0 })}
                             </span>
                           </div>
+                        </div>
+                      )}
+                      {isPhysical && (
+                        <div className="rounded-xl px-3 py-2.5 space-y-2"
+                          style={{ background: dsCfg?.bg ?? "hsl(42 98% 52% / 0.1)", border: `1px solid ${dsCfg?.border ?? "hsl(42 98% 52% / 0.3)"}` }}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold" style={{ color: dsCfg?.color ?? "hsl(42 98% 30%)" }}>
+                              {dsCfg?.label ?? "📦 Premio físico"}
+                            </span>
+                          </div>
+                          {item.delivery_status === "pending" && (
+                            <button
+                              onClick={() => { setAddressModal(item.id); setAddrLine(""); setAddrPhone(""); }}
+                              className="w-full py-2 rounded-xl text-xs font-black text-white cursor-pointer"
+                              style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
+                              📍 Enviar datos de entrega
+                            </button>
+                          )}
+                          {item.delivery_status === "address_submitted" && (
+                            <p className="text-xs text-muted-foreground">Tu dirección fue enviada. El administrador coordinará la entrega.</p>
+                          )}
+                          {item.delivery_status === "shipped" && (
+                            <div className="space-y-1">
+                              <p className="text-xs font-medium">Tu premio está en camino 🚚</p>
+                              {item.delivery_notes && <p className="text-xs text-muted-foreground">{item.delivery_notes}</p>}
+                            </div>
+                          )}
+                          {item.delivery_status === "delivered" && (
+                            <p className="text-xs font-medium">¡Premio entregado! ✅</p>
+                          )}
                         </div>
                       )}
                     </div>

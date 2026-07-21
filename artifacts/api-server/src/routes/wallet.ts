@@ -94,6 +94,13 @@ router.get("/earnings", requireAuth, async (req: AuthRequest, res) => {
       prize_amount: winnersTable.prizeAmount,
       place: winnersTable.place,
       credited_at: winnersTable.createdAt,
+      prize_type: winnersTable.prizeType,
+      prize_physical_name: winnersTable.prizePhysicalName,
+      delivery_status: winnersTable.deliveryStatus,
+      delivery_address: winnersTable.deliveryAddress,
+      delivery_phone: winnersTable.deliveryPhone,
+      delivery_receipt_url: winnersTable.deliveryReceiptUrl,
+      delivery_notes: winnersTable.deliveryNotes,
     })
     .from(winnersTable)
     .leftJoin(gamesTable, eq(winnersTable.gameId, gamesTable.id))
@@ -126,6 +133,33 @@ router.get("/earnings", requireAuth, async (req: AuthRequest, res) => {
       commission_pct: comm ? parseFloat(comm.commissionPercentage ?? "0") : null,
     };
   }));
+});
+
+router.post("/physical-prizes/:id/address", requireAuth, async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+  const { delivery_address, delivery_phone } = req.body as { delivery_address?: string; delivery_phone?: string };
+  if (!delivery_address?.trim() || !delivery_phone?.trim()) {
+    res.status(400).json({ error: "Dirección y teléfono son requeridos" });
+    return;
+  }
+  const [winner] = await db.select()
+    .from(winnersTable)
+    .where(and(eq(winnersTable.id, id), eq(winnersTable.userId, req.userId!)))
+    .limit(1);
+  if (!winner) { res.status(404).json({ error: "Premio no encontrado" }); return; }
+  if (winner.prizeType !== "physical" && winner.prizeType !== "mixed") {
+    res.status(400).json({ error: "Este premio no requiere datos de envío" });
+    return;
+  }
+  if (winner.deliveryStatus === "shipped" || winner.deliveryStatus === "delivered") {
+    res.status(400).json({ error: "El premio ya fue enviado o entregado" });
+    return;
+  }
+  await db.update(winnersTable)
+    .set({ deliveryAddress: delivery_address.trim(), deliveryPhone: delivery_phone.trim(), deliveryStatus: "address_submitted" })
+    .where(eq(winnersTable.id, id));
+  res.json({ ok: true });
 });
 
 router.get("/commissions", requireAuth, async (req: AuthRequest, res) => {

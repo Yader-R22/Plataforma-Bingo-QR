@@ -574,6 +574,27 @@ paths:
                 items:
                   $ref: "#/components/schemas/WalletCommission"
 
+  /wallet/physical-prizes/{id}/address:
+    post:
+      operationId: submitDeliveryAddress
+      tags: [wallet]
+      summary: El ganador envía sus datos de envío para premio físico
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryAddressInput"
+      responses:
+        "200":
+          description: Datos registrados
+
   /wallet/withdrawals:
     get:
       operationId: listWithdrawals
@@ -817,6 +838,62 @@ paths:
               schema:
                 $ref: "#/components/schemas/Withdrawal"
 
+  /admin/physical-prizes:
+    get:
+      operationId: adminListPhysicalPrizes
+      tags: [admin]
+      summary: Lista de premios físicos pendientes de entrega (admin)
+      responses:
+        "200":
+          description: Lista de premios físicos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PhysicalPrize"
+
+  /admin/physical-prizes/{id}/ship:
+    patch:
+      operationId: adminShipPhysicalPrize
+      tags: [admin]
+      summary: Admin marca como enviado y sube boleta de envío
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShipPhysicalPrizeInput"
+      responses:
+        "200":
+          description: Actualizado
+
+  /admin/physical-prizes/{id}/deliver:
+    patch:
+      operationId: adminDeliverPhysicalPrize
+      tags: [admin]
+      summary: Admin marca como entregado
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliverPhysicalPrizeInput"
+      responses:
+        "200":
+          description: Actualizado
+
   /admin/winners/{id}/validate:
     post:
       operationId: adminValidateWinner
@@ -1033,6 +1110,30 @@ components:
           type: string
           format: date-time
 
+    DeliveryAddressInput:
+      type: object
+      required: [delivery_address, delivery_phone]
+      properties:
+        delivery_address:
+          type: string
+        delivery_phone:
+          type: string
+
+    ShipPhysicalPrizeInput:
+      type: object
+      properties:
+        delivery_receipt_url:
+          type: string
+          description: Base64 o URL de la boleta de envío
+        delivery_notes:
+          type: string
+
+    DeliverPhysicalPrizeInput:
+      type: object
+      properties:
+        delivery_notes:
+          type: string
+
     # ── Games ──
     RoundConfig:
       type: object
@@ -1045,6 +1146,13 @@ components:
           type: integer
         prize_amount:
           type: number
+        prize_type:
+          type: string
+          enum: [cash, physical, mixed]
+        prize_physical_name:
+          type: ["string", "null"]
+        prize_physical_description:
+          type: ["string", "null"]
         predefined_winner_user_id:
           type: ["integer", "null"]
           description: ID del usuario asignado como ganador predefinido de esta ronda
@@ -1114,6 +1222,19 @@ components:
         cover_image_url:
           type: ["string", "null"]
           description: URL o base64 de imagen de portada del juego (opcional)
+        prize_type:
+          type: string
+          enum: [cash, physical, mixed]
+          description: Tipo de premio — efectivo, físico u objeto+efectivo
+        prize_physical_name:
+          type: ["string", "null"]
+          description: Nombre del objeto físico (ej. Samsung Galaxy A55)
+        prize_physical_description:
+          type: ["string", "null"]
+          description: Descripción corta del objeto físico
+        prize_image_url:
+          type: ["string", "null"]
+          description: URL o base64 de imagen del premio físico
         is_private:
           type: boolean
           description: Si es true, solo activadores autorizados pueden vender cartones
@@ -1168,6 +1289,17 @@ components:
         cover_image_url:
           type: ["string", "null"]
           description: URL o base64 de imagen de portada del juego (opcional)
+        prize_type:
+          type: string
+          enum: [cash, physical, mixed]
+          description: Tipo de premio
+        prize_physical_name:
+          type: ["string", "null"]
+        prize_physical_description:
+          type: ["string", "null"]
+        prize_image_url:
+          type: ["string", "null"]
+          description: URL o base64 de imagen del premio físico
         is_private:
           type: boolean
           description: Si es true, solo activadores autorizados pueden vender cartones
@@ -1206,6 +1338,16 @@ components:
         cover_image_url:
           type: ["string", "null"]
           description: URL o base64 de imagen de portada del juego (opcional)
+        prize_type:
+          type: string
+          enum: [cash, physical, mixed]
+        prize_physical_name:
+          type: ["string", "null"]
+        prize_physical_description:
+          type: ["string", "null"]
+        prize_image_url:
+          type: ["string", "null"]
+          description: URL o base64 de imagen del premio físico
 
     GameCategory:
       type: object
@@ -1523,6 +1665,72 @@ components:
           nullable: true
         commission_pct:
           type: number
+          nullable: true
+        prize_type:
+          type: string
+          enum: [cash, physical, mixed]
+          nullable: true
+        prize_physical_name:
+          type: string
+          nullable: true
+        delivery_status:
+          type: string
+          enum: [pending, address_submitted, shipped, delivered]
+          nullable: true
+        delivery_address:
+          type: string
+          nullable: true
+        delivery_phone:
+          type: string
+          nullable: true
+        delivery_receipt_url:
+          type: string
+          nullable: true
+
+    PhysicalPrize:
+      type: object
+      required: [id, game_id, game_title, prize_physical_name, prize_amount, created_at]
+      properties:
+        id:
+          type: integer
+        game_id:
+          type: integer
+        game_title:
+          type: string
+        prize_type:
+          type: string
+          enum: [cash, physical, mixed]
+        prize_amount:
+          type: number
+        prize_physical_name:
+          type: string
+        delivery_status:
+          type: string
+          enum: [pending, address_submitted, shipped, delivered]
+          nullable: true
+        delivery_address:
+          type: string
+          nullable: true
+        delivery_phone:
+          type: string
+          nullable: true
+        delivery_receipt_url:
+          type: string
+          nullable: true
+        delivery_notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        user_id:
+          type: integer
+          nullable: true
+        user_name:
+          type: string
+          nullable: true
+        user_ci:
+          type: string
           nullable: true
 
     WalletCommission:
