@@ -147,7 +147,20 @@ export default function CreateGamePage() {
   const [loading, setLoading] = useState(false);
   const [loadingGame, setLoadingGame] = useState(isEdit);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    title: string;
+    prize_amount: string;
+    card_price: string;
+    draw_date: string;
+    stream_url_youtube: string;
+    stream_url_tiktok: string;
+    stream_url_facebook: string;
+    game_mode: string;
+    max_winners: string;
+    predefined_winner_user_id: number | null;
+    predefined_winner_name: string;
+    predefined_winner_ci: string;
+  }>({
     title: "",
     prize_amount: "",
     card_price: "",
@@ -157,6 +170,9 @@ export default function CreateGamePage() {
     stream_url_facebook: "",
     game_mode: "full_card",
     max_winners: "1",
+    predefined_winner_user_id: null,
+    predefined_winner_name: "",
+    predefined_winner_ci: "",
   });
 
   const [coverImage, setCoverImage] = useState<string | null>(null);
@@ -200,6 +216,9 @@ export default function CreateGamePage() {
           stream_url_facebook: g.stream_url_facebook ?? "",
           game_mode: g.game_mode ?? "full_card",
           max_winners: String(g.max_winners ?? "1"),
+          predefined_winner_user_id: null,
+          predefined_winner_name: "",
+          predefined_winner_ci: "",
         });
         setCoverImage(g.cover_image_url ?? null);
         setPrizeType(g.prize_type ?? "cash");
@@ -285,6 +304,7 @@ export default function CreateGamePage() {
         prize_physical_name: prizeType !== "cash" ? prizePhysicalName || null : null,
         prize_physical_description: prizeType !== "cash" ? prizePhysicalDesc || null : null,
         prize_image_url: prizeType !== "cash" && prizeImage && !prizeImage.startsWith("/api/") ? prizeImage : undefined,
+        predefined_winner_user_id: !multiRound ? (form.predefined_winner_user_id ?? null) : null,
       };
       const url = isEdit ? `${BASE}/api/games/${editId}` : `${BASE}/api/games`;
       const method = isEdit ? "PATCH" : "POST";
@@ -454,6 +474,17 @@ export default function CreateGamePage() {
                   <Input type="number" min="0" step="0.01" placeholder="500.00" value={form.prize_amount} onChange={e => upd("prize_amount", e.target.value)} required />
                 </div>
               )}
+              <div className="pt-0.5 border-t" style={{ borderColor: "hsl(var(--border))" }}>
+                <PredefinedWinnerPicker
+                  roundIndex={0}
+                  value={form.predefined_winner_user_id}
+                  name={form.predefined_winner_name}
+                  ci={form.predefined_winner_ci}
+                  token={token}
+                  onSelect={u => setForm(f => ({ ...f, predefined_winner_user_id: u.id, predefined_winner_name: u.full_name, predefined_winner_ci: u.ci }))}
+                  onClear={() => setForm(f => ({ ...f, predefined_winner_user_id: null, predefined_winner_name: "", predefined_winner_ci: "" }))}
+                />
+              </div>
             </>
           )}
 
