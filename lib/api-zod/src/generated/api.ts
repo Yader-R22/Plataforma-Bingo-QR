@@ -136,7 +136,7 @@ export const ListGamesResponseItem = zod.object({
   "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional().describe('Tipo de premio — efectivo, físico u objeto+efectivo'),
   "prize_physical_name": zod.string().nullish().describe('Nombre del objeto físico (ej. Samsung Galaxy A55)'),
   "prize_physical_description": zod.string().nullish().describe('Descripción corta del objeto físico'),
-  "prize_image_url": zod.string().nullish().describe('URL o base64 de imagen del premio físico'),
+  "has_prize_image": zod.boolean().optional().describe('true si el juego tiene imagen de premio cargada (usar \/api\/games\/:id\/prize-image para obtenerla)'),
   "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
@@ -173,7 +173,7 @@ export const CreateGameBody = zod.object({
   "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional().describe('Tipo de premio'),
   "prize_physical_name": zod.string().nullish(),
   "prize_physical_description": zod.string().nullish(),
-  "prize_image_url": zod.string().nullish().describe('URL o base64 de imagen del premio físico'),
+  "has_prize_image": zod.boolean().optional().describe('true si el juego tiene imagen de premio cargada (usar \/api\/games\/:id\/prize-image para obtenerla)'),
   "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones')
 })
 
@@ -220,7 +220,7 @@ export const GetGameResponse = zod.object({
   "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional().describe('Tipo de premio — efectivo, físico u objeto+efectivo'),
   "prize_physical_name": zod.string().nullish().describe('Nombre del objeto físico (ej. Samsung Galaxy A55)'),
   "prize_physical_description": zod.string().nullish().describe('Descripción corta del objeto físico'),
-  "prize_image_url": zod.string().nullish().describe('URL o base64 de imagen del premio físico'),
+  "has_prize_image": zod.boolean().optional().describe('true si el juego tiene imagen de premio cargada (usar \/api\/games\/:id\/prize-image para obtenerla)'),
   "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
@@ -295,7 +295,7 @@ export const UpdateGameResponse = zod.object({
   "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional().describe('Tipo de premio — efectivo, físico u objeto+efectivo'),
   "prize_physical_name": zod.string().nullish().describe('Nombre del objeto físico (ej. Samsung Galaxy A55)'),
   "prize_physical_description": zod.string().nullish().describe('Descripción corta del objeto físico'),
-  "prize_image_url": zod.string().nullish().describe('URL o base64 de imagen del premio físico'),
+  "has_prize_image": zod.boolean().optional().describe('true si el juego tiene imagen de premio cargada (usar \/api\/games\/:id\/prize-image para obtenerla)'),
   "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
@@ -423,7 +423,7 @@ export const StartGameResponse = zod.object({
   "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional().describe('Tipo de premio — efectivo, físico u objeto+efectivo'),
   "prize_physical_name": zod.string().nullish().describe('Nombre del objeto físico (ej. Samsung Galaxy A55)'),
   "prize_physical_description": zod.string().nullish().describe('Descripción corta del objeto físico'),
-  "prize_image_url": zod.string().nullish().describe('URL o base64 de imagen del premio físico'),
+  "has_prize_image": zod.boolean().optional().describe('true si el juego tiene imagen de premio cargada (usar \/api\/games\/:id\/prize-image para obtenerla)'),
   "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
@@ -471,7 +471,7 @@ export const FinishGameResponse = zod.object({
   "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional().describe('Tipo de premio — efectivo, físico u objeto+efectivo'),
   "prize_physical_name": zod.string().nullish().describe('Nombre del objeto físico (ej. Samsung Galaxy A55)'),
   "prize_physical_description": zod.string().nullish().describe('Descripción corta del objeto físico'),
-  "prize_image_url": zod.string().nullish().describe('URL o base64 de imagen del premio físico'),
+  "has_prize_image": zod.boolean().optional().describe('true si el juego tiene imagen de premio cargada (usar \/api\/games\/:id\/prize-image para obtenerla)'),
   "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })
@@ -519,7 +519,7 @@ export const NextRoundResponse = zod.object({
   "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional().describe('Tipo de premio — efectivo, físico u objeto+efectivo'),
   "prize_physical_name": zod.string().nullish().describe('Nombre del objeto físico (ej. Samsung Galaxy A55)'),
   "prize_physical_description": zod.string().nullish().describe('Descripción corta del objeto físico'),
-  "prize_image_url": zod.string().nullish().describe('URL o base64 de imagen del premio físico'),
+  "has_prize_image": zod.boolean().optional().describe('true si el juego tiene imagen de premio cargada (usar \/api\/games\/:id\/prize-image para obtenerla)'),
   "is_private": zod.boolean().optional().describe('Si es true, solo activadores autorizados pueden vender cartones'),
   "created_at": zod.coerce.date()
 })

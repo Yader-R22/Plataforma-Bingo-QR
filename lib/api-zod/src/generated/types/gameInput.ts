@@ -40,11 +40,8 @@ export interface GameInput {
   prize_physical_name?: string | null;
   /** @nullable */
   prize_physical_description?: string | null;
-  /**
-     * URL o base64 de imagen del premio físico
-     * @nullable
-     */
-  prize_image_url?: string | null;
+  /** true si el juego tiene imagen de premio cargada (usar /api/games/:id/prize-image para obtenerla) */
+  has_prize_image?: boolean;
   /** Si es true, solo activadores autorizados pueden vender cartones */
   is_private?: boolean;
 }

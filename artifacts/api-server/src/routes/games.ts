@@ -119,7 +119,7 @@ function formatGame(
     prize_type: game.prizeType ?? "cash",
     prize_physical_name: game.prizePhysicalName ?? null,
     prize_physical_description: game.prizePhysicalDescription ?? null,
-    prize_image_url: game.prizeImageUrl ?? null,
+    has_prize_image: !!(game.prizeImageUrl),
     is_private: game.isPrivate ?? false,
     called_numbers: game.calledNumbers ?? [],
     created_at: game.createdAt,
