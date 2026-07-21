@@ -98,7 +98,7 @@ function formatGame(
     title: game.title,
     type: computeGameType(new Date(game.drawDate)),
     status: game.status,
-    prize_amount: roundCfg.prize_amount,
+    prize_amount: parseFloat(game.prizeAmount),
     card_price: parseFloat(game.cardPrice),
     draw_date: game.drawDate,
     participant_count: game.participantCount,
@@ -147,13 +147,11 @@ function formatGameForList(
   const currentRound = game.currentRound ?? 1;
   let gameModeOut = game.gameMode as string;
   let maxWinnersOut = game.maxWinners;
-  let prizeAmountOut = parseFloat(game.prizeAmount);
   if (rounds?.length) {
     const r = rounds[(currentRound - 1)];
     if (r) {
       gameModeOut = r.game_mode as string;
       maxWinnersOut = r.max_winners;
-      prizeAmountOut = r.prize_amount;
     }
   }
   return {
@@ -161,7 +159,7 @@ function formatGameForList(
     title: game.title,
     type: computeGameType(new Date(game.drawDate)),
     status: game.status,
-    prize_amount: prizeAmountOut,
+    prize_amount: parseFloat(game.prizeAmount),
     card_price: parseFloat(game.cardPrice),
     draw_date: game.drawDate,
     participant_count: game.participantCount,
