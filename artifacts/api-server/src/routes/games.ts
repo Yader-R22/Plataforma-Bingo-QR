@@ -521,6 +521,8 @@ router.get("/:id/session", requireAuth, async (req: AuthRequest, res) => {
       gameMode: gamesTable.gameMode,
       maxWinners: gamesTable.maxWinners,
       prizeAmount: gamesTable.prizeAmount,
+      prizeType: gamesTable.prizeType,
+      prizePhysicalName: gamesTable.prizePhysicalName,
     })
     .from(gamesTable)
     .where(eq(gamesTable.id, p.data.id))
@@ -536,9 +538,13 @@ router.get("/:id/session", requireAuth, async (req: AuthRequest, res) => {
 
   // getCurrentRoundConfig necesita el shape completo — reconstruimos lo mínimo
   let gameModeOut = game.gameMode as string;
+  let roundPrizeAmount = parseFloat(game.prizeAmount);
   if (rounds?.length) {
     const r = rounds[(currentRound - 1)];
-    if (r) gameModeOut = r.game_mode as string;
+    if (r) {
+      gameModeOut = r.game_mode as string;
+      if (r.prize_amount !== undefined) roundPrizeAmount = parseFloat(String(r.prize_amount));
+    }
   }
 
   const data = {
@@ -550,6 +556,9 @@ router.get("/:id/session", requireAuth, async (req: AuthRequest, res) => {
     current_round: currentRound,
     total_rounds: totalRounds,
     updated_at: game.updatedAt,
+    prize_type: game.prizeType ?? "cash",
+    prize_physical_name: game.prizePhysicalName ?? null,
+    prize_amount: roundPrizeAmount,
   };
 
   SESSION_CACHE.set(p.data.id, { data, expiresAt: Date.now() + SESSION_CACHE_TTL_MS });
@@ -573,6 +582,8 @@ router.get("/:id/winners", async (req: AuthRequest, res) => {
       user_name: usersTable.fullName,
       user_department: usersTable.department,
       created_at: winnersTable.createdAt,
+      prize_type: winnersTable.prizeType,
+      prize_physical_name: winnersTable.prizePhysicalName,
     })
     .from(winnersTable)
     .innerJoin(usersTable, eq(winnersTable.userId, usersTable.id))

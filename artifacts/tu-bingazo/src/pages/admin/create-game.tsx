@@ -269,7 +269,7 @@ export default function CreateGamePage() {
 
       const common: Record<string, unknown> = {
         title: form.title,
-        prize_amount: parseFloat(form.prize_amount),
+        prize_amount: prizeType === "physical" ? 0 : (parseFloat(form.prize_amount) || 0),
         card_price: parseFloat(form.card_price),
         max_winners: multiRound ? 1 : parseInt(form.max_winners),
         draw_date: new Date(form.draw_date).toISOString(),
@@ -448,10 +448,12 @@ export default function CreateGamePage() {
                   <Input type="number" min="1" max="10" value={form.max_winners} onChange={e => upd("max_winners", e.target.value)} />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>Premio (Bs)</Label>
-                <Input type="number" min="1" step="0.01" placeholder="500.00" value={form.prize_amount} onChange={e => upd("prize_amount", e.target.value)} required />
-              </div>
+              {prizeType !== "physical" && (
+                <div className="space-y-1.5">
+                  <Label>Premio en efectivo (Bs){prizeType === "mixed" ? <span className="font-normal text-muted-foreground ml-1">— porción en dinero</span> : ""}</Label>
+                  <Input type="number" min="0" step="0.01" placeholder="500.00" value={form.prize_amount} onChange={e => upd("prize_amount", e.target.value)} required />
+                </div>
+              )}
             </>
           )}
 
@@ -461,10 +463,12 @@ export default function CreateGamePage() {
               <Label>Configuración de rondas</Label>
               <p className="text-xs text-muted-foreground -mt-1">Premio total (campo arriba) es informativo. Cada ronda tiene su propio premio.</p>
 
-              <div className="space-y-1.5">
-                <Label>Premio total del juego (Bs) <span className="font-normal text-muted-foreground">(referencia)</span></Label>
-                <Input type="number" min="1" step="0.01" placeholder="500.00" value={form.prize_amount} onChange={e => upd("prize_amount", e.target.value)} required />
-              </div>
+              {prizeType !== "physical" && (
+                <div className="space-y-1.5">
+                  <Label>Premio total del juego (Bs) <span className="font-normal text-muted-foreground">(referencia)</span></Label>
+                  <Input type="number" min="0" step="0.01" placeholder="500.00" value={form.prize_amount} onChange={e => upd("prize_amount", e.target.value)} required />
+                </div>
+              )}
 
               {rounds.map((r, i) => (
                 <div key={i} className="rounded-xl border p-3 space-y-2.5"
@@ -488,11 +492,13 @@ export default function CreateGamePage() {
                         </SelectContent>
                       </Select>
                     </div>
+                    {prizeType !== "physical" && (
                     <div className="space-y-1">
                       <p className="text-[11px] text-muted-foreground font-medium">Premio (Bs)</p>
-                      <Input className="h-9 text-xs" type="number" min="1" step="0.01" placeholder="250.00"
+                      <Input className="h-9 text-xs" type="number" min="0" step="0.01" placeholder="250.00"
                         value={r.prize_amount} onChange={e => updateRound(i, "prize_amount", e.target.value)} required />
                     </div>
+                  )}
                     <div className="space-y-1">
                       <p className="text-[11px] text-muted-foreground font-medium">Ganadores</p>
                       <Input className="h-9 text-xs" type="number" min="1" max="10" placeholder="1"
