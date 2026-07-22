@@ -3232,18 +3232,6 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             </h1>
             <p className="text-white/50 text-xs mt-0.5">{site.site_name} · {new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" })}</p>
           </div>
-          <div className="flex gap-2 shrink-0">
-            <button onClick={() => navigate("/admin/premios-fisicos")}
-              className="flex items-center gap-1 text-sm font-black px-3 py-2.5 rounded-2xl transition-transform active:scale-95"
-              style={{ background: "rgba(255,255,255,0.12)", color: "white", border: "1px solid rgba(255,255,255,0.2)" }}>
-              📦
-            </button>
-            <button onClick={() => navigate("/admin/crear-juego")}
-              className="flex items-center gap-1.5 text-sm font-black px-4 py-2.5 rounded-2xl transition-transform active:scale-95"
-              style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>
-              <span className="text-base">＋</span> Nuevo juego
-            </button>
-          </div>
         </div>
 
         {/* KPI cards inside header */}
@@ -3829,6 +3817,20 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
         {/* ── GAMES ──────────────────────────────────── */}
         {tab === "games" && !loading && (
           <div className="space-y-3">
+            {/* Acciones rápidas de la sección */}
+            <div className="flex gap-2">
+              <button onClick={() => navigate("/admin/premios-fisicos")}
+                className="flex items-center gap-1.5 text-sm font-black px-4 py-2.5 rounded-2xl transition-transform active:scale-95 border"
+                style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))", borderColor: "hsl(var(--border))" }}>
+                📦 Entregas físicas
+              </button>
+              <button onClick={() => navigate("/admin/crear-juego")}
+                className="flex items-center gap-1.5 text-sm font-black px-4 py-2.5 rounded-2xl transition-transform active:scale-95 ml-auto"
+                style={{ background: "hsl(42 98% 52%)", color: "#1a0050" }}>
+                <span className="text-base">＋</span> Nuevo juego
+              </button>
+            </div>
+
             {games.map(g => (
               <div key={g.id} className={`rounded-2xl overflow-hidden ${g.status === "active" ? "" : "bg-card border"}`}
                 style={g.status === "active" ? { background: "linear-gradient(135deg, #1a0050 0%, #3b00b8 100%)", border: "1px solid rgba(255,255,255,0.1)" } : {}}>
