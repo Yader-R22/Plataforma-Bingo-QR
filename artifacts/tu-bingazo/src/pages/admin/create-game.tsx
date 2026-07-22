@@ -512,7 +512,7 @@ export default function CreateGamePage() {
                 <div className="space-y-1.5">
                   <Label className="text-xs">Nombre del objeto</Label>
                   <Input className="h-9 text-sm" placeholder="Ej: Smart TV 50 pulgadas Samsung"
-                    value={prizePhysicalName} onChange={e => setPrizePhysicalName(e.target.value)} />
+                    maxLength={35} value={prizePhysicalName} onChange={e => setPrizePhysicalName(e.target.value)} />
                 </div>
               )}
 
@@ -644,7 +644,7 @@ export default function CreateGamePage() {
                     <div className="space-y-1">
                       <p className="text-[11px] text-muted-foreground font-medium">Nombre del objeto <span className="opacity-60">(ej: Celular Samsung A15)</span></p>
                       <Input className="h-9 text-xs" placeholder="Nombre del objeto para esta ronda"
-                        value={r.prize_physical_name} onChange={e => updateRound(i, "prize_physical_name", e.target.value)} />
+                        maxLength={35} value={r.prize_physical_name} onChange={e => updateRound(i, "prize_physical_name", e.target.value)} />
                     </div>
                   )}
 

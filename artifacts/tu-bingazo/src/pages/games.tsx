@@ -212,24 +212,28 @@ export default function GamesPage() {
                                           </p>
                                         )}
                                         {allPhysicalNames.length > 0 && (
-                                          <p className="text-white text-[9px] font-black leading-tight text-right" style={{ maxWidth: 90 }}>
+                                          <p className="text-white text-[9px] font-black leading-tight text-right overflow-hidden" style={{ maxWidth: 80, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
                                             📦 {allPhysicalNames.join(", ")}
                                           </p>
                                         )}
                                         <p className="text-white/50 text-[9px] font-semibold">🎮 {(game as any).total_rounds} rondas</p>
                                       </div>
-                                      {/* Derecha: fotos apiladas */}
+                                      {/* Derecha: cuadrícula 2 filas × hasta 3 columnas (máx 6 fotos) */}
                                       {photoRounds.length > 0 && (
-                                        <div className="flex flex-col gap-1">
-                                          {photoRounds.slice(0, 3).map((r: any, idx: number) => (
-                                            <img
-                                              key={idx}
-                                              src={`${BASE}${r.prize_image_url}`}
-                                              alt={r.prize_physical_name ?? "Premio"}
-                                              onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                                              className="rounded-lg object-cover shadow-lg"
-                                              style={{ width: 40, height: 40, border: "2px solid rgba(255,255,255,0.25)", flexShrink: 0 }}
-                                            />
+                                        <div className="flex flex-row gap-1">
+                                          {[0, 2, 4].filter(col => photoRounds[col]).map(col => (
+                                            <div key={col} className="flex flex-col gap-1">
+                                              {[col, col + 1].filter(i => photoRounds[i]).map(i => (
+                                                <img
+                                                  key={i}
+                                                  src={`${BASE}${photoRounds[i].prize_image_url}`}
+                                                  alt={photoRounds[i].prize_physical_name ?? "Premio"}
+                                                  onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                                  className="rounded-lg object-cover shadow-lg"
+                                                  style={{ width: 36, height: 36, border: "2px solid rgba(255,255,255,0.25)", flexShrink: 0 }}
+                                                />
+                                              ))}
+                                            </div>
                                           ))}
                                         </div>
                                       )}
