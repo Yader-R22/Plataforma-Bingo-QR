@@ -247,7 +247,8 @@ export default function WalletPage() {
         }, 3000);
         setTopUpPollRef(interval);
       } else {
-        // Enlazo failed → fallback to static
+        // Enlazo failed → fallback to static; clear QR image so "done" shows correct message
+        setTopUpQrImage(null);
         setTopUpStep("static-qr");
       }
     } catch {
@@ -455,7 +456,7 @@ export default function WalletPage() {
                   <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
                   <p className="text-xs font-bold text-green-700">Esperando confirmación de pago...</p>
                 </div>
-                <button onClick={() => { if (topUpPollRef) { clearInterval(topUpPollRef); setTopUpPollRef(null); } setTopUpStep("static-qr"); }}
+                <button onClick={() => { if (topUpPollRef) { clearInterval(topUpPollRef); setTopUpPollRef(null); } setTopUpQrImage(null); setTopUpStep("static-qr"); }}
                   className="w-full py-2.5 rounded-xl text-xs font-bold border"
                   style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
                   ¿Problemas con el QR? → Pagar con comprobante
