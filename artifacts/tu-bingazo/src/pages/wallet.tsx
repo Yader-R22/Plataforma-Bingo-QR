@@ -89,11 +89,23 @@ export default function WalletPage() {
   // earnings moved above (declared with refetch)
   const { data: commissions, isLoading: loadingCommissions } = useListCommissions();
 
+  // My top-ups (recargas) — fetched separately and merged into Movimientos
+  const [myTopUps, setMyTopUps] = useState<any[]>([]);
+  const [loadingTopUps, setLoadingTopUps] = useState(true);
+  const refetchTopUps = async () => {
+    try {
+      const r = await fetch(`${BASE}/api/wallet-top-ups/my`, { headers: { Authorization: `Bearer ${token}` } });
+      if (r.ok) setMyTopUps(await r.json());
+    } catch { /* ignore */ }
+    finally { setLoadingTopUps(false); }
+  };
+  useEffect(() => { refetchTopUps(); }, []);
+
   // Auto-poll balance + withdrawals so the user sees paid/rejected changes in real time.
   // 15s interval + document.hidden guard prevents ghost requests with tab in background.
   useEffect(() => {
     const id = setInterval(() => {
-      if (!document.hidden) { refetchWallet(); refetchWithdrawals(); }
+      if (!document.hidden) { refetchWallet(); refetchWithdrawals(); refetchTopUps(); }
     }, 15_000);
     return () => clearInterval(id);
   }, [refetchWallet, refetchWithdrawals]);
@@ -129,6 +141,29 @@ export default function WalletPage() {
       return true;
     });
   }, [withdrawals, histFilter, customFrom, customTo]);
+
+  const filteredTopUps = useMemo(() => {
+    const now = new Date();
+    let from: Date | null = null;
+    let to: Date | null = null;
+    if (histFilter === "week") {
+      const day = now.getDay() === 0 ? 6 : now.getDay() - 1;
+      from = new Date(now); from.setDate(now.getDate() - day); from.setHours(0,0,0,0);
+    } else if (histFilter === "month") {
+      from = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (histFilter === "year") {
+      from = new Date(now.getFullYear(), 0, 1);
+    } else if (histFilter === "custom") {
+      if (customFrom) { from = new Date(customFrom); from.setHours(0,0,0,0); }
+      if (customTo) { to = new Date(customTo); to.setHours(23,59,59,999); }
+    }
+    return myTopUps.filter(t => {
+      const d = new Date(t.created_at);
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    });
+  }, [myTopUps, histFilter, customFrom, customTo]);
 
   async function handleQrFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -1119,7 +1154,7 @@ export default function WalletPage() {
             </div>
           )}
 
-          {loadingWithdrawals ? (
+          {(loadingWithdrawals || loadingTopUps) ? (
             <div className="space-y-2">
               {[1, 2, 3].map(i => (
                 <div key={i} className="bg-card border rounded-2xl p-4 animate-pulse">
@@ -1134,14 +1169,67 @@ export default function WalletPage() {
                 </div>
               ))}
             </div>
-          ) : !filteredWithdrawals.length ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <p className="text-4xl mb-2">💸</p>
-              <p className="font-semibold">{!(withdrawals as any[])?.length ? "Sin movimientos todavía" : "Sin movimientos en este período"}</p>
-            </div>
-          ) : (
+          ) : (() => {
+            // Merge withdrawals + top-ups into a single chronological list
+            const wItems = filteredWithdrawals.map((w: any) => ({ ...w, _kind: "withdrawal" as const }));
+            const tItems = filteredTopUps.map((t: any) => ({ ...t, _kind: "topup" as const }));
+            const allItems = [...wItems, ...tItems].sort(
+              (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            );
+            const hasAny = (withdrawals as any[])?.length || myTopUps.length;
+            if (!allItems.length) return (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="text-4xl mb-2">💸</p>
+                <p className="font-semibold">{!hasAny ? "Sin movimientos todavía" : "Sin movimientos en este período"}</p>
+              </div>
+            );
+            return (
             <div className="space-y-2">
-              {filteredWithdrawals.slice(0, showAll ? undefined : PAGE).map((w: any) => {
+              {allItems.slice(0, showAll ? undefined : PAGE).map((item: any) => {
+              // ── TOP-UP (recarga) ──────────────────────────────────────────
+              if (item._kind === "topup") {
+                const sc = item.status === "approved"
+                  ? { label: "✓ Acreditada", bg: "hsl(142 70% 45% / 0.12)", border: "hsl(142 70% 45% / 0.3)", color: "hsl(142 70% 30%)" }
+                  : item.status === "rejected"
+                  ? { label: "❌ Rechazada", bg: "hsl(0 75% 52% / 0.12)", border: "hsl(0 75% 52% / 0.3)", color: "hsl(0 75% 40%)" }
+                  : item.status === "refunded"
+                  ? { label: "🔄 Reembolsada", bg: "hsl(210 80% 52% / 0.12)", border: "hsl(210 80% 52% / 0.3)", color: "hsl(210 80% 35%)" }
+                  : { label: "⏳ En revisión", bg: "hsl(42 98% 52% / 0.12)", border: "hsl(42 98% 52% / 0.3)", color: "hsl(42 98% 35%)" };
+                const isManual = !!item.receipt_url;
+                return (
+                  <div key={`tu-${item.id}`} className="bg-card border rounded-2xl p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(142 70% 30%)" }}>
+                          +Bs {parseFloat(item.amount).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          💳 Recarga · {isManual ? "Comprobante manual" : "QR Enlazo"} · {new Date(item.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric" })}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-full"
+                        style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.color }}>
+                        {sc.label}
+                      </div>
+                    </div>
+                    {item.admin_notes && (
+                      <div className="flex items-start gap-2 rounded-xl px-3 py-2"
+                        style={{ background: item.status === "rejected" ? "hsl(0 75% 52% / 0.08)" : "hsl(var(--muted))", border: `1px solid ${item.status === "rejected" ? "hsl(0 75% 52% / 0.25)" : "hsl(var(--border))"}` }}>
+                        <span className="text-sm mt-0.5">{item.status === "rejected" ? "❌" : "🗒️"}</span>
+                        <div>
+                          <p className="text-xs font-bold" style={{ color: item.status === "rejected" ? "hsl(0 75% 40%)" : undefined }}>
+                            {item.status === "rejected" ? "Motivo del rechazo" : "Nota del administrador"}
+                          </p>
+                          <p className="text-sm">{item.admin_notes}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // ── WITHDRAWAL (retiro) ───────────────────────────────────────
+              const w = item;
                 const isAdminCredit = w.method === "admin_credit";
                 const isAdminDebit = w.method === "admin_debit";
                 const isRefund = w.method === "refund";
@@ -1266,7 +1354,7 @@ export default function WalletPage() {
               })}
 
               {/* Ver más / Ver menos */}
-              {filteredWithdrawals.length > PAGE && (
+              {allItems.length > PAGE && (
                 <button
                   type="button"
                   onClick={() => setShowAll(v => !v)}
@@ -1278,11 +1366,12 @@ export default function WalletPage() {
                   }}>
                   {showAll
                     ? "▲ Ver menos"
-                    : `▼ Ver más (${filteredWithdrawals.length - PAGE} más)`}
+                    : `▼ Ver más (${allItems.length - PAGE} más)`}
                 </button>
               )}
             </div>
-          )}
+            );
+          })()}
           </>)}
         </div>
       </div>
