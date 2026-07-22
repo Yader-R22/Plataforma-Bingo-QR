@@ -7084,7 +7084,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
 
           const heapPct    = sysHealth?.heap_pct ?? 0;
           const sysMemPct  = sysHealth?.sys_mem_pct ?? 0;
-          const heapColor  = heapPct >= 80 ? "#dc2626" : heapPct >= 60 ? "#d97706" : "#16a34a";
+          const heapColor  = heapPct >= 70 ? "#dc2626" : heapPct >= 50 ? "#d97706" : "#16a34a";
           const sysColor   = sysMemPct >= 85 ? "#dc2626" : sysMemPct >= 70 ? "#d97706" : "#16a34a";
           const cpuLoad1   = sysHealth?.cpu_load_1m ?? 0;
           const cpuCount   = sysHealth?.cpu_count ?? 1;
@@ -7183,8 +7183,8 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         <p className="font-black">{sysHealth.heap_used_mb} MB</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Asignado</p>
-                        <p className="font-black">{sysHealth.heap_total_mb} MB</p>
+                        <p className="text-muted-foreground">Límite</p>
+                        <p className="font-black">{(sysHealth as any).heap_limit_mb ?? sysHealth.heap_total_mb} MB</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">RSS total</p>

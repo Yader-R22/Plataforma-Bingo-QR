@@ -2004,14 +2004,17 @@ router.get("/system/health", async (req: AuthRequest, res) => {
   const { pool } = await import("@workspace/db");
 
   // ── Process memory ───────────────────────────────────────────────────────
+  const v8stats = (await import("v8")).getHeapStatistics();
   const mem = process.memoryUsage();
   const toMB = (b: number) => parseFloat((b / 1024 / 1024).toFixed(1));
   const heapUsedMB    = toMB(mem.heapUsed);
   const heapTotalMB   = toMB(mem.heapTotal);
+  const heapLimitMB   = toMB(v8stats.heap_size_limit); // actual V8 max (e.g. 512 MB)
   const rssMB         = toMB(mem.rss);
   const externalMB    = toMB(mem.external);
   const arrayBufMB    = toMB(mem.arrayBuffers);
-  const heapPct       = Math.round((heapUsedMB / heapTotalMB) * 100);
+  // Use heap_size_limit so the % reflects real usage vs actual cap (not vs dynamic allocation)
+  const heapPct       = Math.round((heapUsedMB / heapLimitMB) * 100);
 
   // ── OS memory ────────────────────────────────────────────────────────────
   const osTotalMem = os.totalmem();
@@ -2073,6 +2076,7 @@ router.get("/system/health", async (req: AuthRequest, res) => {
     // Node.js heap
     heap_used_mb:    heapUsedMB,
     heap_total_mb:   heapTotalMB,
+    heap_limit_mb:   heapLimitMB,
     rss_mb:          rssMB,
     external_mb:     externalMB,
     array_buf_mb:    arrayBufMB,
