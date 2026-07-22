@@ -7,7 +7,7 @@ import { useAuthStore } from "@/hooks/useAuth";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const TYPE_EMOJI: Record<string, string> = {
-  daily: "📅",
+  daily: "🌅",
   weekly: "🏆",
   monthly: "👑",
 };
@@ -17,6 +17,23 @@ const TYPE_LABEL: Record<string, string> = {
   weekly: "Sorteo semanal",
   monthly: "Sorteo mensual",
 };
+
+function groupPriority(game: any): number {
+  if (game.status === "active") return 0;
+  if (game.status === "finished") return 99;
+  if (!game.draw_date) return 50;
+  const now = new Date();
+  const draw = new Date(game.draw_date);
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const drawStart = new Date(draw.getFullYear(), draw.getMonth(), draw.getDate());
+  const diffDays = Math.round((drawStart.getTime() - todayStart.getTime()) / 86400000);
+  if (diffDays < 0) return 90;
+  if (diffDays === 0) return 1;
+  if (diffDays === 1) return 2;
+  if (diffDays <= 6) return 3;
+  if (diffDays <= 13) return 4;
+  return 5;
+}
 
 const MODE_LABEL: Record<string, string> = {
   full_card: "Cartón completo",
@@ -124,7 +141,8 @@ export default function MyCardsPage() {
     grp.cards.push(card);
     if (card.status === "winner") grp.hasWinner = true;
   }
-  const groups = Array.from(groupsMap.values());
+  const groups = Array.from(groupsMap.values())
+    .sort((a, b) => groupPriority(a.game) - groupPriority(b.game));
 
   const pendingManual = manualRequests.filter(r => {
     const game = gamesById.get(r.game_id);
