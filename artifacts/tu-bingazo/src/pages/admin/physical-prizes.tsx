@@ -66,10 +66,10 @@ export default function AdminPhysicalPrizesPage() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [page, setPage] = useState(0);
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
-  const toggleExpand = (id: number) => setExpanded(prev => {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (key: string) => setExpanded(prev => {
     const next = new Set(prev);
-    next.has(id) ? next.delete(id) : next.add(id);
+    next.has(key) ? next.delete(key) : next.add(key);
     return next;
   });
 
@@ -391,15 +391,15 @@ export default function AdminPhysicalPrizesPage() {
                       {p.delivery_address && (
                         <div className="rounded-xl px-3 py-2.5" style={{ background: "hsl(var(--muted) / 0.5)" }}>
                           <button
-                            onClick={() => toggleExpand(p.id)}
+                            onClick={() => toggleExpand(`${p.id}-addr`)}
                             className="w-full flex items-center justify-between cursor-pointer"
                           >
                             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">🏠 Dirección de entrega</p>
                             <span className="text-xs font-bold text-muted-foreground shrink-0 ml-2">
-                              {expanded.has(p.id) ? "▲ Ver menos" : "▼ Ver más"}
+                              {expanded.has(`${p.id}-addr`) ? "▲ Ver menos" : "▼ Ver más"}
                             </span>
                           </button>
-                          {expanded.has(p.id) && (
+                          {expanded.has(`${p.id}-addr`) && (
                             <p className="text-sm leading-relaxed break-words whitespace-pre-wrap mt-2">{p.delivery_address}</p>
                           )}
                         </div>
@@ -409,15 +409,15 @@ export default function AdminPhysicalPrizesPage() {
                       {p.delivery_notes && (
                         <div className="rounded-xl px-3 py-2.5" style={{ background: "hsl(42 98% 52% / 0.06)", border: "1px solid hsl(42 98% 52% / 0.2)" }}>
                           <button
-                            onClick={() => toggleExpand(p.id)}
+                            onClick={() => toggleExpand(`${p.id}-notes`)}
                             className="w-full flex items-center justify-between cursor-pointer"
                           >
                             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📝 Instrucciones / Notas</p>
                             <span className="text-xs font-bold text-muted-foreground shrink-0 ml-2">
-                              {expanded.has(p.id) ? "▲ Ver menos" : "▼ Ver más"}
+                              {expanded.has(`${p.id}-notes`) ? "▲ Ver menos" : "▼ Ver más"}
                             </span>
                           </button>
-                          {expanded.has(p.id) && (
+                          {expanded.has(`${p.id}-notes`) && (
                             <p className="text-sm leading-relaxed break-words whitespace-pre-wrap mt-2">{p.delivery_notes}</p>
                           )}
                         </div>
