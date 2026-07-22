@@ -1127,6 +1127,7 @@ export default function AdminPage() {
     if (!token) return;
     const poll = async () => {
       if (tab !== "winners") return;
+      if (document.hidden) return;
       try {
         const params = new URLSearchParams();
         if (winnersFrom) params.set("from", winnersFrom);
@@ -1149,6 +1150,7 @@ export default function AdminPage() {
     if (!token || !activeGameIdsKey) return;
     const activeIds = activeGameIdsKey.split(",").map(Number);
     const iv = setInterval(async () => {
+      if (document.hidden) return;
       for (const gameId of activeIds) {
         try {
           const r = await fetch(`${BASE}/api/games/${gameId}/winners`, {
@@ -1171,6 +1173,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (!token || !liveGameIdsKey) return;
     const iv = setInterval(async () => {
+      if (document.hidden) return;
       try {
         const r = await fetch(`${BASE}/api/games`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
         if (!r.ok) return;

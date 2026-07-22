@@ -93,7 +93,7 @@ export default function MyCardsPage() {
   useEffect(() => { void fetchManualRequests(); }, [fetchManualRequests]);
 
   useEffect(() => {
-    const iv = setInterval(() => { void fetchManualRequests(); }, 15_000);
+    const iv = setInterval(() => { if (!document.hidden) void fetchManualRequests(); }, 15_000);
     return () => clearInterval(iv);
   }, [fetchManualRequests]);
 

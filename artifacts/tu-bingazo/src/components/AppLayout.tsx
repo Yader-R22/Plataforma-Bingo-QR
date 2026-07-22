@@ -150,6 +150,7 @@ function BannedScreen({ reason }: { reason: string | null }) {
   useEffect(() => {
     const check = async () => {
       if (!token) return;
+      if (document.hidden) return;
       try {
         const r = await fetch(`${BASE}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -382,7 +383,7 @@ function PendingReviewScreen() {
   }
 
   useEffect(() => {
-    const iv = setInterval(() => refresh(true), 5000);
+    const iv = setInterval(() => { if (!document.hidden) refresh(true); }, 5000);
     return () => clearInterval(iv);
   }, [token]);
 
@@ -723,7 +724,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     }
 
     pollRequests();
-    const id = setInterval(pollRequests, 5000);
+    const id = setInterval(() => { if (!document.hidden) pollRequests(); }, 5000);
     return () => {
       cancelled = true;
       clearInterval(id);
