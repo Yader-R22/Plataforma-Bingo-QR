@@ -1102,6 +1102,13 @@ router.post("/users/:id/adjust-balance", async (req: AuthRequest, res) => {
     });
   });
   if (insufficient) { res.status(400).json({ error: "Saldo insuficiente para realizar el débito" }); return; }
+  if (type === "credit") {
+    sendPushToUser(id, {
+      title: "💰 ¡Saldo acreditado!",
+      body: `Se acreditaron Bs ${amount.toLocaleString("es-BO")} a tu billetera${reason ? `. ${reason}` : ""}. ¡Ya puedes usarlo para comprar cartones!`,
+      url: "/wallet",
+    }).catch(() => {});
+  }
   res.json({ message: `Saldo ${type === "credit" ? "acreditado" : "debitado"} correctamente`, new_balance: newBalance });
 });
 

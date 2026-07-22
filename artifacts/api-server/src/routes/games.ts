@@ -365,9 +365,26 @@ router.post("/", requireAdmin, async (req: AuthRequest, res) => {
   const drawDate = new Date(data.draw_date);
   const dateStr = drawDate.toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" });
   const finalGame = gameWithSlug ?? game;
+  // Calcular etiqueta de premio correcta según tipo y rondas
+  const pushPrizeType = bodyAny.prize_type ?? "cash";
+  const pushPhysicalName: string | null = bodyAny.prize_physical_name ?? null;
+  let prizeLabel: string;
+  if (rounds?.length) {
+    const totalCash = rounds.reduce((s: number, r: RoundConfig) => s + (r.prize_amount ?? 0), 0);
+    const physicalCount = rounds.filter((r: RoundConfig) => r.prize_type !== "cash").length;
+    if (totalCash > 0 && physicalCount > 0) prizeLabel = `Bs ${totalCash.toFixed(0)} + ${physicalCount} premio${physicalCount > 1 ? "s" : ""} físico${physicalCount > 1 ? "s" : ""}`;
+    else if (totalCash > 0) prizeLabel = `Premio Bs ${totalCash.toFixed(0)}`;
+    else prizeLabel = `${physicalCount} premio${physicalCount > 1 ? "s" : ""} físico${physicalCount > 1 ? "s" : ""}`;
+  } else if (pushPrizeType === "physical") {
+    prizeLabel = pushPhysicalName ? `Premio: ${pushPhysicalName}` : "Premio físico";
+  } else if (pushPrizeType === "mixed") {
+    prizeLabel = `Bs ${data.prize_amount.toFixed(0)} + ${pushPhysicalName ?? "objeto físico"}`;
+  } else {
+    prizeLabel = `Premio Bs ${data.prize_amount.toFixed(0)}`;
+  }
   sendPushToAll({
     title: "🎱 ¡Nuevo bingo disponible!",
-    body: `${data.title} — Premio Bs ${data.prize_amount.toFixed(0)}. El ${dateStr}. ¡Compra tu cartón ahora!`,
+    body: `${data.title} — ${prizeLabel}. El ${dateStr}. ¡Compra tu cartón ahora!`,
     url: `/juego/${finalGame.slug ?? finalGame.id}`,
   }).catch(() => {});
 
