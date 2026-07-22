@@ -642,9 +642,15 @@ export default function WalletPage() {
                     <div key={`p-${item.id}`} className="bg-card border rounded-2xl p-4 space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(142 70% 30%)" }}>
-                            +Bs {parseFloat(item.prize_amount).toLocaleString("es-BO", { maximumFractionDigits: 2, minimumFractionDigits: 0 })}
-                          </p>
+                          {isPhysical && parseFloat(item.prize_amount) === 0 ? (
+                            <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(262 80% 40%)" }}>
+                              🎁 Premio obtenido
+                            </p>
+                          ) : (
+                            <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(142 70% 30%)" }}>
+                              +Bs {parseFloat(item.prize_amount).toLocaleString("es-BO", { maximumFractionDigits: 2, minimumFractionDigits: 0 })}
+                            </p>
+                          )}
                           <p className="text-sm font-medium mt-0.5">{item.game_title}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {typeLabel[item.game_type] ?? item.game_type} · {new Date(item.credited_at).toLocaleDateString("es-BO")}
