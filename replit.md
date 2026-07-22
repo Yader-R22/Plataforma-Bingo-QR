@@ -54,6 +54,10 @@ Plataforma boliviana de bingo en vivo — los jugadores compran cartones con pag
 
 - Idioma: español boliviano en toda la UI
 - Departamentos de Bolivia: Beni, Chuquisaca, Cochabamba, La Paz, Oruro, Pando, Potosí, Santa Cruz, Tarija
+- Al terminar cada tarea, siempre incluir el bloque de comandos para actualizar el VPS:
+  ```bash
+  cd /var/www/tubingazo && git pull && pnpm --filter @workspace/tu-bingazo run build && pm2 restart elbingote-api
+  ```
 
 ## Gotchas
 
