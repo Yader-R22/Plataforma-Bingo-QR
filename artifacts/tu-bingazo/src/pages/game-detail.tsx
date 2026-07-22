@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRoute, useLocation } from "wouter";
-import { useGetGame } from "@workspace/api-client-react";
+import { useGetGame, useListMyCards, getListMyCardsQueryKey } from "@workspace/api-client-react";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
@@ -700,6 +700,14 @@ export default function GameDetailPage() {
   const resolvedParams = paramsWithSlug ?? params;
   const gameId = parseInt(resolvedParams?.id ?? "0");
 
+  // Cartones activos del usuario para este juego
+  const { data: myCards = [] } = useListMyCards(undefined, {
+    query: { queryKey: getListMyCardsQueryKey(), staleTime: 15_000, enabled: !!user },
+  });
+  const hasActiveCard = (myCards as any[]).some(
+    (c: any) => c.game_id === gameId && c.status === "active"
+  );
+
   const { data: game, isLoading, refetch: refetchGame } = useGetGame(gameId);
   useSetLayoutConfig({ hideTopBar: true }, []);
 
@@ -980,8 +988,8 @@ export default function GameDetailPage() {
               </div>
             )}
 
-            {/* Play button (active game) — encima de la sección de compra para mayor visibilidad */}
-            {isActive && (
+            {/* Play button — solo si el juego está activo Y el usuario tiene al menos un cartón activo */}
+            {isActive && hasActiveCard && (
               <button className="btn-gold" onClick={() => navigate(`/juego/${gameId}/jugar`)}>
                 🎯 Ir a jugar ahora
               </button>
