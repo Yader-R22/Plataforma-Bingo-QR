@@ -20,6 +20,35 @@ import { sendPushToUser } from "../lib/push";
 const PAYMENT_API_URL = "https://api.pay.enlazzo.com/functions/v1";
 const router = Router();
 
+function buildActivatorCardNotif(
+  qty: number,
+  gameId: number,
+  gameTitle: string,
+  drawDate: Date | string | null,
+  prizeAmount: string | number,
+  prizeType: string | null,
+  prizePhysicalName: string | null,
+): { title: string; body: string; url: string } {
+  const d = drawDate ? new Date(drawDate) : null;
+  const dateStr = d
+    ? d.toLocaleDateString("es-BO", { day: "numeric", month: "long", year: "numeric", timeZone: "America/La_Paz" })
+    : "próximamente";
+  const amt = parseFloat(String(prizeAmount ?? 0));
+  let prizeStr: string;
+  if (prizeType === "physical") {
+    prizeStr = prizePhysicalName ?? "premio físico";
+  } else if (prizeType === "mixed") {
+    prizeStr = `Bs ${amt.toFixed(0)} + ${prizePhysicalName ?? "premio físico"}`;
+  } else {
+    prizeStr = `Bs ${amt.toFixed(0)}`;
+  }
+  return {
+    title: "🎟️ ¡Cartón acreditado!",
+    body: `Recibiste ${qty} cartón${qty !== 1 ? "es" : ""} para ${gameTitle}. Sorteo: ${dateStr}. Premio: ${prizeStr}.`,
+    url: `/juego/${gameId}`,
+  };
+}
+
 async function requireActivator(req: AuthRequest, res: Response, next: NextFunction) {
   if (!req.userId) { res.status(401).json({ error: "No autorizado" }); return; }
   const rows = await db.select().from(activatorRequestsTable)
@@ -433,6 +462,12 @@ router.post("/purchase", requireAuth, requireActivator, async (req: AuthRequest,
       });
     });
 
+    // Notify target user immediately (wallet payment is instant)
+    sendPushToUser(target_user_id, buildActivatorCardNotif(
+      quantity, game.id, game.title, game.drawDate,
+      game.prizeAmount, game.prizeType, game.prizePhysicalName ?? null,
+    )).catch(() => {});
+
     res.status(201).json({
       sale_id: waleSaleId,
       paid_with_balance: true,
@@ -634,14 +669,20 @@ router.put("/:id/approve", requireAdmin, async (req: AuthRequest, res) => {
   if (alreadyDone) { res.status(400).json({ error: "Ya fue procesada" }); return; }
 
   // Notify target user
-  const [gameRow] = await db.select({ title: gamesTable.title })
-    .from(gamesTable).where(eq(gamesTable.id, sale.gameId)).limit(1);
+  const [gameRow] = await db.select({
+    title: gamesTable.title,
+    drawDate: gamesTable.drawDate,
+    prizeAmount: gamesTable.prizeAmount,
+    prizeType: gamesTable.prizeType,
+    prizePhysicalName: gamesTable.prizePhysicalName,
+  }).from(gamesTable).where(eq(gamesTable.id, sale.gameId)).limit(1);
   const qty = sale.quantity;
-  sendPushToUser(sale.targetUserId, {
-    title: "🎟️ ¡Cartones recibidos!",
-    body: `Un activador te compró ${qty} cartón${qty !== 1 ? "es" : ""} para ${gameRow?.title ?? "el bingo"}. ¡Buena suerte!`,
-    url: "/my-cards",
-  }).catch(() => {});
+  if (gameRow) {
+    sendPushToUser(sale.targetUserId, buildActivatorCardNotif(
+      qty, sale.gameId, gameRow.title, gameRow.drawDate,
+      gameRow.prizeAmount, gameRow.prizeType, gameRow.prizePhysicalName ?? null,
+    )).catch(() => {});
+  }
 
   req.log.info({ admin_id: req.userId, sale_id: id }, "activator card sale approved");
   res.json({ id, status: "approved" });

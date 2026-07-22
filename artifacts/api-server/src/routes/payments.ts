@@ -90,17 +90,53 @@ router.get("/:checkoutId/status", requireAuth, async (req: AuthRequest, res) => 
         }
       }
 
-      // Notify the buyer their cards are ready
+      // Notify the buyer/recipient their cards are ready
       if (paidCards.length && paidCards[0].userId) {
         const count = paidCards.length;
         const gameId2 = paidCards[0].gameId;
-        const gameRow = await db.select({ title: gamesTable.title }).from(gamesTable).where(eq(gamesTable.id, gameId2)).limit(1);
-        const gameTitle = gameRow[0]?.title ?? "el bingo";
-        sendPushToUser(paidCards[0].userId, {
-          title: "🎟️ ¡Pago confirmado!",
-          body: `Tu${count > 1 ? "s" : ""} ${count} cartón${count !== 1 ? "es" : ""} para ${gameTitle} ${count !== 1 ? "están listos" : "está listo"}. ¡Buena suerte!`,
-          url: `/my-cards`,
-        }).catch(() => {});
+        const [gr] = await db.select({
+          title: gamesTable.title,
+          drawDate: gamesTable.drawDate,
+          prizeAmount: gamesTable.prizeAmount,
+          prizeType: gamesTable.prizeType,
+          prizePhysicalName: gamesTable.prizePhysicalName,
+        }).from(gamesTable).where(eq(gamesTable.id, gameId2)).limit(1);
+
+        // Was this an activator sale? (different message for recipient vs self-buyer)
+        const [actSale] = await db.select({ id: activatorCardSalesTable.id })
+          .from(activatorCardSalesTable)
+          .where(eq(activatorCardSalesTable.checkoutId, transactionId))
+          .limit(1);
+
+        if (gr) {
+          const d = gr.drawDate ? new Date(gr.drawDate) : null;
+          const dateStr = d
+            ? d.toLocaleDateString("es-BO", { day: "numeric", month: "long", year: "numeric", timeZone: "America/La_Paz" })
+            : "próximamente";
+          const amt = parseFloat(String(gr.prizeAmount ?? 0));
+          let prizeStr: string;
+          if (gr.prizeType === "physical") {
+            prizeStr = gr.prizePhysicalName ?? "premio físico";
+          } else if (gr.prizeType === "mixed") {
+            prizeStr = `Bs ${amt.toFixed(0)} + ${gr.prizePhysicalName ?? "premio físico"}`;
+          } else {
+            prizeStr = `Bs ${amt.toFixed(0)}`;
+          }
+
+          if (actSale) {
+            sendPushToUser(paidCards[0].userId, {
+              title: "🎟️ ¡Cartón acreditado!",
+              body: `Recibiste ${count} cartón${count !== 1 ? "es" : ""} para ${gr.title}. Sorteo: ${dateStr}. Premio: ${prizeStr}.`,
+              url: `/juego/${gameId2}`,
+            }).catch(() => {});
+          } else {
+            sendPushToUser(paidCards[0].userId, {
+              title: "🎟️ ¡Pago confirmado!",
+              body: `Tu${count > 1 ? "s" : ""} ${count} cartón${count !== 1 ? "es" : ""} para ${gr.title} ${count !== 1 ? "están listos" : "está listo"}. Sorteo: ${dateStr}. Premio: ${prizeStr}.`,
+              url: `/juego/${gameId2}`,
+            }).catch(() => {});
+          }
+        }
       }
       req.log.info({ transactionId }, "Payment confirmed via polling, cards activated");
       res.json({ checkout_id: transactionId, status: "completed" });
