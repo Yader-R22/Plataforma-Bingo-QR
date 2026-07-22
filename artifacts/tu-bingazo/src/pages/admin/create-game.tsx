@@ -24,6 +24,8 @@ type RoundRow = {
   game_mode: string;
   max_winners: string;
   prize_amount: string;
+  prize_physical_name: string;
+  prize_physical_description: string;
   predefined_winner_user_id: number | null;
   predefined_winner_name: string;
   predefined_winner_ci: string;
@@ -193,6 +195,8 @@ export default function CreateGamePage() {
     game_mode: "full_card",
     max_winners: "1",
     prize_amount: "",
+    prize_physical_name: "",
+    prize_physical_description: "",
     predefined_winner_user_id: null,
     predefined_winner_name: "",
     predefined_winner_ci: "",
@@ -245,6 +249,8 @@ export default function CreateGamePage() {
             game_mode: r.game_mode,
             max_winners: String(r.max_winners),
             prize_amount: String(r.prize_amount),
+            prize_physical_name: r.prize_physical_name ?? "",
+            prize_physical_description: r.prize_physical_description ?? "",
             predefined_winner_user_id: r.predefined_winner_user_id ?? null,
             predefined_winner_name: "",
             predefined_winner_ci: "",
@@ -281,7 +287,9 @@ export default function CreateGamePage() {
         ? rounds.map(r => ({
             game_mode: r.game_mode,
             max_winners: parseInt(r.max_winners) || 1,
-            prize_amount: parseFloat(r.prize_amount) || 0,
+            prize_amount: prizeType === "physical" ? 0 : (parseFloat(r.prize_amount) || 0),
+            prize_physical_name: prizeType !== "cash" ? (r.prize_physical_name || null) : null,
+            prize_physical_description: prizeType !== "cash" ? (r.prize_physical_description || null) : null,
             predefined_winner_user_id: r.predefined_winner_user_id ?? null,
           }))
         : null;
@@ -356,6 +364,86 @@ export default function CreateGamePage() {
           <div className="space-y-1.5">
             <Label>Precio cartón (Bs)</Label>
             <Input type="number" min="0.5" step="0.5" placeholder="5.00" value={form.card_price} onChange={e => upd("card_price", e.target.value)} required />
+          </div>
+
+          {/* ── Tipo de premio (va primero para condicionar el resto) ── */}
+          <div className="space-y-2">
+            <Label>Tipo de premio</Label>
+            <Select value={prizeType} onValueChange={v => setPrizeType(v as "cash" | "physical" | "mixed")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cash">💰 Efectivo (acreditado en billetera)</SelectItem>
+                <SelectItem value="physical">📦 Premio físico (objeto)</SelectItem>
+                <SelectItem value="mixed">🎁 Mixto (efectivo + objeto)</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Monto en efectivo — solo ronda única; en multi-ronda se configura por ronda */}
+            {!multiRound && prizeType !== "physical" && (
+              <div className="space-y-1.5">
+                <Label>Premio en efectivo (Bs){prizeType === "mixed" ? <span className="font-normal text-muted-foreground ml-1">— porción en dinero</span> : ""}</Label>
+                <Input type="number" min="0" step="0.01" placeholder="500.00" value={form.prize_amount} onChange={e => upd("prize_amount", e.target.value)} required />
+              </div>
+            )}
+
+            {/* Nombre, descripción e imagen del objeto — compartidos para todas las rondas */}
+            {prizeType !== "cash" && (
+              <div className="rounded-xl border p-3 space-y-3"
+                style={{ background: "hsl(var(--muted) / 0.4)" }}>
+                {multiRound && (
+                  <p className="text-xs text-muted-foreground">La imagen y descripción son compartidas. El nombre del premio se configura en cada ronda.</p>
+                )}
+                {!multiRound && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Nombre del objeto <span className="text-muted-foreground font-normal">(requerido)</span></Label>
+                    <Input
+                      className="h-9 text-sm"
+                      placeholder="Ej: Smart TV 50 pulgadas Samsung"
+                      value={prizePhysicalName}
+                      onChange={e => setPrizePhysicalName(e.target.value)}
+                    />
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Descripción <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                  <Input
+                    className="h-9 text-sm"
+                    placeholder="Modelo, especificaciones, color…"
+                    value={prizePhysicalDesc}
+                    onChange={e => setPrizePhysicalDesc(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Foto del premio <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                  {prizeImage && !prizeImage.startsWith("/api/") ? (
+                    <div className="rounded-xl overflow-hidden border relative">
+                      <img src={prizeImage} alt="Premio" className="w-full h-32 object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setPrizeImage(null)}
+                        className="absolute top-2 right-2 text-xs font-bold px-2 py-1 rounded-lg cursor-pointer"
+                        style={{ background: "rgba(0,0,0,0.65)", color: "#fff" }}>
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-24 rounded-xl border-2 border-dashed cursor-pointer hover:border-primary/50 transition-colors"
+                      style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--background))" }}>
+                      <span className="text-xl mb-0.5">📷</span>
+                      <span className="text-xs font-medium">Subir foto del premio</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={async e => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setPrizeImage(await compressImage(file, 1200));
+                        e.target.value = "";
+                      }} />
+                    </label>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Multi-round toggle ── */}
@@ -468,12 +556,6 @@ export default function CreateGamePage() {
                   <Input type="number" min="1" max="10" value={form.max_winners} onChange={e => upd("max_winners", e.target.value)} />
                 </div>
               </div>
-              {prizeType !== "physical" && (
-                <div className="space-y-1.5">
-                  <Label>Premio en efectivo (Bs){prizeType === "mixed" ? <span className="font-normal text-muted-foreground ml-1">— porción en dinero</span> : ""}</Label>
-                  <Input type="number" min="0" step="0.01" placeholder="500.00" value={form.prize_amount} onChange={e => upd("prize_amount", e.target.value)} required />
-                </div>
-              )}
               <div className="pt-0.5 border-t" style={{ borderColor: "hsl(var(--border))" }}>
                 <PredefinedWinnerPicker
                   roundIndex={0}
@@ -492,14 +574,7 @@ export default function CreateGamePage() {
           {multiRound && (
             <div className="space-y-2">
               <Label>Configuración de rondas</Label>
-              <p className="text-xs text-muted-foreground -mt-1">Premio total (campo arriba) es informativo. Cada ronda tiene su propio premio.</p>
-
-              {prizeType !== "physical" && (
-                <div className="space-y-1.5">
-                  <Label>Premio total del juego (Bs) <span className="font-normal text-muted-foreground">(referencia)</span></Label>
-                  <Input type="number" min="0" step="0.01" placeholder="500.00" value={form.prize_amount} onChange={e => upd("prize_amount", e.target.value)} required />
-                </div>
-              )}
+              <p className="text-xs text-muted-foreground -mt-1">Cada ronda tiene su propia modalidad y premio.</p>
 
               {rounds.map((r, i) => (
                 <div key={i} className="rounded-xl border p-3 space-y-2.5"
@@ -537,6 +612,15 @@ export default function CreateGamePage() {
                     </div>
                   </div>
 
+                  {/* ── Nombre del premio físico por ronda ── */}
+                  {prizeType !== "cash" && (
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-muted-foreground font-medium">Nombre del premio <span className="opacity-60">(ej: Celular Samsung A15)</span></p>
+                      <Input className="h-9 text-xs" placeholder="Nombre del objeto para esta ronda"
+                        value={r.prize_physical_name} onChange={e => updateRound(i, "prize_physical_name", e.target.value)} />
+                    </div>
+                  )}
+
                   {/* ── Ganador predefinido ── */}
                   <div className="pt-0.5 border-t" style={{ borderColor: "hsl(var(--border))" }}>
                     <PredefinedWinnerPicker
@@ -569,72 +653,6 @@ export default function CreateGamePage() {
               </button>
             </div>
           )}
-
-          {/* ── Tipo de premio ── */}
-          <div className="space-y-2">
-            <Label>Tipo de premio</Label>
-            <Select value={prizeType} onValueChange={v => setPrizeType(v as "cash" | "physical" | "mixed")}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cash">💰 Efectivo (acreditado en billetera)</SelectItem>
-                <SelectItem value="physical">📦 Premio físico (objeto)</SelectItem>
-                <SelectItem value="mixed">🎁 Mixto (efectivo + objeto)</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {prizeType !== "cash" && (
-              <div className="rounded-xl border p-3 space-y-3 mt-2"
-                style={{ background: "hsl(var(--muted) / 0.4)" }}>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Nombre del objeto <span className="text-muted-foreground font-normal">(requerido)</span></Label>
-                  <Input
-                    className="h-9 text-sm"
-                    placeholder="Ej: Smart TV 50 pulgadas Samsung"
-                    value={prizePhysicalName}
-                    onChange={e => setPrizePhysicalName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Descripción <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-                  <Input
-                    className="h-9 text-sm"
-                    placeholder="Modelo, especificaciones, color…"
-                    value={prizePhysicalDesc}
-                    onChange={e => setPrizePhysicalDesc(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Foto del premio <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-                  {prizeImage && !prizeImage.startsWith("/api/") ? (
-                    <div className="rounded-xl overflow-hidden border relative">
-                      <img src={prizeImage} alt="Premio" className="w-full h-32 object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => setPrizeImage(null)}
-                        className="absolute top-2 right-2 text-xs font-bold px-2 py-1 rounded-lg cursor-pointer"
-                        style={{ background: "rgba(0,0,0,0.65)", color: "#fff" }}>
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <label className="flex flex-col items-center justify-center w-full h-24 rounded-xl border-2 border-dashed cursor-pointer hover:border-primary/50 transition-colors"
-                      style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--background))" }}>
-                      <span className="text-xl mb-0.5">📷</span>
-                      <span className="text-xs font-medium">Subir foto del premio</span>
-                      <input type="file" accept="image/*" className="hidden" onChange={async e => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setPrizeImage(await compressImage(file, 1200));
-                        e.target.value = "";
-                      }} />
-                    </label>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Cover image */}
           <div className="space-y-2">
