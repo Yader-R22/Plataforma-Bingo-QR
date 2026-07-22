@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { seedGameCategories } from "./lib/seed";
+import { runMigrations } from "./lib/migrate";
 import { startReconciliationJob } from "./lib/reconcilePayments";
 import { startAutoRestartWatcher } from "./lib/autoRestart";
 import { startCleanupJobs } from "./lib/cleanupJobs";
@@ -26,7 +27,7 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
-  void seedGameCategories();
+  void runMigrations().then(() => seedGameCategories());
   startReconciliationJob();
   startAutoRestartWatcher();
   startCleanupJobs();
