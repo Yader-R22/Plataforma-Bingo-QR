@@ -806,6 +806,8 @@ export default function AdminPage() {
   const [deptStats, setDeptStats] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [games, setGames] = useState<any[]>([]);
+  const [gSearch, setGSearch] = useState("");
+  const [gPage, setGPage] = useState(0);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [withdrawalsHasMore, setWithdrawalsHasMore] = useState(false);
   const [withdrawalsOffset, setWithdrawalsOffset] = useState(0);
@@ -3831,7 +3833,37 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               </button>
             </div>
 
-            {games.map(g => (
+            {/* Buscador */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="🔍 Buscar bingo por nombre…"
+                value={gSearch}
+                onChange={e => { setGSearch(e.target.value); setGPage(0); }}
+                className="w-full rounded-2xl px-4 py-2.5 text-sm border outline-none"
+                style={{ background: "hsl(var(--background))", borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}
+              />
+              {gSearch.trim() && games.filter((g: any) => g.title.toLowerCase().includes(gSearch.toLowerCase().trim())).slice(0, 5).length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-2xl border shadow-lg overflow-hidden"
+                  style={{ background: "hsl(var(--card))", borderColor: "hsl(var(--border))" }}>
+                  {games.filter((g: any) => g.title.toLowerCase().includes(gSearch.toLowerCase().trim())).slice(0, 5).map((g: any) => (
+                    <button key={g.id} type="button"
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted/60 transition-colors flex items-center gap-2"
+                      onClick={() => { setGSearch(g.title); setGPage(0); }}>
+                      <span className="font-semibold">{g.title}</span>
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {g.status === "active" ? "🟢 En vivo" : g.status === "upcoming" ? "🕐 Próximo" : "✅ Finalizado"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Lista paginada — 7 por página */}
+            {(gSearch.trim() ? games.filter((g: any) => g.title.toLowerCase().includes(gSearch.toLowerCase().trim())) : games)
+              .slice(gPage * 7, gPage * 7 + 7)
+              .map((g: any) => (
               <div key={g.id} className={`rounded-2xl overflow-hidden ${g.status === "active" ? "" : "bg-card border"}`}
                 style={g.status === "active" ? { background: "linear-gradient(135deg, #1a0050 0%, #3b00b8 100%)", border: "1px solid rgba(255,255,255,0.1)" } : {}}>
                 <div className={`flex items-start justify-between gap-3 ${g.status === "active" ? "px-4 pt-4 pb-3" : "p-4"}`}>
@@ -4102,12 +4134,41 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
 
               </div>
             ))}
-            {games.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground mb-4">Sin juegos creados</p>
-                <button className="btn-primary max-w-xs mx-auto" onClick={() => navigate("/admin/crear-juego")}>Crear primer juego</button>
-              </div>
-            )}
+
+            {/* Paginación */}
+            {(() => {
+              const q = gSearch.toLowerCase().trim();
+              const filtered = q ? games.filter((g: any) => g.title.toLowerCase().includes(q)) : games;
+              const totalPages = Math.ceil(filtered.length / 7);
+              if (filtered.length === 0) return (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground mb-4">{q ? `Sin resultados para "${gSearch}"` : "Sin juegos creados"}</p>
+                  {!q && <button className="btn-primary max-w-xs mx-auto" onClick={() => navigate("/admin/crear-juego")}>Crear primer juego</button>}
+                </div>
+              );
+              if (totalPages <= 1) return null;
+              return (
+                <div className="flex items-center justify-between pt-1 pb-2">
+                  <button
+                    disabled={gPage === 0}
+                    onClick={() => setGPage(p => p - 1)}
+                    className="flex items-center gap-1.5 text-sm font-bold px-4 py-2 rounded-xl border transition-all disabled:opacity-30"
+                    style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}>
+                    ← Anterior
+                  </button>
+                  <span className="text-xs text-muted-foreground font-semibold">
+                    Página {gPage + 1} de {totalPages}
+                  </span>
+                  <button
+                    disabled={gPage >= totalPages - 1}
+                    onClick={() => setGPage(p => p + 1)}
+                    className="flex items-center gap-1.5 text-sm font-bold px-4 py-2 rounded-xl border transition-all disabled:opacity-30"
+                    style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}>
+                    Siguiente →
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         )}
 
