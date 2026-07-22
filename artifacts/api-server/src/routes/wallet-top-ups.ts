@@ -247,6 +247,8 @@ router.get("/", requireAdmin, async (req: AuthRequest, res) => {
     t: walletTopUpsTable,
     userName: usersTable.fullName,
     userCi: usersTable.ci,
+    userPhone: usersTable.phone,
+    userDepartment: usersTable.department,
   })
     .from(walletTopUpsTable)
     .leftJoin(usersTable, eq(walletTopUpsTable.userId, usersTable.id))
@@ -258,11 +260,13 @@ router.get("/", requireAdmin, async (req: AuthRequest, res) => {
   }
 
   const rows = await query.limit(200);
-  res.json(rows.map(({ t, userName, userCi }) => ({
+  res.json(rows.map(({ t, userName, userCi, userPhone, userDepartment }) => ({
     id: t.id,
     user_id: t.userId,
     user_name: userName ?? null,
     user_ci: userCi ?? null,
+    user_phone: userPhone ?? null,
+    user_department: userDepartment ?? null,
     amount: parseFloat(t.amount as string),
     status: t.status,
     checkout_id: t.checkoutId ?? null,

@@ -7777,19 +7777,22 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
 
                       {/* Status stripe */}
-                      <div className="px-4 py-2.5 flex items-center gap-2"
+                      <div className="px-4 py-2.5 flex items-center gap-2 flex-wrap"
                         style={{ background: statusColor.bg, borderBottom: `1px solid ${statusColor.border}` }}>
-                        <span className="text-xs font-black" style={{ color: statusColor.text }}>{statusLabel}</span>
+                        <span className="text-sm">{isPending ? "⏳" : isApproved ? "✅" : isRefunded ? "🔄" : "❌"}</span>
+                        <span className="text-xs font-black" style={{ color: statusColor.text }}>
+                          {isPending ? "Pendiente de revisión" : isApproved ? "Recarga aprobada" : isRefunded ? "Reembolsada" : "Recarga rechazada"}
+                        </span>
                         {hasEnlazoQr && (
-                          <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full font-bold"
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
                             style={{ background: "hsl(210 80% 52% / 0.15)", color: "hsl(210 80% 35%)" }}>
-                            QR Enlazo
+                            🤖 QR Enlazo automático
                           </span>
                         )}
                         {!hasEnlazoQr && tu.receipt_url && (
-                          <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full font-bold"
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
                             style={{ background: "hsl(42 98% 52% / 0.15)", color: "hsl(36 80% 28%)" }}>
-                            Comprobante
+                            🧾 Comprobante manual
                           </span>
                         )}
                         <span className="ml-auto text-[10px] text-muted-foreground shrink-0">
@@ -7798,24 +7801,43 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       </div>
 
                       <div className="px-4 py-3 space-y-3">
-                        {/* User + amount */}
+
+                        {/* User info row */}
                         <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-base shrink-0"
+                          <div className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-lg shrink-0"
                             style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}>
                             {(tu.user_name ?? "U").charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-black text-sm truncate" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                            <p className="font-black text-sm leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
                               {tu.user_name ?? `Usuario #${tu.user_id}`}
-                              <span className="text-xs font-normal text-muted-foreground ml-1.5">CI {tu.user_ci}</span>
                             </p>
-                            <p className="font-black text-xl mt-1" style={{ color: "hsl(var(--primary))" }}>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+                              <span className="text-xs text-muted-foreground">🪪 CI {tu.user_ci ?? "—"}</span>
+                              {tu.user_department && (
+                                <span className="text-xs text-muted-foreground">📍 {tu.user_department}</span>
+                              )}
+                            </div>
+                            {tu.user_phone && (
+                              <a
+                                href={`https://wa.me/${tu.user_phone.replace(/\D/g, "")}?text=${encodeURIComponent(`Hola ${tu.user_name ?? ""}, te contactamos por tu solicitud de recarga de Bs ${(tu.amount ?? 0).toFixed(0)} en Tu Bingazo.`)}`}
+                                target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 mt-1 text-xs font-bold rounded-lg px-2 py-0.5 transition-opacity hover:opacity-80"
+                                style={{ background: "hsl(142 70% 93%)", color: "hsl(142 70% 28%)" }}>
+                                💬 {tu.user_phone}
+                              </a>
+                            )}
+                          </div>
+                          {/* Amount badge */}
+                          <div className="shrink-0 text-right">
+                            <p className="font-black text-2xl leading-none" style={{ color: "hsl(var(--primary))", fontFamily: "'Poppins', sans-serif" }}>
                               Bs {(tu.amount ?? 0).toFixed(0)}
                             </p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">recarga</p>
                           </div>
                         </div>
 
-                        {/* Receipt or checkout ID */}
+                        {/* Receipt / Enlazo ID / empty */}
                         {tu.receipt_url && (
                           <button
                             className="w-full py-2.5 rounded-xl text-sm font-bold border flex items-center justify-center gap-2 transition-opacity hover:opacity-75"
@@ -7827,7 +7849,8 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         {!tu.receipt_url && tu.checkout_id && (
                           <div className="rounded-xl py-2 px-3 text-xs text-muted-foreground border border-dashed"
                             style={{ borderColor: "hsl(var(--border))" }}>
-                            <span className="font-bold">ID Enlazo: </span>{tu.checkout_id}
+                            <span className="font-bold">ID Enlazo: </span>
+                            <span className="font-mono">{tu.checkout_id}</span>
                           </div>
                         )}
                         {!tu.receipt_url && !tu.checkout_id && (
@@ -7837,35 +7860,36 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           </div>
                         )}
 
-                        {/* Admin notes (approved/rejected) */}
+                        {/* Admin notes (approved/rejected/refunded) */}
                         {tu.admin_notes && (
                           <div className="rounded-xl px-3 py-2.5"
                             style={{
                               background: isApproved || isRefunded ? "hsl(142 70% 97%)" : "hsl(0 75% 97%)",
                               border: `1px solid ${isApproved || isRefunded ? "hsl(142 70% 82%)" : "hsl(0 75% 85%)"}`,
                             }}>
-                            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Nota</p>
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Nota del admin</p>
                             <p className="text-xs">{tu.admin_notes}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">💬 Visible para el jugador en su billetera</p>
                           </div>
                         )}
 
                         {/* Actions — pending only */}
                         {isPending && (
-                          <div className="space-y-2 pt-1 border-t" style={{ borderColor: "hsl(var(--border))" }}>
+                          <div className="space-y-2 pt-2 border-t" style={{ borderColor: "hsl(var(--border))" }}>
                             <textarea
-                              className="w-full rounded-xl border px-3 py-2 text-sm bg-background resize-none mt-3"
+                              className="w-full rounded-xl border px-3 py-2 text-sm bg-background resize-none mt-1"
                               rows={2}
                               placeholder="Nota (obligatoria para rechazar, opcional para aprobar)..."
                               value={topUpNotes[tu.id] ?? ""}
                               onChange={e => setTopUpNotes(prev => ({ ...prev, [tu.id]: e.target.value }))}
                             />
 
-                            {/* Refund for rejection */}
+                            {/* Refund field — only shown when there's a rejection note */}
                             {(topUpNotes[tu.id] ?? "").trim().length > 0 && (
                               <div className="rounded-xl px-3 py-2.5 space-y-1.5"
                                 style={{ background: "hsl(210 80% 52% / 0.07)", border: "1px solid hsl(210 80% 52% / 0.2)" }}>
                                 <p className="text-xs font-bold" style={{ color: "hsl(210 80% 35%)" }}>
-                                  🔄 Reembolso parcial a billetera (solo para rechazos — opcional)
+                                  🔄 Reembolso parcial a billetera (opcional)
                                 </p>
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-muted-foreground shrink-0">Bs</span>
@@ -7877,32 +7901,34 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                     onChange={e => setTopUpRefundAmounts(prev => ({ ...prev, [tu.id]: e.target.value }))}
                                   />
                                 </div>
+                                <p className="text-[10px] text-muted-foreground">
+                                  Deja en 0 para rechazar sin reembolso. El monto se acredita de inmediato a la billetera del usuario.
+                                </p>
                               </div>
                             )}
 
                             <div className="flex gap-2">
+                              {/* Aprobar — visible cuando NO hay nota escrita */}
                               {!(topUpNotes[tu.id] ?? "").trim() && (
                                 <button onClick={() => approveTopUp(tu.id)}
                                   className="flex-1 py-2.5 rounded-xl font-black text-sm text-white"
                                   style={{ background: "hsl(142 70% 38%)" }}>
-                                  ✅ Aprobar
+                                  ✅ Aprobar recarga
                                 </button>
                               )}
-                              {(topUpNotes[tu.id] ?? "").trim() && (
-                                <>
-                                  <button onClick={() => rejectTopUp(tu.id)}
-                                    className="flex-1 py-2.5 rounded-xl font-black text-sm text-white"
-                                    style={{ background: "hsl(0 75% 45%)" }}>
-                                    ❌ Rechazar
-                                  </button>
-                                  {(topUpRefundAmounts[tu.id] ?? "").trim() && parseFloat(topUpRefundAmounts[tu.id] ?? "0") > 0 && (
-                                    <button onClick={() => refundTopUp(tu.id)}
-                                      className="flex-1 py-2.5 rounded-xl font-black text-sm text-white"
-                                      style={{ background: "hsl(210 80% 45%)" }}>
-                                      🔄 Reembolsar
-                                    </button>
-                                  )}
-                                </>
+                              {/* Rechazar — siempre visible */}
+                              <button onClick={() => rejectTopUp(tu.id)}
+                                className="flex-1 py-2.5 rounded-xl font-black text-sm text-white"
+                                style={{ background: "hsl(0 75% 45%)" }}>
+                                ❌ Rechazar
+                              </button>
+                              {/* Reembolsar — solo cuando hay monto de reembolso > 0 */}
+                              {(topUpRefundAmounts[tu.id] ?? "").trim() && parseFloat(topUpRefundAmounts[tu.id] ?? "0") > 0 && (
+                                <button onClick={() => refundTopUp(tu.id)}
+                                  className="flex-1 py-2.5 rounded-xl font-black text-sm text-white"
+                                  style={{ background: "hsl(210 80% 45%)" }}>
+                                  🔄 Reembolsar
+                                </button>
                               )}
                             </div>
                           </div>
