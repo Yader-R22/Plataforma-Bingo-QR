@@ -34,7 +34,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
     .where(and(
       eq(withdrawalsTable.userId, req.userId!),
       eq(withdrawalsTable.status, "pending"),
-      notInArray(withdrawalsTable.method, ["admin_credit", "admin_debit", "refund"] as any[]),
+      notInArray(withdrawalsTable.method, ["admin_credit", "admin_debit", "refund", "activator_card_purchase"] as any[]),
     ));
 
   // Total prizes won in games (from winners table, validated only)
@@ -64,7 +64,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
     .where(and(
       eq(withdrawalsTable.userId, req.userId!),
       eq(withdrawalsTable.status, "paid"),
-      notInArray(withdrawalsTable.method, ["admin_credit", "admin_debit", "refund"] as any[]),
+      notInArray(withdrawalsTable.method, ["admin_credit", "admin_debit", "refund", "activator_card_purchase"] as any[]),
     ));
 
   // total_won = net prizes received (gross minus commissions deducted) + commissions earned as activator

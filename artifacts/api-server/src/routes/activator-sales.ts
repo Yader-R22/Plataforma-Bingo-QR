@@ -460,6 +460,16 @@ router.post("/purchase", requireAuth, requireActivator, async (req: AuthRequest,
         },
         ipAddress: req.ip,
       });
+
+      // Register wallet movement so activator sees it in Movimientos
+      await tx.insert(withdrawalsTable).values({
+        userId: req.userId!,
+        amount: String(finalPrice.toFixed(2)),
+        method: "activator_card_purchase",
+        status: "paid",
+        notes: `${quantity} cartón${quantity !== 1 ? "es" : ""} para ${game.title} — Para: ${targetUser.fullName}`,
+        paidAt: new Date(),
+      });
     });
 
     // Notify target user immediately (wallet payment is instant)

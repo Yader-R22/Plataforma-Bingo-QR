@@ -834,6 +834,7 @@ export default function WalletPage() {
                 const isAdminCredit = w.method === "admin_credit";
                 const isAdminDebit = w.method === "admin_debit";
                 const isRefund = w.method === "refund";
+                const isActivatorPurchase = w.method === "activator_card_purchase";
                 const isAdmin = isAdminCredit || isAdminDebit || isRefund;
 
                 let methodInfo: any = {};
@@ -845,6 +846,7 @@ export default function WalletPage() {
                 if (isAdminCredit) methodLabel = "💰 Acreditado por Admin";
                 else if (isAdminDebit) methodLabel = "💸 Débito por Admin";
                 else if (isRefund) methodLabel = "🔄 Reembolso";
+                else if (isActivatorPurchase) methodLabel = "🎟️ Compra de cartón";
                 else if (isQr) methodLabel = "📱 QR";
                 else if (isBank) methodLabel = `🏧 Cajero · ${methodInfo.bank ?? ""}`;
                 else methodLabel = "Transferencia";
@@ -877,6 +879,15 @@ export default function WalletPage() {
                         {sc.label}
                       </div>
                     </div>
+
+                    {/* Activator card purchase detail */}
+                    {isActivatorPurchase && w.notes && (
+                      <div className="flex items-start gap-2 rounded-xl px-3 py-2"
+                        style={{ background: "hsl(var(--muted))", border: "1px solid hsl(var(--border))" }}>
+                        <span className="text-sm mt-0.5">🎟️</span>
+                        <p className="text-sm font-medium">{w.notes}</p>
+                      </div>
+                    )}
 
                     {/* Admin note / comment */}
                     {isAdmin && w.notes && (
