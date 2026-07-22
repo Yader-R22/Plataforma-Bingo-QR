@@ -76,12 +76,12 @@ export default function WalletPage() {
   // earnings moved above (declared with refetch)
   const { data: commissions, isLoading: loadingCommissions } = useListCommissions();
 
-  // Auto-poll balance + withdrawals every 6s so the user sees paid/rejected changes in real time
+  // Auto-poll balance + withdrawals so the user sees paid/rejected changes in real time.
+  // 15s interval + document.hidden guard prevents ghost requests with tab in background.
   useEffect(() => {
     const id = setInterval(() => {
-      refetchWallet();
-      refetchWithdrawals();
-    }, 2000);
+      if (!document.hidden) { refetchWallet(); refetchWithdrawals(); }
+    }, 15_000);
     return () => clearInterval(id);
   }, [refetchWallet, refetchWithdrawals]);
 
