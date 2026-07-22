@@ -553,7 +553,7 @@ export default function WalletPage() {
           <div className="grid grid-cols-2 gap-1.5 mb-4">
             {([
               { key: "earnings", label: "🏆 Premios ganados" },
-              { key: "withdrawals", label: "💸 Retiros" },
+              { key: "withdrawals", label: "📋 Movimientos" },
             ] as const).map(t => (
               <button key={t.key} type="button"
                 onClick={() => { setHistTab(t.key); setShowAll(false); }}
@@ -789,7 +789,7 @@ export default function WalletPage() {
           {!filteredWithdrawals.length ? (
             <div className="text-center py-12 text-muted-foreground">
               <p className="text-4xl mb-2">💸</p>
-              <p className="font-semibold">{!(withdrawals as any[])?.length ? "Sin retiros todavía" : "Sin movimientos en este período"}</p>
+              <p className="font-semibold">{!(withdrawals as any[])?.length ? "Sin movimientos todavía" : "Sin movimientos en este período"}</p>
             </div>
           ) : (
             <div className="space-y-2">
