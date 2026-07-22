@@ -100,6 +100,12 @@ function serializeRounds(
   }));
 }
 
+function computePrizeAmount(storedAmount: string, rounds: RoundConfig[] | null | undefined): number {
+  const stored = parseFloat(storedAmount);
+  const roundsTotal = (rounds ?? []).reduce((s, r) => s + (r.prize_amount ?? 0), 0);
+  return roundsTotal > stored ? roundsTotal : stored;
+}
+
 function formatGame(
   game: typeof gamesTable.$inferSelect,
   extras: { uniqueParticipants?: number; onlineCount?: number } = {}
@@ -113,7 +119,7 @@ function formatGame(
     title: game.title,
     type: computeGameType(new Date(game.drawDate)),
     status: game.status,
-    prize_amount: parseFloat(game.prizeAmount),
+    prize_amount: computePrizeAmount(game.prizeAmount, rounds),
     card_price: parseFloat(game.cardPrice),
     draw_date: game.drawDate,
     participant_count: game.participantCount,
@@ -180,7 +186,7 @@ function formatGameForList(
     title: game.title,
     type: computeGameType(new Date(game.drawDate)),
     status: game.status,
-    prize_amount: parseFloat(game.prizeAmount),
+    prize_amount: computePrizeAmount(game.prizeAmount, rounds),
     card_price: parseFloat(game.cardPrice),
     draw_date: game.drawDate,
     participant_count: game.participantCount,
