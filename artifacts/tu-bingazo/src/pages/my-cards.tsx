@@ -303,11 +303,30 @@ export default function MyCardsPage() {
             {groups.map(({ game, cards: gameCards, hasWinner }) => {
               const gameId = gameCards[0].game_id;
               const title = game?.title ?? `Juego #${gameId}`;
-              const emoji = game ? (TYPE_EMOJI[game.type] ?? "🎱") : "🎱";
-              const typeLabel = game ? (TYPE_LABEL[game.type] ?? "") : "";
+              const gameType: string = game?.type ?? "daily";
+              const emoji = TYPE_EMOJI[gameType] ?? "🎱";
+              const typeLabel = TYPE_LABEL[gameType] ?? "";
               const status: string = game?.status ?? "finished";
               const isActive = status === "active";
               const isUpcoming = status === "upcoming";
+
+              // Gradiente por tipo de juego
+              const TYPE_GRAD: Record<string, string> = {
+                daily:   "linear-gradient(135deg, #1a0050, #3b00b8)",
+                weekly:  "linear-gradient(135deg, #7b1900, #d44000)",
+                monthly: "linear-gradient(135deg, #005c2e, #00a854)",
+              };
+              // Upcoming: versión más oscura/apagada del mismo tono
+              const TYPE_GRAD_DIM: Record<string, string> = {
+                daily:   "linear-gradient(135deg, #0f002e, #220070)",
+                weekly:  "linear-gradient(135deg, #4a0e00, #7a2500)",
+                monthly: "linear-gradient(135deg, #003319, #005a2e)",
+              };
+              const headerGrad = isActive
+                ? (TYPE_GRAD[gameType] ?? TYPE_GRAD.daily)
+                : isUpcoming
+                ? (TYPE_GRAD_DIM[gameType] ?? TYPE_GRAD_DIM.daily)
+                : "linear-gradient(135deg, #1a1a2e, #2a2a3e)";
 
               const rounds = (game as any)?.rounds as Array<{ game_mode: string }> | null;
               const hasManyRounds = rounds && rounds.length > 1;
@@ -319,30 +338,41 @@ export default function MyCardsPage() {
                     border: "1.5px solid hsl(var(--border))",
                   }}>
 
-                  {/* Cabecera con gradiente */}
+                  {/* Cabecera con gradiente por tipo */}
                   <div className="relative px-4 pt-4 pb-3 overflow-hidden"
-                    style={{
-                      background: isActive
-                        ? "linear-gradient(135deg, hsl(260 60% 14%), hsl(270 55% 22%))"
-                        : isUpcoming
-                        ? "linear-gradient(135deg, hsl(260 50% 16%), hsl(240 45% 24%))"
-                        : "linear-gradient(135deg, hsl(240 15% 20%), hsl(240 12% 28%))",
-                    }}>
+                    style={{ background: headerGrad }}>
 
                     {/* Emoji de fondo decorativo */}
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 text-6xl opacity-10 select-none pointer-events-none">
                       {emoji}
                     </div>
 
-                    <div className="relative flex items-start gap-3">
+                    {/* Badge EN VIVO — esquina superior derecha, destacado */}
+                    {isActive && (
+                      <div className="absolute top-3 right-3 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black shadow-lg"
+                        style={{ background: "#e53e3e", color: "#fff", boxShadow: "0 0 12px rgba(229,62,62,0.6)" }}>
+                        <span className="w-2 h-2 rounded-full bg-white animate-ping inline-block opacity-80" />
+                        EN VIVO
+                      </div>
+                    )}
+
+                    {/* Badge GANADOR — esquina superior derecha */}
+                    {hasWinner && !isActive && (
+                      <div className="absolute top-3 right-3 flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black"
+                        style={{ background: "hsl(42 98% 52%)", color: "#000" }}>
+                        🏆 Ganador
+                      </div>
+                    )}
+
+                    <div className="relative flex items-start gap-3" style={{ paddingRight: isActive || hasWinner ? "5.5rem" : "0" }}>
                       <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 text-2xl"
-                        style={{ background: "rgba(255,255,255,0.1)" }}>
+                        style={{ background: "rgba(255,255,255,0.12)" }}>
                         {emoji}
                       </div>
                       <div className="flex-1 min-w-0">
                         {typeLabel && (
                           <p className="text-xs font-semibold uppercase tracking-wider mb-0.5"
-                            style={{ color: "rgba(255,255,255,0.45)" }}>
+                            style={{ color: "rgba(255,255,255,0.5)" }}>
                             {typeLabel}
                           </p>
                         )}
@@ -350,28 +380,18 @@ export default function MyCardsPage() {
                           style={{ fontFamily: "'Poppins', sans-serif" }}>
                           {title}
                         </p>
-                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                          {/* Badge estado */}
-                          {isActive && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold"
-                              style={{ background: "hsl(0 75% 52% / 0.25)", color: "hsl(0 85% 72%)", border: "1px solid hsl(0 75% 52% / 0.4)" }}>
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse inline-block" />
-                              En vivo
-                            </span>
-                          )}
-                          {isUpcoming && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold"
-                              style={{ background: "hsl(42 98% 52% / 0.2)", color: "hsl(42 98% 72%)", border: "1px solid hsl(42 98% 52% / 0.35)" }}>
-                              ⏳ Próximo
-                            </span>
-                          )}
-                          {hasWinner && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold"
-                              style={{ background: "hsl(42 98% 52% / 0.2)", color: "hsl(42 98% 72%)", border: "1px solid hsl(42 98% 52% / 0.35)" }}>
-                              🏆 ¡Ganador!
-                            </span>
-                          )}
-                        </div>
+                        {isUpcoming && (
+                          <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold"
+                            style={{ background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.8)" }}>
+                            ⏳ Próximo
+                          </span>
+                        )}
+                        {hasWinner && isActive && (
+                          <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold"
+                            style={{ background: "hsl(42 98% 52% / 0.3)", color: "hsl(42 98% 80%)" }}>
+                            🏆 ¡Ganador!
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
