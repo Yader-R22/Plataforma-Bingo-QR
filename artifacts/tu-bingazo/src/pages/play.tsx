@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useAuthStore } from "@/hooks/useAuth";
 import { useSetLayoutConfig } from "@/components/AppLayout";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { toast } from "sonner";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -185,6 +186,7 @@ export default function PlayPage() {
   const [, params] = useRoute("/juego/:id/jugar");
   const [, navigate] = useLocation();
   const token = useAuthStore(s => s.token);
+  const site = useSiteSettings();
 
   const gameId = parseInt(params?.id ?? "0");
   const [session, setSession] = useState<GameSession | null>(null);
@@ -612,7 +614,11 @@ export default function PlayPage() {
                           zIndex: isWinning ? 1 : undefined,
                           transition: "all 0.2s ease",
                         }}>
-                        {isFree ? "⭐" : num}
+                        {isFree
+                          ? site.logo_url
+                            ? <img src={site.logo_url} alt="logo" style={{ width: "80%", height: "80%", objectFit: "contain", borderRadius: 4 }} />
+                            : <span style={{ fontSize: "1.25rem" }}>{site.site_emoji || "⭐"}</span>
+                          : num}
                       </button>
                     );
                   })}
