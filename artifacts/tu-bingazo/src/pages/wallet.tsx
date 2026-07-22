@@ -860,10 +860,15 @@ export default function WalletPage() {
                   ? { label: "✓ Reembolsado", bg: "hsl(210 80% 52% / 0.12)", border: "hsl(210 80% 52% / 0.3)", color: "hsl(210 80% 35%)" }
                   : statusConfig(w.status);
 
+                // Parse activator purchase notes: "2 cartones para Bingo Diario — Para: Juan Pérez"
+                const [purchaseDetail, purchaseTarget] = isActivatorPurchase && w.notes
+                  ? w.notes.split(" — ")
+                  : [null, null];
+
                 return (
                   <div key={w.id} className="bg-card border rounded-2xl p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
                         <p className="font-black text-lg" style={{
                           fontFamily: "'Poppins', sans-serif",
                           color: isAdminCredit ? "hsl(142 70% 30%)" : isRefund ? "hsl(210 80% 35%)" : isAdminDebit ? "hsl(0 75% 40%)" : undefined,
@@ -871,23 +876,20 @@ export default function WalletPage() {
                           {(isAdminCredit || isRefund) ? "+" : "−"}Bs {parseFloat(w.amount).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {methodLabel} · {new Date(w.created_at).toLocaleDateString("es-BO")}
+                          {methodLabel} · {new Date(w.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric" })}
                         </p>
+                        {isActivatorPurchase && purchaseDetail && (
+                          <div className="mt-1.5 space-y-0.5">
+                            <p className="text-xs font-semibold" style={{ color: "hsl(var(--foreground) / 0.75)" }}>{purchaseDetail}</p>
+                            {purchaseTarget && <p className="text-xs text-muted-foreground">{purchaseTarget}</p>}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-xs font-bold px-3 py-1.5 rounded-full"
+                      <div className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-full"
                         style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.color }}>
                         {sc.label}
                       </div>
                     </div>
-
-                    {/* Activator card purchase detail */}
-                    {isActivatorPurchase && w.notes && (
-                      <div className="flex items-start gap-2 rounded-xl px-3 py-2"
-                        style={{ background: "hsl(var(--muted))", border: "1px solid hsl(var(--border))" }}>
-                        <span className="text-sm mt-0.5">🎟️</span>
-                        <p className="text-sm font-medium">{w.notes}</p>
-                      </div>
-                    )}
 
                     {/* Admin note / comment */}
                     {isAdmin && w.notes && (
