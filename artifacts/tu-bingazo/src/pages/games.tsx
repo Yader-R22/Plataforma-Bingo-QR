@@ -218,12 +218,12 @@ export default function GamesPage() {
                                         )}
                                         <p className="text-white/50 text-[9px] font-semibold">🎮 {(game as any).total_rounds} rondas</p>
                                       </div>
-                                      {/* Derecha: cuadrícula 2 filas × hasta 3 columnas (máx 6 fotos) */}
+                                      {/* Derecha: cuadrícula 2 filas × 2 columnas (máx 4 fotos) */}
                                       {photoRounds.length > 0 && (
                                         <div className="flex flex-row gap-1">
-                                          {[0, 2, 4].filter(col => photoRounds[col]).map(col => (
+                                          {[0, 2].filter(col => photoRounds[col]).map(col => (
                                             <div key={col} className="flex flex-col gap-1">
-                                              {[col, col + 1].filter(i => photoRounds[i]).map(i => (
+                                              {[col, col + 1].filter(i => photoRounds[i] && i < 4).map(i => (
                                                 <img
                                                   key={i}
                                                   src={`${BASE}${photoRounds[i].prize_image_url}`}
