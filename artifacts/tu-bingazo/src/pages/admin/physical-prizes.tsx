@@ -51,6 +51,10 @@ export default function AdminPhysicalPrizesPage() {
   const [deliverNotes, setDeliverNotes] = useState("");
   const [deliverLoading, setDeliverLoading] = useState(false);
 
+  const [inPersonModal, setInPersonModal] = useState<PhysicalPrize | null>(null);
+  const [inPersonNotes, setInPersonNotes] = useState("");
+  const [inPersonLoading, setInPersonLoading] = useState(false);
+
   const auth = () => ({ Authorization: `Bearer ${token}` });
 
   async function load() {
@@ -98,6 +102,26 @@ export default function AdminPhysicalPrizesPage() {
       setDeliverModal(null); setDeliverNotes("");
       load();
     } catch { toast.error("Error de red"); } finally { setDeliverLoading(false); }
+  }
+
+  async function handleInPersonDeliver() {
+    if (!inPersonModal) return;
+    setInPersonLoading(true);
+    try {
+      const notes = inPersonNotes.trim()
+        ? `Entregado en persona. ${inPersonNotes.trim()}`
+        : "Entregado en persona";
+      const r = await fetch(`${BASE}/api/admin/physical-prizes/${inPersonModal.id}/deliver`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...auth() },
+        body: JSON.stringify({ delivery_notes: notes }),
+      });
+      const d = await r.json();
+      if (!r.ok) { toast.error(d.error || "Error al actualizar"); return; }
+      toast.success("🤝 Premio marcado como entregado en persona");
+      setInPersonModal(null); setInPersonNotes("");
+      load();
+    } catch { toast.error("Error de red"); } finally { setInPersonLoading(false); }
   }
 
   if (!user?.is_admin) return null;
@@ -152,6 +176,37 @@ export default function AdminPhysicalPrizesPage() {
                 className="w-full py-3 rounded-2xl font-black text-white text-sm disabled:opacity-50 cursor-pointer"
                 style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
                 {shipLoading ? "Guardando…" : "🚚 Confirmar envío"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* In-person deliver modal */}
+      {inPersonModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}
+          onClick={() => { if (!inPersonLoading) { setInPersonModal(null); setInPersonNotes(""); } }}>
+          <div className="rounded-3xl p-5 max-w-sm w-full space-y-4" style={{ background: "hsl(var(--background))" }}
+            onClick={e => e.stopPropagation()}>
+            <p className="font-black text-lg">🤝 Entregar en persona</p>
+            <p className="text-sm text-muted-foreground">
+              Vas a marcar <strong>{inPersonModal.prize_physical_name ?? "el premio físico"}</strong> como entregado directamente a <strong>{inPersonModal.user_name}</strong>, sin envío a domicilio.
+            </p>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Notas (opcional)</label>
+                <input
+                  className="w-full rounded-xl border px-3 py-2 text-sm"
+                  style={{ background: "hsl(var(--background))", borderColor: "hsl(var(--border))" }}
+                  placeholder="Quién entregó, lugar, fecha…"
+                  value={inPersonNotes}
+                  onChange={e => setInPersonNotes(e.target.value)}
+                />
+              </div>
+              <button onClick={handleInPersonDeliver} disabled={inPersonLoading}
+                className="w-full py-3 rounded-2xl font-black text-white text-sm disabled:opacity-50 cursor-pointer"
+                style={{ background: "linear-gradient(135deg, #0ea5e9, #0369a1)" }}>
+                {inPersonLoading ? "Guardando…" : "🤝 Confirmar entrega en persona"}
               </button>
             </div>
           </div>
@@ -264,14 +319,39 @@ export default function AdminPhysicalPrizesPage() {
                   )}
 
                   {/* Actions */}
-                  <div className="flex gap-2">
-                    {(p.delivery_status === "pending" || p.delivery_status === "address_submitted") && (
-                      <button onClick={() => { setShipModal(p); setReceiptImage(null); setShipNotes(""); }}
-                        className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer"
-                        style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
-                        🚚 Marcar enviado
-                      </button>
+                  <div className="flex flex-col gap-2">
+                    {/* Pending: esperando dirección del ganador */}
+                    {p.delivery_status === "pending" && (
+                      <div className="flex gap-2">
+                        <div className="flex-1 py-2.5 rounded-xl text-sm font-bold text-center"
+                          style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.3)", color: "hsl(42 98% 35%)" }}>
+                          ⏳ En espera de dirección
+                        </div>
+                        <button onClick={() => { setInPersonModal(p); setInPersonNotes(""); }}
+                          className="px-4 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer shrink-0"
+                          style={{ background: "linear-gradient(135deg, #0ea5e9, #0369a1)" }}>
+                          🤝 En persona
+                        </button>
+                      </div>
                     )}
+
+                    {/* Address submitted: el ganador envió su dirección */}
+                    {p.delivery_status === "address_submitted" && (
+                      <div className="flex gap-2">
+                        <button onClick={() => { setShipModal(p); setReceiptImage(null); setShipNotes(""); }}
+                          className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer"
+                          style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
+                          🚚 Marcar enviado
+                        </button>
+                        <button onClick={() => { setInPersonModal(p); setInPersonNotes(""); }}
+                          className="px-4 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer shrink-0"
+                          style={{ background: "linear-gradient(135deg, #0ea5e9, #0369a1)" }}>
+                          🤝 En persona
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Shipped: ya fue enviado, confirmar recepción */}
                     {p.delivery_status === "shipped" && (
                       <button onClick={() => { setDeliverModal(p); setDeliverNotes(""); }}
                         className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer"
@@ -279,6 +359,7 @@ export default function AdminPhysicalPrizesPage() {
                         ✅ Marcar entregado
                       </button>
                     )}
+
                     {p.delivery_receipt_url && (
                       <button onClick={() => window.open(p.delivery_receipt_url!, "_blank")}
                         className="px-4 py-2.5 rounded-xl text-sm font-bold border cursor-pointer"
