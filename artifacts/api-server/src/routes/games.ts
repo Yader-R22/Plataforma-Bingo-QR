@@ -482,12 +482,24 @@ router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
   if (data.game_mode) updateData.gameMode = data.game_mode as "horizontal" | "vertical" | "diagonal" | "quina" | "full_card";
   if (data.max_winners !== undefined) updateData.maxWinners = data.max_winners;
   if (data.status) updateData.status = data.status as "upcoming" | "active" | "finished";
-  if (data.cover_image_url !== undefined) updateData.coverImageUrl = data.cover_image_url ?? null;
+  if (data.cover_image_url !== undefined) {
+    // Si el frontend devuelve la URL del API (no base64), preservar la imagen existente
+    if (data.cover_image_url?.startsWith("/api/")) {
+      // no sobreescribir — mantener lo que hay en DB
+    } else {
+      updateData.coverImageUrl = data.cover_image_url ?? null;
+    }
+  }
   const patchAny = req.body as any;
   if (patchAny.prize_type !== undefined) updateData.prizeType = patchAny.prize_type as "cash" | "physical" | "mixed";
   if (patchAny.prize_physical_name !== undefined) updateData.prizePhysicalName = patchAny.prize_physical_name ?? null;
   if (patchAny.prize_physical_description !== undefined) updateData.prizePhysicalDescription = patchAny.prize_physical_description ?? null;
-  if (patchAny.prize_image_url !== undefined) updateData.prizeImageUrl = patchAny.prize_image_url ?? null;
+  if (patchAny.prize_image_url !== undefined) {
+    // Si el frontend devuelve la URL del API (no base64), preservar la imagen existente
+    if (!patchAny.prize_image_url?.startsWith("/api/")) {
+      updateData.prizeImageUrl = patchAny.prize_image_url ?? null;
+    }
+  }
   if (data.rounds !== undefined) {
     let newRounds = (data.rounds as RoundConfig[] | null) ?? null;
     // Preservar imágenes existentes cuando el frontend devuelve la URL de la API
