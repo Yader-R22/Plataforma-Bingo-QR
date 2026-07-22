@@ -141,8 +141,10 @@ export default function ProfilePage() {
         .then(r => r.ok ? r.json() : null)
         .then(d => {
           if (!d || cancelled) return;
-          setNameReq(d.name_change ?? null);
-          setCiReq(d.ci_change ?? null);
+          const nextName = d.name_change ?? null;
+          const nextCi   = d.ci_change   ?? null;
+          setNameReq(prev => JSON.stringify(prev) === JSON.stringify(nextName) ? prev : nextName);
+          setCiReq(prev   => JSON.stringify(prev) === JSON.stringify(nextCi)   ? prev : nextCi);
           setReqStatusLoaded(true);
           // If name change just got approved, refresh user profile
           if (d.name_change?.status === "approved") {
