@@ -980,6 +980,13 @@ export default function GameDetailPage() {
               </div>
             )}
 
+            {/* Play button (active game) — encima de la sección de compra para mayor visibilidad */}
+            {isActive && (
+              <button className="btn-gold" onClick={() => navigate(`/juego/${gameId}/jugar`)}>
+                🎯 Ir a jugar ahora
+              </button>
+            )}
+
             {/* Buy section */}
             {!isFinished && (
               <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border) / 0.5)" }}>
@@ -1075,12 +1082,6 @@ export default function GameDetailPage() {
               </div>
             )}
 
-            {/* Play button (active game) */}
-            {isActive && (
-              <button className="btn-gold" onClick={() => navigate(`/juego/${gameId}/jugar`)}>
-                🎯 Ir a jugar ahora
-              </button>
-            )}
 
             {/* Finished: winners section */}
             {isFinished && (
