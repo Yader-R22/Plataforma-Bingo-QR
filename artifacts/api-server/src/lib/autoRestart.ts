@@ -54,6 +54,10 @@ export function setAutoRestartConfig(updates: Partial<AutoRestartConfig>): AutoR
 }
 
 export function startAutoRestartWatcher(): void {
+  if (process.env.NODE_ENV === "development") {
+    logger.info("Auto-restart watcher disabled in development");
+    return;
+  }
   loadConfig();
 
   const timer = setInterval(() => {
