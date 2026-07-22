@@ -1153,6 +1153,9 @@ components:
           type: ["string", "null"]
         prize_physical_description:
           type: ["string", "null"]
+        prize_image_url:
+          type: ["string", "null"]
+          description: URL versionada o base64 de la imagen del premio físico de esta ronda
         predefined_winner_user_id:
           type: ["integer", "null"]
           description: ID del usuario asignado como ganador predefinido de esta ronda

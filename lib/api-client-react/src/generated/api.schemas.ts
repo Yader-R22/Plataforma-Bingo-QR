@@ -144,6 +144,11 @@ export interface RoundConfig {
   /** @nullable */
   prize_physical_description?: string | null;
   /**
+     * URL versionada o base64 de la imagen del premio físico de esta ronda
+     * @nullable
+     */
+  prize_image_url?: string | null;
+  /**
      * ID del usuario asignado como ganador predefinido de esta ronda
      * @nullable
      */

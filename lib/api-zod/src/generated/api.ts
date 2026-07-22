@@ -126,6 +126,7 @@ export const ListGamesResponseItem = zod.object({
   "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
   "prize_physical_name": zod.string().nullish(),
   "prize_physical_description": zod.string().nullish(),
+  "prize_image_url": zod.string().nullish().describe('URL versionada o base64 de la imagen del premio físico de esta ronda'),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
@@ -167,6 +168,7 @@ export const CreateGameBody = zod.object({
   "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
   "prize_physical_name": zod.string().nullish(),
   "prize_physical_description": zod.string().nullish(),
+  "prize_image_url": zod.string().nullish().describe('URL versionada o base64 de la imagen del premio físico de esta ronda'),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).nullish().describe('Configuración de múltiples rondas (null = juego de una sola ronda)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
@@ -210,6 +212,7 @@ export const GetGameResponse = zod.object({
   "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
   "prize_physical_name": zod.string().nullish(),
   "prize_physical_description": zod.string().nullish(),
+  "prize_image_url": zod.string().nullish().describe('URL versionada o base64 de la imagen del premio físico de esta ronda'),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
@@ -251,6 +254,7 @@ export const UpdateGameBody = zod.object({
   "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
   "prize_physical_name": zod.string().nullish(),
   "prize_physical_description": zod.string().nullish(),
+  "prize_image_url": zod.string().nullish().describe('URL versionada o base64 de la imagen del premio físico de esta ronda'),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).nullish().describe('Actualizar configuración de rondas (null = quitar multi-ronda)'),
   "cover_image_url": zod.string().nullish().describe('URL o base64 de imagen de portada del juego (opcional)'),
@@ -285,6 +289,7 @@ export const UpdateGameResponse = zod.object({
   "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
   "prize_physical_name": zod.string().nullish(),
   "prize_physical_description": zod.string().nullish(),
+  "prize_image_url": zod.string().nullish().describe('URL versionada o base64 de la imagen del premio físico de esta ronda'),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
@@ -413,6 +418,7 @@ export const StartGameResponse = zod.object({
   "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
   "prize_physical_name": zod.string().nullish(),
   "prize_physical_description": zod.string().nullish(),
+  "prize_image_url": zod.string().nullish().describe('URL versionada o base64 de la imagen del premio físico de esta ronda'),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
@@ -461,6 +467,7 @@ export const FinishGameResponse = zod.object({
   "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
   "prize_physical_name": zod.string().nullish(),
   "prize_physical_description": zod.string().nullish(),
+  "prize_image_url": zod.string().nullish().describe('URL versionada o base64 de la imagen del premio físico de esta ronda'),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
@@ -509,6 +516,7 @@ export const NextRoundResponse = zod.object({
   "prize_type": zod.enum(['cash', 'physical', 'mixed']).optional(),
   "prize_physical_name": zod.string().nullish(),
   "prize_physical_description": zod.string().nullish(),
+  "prize_image_url": zod.string().nullish().describe('URL versionada o base64 de la imagen del premio físico de esta ronda'),
   "predefined_winner_user_id": zod.number().nullish().describe('ID del usuario asignado como ganador predefinido de esta ronda')
 })).optional().describe('Configuración de rondas (null = juego de una sola ronda)'),
   "current_round": zod.number().optional().describe('Número de ronda actual (1-based)'),
