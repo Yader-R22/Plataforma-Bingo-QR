@@ -940,7 +940,7 @@ export default function WalletPage() {
                     )}
 
                     {/* Approval note for paid withdrawals — shown below PIN */}
-                    {!isAdmin && w.status === "paid" && w.notes && (
+                    {!isAdmin && !isActivatorPurchase && w.status === "paid" && w.notes && (
                       <div className="flex items-start gap-2 rounded-xl px-3 py-2"
                         style={{ background: "hsl(142 70% 45% / 0.08)", border: "1px solid hsl(142 70% 45% / 0.25)" }}>
                         <span className="text-sm mt-0.5">📝</span>
