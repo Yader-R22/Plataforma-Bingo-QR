@@ -807,7 +807,7 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
                 <p className="font-black" style={{ color: "hsl(var(--primary))" }}>{fmt(final)} pagado</p>
                 {discount > 0 && (
                   <p className="text-xs" style={{ color: "hsl(142 70% 35%)" }}>
-                    Ahorraste {fmt(discount)} con tu descuento de activador
+                    Ganaste {fmt(discount)} con tu descuento de activador
                   </p>
                 )}
               </div>
