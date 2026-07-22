@@ -218,8 +218,31 @@ export default function GamesPage() {
                                         )}
                                         <p className="text-white/50 text-[9px] font-semibold">🎮 {(game as any).total_rounds} rondas</p>
                                       </div>
-                                      {/* Derecha: cuadrícula 2 filas × 2 columnas (máx 4 fotos) */}
-                                      {photoRounds.length > 0 && (
+                                      {/* Fotos: 1→grande, 2→medianas, 3+→cuadrícula compacta */}
+                                      {photoRounds.length === 1 && (
+                                        <img
+                                          src={`${BASE}${photoRounds[0].prize_image_url}`}
+                                          alt={photoRounds[0].prize_physical_name ?? "Premio"}
+                                          onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                          className="rounded-xl object-cover shadow-lg flex-shrink-0"
+                                          style={{ width: 72, height: 72, border: "2px solid rgba(255,255,255,0.25)" }}
+                                        />
+                                      )}
+                                      {photoRounds.length === 2 && (
+                                        <div className="flex flex-col gap-1">
+                                          {photoRounds.slice(0, 2).map((r: any, i: number) => (
+                                            <img
+                                              key={i}
+                                              src={`${BASE}${r.prize_image_url}`}
+                                              alt={r.prize_physical_name ?? "Premio"}
+                                              onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                              className="rounded-lg object-cover shadow-lg"
+                                              style={{ width: 52, height: 52, border: "2px solid rgba(255,255,255,0.25)", flexShrink: 0 }}
+                                            />
+                                          ))}
+                                        </div>
+                                      )}
+                                      {photoRounds.length >= 3 && (
                                         <div className="flex flex-row gap-1">
                                           {[0, 2].filter(col => photoRounds[col]).map(col => (
                                             <div key={col} className="flex flex-col gap-1">
@@ -241,7 +264,7 @@ export default function GamesPage() {
                                   );
                                 })()
                               ) : (game as any).prize_type === "physical" ? (
-                                /* Ronda única física: texto a la izq, foto a la der */
+                                /* Ronda única física: texto a la izq, foto grande a la der */
                                 <div className="flex flex-row items-center gap-2">
                                   <div className="flex flex-col items-end gap-0.5">
                                     <p className="text-white/60 text-[10px] font-bold">📦 Premio físico</p>
@@ -256,8 +279,8 @@ export default function GamesPage() {
                                       src={`${BASE}${(game as any).prize_image_url}`}
                                       alt={(game as any).prize_physical_name ?? "Premio"}
                                       onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                                      className="w-12 h-12 rounded-xl object-cover shadow-lg flex-shrink-0"
-                                      style={{ border: "2px solid rgba(255,255,255,0.25)" }}
+                                      className="rounded-xl object-cover shadow-lg flex-shrink-0"
+                                      style={{ width: 72, height: 72, border: "2px solid rgba(255,255,255,0.25)" }}
                                     />
                                   )}
                                 </div>
