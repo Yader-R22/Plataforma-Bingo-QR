@@ -589,6 +589,21 @@ export default function CreateGamePage() {
             <div className="space-y-2">
               <Label>Configuración de rondas</Label>
               <p className="text-xs text-muted-foreground -mt-1">Cada ronda tiene su propia modalidad y premio.</p>
+              {/* Resumen total de premios */}
+              {(() => {
+                const totalCash = rounds.reduce((s, r) => s + (r.prize_type !== "physical" ? (parseFloat(r.prize_amount) || 0) : 0), 0);
+                const physicalCount = rounds.filter(r => r.prize_type !== "cash").length;
+                const parts: string[] = [];
+                if (totalCash > 0) parts.push(`Bs ${totalCash.toLocaleString("es-BO")} en efectivo`);
+                if (physicalCount > 0) parts.push(`${physicalCount} premio${physicalCount > 1 ? "s" : ""} físico${physicalCount > 1 ? "s" : ""}`);
+                if (parts.length === 0) return null;
+                return (
+                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold"
+                    style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}>
+                    🏆 Total: {parts.join(" · ")}
+                  </div>
+                );
+              })()}
 
               {rounds.map((r, i) => (
                 <div key={i} className="rounded-xl border p-3 space-y-2.5"
