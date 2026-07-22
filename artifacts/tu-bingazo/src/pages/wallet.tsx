@@ -615,10 +615,26 @@ export default function WalletPage() {
                             <p className="text-xs font-bold mt-0.5" style={{ color: "hsl(262 80% 40%)" }}>📦 {item.prize_physical_name}</p>
                           )}
                         </div>
-                        <div className="text-xs font-bold px-3 py-1.5 rounded-full shrink-0"
-                          style={{ background: "hsl(142 70% 45% / 0.12)", border: "1px solid hsl(142 70% 45% / 0.3)", color: "hsl(142 70% 30%)" }}>
-                          ✓ Acreditado
-                        </div>
+                        {isPhysical ? (() => {
+                          const physBadge: Record<string, { label: string; bg: string; border: string; color: string }> = {
+                            pending:          { label: "📦 Pendiente entrega", bg: "hsl(42 98% 52% / 0.12)",  border: "hsl(42 98% 52% / 0.3)",  color: "hsl(42 98% 30%)" },
+                            address_submitted: { label: "⏳ En proceso",        bg: "hsl(217 91% 50% / 0.12)", border: "hsl(217 91% 50% / 0.3)", color: "hsl(217 91% 35%)" },
+                            shipped:          { label: "🚚 En camino",          bg: "hsl(262 80% 50% / 0.12)", border: "hsl(262 80% 50% / 0.3)", color: "hsl(262 80% 35%)" },
+                            delivered:        { label: "✅ Entregado",           bg: "hsl(142 70% 45% / 0.12)", border: "hsl(142 70% 45% / 0.3)", color: "hsl(142 70% 30%)" },
+                          };
+                          const cfg = item.delivery_status ? physBadge[item.delivery_status] : physBadge.pending;
+                          return (
+                            <div className="text-xs font-bold px-3 py-1.5 rounded-full shrink-0"
+                              style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, color: cfg.color }}>
+                              {cfg.label}
+                            </div>
+                          );
+                        })() : (
+                          <div className="text-xs font-bold px-3 py-1.5 rounded-full shrink-0"
+                            style={{ background: "hsl(142 70% 45% / 0.12)", border: "1px solid hsl(142 70% 45% / 0.3)", color: "hsl(142 70% 30%)" }}>
+                            ✓ Acreditado
+                          </div>
+                        )}
                       </div>
                       {commDeducted != null && commDeducted > 0 && (
                         <div className="rounded-xl px-3 py-2 space-y-1"
