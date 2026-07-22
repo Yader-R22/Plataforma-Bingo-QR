@@ -186,7 +186,7 @@ router.post("/purchase", requireAuth, requireActivator, async (req: AuthRequest,
     game_id?: number;
     quantity?: number;
     target_user_id?: number;
-    payment_method?: "enlazo" | "static_qr" | "wallet";
+    payment_method?: "enlazo" | "static_qr";
   };
 
   if (!game_id || !quantity || !target_user_id || !payment_method) {
@@ -195,7 +195,7 @@ router.post("/purchase", requireAuth, requireActivator, async (req: AuthRequest,
   if (quantity < 1 || quantity > 20) {
     res.status(400).json({ error: "Cantidad inválida (1–20)" }); return;
   }
-  if (!["enlazo", "static_qr", "wallet"].includes(payment_method)) {
+  if (!["enlazo", "static_qr"].includes(payment_method)) {
     res.status(400).json({ error: "Método de pago inválido" }); return;
   }
 
@@ -335,128 +335,6 @@ router.post("/purchase", requireAuth, requireActivator, async (req: AuthRequest,
       original_price: originalPrice,
       discount_amount: discountAmount,
       final_price: finalPrice,
-    });
-    return;
-  }
-
-  // ── Wallet: deduct from activator's own balance ───────────────────────────
-  if (payment_method === "wallet") {
-    // Optimistic balance check before entering transaction
-    const [activator] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
-    if (!activator) { res.status(404).json({ error: "Activador no encontrado" }); return; }
-
-    const optBalance = parseFloat(String(activator.balance ?? "0"));
-    const optBonusExpired = activator.bonusExpiresAt != null && new Date(activator.bonusExpiresAt) < new Date();
-    const optBonus = optBonusExpired ? 0 : parseFloat(String(activator.bonusBalance ?? "0"));
-    const optAdminCredit = parseFloat(String(activator.adminCreditBalance ?? "0"));
-    const optTotal = optBalance + optBonus + optAdminCredit;
-
-    if (optTotal < finalPrice) {
-      // Roll back the pre-created cards
-      await db.delete(cardsTable).where(inArray(cardsTable.id, cardIds));
-      res.status(400).json({
-        error: `Saldo insuficiente. Disponible: Bs ${optTotal.toFixed(2)} (saldo Bs ${optBalance.toFixed(2)} + bono Bs ${optBonus.toFixed(2)} + crédito Bs ${optAdminCredit.toFixed(2)})`,
-      });
-      return;
-    }
-
-    let insufficient = false;
-    let walletSaleId = 0;
-    let newBalance = 0;
-
-    await db.transaction(async (tx) => {
-      // Lock activator row for atomic deduction
-      const locked = await tx.execute(
-        sql`SELECT balance, bonus_balance, bonus_expires_at, admin_credit_balance FROM users WHERE id = ${req.userId!} FOR UPDATE`
-      );
-      const lockedBalance = parseFloat((locked.rows[0]?.balance as string | undefined) ?? "0");
-      const lockedBonusExpiresAt = locked.rows[0]?.bonus_expires_at as Date | string | null | undefined;
-      const lockedBonusExpired = lockedBonusExpiresAt != null && new Date(lockedBonusExpiresAt) < new Date();
-      const lockedBonus = lockedBonusExpired ? 0 : parseFloat((locked.rows[0]?.bonus_balance as string | undefined) ?? "0");
-      const lockedAdminCredit = parseFloat((locked.rows[0]?.admin_credit_balance as string | undefined) ?? "0");
-      const lockedTotal = lockedBalance + lockedBonus + lockedAdminCredit;
-
-      if (lockedTotal < finalPrice) { insufficient = true; return; }
-
-      // Deduct: bonus → admin_credit → real balance
-      const fromBonus = Math.min(lockedBonus, finalPrice);
-      const remaining1 = finalPrice - fromBonus;
-      const fromAdminCredit = Math.min(lockedAdminCredit, remaining1);
-      const fromBalance = remaining1 - fromAdminCredit;
-
-      if (fromBonus > 0) {
-        await tx.execute(sql`UPDATE users SET bonus_balance = bonus_balance - ${fromBonus} WHERE id = ${req.userId!}`);
-      }
-      if (fromAdminCredit > 0) {
-        await tx.execute(sql`UPDATE users SET admin_credit_balance = admin_credit_balance - ${fromAdminCredit} WHERE id = ${req.userId!}`);
-      }
-      if (fromBalance > 0) {
-        await tx.execute(sql`UPDATE users SET balance = balance - ${fromBalance} WHERE id = ${req.userId!}`);
-      }
-
-      // Compute new balance for response
-      newBalance = (lockedBalance - fromBalance) + (lockedBonus - fromBonus) + (lockedAdminCredit - fromAdminCredit);
-
-      // Activate cards immediately
-      const walletCheckoutId = `wallet-act-${req.userId}-${Date.now()}`;
-      await tx.execute(
-        sql`UPDATE cards SET status = 'active', payment_status = 'paid', checkout_id = ${walletCheckoutId} WHERE id = ANY(${cardIds}::int[])`
-      );
-
-      // Update game participant count
-      await tx.execute(
-        sql`UPDATE games SET participant_count = participant_count + ${quantity} WHERE id = ${game_id}`
-      );
-
-      // Create sale record
-      const [wSale] = await tx.insert(activatorCardSalesTable).values({
-        activatorUserId: req.userId!,
-        targetUserId: target_user_id,
-        gameId: game_id,
-        quantity,
-        originalPrice: String(originalPrice.toFixed(2)),
-        discountAmount: String(discountAmount.toFixed(2)),
-        finalPrice: String(finalPrice.toFixed(2)),
-        paymentMethod: "wallet",
-        checkoutId: walletCheckoutId,
-        cardIds: JSON.stringify(cardIds),
-        status: "paid",
-      }).returning();
-      walletSaleId = wSale.id;
-
-      await tx.insert(auditLogsTable).values({
-        action: "activator_card_sale_wallet",
-        userId: req.userId,
-        gameId: game_id,
-        details: {
-          sale_id: wSale.id,
-          target_user_id,
-          quantity,
-          original_price: originalPrice,
-          discount_amount: discountAmount,
-          final_price: finalPrice,
-          payment_method: "wallet",
-          from_bonus: fromBonus,
-          from_admin_credit: fromAdminCredit,
-          from_balance: fromBalance,
-        },
-        ipAddress: req.ip,
-      });
-    });
-
-    if (insufficient) {
-      await db.delete(cardsTable).where(inArray(cardsTable.id, cardIds));
-      res.status(400).json({ error: "Saldo insuficiente. Intenta de nuevo." });
-      return;
-    }
-
-    res.status(201).json({
-      sale_id: walletSaleId,
-      paid: true,
-      original_price: originalPrice,
-      discount_amount: discountAmount,
-      final_price: finalPrice,
-      new_balance: newBalance,
     });
     return;
   }

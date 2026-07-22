@@ -18,7 +18,7 @@ export const activatorCardSalesTable = pgTable("activator_card_sales", {
   originalPrice: numeric("original_price", { precision: 10, scale: 2 }).notNull(),
   discountAmount: numeric("discount_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   finalPrice: numeric("final_price", { precision: 10, scale: 2 }).notNull(),
-  paymentMethod: text("payment_method", { enum: ["enlazo", "static_qr", "wallet"] }).notNull(),
+  paymentMethod: text("payment_method", { enum: ["enlazo", "static_qr"] }).notNull(),
   checkoutId: text("checkout_id"),
   receiptUrl: text("receipt_url"),
   cardIds: text("card_ids"),
