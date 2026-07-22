@@ -441,7 +441,7 @@ export default function WalletPage() {
             {/* Step: Enlazo QR */}
             {topUpStep === "enlazo-qr" && topUpQrImage && (
               <div className="space-y-4">
-                <p className="text-sm text-muted-foreground -mt-2">Escanea el QR con tu app Enlazo para pagar <strong>Bs {parseFloat(topUpAmount).toFixed(0)}</strong>. El saldo se acreditará automáticamente.</p>
+                <p className="text-sm text-muted-foreground -mt-2">Escanea el QR con tu banca móvil para pagar <strong>Bs {parseFloat(topUpAmount).toFixed(0)}</strong>. El saldo se acreditará automáticamente.</p>
                 <div className="flex justify-center">
                   <div className="p-3 rounded-2xl border-2 border-purple-100 bg-white shadow-inner">
                     <img src={topUpQrImage} alt="QR Enlazo" className="w-52 h-52 object-contain rounded-xl" />
@@ -560,13 +560,7 @@ export default function WalletPage() {
             <p className="font-black text-5xl prize-text" style={{ fontFamily: "'Poppins', sans-serif" }}>
               Bs {(wallet?.balance ?? 0).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
             </p>
-            <button onClick={openTopUpModal}
-              className="mt-4 w-full py-2.5 rounded-2xl text-sm font-black flex items-center justify-center gap-2 transition-opacity hover:opacity-80"
-              style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)", color: "white" }}>
-              💳 + Recargar saldo
-            </button>
-
-            <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/15">
+            <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t border-white/15">
               {[
                 { label: "Total ganado", value: wallet?.total_won ?? 0 },
                 { label: "Retirado", value: wallet?.total_withdrawn ?? 0 },
@@ -620,12 +614,20 @@ export default function WalletPage() {
           );
         })()}
 
-        {/* --- Withdrawal flow --- */}
+        {/* --- Withdrawal + Top-up action row --- */}
         {step === "idle" && (
-          <button className="btn-gold" onClick={() => setStep("amount")}
-            disabled={!wallet || wallet.balance <= 0}>
-            💸 Solicitar Retiro
-          </button>
+          <div className="flex gap-3">
+            <button className="btn-gold flex-1" onClick={() => setStep("amount")}
+              disabled={!wallet || wallet.balance <= 0}>
+              💸 Solicitar Retiro
+            </button>
+            <button
+              className="flex-1 py-3 rounded-2xl text-sm font-black flex items-center justify-center gap-1.5 transition-opacity hover:opacity-80"
+              style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)", color: "white" }}
+              onClick={openTopUpModal}>
+              💳 Recargar
+            </button>
+          </div>
         )}
 
         {/* Step 1: Amount */}
