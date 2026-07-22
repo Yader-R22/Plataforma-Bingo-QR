@@ -184,24 +184,26 @@ export default function MyCardsPage() {
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2].map(i => (
-              <div key={i} className="rounded-3xl overflow-hidden animate-pulse" style={{ background: "hsl(var(--muted))" }}>
-                {/* cabecera */}
-                <div className="p-4 pb-3" style={{ background: "hsl(var(--muted-foreground)/0.12)" }}>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-2">
-                      <div className="h-3 w-20 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.2)" }} />
-                      <div className="h-5 w-36 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.2)" }} />
+              <div key={i} className="rounded-3xl overflow-hidden animate-pulse"
+                style={{ background: "hsl(var(--card))", border: "1.5px solid hsl(var(--border))" }}>
+                {/* cabecera — imita el gradiente de tipo */}
+                <div className="relative px-4 pt-4 pb-3 overflow-hidden">
+                  <div className="absolute inset-0" style={{ background: "hsl(var(--muted-foreground)/0.18)" }} />
+                  <div className="relative flex items-start gap-3">
+                    {/* caja emoji */}
+                    <div className="w-11 h-11 rounded-2xl shrink-0"
+                      style={{ background: "rgba(255,255,255,0.12)" }} />
+                    <div className="flex-1 space-y-2 pt-1">
+                      {/* label tipo */}
+                      <div className="h-2.5 w-16 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }} />
+                      {/* título */}
+                      <div className="h-4 w-40 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }} />
                     </div>
-                    <div className="h-8 w-8 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.2)" }} />
                   </div>
                 </div>
-                {/* cuerpo */}
-                <div className="p-4 space-y-3">
-                  <div className="grid grid-cols-5 gap-1">
-                    {Array.from({ length: 25 }).map((_, j) => (
-                      <div key={j} className="aspect-square rounded-md" style={{ background: "hsl(var(--muted-foreground)/0.12)" }} />
-                    ))}
-                  </div>
+                {/* cuerpo — representa el área de cartones */}
+                <div className="p-4 space-y-2">
+                  <div className="h-32 rounded-2xl" style={{ background: "hsl(var(--muted-foreground)/0.1)" }} />
                 </div>
               </div>
             ))}
