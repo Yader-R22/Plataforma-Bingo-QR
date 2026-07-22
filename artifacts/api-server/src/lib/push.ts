@@ -23,6 +23,7 @@ export interface PushPayload {
   body: string;
   url?: string;
   icon?: string;
+  badge?: string;
   image?: string;
 }
 
@@ -44,9 +45,14 @@ async function send(endpoint: string, p256dh: string, auth: string, payload: Pus
   init();
   if (!initialized) return false;
   try {
+    const payloadWithDefaults: PushPayload = {
+      icon: "/notif-icon.png",
+      badge: "/badge-96.png",
+      ...payload,
+    };
     await webpush.sendNotification(
       { endpoint, keys: { p256dh, auth } },
-      JSON.stringify(payload),
+      JSON.stringify(payloadWithDefaults),
       { TTL: 86400, urgency: "high" }
     );
     return true;
