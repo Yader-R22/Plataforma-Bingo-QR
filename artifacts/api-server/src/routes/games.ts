@@ -794,7 +794,7 @@ router.post("/:id/next-round", requireAdmin, async (req: AuthRequest, res) => {
   sendPushToUsers(players.map(r => r.userId), {
     title: "🔄 Nueva ronda",
     body: `${updated.title} — Ronda ${currentRound + 1} comenzó. ¡Los números se reiniciaron!`,
-    url: `/play/${updated.id}`,
+    url: `/juego/${updated.id}/jugar`,
   }).catch(() => {});
 });
 
@@ -821,7 +821,7 @@ router.post("/:id/finish", requireAdmin, async (req: AuthRequest, res) => {
   sendPushToUsers(playerIds, {
     title: "🏁 Juego finalizado",
     body: `${game.title} terminó. Revisá los resultados y tu billetera.`,
-    url: `/games/${game.id}`,
+    url: `/juego/${game.id}`,
   }).catch(() => {});
 });
 

@@ -71,7 +71,7 @@ router.patch("/:id/ship", requireAdmin, async (req: AuthRequest, res) => {
   sendPushToUsers([updated.userId], {
     title: "🚚 ¡Tu premio está en camino!",
     body: `Tu premio físico${updated.prizePhysicalName ? ` "${updated.prizePhysicalName}"` : ""} fue enviado. Revisá los datos de entrega en tu billetera.`,
-    url: "/billetera",
+    url: "/wallet",
   }).catch(() => {});
 });
 
@@ -96,7 +96,7 @@ router.patch("/:id/deliver", requireAdmin, async (req: AuthRequest, res) => {
   sendPushToUsers([updated.userId], {
     title: "✅ ¡Tu premio fue entregado!",
     body: `Tu premio físico${updated.prizePhysicalName ? ` "${updated.prizePhysicalName}"` : ""} fue marcado como entregado. ¡Felicitaciones!`,
-    url: "/billetera",
+    url: "/wallet",
   }).catch(() => {});
 });
 
