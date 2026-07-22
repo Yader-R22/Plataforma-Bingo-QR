@@ -67,6 +67,13 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
 
   const authH = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${token}` });
 
+  // Lock body scroll while modal is open (prevents jumps from browser chrome show/hide)
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   useEffect(() => {
     // Games + activator settings unlock the UI — site-settings loads silently in background
     Promise.all([
@@ -428,7 +435,7 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
     >
       <div
         className="relative w-full max-w-md mx-auto rounded-t-3xl sm:rounded-3xl bg-background shadow-2xl flex flex-col"
-        style={{ maxHeight: "92vh", overflow: "hidden" }}
+        style={{ maxHeight: "92svh", overflow: "hidden" }}
         onClick={e => e.stopPropagation()}
       >
         {/* ── Sticky top ─────────────────────────────────────────────────── */}
@@ -484,7 +491,7 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
         </div>
 
         {/* ── Scrollable content ──────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-4" style={{ WebkitOverflowScrolling: "touch" }}>
 
           {/* ─── Step: game ────────────────────────────────────────────────── */}
           {step === "game" && (
