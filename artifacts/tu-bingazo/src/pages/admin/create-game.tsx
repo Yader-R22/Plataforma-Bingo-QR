@@ -379,7 +379,7 @@ export default function CreateGamePage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label>Título del juego</Label>
-            <Input placeholder="Ej: Bingo Martes — 3 Rondas" value={form.title} onChange={e => upd("title", e.target.value)} required />
+            <Input placeholder="Ej: Bingo Martes — 3 Rondas" maxLength={50} value={form.title} onChange={e => upd("title", e.target.value)} required />
           </div>
 
           <div className="space-y-1.5">
