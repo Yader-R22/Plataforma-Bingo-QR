@@ -633,15 +633,15 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
                   disabled={!targetUser || quantity < 1 || purchasing}
                   onClick={purchase}
                   className="flex-1 py-3 rounded-2xl font-black text-white text-sm disabled:opacity-40"
-                  style={{ background: "hsl(var(--primary))" }}>
+                  style={{ background: !targetUser || quantity < 1 || purchasing ? "hsl(var(--muted))" : "linear-gradient(135deg, hsl(42 98% 52%), hsl(38 95% 45%))" }}>
                   {purchasing ? "Generando QR..." : "Pagar con QR →"}
                 </button>
               </div>
               <button
                 disabled={!targetUser || quantity < 1 || purchasing || activatorBalance < final}
                 onClick={purchaseWithWallet}
-                className="w-full py-2.5 rounded-2xl font-bold text-sm disabled:opacity-40"
-                style={{ background: "hsl(var(--muted))", border: "1.5px solid hsl(var(--border))" }}>
+                className="w-full py-2.5 rounded-2xl font-bold text-white text-sm disabled:opacity-40"
+                style={{ background: "hsl(var(--primary))" }}>
                 {purchasing ? "Procesando..." : "Pagar con saldo"}
               </button>
             </>
