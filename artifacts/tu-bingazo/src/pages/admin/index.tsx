@@ -959,6 +959,9 @@ export default function AdminPage() {
   const [sysLoading, setSysLoading] = useState(false);
   const [sysRestarting, setSysRestarting] = useState(false);
   const [sysConfirm, setSysConfirm] = useState(false);
+  const [sysLastUpdated, setSysLastUpdated] = useState<Date | null>(null);
+  const [sysAutoRefresh, setSysAutoRefresh] = useState(false);
+  const sysAutoRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [autoRestart, setAutoRestart] = useState<{ enabled: boolean; threshold: number } | null>(null);
   const [autoRestartSaving, setAutoRestartSaving] = useState(false);
   const [activatorSaleNotes, setActivatorSaleNotes] = useState<Record<number, string>>({});
@@ -7035,7 +7038,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             setSysLoading(true);
             try {
               const r = await fetch(`${BASE}/api/admin/system/health`, { headers: authH() });
-              if (r.ok) setSysHealth(await r.json());
+              if (r.ok) { setSysHealth(await r.json()); setSysLastUpdated(new Date()); }
             } finally { setSysLoading(false); }
           }
           async function fetchAutoRestart() {
@@ -7045,7 +7048,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
           async function saveAutoRestart(patch: Partial<{ enabled: boolean; threshold: number }>) {
             setAutoRestartSaving(true);
             try {
-              const current = autoRestart ?? { enabled: false, threshold: 92 };
+              const current = autoRestart ?? { enabled: true, threshold: 80 };
               const body = { ...current, ...patch };
               const r = await fetch(`${BASE}/api/admin/system/auto-restart`, {
                 method: "POST", headers: { ...authH(), "Content-Type": "application/json" },
@@ -7067,26 +7070,62 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               setTimeout(() => setSysRestarting(false), 7000);
             }
           }
+          function toggleAutoRefresh() {
+            if (sysAutoRefresh) {
+              if (sysAutoRefreshRef.current) clearInterval(sysAutoRefreshRef.current);
+              sysAutoRefreshRef.current = null;
+              setSysAutoRefresh(false);
+            } else {
+              setSysAutoRefresh(true);
+              void fetchHealth();
+              sysAutoRefreshRef.current = setInterval(() => { if (!document.hidden) void fetchHealth(); }, 15_000);
+            }
+          }
 
-          const heapPct = sysHealth?.heap_pct ?? 0;
-          const rss     = sysHealth?.rss_mb ?? 0;
-          const barColor = heapPct >= 80 ? "#dc2626" : heapPct >= 60 ? "#d97706" : "#16a34a";
+          const heapPct    = sysHealth?.heap_pct ?? 0;
+          const sysMemPct  = sysHealth?.sys_mem_pct ?? 0;
+          const heapColor  = heapPct >= 80 ? "#dc2626" : heapPct >= 60 ? "#d97706" : "#16a34a";
+          const sysColor   = sysMemPct >= 85 ? "#dc2626" : sysMemPct >= 70 ? "#d97706" : "#16a34a";
+          const cpuLoad1   = sysHealth?.cpu_load_1m ?? 0;
+          const cpuCount   = sysHealth?.cpu_count ?? 1;
+          const cpuPct     = Math.min(100, Math.round((cpuLoad1 / cpuCount) * 100));
+          const cpuColor   = cpuPct >= 80 ? "#dc2626" : cpuPct >= 50 ? "#d97706" : "#16a34a";
+          const poolUsed   = (sysHealth?.db_pool_total ?? 0) - (sysHealth?.db_pool_idle ?? 0);
+          const poolMax    = sysHealth?.db_pool_max ?? 7;
+          const poolPct    = Math.round((poolUsed / poolMax) * 100);
+          const warnings: string[] = sysHealth?.warnings ?? (sysHealth?.warning ? [sysHealth.warning] : []);
 
           return (
             <div className="space-y-4 overflow-x-hidden">
-              {/* Refresh */}
+              {/* ── Header ── */}
               <div className="flex items-center justify-between">
-                <p className="text-sm font-bold text-muted-foreground">Estado del servidor</p>
-                <button onClick={fetchHealth} disabled={sysLoading}
-                  className="text-xs font-bold px-3 py-1.5 rounded-xl"
-                  style={{ background: "hsl(var(--muted))" }}>
-                  {sysLoading ? "⏳" : "🔄"} Actualizar
-                </button>
+                <div>
+                  <p className="text-sm font-bold">⚙️ Estado del servidor</p>
+                  {sysLastUpdated && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Actualizado: {sysLastUpdated.toLocaleTimeString("es-BO")}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={toggleAutoRefresh}
+                    className="text-[11px] font-bold px-2.5 py-1.5 rounded-xl transition-colors"
+                    style={{ background: sysAutoRefresh ? "hsl(142 70% 88%)" : "hsl(var(--muted))", color: sysAutoRefresh ? "hsl(142 70% 25%)" : undefined }}>
+                    {sysAutoRefresh ? "🟢 Auto" : "⬜ Auto"}
+                  </button>
+                  <button onClick={fetchHealth} disabled={sysLoading}
+                    className="text-xs font-bold px-3 py-1.5 rounded-xl"
+                    style={{ background: "hsl(var(--muted))" }}>
+                    {sysLoading ? "⏳" : "🔄"} Actualizar
+                  </button>
+                </div>
               </div>
 
               {!sysHealth && !sysLoading && (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground text-sm mb-3">Presiona "Actualizar" para ver el estado del servidor</p>
+                <div className="text-center py-10">
+                  <p className="text-4xl mb-3">🖥️</p>
+                  <p className="text-muted-foreground text-sm mb-4">Consulta el estado actual del servidor</p>
                   <button onClick={fetchHealth}
                     className="px-5 py-2.5 rounded-2xl font-bold text-sm text-white"
                     style={{ background: "hsl(var(--primary))" }}>
@@ -7095,65 +7134,164 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 </div>
               )}
 
-              {sysLoading && (
-                <div className="text-center py-8 text-muted-foreground text-sm">Consultando servidor...</div>
+              {sysLoading && !sysHealth && (
+                <div className="text-center py-8 text-muted-foreground text-sm">⏳ Consultando servidor...</div>
               )}
 
-              {sysHealth && !sysLoading && (
+              {sysHealth && (
                 <>
-                  {/* Alerta si hay warning */}
-                  {sysHealth.warning && (
-                    <div className="rounded-2xl px-4 py-3 flex items-start gap-3"
-                      style={{ background: "hsl(0 75% 95%)", border: "1px solid hsl(0 75% 75%)" }}>
-                      <span className="text-xl">⚠️</span>
+                  {/* Alertas */}
+                  {warnings.length > 0 && (
+                    <div className="space-y-2">
+                      {warnings.map((w: string, i: number) => (
+                        <div key={i} className="rounded-2xl px-4 py-3 flex items-start gap-3"
+                          style={{ background: "hsl(0 75% 95%)", border: "1px solid hsl(0 75% 75%)" }}>
+                          <span>⚠️</span>
+                          <p className="text-xs font-bold" style={{ color: "hsl(0 75% 35%)" }}>{w}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* ── Fila 1: Uptime + DB ── */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-card border rounded-2xl p-4">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide">⏱ Uptime</p>
+                      <p className="text-base font-black mt-1">{sysHealth.uptime_str}</p>
+                    </div>
+                    <div className="bg-card border rounded-2xl p-4">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide">🗄️ Base de datos</p>
+                      <p className="text-base font-black mt-1" style={{ color: sysHealth.db_ok ? "#16a34a" : "#dc2626" }}>
+                        {sysHealth.db_ok ? "✅ OK" : "❌ Error"}
+                      </p>
+                      {sysHealth.db_ok && <p className="text-[10px] text-muted-foreground mt-0.5">{sysHealth.db_size_mb} MB usados</p>}
+                    </div>
+                  </div>
+
+                  {/* ── Heap Node.js ── */}
+                  <div className="bg-card border rounded-2xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide">🧠 Heap Node.js</p>
+                      <span className="text-xs font-black" style={{ color: heapColor }}>{heapPct}%</span>
+                    </div>
+                    <div className="w-full h-2.5 rounded-full" style={{ background: "hsl(var(--muted))" }}>
+                      <div className="h-2.5 rounded-full transition-all" style={{ width: `${heapPct}%`, background: heapColor }} />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 mt-3 text-[11px]">
                       <div>
-                        <p className="font-bold text-sm" style={{ color: "hsl(0 75% 35%)" }}>Alerta</p>
-                        <p className="text-xs" style={{ color: "hsl(0 75% 40%)" }}>{sysHealth.warning}</p>
+                        <p className="text-muted-foreground">Usado</p>
+                        <p className="font-black">{sysHealth.heap_used_mb} MB</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Asignado</p>
+                        <p className="font-black">{sysHealth.heap_total_mb} MB</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">RSS total</p>
+                        <p className="font-black">{sysHealth.rss_mb} MB</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Externo</p>
+                        <p className="font-black">{sysHealth.external_mb} MB</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">ArrayBuf</p>
+                        <p className="font-black">{sysHealth.array_buf_mb} MB</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── RAM del sistema ── */}
+                  <div className="bg-card border rounded-2xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide">💾 RAM del sistema</p>
+                      <span className="text-xs font-black" style={{ color: sysColor }}>{sysMemPct}%</span>
+                    </div>
+                    <div className="w-full h-2.5 rounded-full" style={{ background: "hsl(var(--muted))" }}>
+                      <div className="h-2.5 rounded-full transition-all" style={{ width: `${sysMemPct}%`, background: sysColor }} />
+                    </div>
+                    <div className="flex justify-between text-[11px] text-muted-foreground mt-2">
+                      <span>Usado: <span className="font-black text-foreground">{sysHealth.sys_mem_used_mb} MB</span></span>
+                      <span>Libre: <span className="font-black text-foreground">{sysHealth.sys_mem_free_mb} MB</span></span>
+                      <span>Total: <span className="font-black text-foreground">{sysHealth.sys_mem_total_mb} MB</span></span>
+                    </div>
+                  </div>
+
+                  {/* ── CPU ── */}
+                  <div className="bg-card border rounded-2xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide">⚡ CPU ({cpuCount} núcleos)</p>
+                      <span className="text-xs font-black" style={{ color: cpuColor }}>{cpuPct}%</span>
+                    </div>
+                    <div className="w-full h-2.5 rounded-full" style={{ background: "hsl(var(--muted))" }}>
+                      <div className="h-2.5 rounded-full transition-all" style={{ width: `${cpuPct}%`, background: cpuColor }} />
+                    </div>
+                    <div className="flex justify-between text-[11px] text-muted-foreground mt-2">
+                      <span>1 min: <span className="font-black text-foreground">{sysHealth.cpu_load_1m}</span></span>
+                      <span>5 min: <span className="font-black text-foreground">{sysHealth.cpu_load_5m}</span></span>
+                      <span>15 min: <span className="font-black text-foreground">{sysHealth.cpu_load_15m}</span></span>
+                    </div>
+                  </div>
+
+                  {/* ── Pool de conexiones DB ── */}
+                  <div className="bg-card border rounded-2xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide">🔌 Pool de DB ({poolUsed}/{poolMax})</p>
+                      <span className="text-xs font-black" style={{ color: poolPct >= 80 ? "#dc2626" : "#16a34a" }}>{poolPct}%</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full" style={{ background: "hsl(var(--muted))" }}>
+                      <div className="h-2 rounded-full transition-all" style={{ width: `${poolPct}%`, background: poolPct >= 80 ? "#dc2626" : "#16a34a" }} />
+                    </div>
+                    <div className="flex justify-between text-[11px] text-muted-foreground mt-2">
+                      <span>Activas: <span className="font-black text-foreground">{poolUsed}</span></span>
+                      <span>Inactivas: <span className="font-black text-foreground">{sysHealth.db_pool_idle}</span></span>
+                      <span>En espera: <span className="font-black text-foreground">{sysHealth.db_pool_waiting}</span></span>
+                    </div>
+                  </div>
+
+                  {/* ── Estadísticas de la plataforma ── */}
+                  {sysHealth.db_counts && (
+                    <div className="bg-card border rounded-2xl p-4">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide mb-3">📊 Estadísticas de la plataforma</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-xl p-3 text-center" style={{ background: "hsl(var(--muted))" }}>
+                          <p className="text-2xl font-black">{sysHealth.db_counts.users.toLocaleString()}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">👤 Usuarios</p>
+                        </div>
+                        <div className="rounded-xl p-3 text-center" style={{ background: "hsl(var(--muted))" }}>
+                          <p className="text-2xl font-black">{sysHealth.db_counts.games.toLocaleString()}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">🎮 Juegos</p>
+                        </div>
+                        <div className="rounded-xl p-3 text-center" style={{ background: "hsl(var(--muted))" }}>
+                          <p className="text-2xl font-black">{sysHealth.db_counts.cards_paid.toLocaleString()}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">🎴 Cartones pagados</p>
+                        </div>
+                        <div className="rounded-xl p-3 text-center" style={{ background: "hsl(var(--muted))" }}>
+                          <p className="text-2xl font-black">{sysHealth.db_counts.winners.toLocaleString()}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">🏆 Ganadores</p>
+                        </div>
                       </div>
                     </div>
                   )}
 
-                  {/* KPIs */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-card border rounded-2xl p-4">
-                      <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">⏱ Uptime</p>
-                      <p className="text-lg font-black mt-1">{sysHealth.uptime_str}</p>
-                    </div>
-                    <div className="bg-card border rounded-2xl p-4">
-                      <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">🗄️ Base de datos</p>
-                      <p className="text-lg font-black mt-1" style={{ color: sysHealth.db_ok ? "#16a34a" : "#dc2626" }}>
-                        {sysHealth.db_ok ? "✅ OK" : "❌ Error"}
-                      </p>
-                    </div>
-                    <div className="bg-card border rounded-2xl p-4 col-span-2">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">🧠 Memoria RAM</p>
-                        <span className="text-xs font-black" style={{ color: barColor }}>{heapPct}%</span>
+                  {/* ── Info técnica ── */}
+                  <div className="bg-card border rounded-2xl p-4 space-y-2">
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide mb-1">📋 Info técnica</p>
+                    {[
+                      ["Node.js", sysHealth.node_version],
+                      ["Entorno", sysHealth.node_env],
+                      ["Plataforma", `${sysHealth.platform} (${sysHealth.arch})`],
+                      ["Hostname", sysHealth.hostname],
+                      ["PID", String(sysHealth.pid)],
+                    ].map(([label, value]) => (
+                      <div key={label} className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className="font-mono font-bold">{value}</span>
                       </div>
-                      <div className="w-full h-2.5 rounded-full" style={{ background: "hsl(var(--muted))" }}>
-                        <div className="h-2.5 rounded-full transition-all" style={{ width: `${heapPct}%`, background: barColor }} />
-                      </div>
-                      <div className="flex justify-between text-[11px] text-muted-foreground mt-1.5">
-                        <span>Heap: {sysHealth.heap_used_mb} / {sysHealth.heap_total_mb} MB</span>
-                        <span>RSS: {rss} MB</span>
-                      </div>
-                    </div>
+                    ))}
                   </div>
 
-                  {/* Info técnica */}
-                  <div className="bg-card border rounded-2xl p-4 space-y-1.5">
-                    <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide mb-2">📋 Info técnica</p>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">Node.js</span>
-                      <span className="font-mono font-bold">{sysHealth.node_version}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">PID</span>
-                      <span className="font-mono font-bold">{sysHealth.pid}</span>
-                    </div>
-                  </div>
-
-                  {/* Botón reiniciar */}
+                  {/* ── Reiniciar ── */}
                   {!sysConfirm ? (
                     <button
                       onClick={() => setSysConfirm(true)}
@@ -7165,18 +7303,14 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   ) : (
                     <div className="rounded-2xl p-4 space-y-3"
                       style={{ background: "hsl(0 75% 95%)", border: "1px solid hsl(0 75% 75%)" }}>
-                      <p className="font-bold text-sm text-center" style={{ color: "hsl(0 75% 30%)" }}>
-                        ¿Confirmas el reinicio?
-                      </p>
+                      <p className="font-bold text-sm text-center" style={{ color: "hsl(0 75% 30%)" }}>¿Confirmas el reinicio?</p>
                       <p className="text-xs text-center" style={{ color: "hsl(0 75% 40%)" }}>
-                        El servidor se reiniciará automáticamente en ~5 segundos. Los jugadores en partida activa notarán una breve interrupción.
+                        El servidor se reiniciará en ~5 segundos. Los jugadores en partida activa notarán una breve interrupción.
                       </p>
                       <div className="flex gap-2">
                         <button onClick={() => setSysConfirm(false)}
                           className="flex-1 py-2.5 rounded-xl font-bold text-sm"
-                          style={{ background: "hsl(var(--muted))" }}>
-                          Cancelar
-                        </button>
+                          style={{ background: "hsl(var(--muted))" }}>Cancelar</button>
                         <button onClick={restartServer} disabled={sysRestarting}
                           className="flex-1 py-2.5 rounded-xl font-black text-sm text-white disabled:opacity-40"
                           style={{ background: "hsl(0 75% 45%)" }}>
@@ -7188,13 +7322,13 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 </>
               )}
 
-              {/* ── Auto-reinicio ─────────────────────────────────── */}
+              {/* ── Auto-reinicio ── */}
               <div className="bg-card border rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-bold">🤖 Reinicio automático</p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      El servidor se reinicia solo cuando la RAM supera el umbral
+                      Se reinicia cuando la RAM del heap supera el umbral
                     </p>
                   </div>
                   {autoRestart === null ? (
@@ -7209,48 +7343,38 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       disabled={autoRestartSaving}
                       className="relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50"
                       style={{ background: autoRestart.enabled ? "hsl(142 70% 40%)" : "hsl(var(--muted))" }}
-                      role="switch"
-                      aria-checked={autoRestart.enabled}>
-                      <span
-                        className="pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow-lg transform transition-transform"
-                        style={{ transform: autoRestart.enabled ? "translateX(20px)" : "translateX(0)" }}
-                      />
+                      role="switch" aria-checked={autoRestart.enabled}>
+                      <span className="pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow-lg transform transition-transform"
+                        style={{ transform: autoRestart.enabled ? "translateX(20px)" : "translateX(0)" }} />
                     </button>
                   )}
                 </div>
 
                 {autoRestart !== null && (
                   <>
-                    {autoRestart.enabled && (
-                      <div className="rounded-xl px-3 py-2 text-xs font-bold flex items-center gap-2"
-                        style={{ background: "hsl(142 70% 92%)", color: "hsl(142 70% 25%)" }}>
-                        ✅ Activo — se reiniciará automáticamente si la RAM supera {autoRestart.threshold}%
-                      </div>
-                    )}
+                    <div className={`rounded-xl px-3 py-2 text-xs font-bold flex items-center gap-2 ${autoRestart.enabled ? "" : "opacity-60"}`}
+                      style={{ background: autoRestart.enabled ? "hsl(142 70% 92%)" : "hsl(var(--muted))", color: autoRestart.enabled ? "hsl(142 70% 25%)" : undefined }}>
+                      {autoRestart.enabled ? `✅ Activo — reiniciará si heap supera ${autoRestart.threshold}%` : "⏸ Inactivo"}
+                    </div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-muted-foreground">Umbral de RAM</p>
+                        <p className="text-xs font-bold text-muted-foreground">Umbral</p>
                         <span className="text-sm font-black" style={{ color: autoRestart.threshold >= 90 ? "#dc2626" : autoRestart.threshold >= 80 ? "#d97706" : "#16a34a" }}>
                           {autoRestart.threshold}%
                         </span>
                       </div>
-                      <input
-                        type="range"
-                        min={50} max={99} step={1}
+                      <input type="range" min={50} max={99} step={1}
                         value={autoRestart.threshold}
                         onChange={e => setAutoRestart(a => a ? { ...a, threshold: Number(e.target.value) } : a)}
                         onMouseUp={e => saveAutoRestart({ threshold: Number((e.target as HTMLInputElement).value) })}
                         onTouchEnd={e => saveAutoRestart({ threshold: Number((e.target as HTMLInputElement).value) })}
-                        className="w-full accent-primary"
-                      />
+                        className="w-full accent-primary" />
                       <div className="flex justify-between text-[10px] text-muted-foreground">
-                        <span>50% (agresivo)</span>
-                        <span>92% (recomendado)</span>
-                        <span>99% (mínimo)</span>
+                        <span>50% (agresivo)</span><span>80% (recomendado)</span><span>99% (mínimo)</span>
                       </div>
                     </div>
                     <p className="text-[10px] text-muted-foreground">
-                      ⏱ Se verifica cada 60 segundos. El servidor vuelve en ~5 seg (pm2 lo relanza).
+                      ⏱ Se verifica cada 60 s. pm2 lo relanza automáticamente en ~5 seg.
                     </p>
                   </>
                 )}

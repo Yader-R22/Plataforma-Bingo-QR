@@ -2000,41 +2000,111 @@ router.get("/referral-stats", async (_req, res) => {
 
 // ── GET /api/admin/system/health ─────────────────────────────────────────────
 router.get("/system/health", async (req: AuthRequest, res) => {
+  const os = await import("os");
+  const { pool } = await import("@workspace/db");
+
+  // ── Process memory ───────────────────────────────────────────────────────
   const mem = process.memoryUsage();
   const toMB = (b: number) => parseFloat((b / 1024 / 1024).toFixed(1));
-  const heapUsedMB  = toMB(mem.heapUsed);
-  const heapTotalMB = toMB(mem.heapTotal);
-  const rssMB       = toMB(mem.rss);
-  const heapPct     = Math.round((heapUsedMB / heapTotalMB) * 100);
+  const heapUsedMB    = toMB(mem.heapUsed);
+  const heapTotalMB   = toMB(mem.heapTotal);
+  const rssMB         = toMB(mem.rss);
+  const externalMB    = toMB(mem.external);
+  const arrayBufMB    = toMB(mem.arrayBuffers);
+  const heapPct       = Math.round((heapUsedMB / heapTotalMB) * 100);
 
+  // ── OS memory ────────────────────────────────────────────────────────────
+  const osTotalMem = os.totalmem();
+  const osFreeMem  = os.freemem();
+  const osUsedMem  = osTotalMem - osFreeMem;
+  const sysMemPct  = Math.round((osUsedMem / osTotalMem) * 100);
+
+  // ── CPU ──────────────────────────────────────────────────────────────────
+  const loadAvg  = os.loadavg();           // [1m, 5m, 15m]
+  const cpuCount = os.cpus().length;
+
+  // ── Uptime ───────────────────────────────────────────────────────────────
   const uptimeSec = Math.floor(process.uptime());
   const hours   = Math.floor(uptimeSec / 3600);
   const minutes = Math.floor((uptimeSec % 3600) / 60);
   const seconds = uptimeSec % 60;
   const uptimeStr = hours > 0
     ? `${hours}h ${minutes}m ${seconds}s`
-    : minutes > 0
-    ? `${minutes}m ${seconds}s`
-    : `${seconds}s`;
+    : minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
 
-  // db ping
+  // ── DB ping + pool ───────────────────────────────────────────────────────
   let dbOk = false;
+  let dbSizeBytes = 0;
   try {
-    await db.execute(sql`SELECT 1`);
+    const [, sizeRow] = await Promise.all([
+      db.execute(sql`SELECT 1`),
+      db.execute(sql`SELECT pg_database_size(current_database()) AS sz`),
+    ]);
     dbOk = true;
+    dbSizeBytes = Number((sizeRow.rows[0] as { sz: string }).sz ?? 0);
   } catch (_) { /* db down */ }
 
+  // ── DB table counts ──────────────────────────────────────────────────────
+  let dbCounts = { users: 0, games: 0, cards_paid: 0, winners: 0 };
+  try {
+    const [uRow, gRow, cRow, wRow] = await Promise.all([
+      db.execute(sql`SELECT COUNT(*)::int AS n FROM users`),
+      db.execute(sql`SELECT COUNT(*)::int AS n FROM games`),
+      db.execute(sql`SELECT COUNT(*)::int AS n FROM cards WHERE payment_status = 'paid'`),
+      db.execute(sql`SELECT COUNT(*)::int AS n FROM winners`),
+    ]);
+    dbCounts = {
+      users:      Number((uRow.rows[0] as { n: number }).n),
+      games:      Number((gRow.rows[0] as { n: number }).n),
+      cards_paid: Number((cRow.rows[0] as { n: number }).n),
+      winners:    Number((wRow.rows[0] as { n: number }).n),
+    };
+  } catch (_) { /* counts unavailable */ }
+
+  const warnings: string[] = [];
+  if (heapPct >= 80) warnings.push("Heap alto — considera reiniciar");
+  if (sysMemPct >= 85) warnings.push(`RAM del sistema al ${sysMemPct}%`);
+  if (loadAvg[0] > cpuCount * 1.5) warnings.push(`Carga CPU elevada (${loadAvg[0].toFixed(2)})`);
+
   res.json({
-    uptime_seconds: uptimeSec,
-    uptime_str:     uptimeStr,
-    heap_used_mb:   heapUsedMB,
-    heap_total_mb:  heapTotalMB,
-    rss_mb:         rssMB,
-    heap_pct:       heapPct,
-    db_ok:          dbOk,
-    node_version:   process.version,
-    pid:            process.pid,
-    warning:        heapPct >= 80 ? "RAM alta — considera reiniciar" : rssMB >= 400 ? "Memoria RSS elevada" : null,
+    // Uptime
+    uptime_seconds:  uptimeSec,
+    uptime_str:      uptimeStr,
+    // Node.js heap
+    heap_used_mb:    heapUsedMB,
+    heap_total_mb:   heapTotalMB,
+    rss_mb:          rssMB,
+    external_mb:     externalMB,
+    array_buf_mb:    arrayBufMB,
+    heap_pct:        heapPct,
+    // OS memory
+    sys_mem_total_mb: toMB(osTotalMem),
+    sys_mem_free_mb:  toMB(osFreeMem),
+    sys_mem_used_mb:  toMB(osUsedMem),
+    sys_mem_pct:      sysMemPct,
+    // CPU
+    cpu_load_1m:     parseFloat(loadAvg[0].toFixed(2)),
+    cpu_load_5m:     parseFloat(loadAvg[1].toFixed(2)),
+    cpu_load_15m:    parseFloat(loadAvg[2].toFixed(2)),
+    cpu_count:       cpuCount,
+    // DB
+    db_ok:           dbOk,
+    db_size_mb:      toMB(dbSizeBytes),
+    db_pool_total:   pool.totalCount,
+    db_pool_idle:    pool.idleCount,
+    db_pool_waiting: pool.waitingCount,
+    db_pool_max:     7,
+    db_counts:       dbCounts,
+    // Platform
+    node_version:    process.version,
+    platform:        os.platform(),
+    arch:            os.arch(),
+    hostname:        os.hostname(),
+    node_env:        process.env.NODE_ENV ?? "production",
+    pid:             process.pid,
+    // Warnings
+    warning:         warnings.length ? warnings[0] : null,
+    warnings,
   });
 });
 
