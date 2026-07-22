@@ -289,7 +289,7 @@ export default function PlayPage() {
     fetchSession();
     fetchCards();
     fetchWinners();
-    const iv = setInterval(() => { fetchSession(); fetchWinners(); }, 3000);
+    const iv = setInterval(() => { if (!document.hidden) { fetchSession(); fetchWinners(); } }, 3000);
     return () => clearInterval(iv);
   }, [fetchSession, fetchCards, fetchWinners]);
 

@@ -155,7 +155,7 @@ export default function ProfilePage() {
         .catch(() => { if (!cancelled) setReqStatusLoaded(true); });
     }
     fetchReqStatus();
-    const interval = setInterval(fetchReqStatus, 5000);
+    const interval = setInterval(() => { if (!document.hidden) fetchReqStatus(); }, 5000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [token]);
 

@@ -436,7 +436,7 @@ function FallbackPaymentModal({
       } catch {}
     }
     checkStatus();
-    const interval = setInterval(checkStatus, 30_000);
+    const interval = setInterval(() => { if (!document.hidden) checkStatus(); }, 30_000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [step, manualRequestId, token]);
 
@@ -713,7 +713,7 @@ export default function GameDetailPage() {
 
   // Poll game data every 8s so any admin change (reset, start, finish) is reflected immediately
   useEffect(() => {
-    const iv = setInterval(() => { void refetchGame(); }, 8000);
+    const iv = setInterval(() => { if (!document.hidden) void refetchGame(); }, 8000);
     return () => clearInterval(iv);
   }, []);
 
@@ -739,7 +739,7 @@ export default function GameDetailPage() {
         .catch(() => {});
     };
     load();
-    const iv = setInterval(load, 8000);
+    const iv = setInterval(() => { if (!document.hidden) load(); }, 8000);
     return () => clearInterval(iv);
   }, [game?.status, gameId]);
 
