@@ -2991,6 +2991,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
         setCategories(cs => cs.map(c => c.id === id ? updated : c));
         setCatDraft(dr => ({ ...dr, [id]: { ...updated } }));
         toast.success("✅ Categoría actualizada");
+        void queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       } else { toast.error("No se pudo guardar la categoría"); }
     } catch { toast.error("Error al guardar la categoría"); }
     finally { setSavingCat(null); }

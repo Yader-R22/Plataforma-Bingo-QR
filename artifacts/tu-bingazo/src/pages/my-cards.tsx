@@ -62,13 +62,16 @@ export default function MyCardsPage() {
   const { data: games = [], refetch: refetchGames } = useListGames(undefined, {
     query: {
       queryKey: getListGamesQueryKey(),
-      staleTime: 60_000,
+      staleTime: 10 * 60_000,
       gcTime: 2 * 60 * 60 * 1000,
-      refetchInterval: 8_000,
     },
   });
   const { data: categories = [] } = useListCategories({
-    query: { queryKey: getListCategoriesQueryKey(), staleTime: 5 * 60 * 1000 },
+    query: {
+      queryKey: getListCategoriesQueryKey(),
+      staleTime: Infinity,
+      gcTime: 24 * 60 * 60 * 1000,
+    },
   });
   // Mapa type → label dinámico desde las categorías del admin
   const typeLabelMap = Object.fromEntries(
