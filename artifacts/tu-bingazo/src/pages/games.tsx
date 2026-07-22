@@ -225,7 +225,7 @@ export default function GamesPage() {
                                           alt={photoRounds[0].prize_physical_name ?? "Premio"}
                                           onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
                                           className="rounded-xl object-cover shadow-lg flex-shrink-0"
-                                          style={{ width: 72, height: 72, border: "2px solid rgba(255,255,255,0.25)" }}
+                                          style={{ width: 90, height: 90, border: "2px solid rgba(255,255,255,0.25)" }}
                                         />
                                       )}
                                       {photoRounds.length === 2 && (
@@ -280,7 +280,7 @@ export default function GamesPage() {
                                       alt={(game as any).prize_physical_name ?? "Premio"}
                                       onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
                                       className="rounded-xl object-cover shadow-lg flex-shrink-0"
-                                      style={{ width: 72, height: 72, border: "2px solid rgba(255,255,255,0.25)" }}
+                                      style={{ width: 90, height: 90, border: "2px solid rgba(255,255,255,0.25)" }}
                                     />
                                   )}
                                 </div>
