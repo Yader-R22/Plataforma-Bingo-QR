@@ -329,105 +329,119 @@ export default function AdminPhysicalPrizesPage() {
                 const hasCashComponent = !isPhysicalOnly && p.prize_amount > 0;
 
                 return (
-                  <div key={p.id} className="bg-card border rounded-2xl p-4 space-y-3">
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-black text-base truncate">{p.prize_physical_name ?? "Premio físico"}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {p.game_title ?? "Juego"}
-                          {hasCashComponent ? ` · Bs ${p.prize_amount.toLocaleString("es-BO", { minimumFractionDigits: 0 })} + objeto` : " · Premio físico"}
-                        </p>
-                        {/* Datos del usuario */}
-                        <div className="mt-1.5 space-y-0.5">
-                          <p className="text-xs font-semibold">{p.user_name ?? "—"}</p>
-                          <p className="text-xs text-muted-foreground">CI: {p.user_ci ?? "—"}</p>
+                  <div key={p.id} className="bg-card border rounded-2xl overflow-hidden">
+                    {/* Banda de color según estado */}
+                    <div className="h-1 w-full" style={{ background: sCfg ? sCfg.border.replace("/ 0.3)", ")") : "hsl(var(--border))" }} />
+
+                    <div className="p-4 space-y-3">
+                      {/* Fila 1: Premio + estado */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-black text-base leading-tight truncate">{p.prize_physical_name ?? "Premio físico"}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                            🎮 {p.game_title ?? "Juego"}
+                            {hasCashComponent ? ` · Bs ${p.prize_amount.toLocaleString("es-BO", { minimumFractionDigits: 0 })} + objeto` : ""}
+                          </p>
+                        </div>
+                        {sCfg && (
+                          <span className="shrink-0 text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap"
+                            style={{ background: sCfg.bg, border: `1px solid ${sCfg.border}`, color: sCfg.color }}>
+                            {sCfg.label}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Fila 2: Grilla 2 columnas — ganador | contacto */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Col izq: identidad */}
+                        <div className="rounded-xl px-3 py-2.5 space-y-0.5" style={{ background: "hsl(var(--muted) / 0.5)" }}>
+                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Ganador</p>
+                          <p className="text-sm font-bold leading-tight truncate">{p.user_name ?? "—"}</p>
+                          <p className="text-xs text-muted-foreground">CI {p.user_ci ?? "—"}</p>
                           {p.user_department && (
                             <p className="text-xs text-muted-foreground">📍 {p.user_department}</p>
                           )}
-                          {p.user_phone && (
+                        </div>
+                        {/* Col der: contacto + dirección */}
+                        <div className="rounded-xl px-3 py-2.5 space-y-1.5" style={{ background: "hsl(var(--muted) / 0.5)" }}>
+                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Contacto</p>
+                          {p.user_phone ? (
                             <a
                               href={`https://wa.me/591${p.user_phone.replace(/\D/g, "")}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-xl text-xs font-bold text-white cursor-pointer"
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold text-white w-full"
                               style={{ background: "#25d366" }}>
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.534 5.859L0 24l6.336-1.511A11.934 11.934 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.001-1.37l-.358-.214-3.723.888.924-3.638-.234-.374A9.818 9.818 0 1112 21.818z"/></svg>
-                              WhatsApp · {p.user_phone}
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="shrink-0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.534 5.859L0 24l6.336-1.511A11.934 11.934 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.001-1.37l-.358-.214-3.723.888.924-3.638-.234-.374A9.818 9.818 0 1112 21.818z"/></svg>
+                              <span className="truncate">{p.user_phone}</span>
                             </a>
+                          ) : (
+                            <p className="text-xs text-muted-foreground italic">Sin teléfono</p>
+                          )}
+                          {p.delivery_address && (
+                            <p className="text-xs text-muted-foreground leading-snug line-clamp-2">🏠 {p.delivery_address}</p>
                           )}
                         </div>
                       </div>
-                      {sCfg && (
-                        <span className="shrink-0 text-xs font-bold px-2.5 py-1 rounded-full"
-                          style={{ background: sCfg.bg, border: `1px solid ${sCfg.border}`, color: sCfg.color }}>
-                          {sCfg.label}
-                        </span>
-                      )}
-                    </div>
 
-                    {/* Delivery info */}
-                    {p.delivery_address && (
-                      <div className="rounded-xl px-3 py-2 space-y-1"
-                        style={{ background: "hsl(var(--muted) / 0.5)" }}>
-                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Datos de entrega</p>
-                        <p className="text-sm font-medium">{p.delivery_address}</p>
+                      {/* Notas de entrega (si existen) */}
+                      {p.delivery_notes && (
+                        <p className="text-xs text-muted-foreground px-1 flex gap-1.5 items-start">
+                          <span className="shrink-0">📝</span>
+                          <span>{p.delivery_notes}</span>
+                        </p>
+                      )}
+
+                      {/* Separador + Actions */}
+                      <div className="pt-1 border-t flex flex-wrap gap-2" style={{ borderColor: "hsl(var(--border))" }}>
+                        {/* Pending */}
+                        {p.delivery_status === "pending" && (
+                          <>
+                            <div className="flex-1 min-w-[140px] py-2 rounded-xl text-xs font-bold text-center"
+                              style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.3)", color: "hsl(42 98% 35%)" }}>
+                              ⏳ En espera de dirección
+                            </div>
+                            <button onClick={() => { setInPersonModal(p); setInPersonNotes(""); }}
+                              className="px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer shrink-0"
+                              style={{ background: "linear-gradient(135deg, #0ea5e9, #0369a1)" }}>
+                              🤝 En persona
+                            </button>
+                          </>
+                        )}
+
+                        {/* Address submitted */}
+                        {p.delivery_status === "address_submitted" && (
+                          <>
+                            <button onClick={() => { setShipModal(p); setReceiptImage(null); setShipNotes(""); }}
+                              className="flex-1 min-w-[120px] py-2 rounded-xl text-xs font-bold text-white cursor-pointer"
+                              style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
+                              🚚 Marcar enviado
+                            </button>
+                            <button onClick={() => { setInPersonModal(p); setInPersonNotes(""); }}
+                              className="px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer shrink-0"
+                              style={{ background: "linear-gradient(135deg, #0ea5e9, #0369a1)" }}>
+                              🤝 En persona
+                            </button>
+                          </>
+                        )}
+
+                        {/* Shipped */}
+                        {p.delivery_status === "shipped" && (
+                          <button onClick={() => { setDeliverModal(p); setDeliverNotes(""); }}
+                            className="flex-1 py-2 rounded-xl text-xs font-bold text-white cursor-pointer"
+                            style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}>
+                            ✅ Marcar entregado
+                          </button>
+                        )}
+
+                        {p.delivery_receipt_url && (
+                          <button onClick={() => openReceipt(p.delivery_receipt_url!)}
+                            className="px-4 py-2 rounded-xl text-xs font-bold border cursor-pointer shrink-0"
+                            style={{ borderColor: "hsl(var(--border))" }}>
+                            📎 Boleta
+                          </button>
+                        )}
                       </div>
-                    )}
-
-                    {p.delivery_notes && (
-                      <p className="text-xs text-muted-foreground px-1">📝 {p.delivery_notes}</p>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex flex-col gap-2">
-                      {/* Pending: esperando dirección del ganador */}
-                      {p.delivery_status === "pending" && (
-                        <div className="flex gap-2">
-                          <div className="flex-1 py-2.5 rounded-xl text-sm font-bold text-center"
-                            style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.3)", color: "hsl(42 98% 35%)" }}>
-                            ⏳ En espera de dirección
-                          </div>
-                          <button onClick={() => { setInPersonModal(p); setInPersonNotes(""); }}
-                            className="px-4 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer shrink-0"
-                            style={{ background: "linear-gradient(135deg, #0ea5e9, #0369a1)" }}>
-                            🤝 En persona
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Address submitted */}
-                      {p.delivery_status === "address_submitted" && (
-                        <div className="flex gap-2">
-                          <button onClick={() => { setShipModal(p); setReceiptImage(null); setShipNotes(""); }}
-                            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer"
-                            style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
-                            🚚 Marcar enviado
-                          </button>
-                          <button onClick={() => { setInPersonModal(p); setInPersonNotes(""); }}
-                            className="px-4 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer shrink-0"
-                            style={{ background: "linear-gradient(135deg, #0ea5e9, #0369a1)" }}>
-                            🤝 En persona
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Shipped */}
-                      {p.delivery_status === "shipped" && (
-                        <button onClick={() => { setDeliverModal(p); setDeliverNotes(""); }}
-                          className="w-full py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer"
-                          style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}>
-                          ✅ Marcar entregado
-                        </button>
-                      )}
-
-                      {p.delivery_receipt_url && (
-                        <button onClick={() => openReceipt(p.delivery_receipt_url!)}
-                          className="w-full px-4 py-2 rounded-xl text-sm font-bold border cursor-pointer"
-                          style={{ borderColor: "hsl(var(--border))" }}>
-                          📎 Ver boleta de envío
-                        </button>
-                      )}
                     </div>
                   </div>
                 );
