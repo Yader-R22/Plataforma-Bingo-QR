@@ -36,6 +36,24 @@ export default function WalletPage() {
   const [addrLine, setAddrLine] = useState("");
   const [addrPhone, setAddrPhone] = useState("");
   const [addrLoading, setAddrLoading] = useState(false);
+  const [confirmReceiptId, setConfirmReceiptId] = useState<number | null>(null);
+  const [confirmReceiptLoading, setConfirmReceiptLoading] = useState(false);
+
+  async function handleConfirmReceipt(winnerId: number) {
+    setConfirmReceiptLoading(true);
+    try {
+      const r = await fetch(`${BASE}/api/wallet/physical-prizes/${winnerId}/confirm-receipt`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const d = await r.json();
+      if (!r.ok) { toast.error(d.error || "Error al confirmar"); return; }
+      toast.success("✅ ¡Gracias! Premio marcado como recibido");
+      setConfirmReceiptId(null);
+      refetchEarnings();
+    } catch { toast.error("Error de red"); } finally { setConfirmReceiptLoading(false); }
+  }
+
   const { data: earnings, refetch: refetchEarnings } = useListEarnings();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -676,14 +694,41 @@ export default function WalletPage() {
                             <div className="space-y-2">
                               <p className="text-xs font-medium">Tu premio está en camino 🚚</p>
                               {item.delivery_notes && <p className="text-xs text-muted-foreground">{item.delivery_notes}</p>}
-                              {item.delivery_receipt_url && (
-                                <button
-                                  onClick={() => setProofModal(item.delivery_receipt_url!)}
-                                  className="w-full py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-colors"
-                                  style={{ background: "rgba(124,58,237,0.1)", border: "1px solid rgba(124,58,237,0.25)", color: "hsl(262 80% 40%)" }}>
-                                  🧾 Ver boleta de envío
-                                </button>
-                              )}
+                              <div className="flex gap-2">
+                                {item.delivery_receipt_url && (
+                                  <button
+                                    onClick={() => setProofModal(item.delivery_receipt_url!)}
+                                    className="flex-1 py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-colors"
+                                    style={{ background: "rgba(124,58,237,0.1)", border: "1px solid rgba(124,58,237,0.25)", color: "hsl(262 80% 40%)" }}>
+                                    🧾 Boleta
+                                  </button>
+                                )}
+                                {confirmReceiptId === item.id ? (
+                                  <div className="flex-1 flex gap-1.5">
+                                    <button
+                                      onClick={() => handleConfirmReceipt(item.id)}
+                                      disabled={confirmReceiptLoading}
+                                      className="flex-1 py-2 rounded-xl text-xs font-black text-white disabled:opacity-50"
+                                      style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}>
+                                      {confirmReceiptLoading ? "…" : "✅ Sí, confirmar"}
+                                    </button>
+                                    <button
+                                      onClick={() => setConfirmReceiptId(null)}
+                                      disabled={confirmReceiptLoading}
+                                      className="px-3 py-2 rounded-xl text-xs font-bold border"
+                                      style={{ borderColor: "hsl(var(--border))" }}>
+                                      No
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setConfirmReceiptId(item.id)}
+                                    className="flex-1 py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1 transition-colors"
+                                    style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", color: "hsl(142 70% 30%)" }}>
+                                    ✅ Ya lo recibí
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           )}
                           {item.delivery_status === "delivered" && (

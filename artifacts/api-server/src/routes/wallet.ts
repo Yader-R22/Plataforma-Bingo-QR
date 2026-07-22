@@ -162,6 +162,28 @@ router.post("/physical-prizes/:id/address", requireAuth, async (req: AuthRequest
   res.json({ ok: true });
 });
 
+router.patch("/physical-prizes/:id/confirm-receipt", requireAuth, async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const [winner] = await db.select()
+    .from(winnersTable)
+    .where(and(eq(winnersTable.id, id), eq(winnersTable.userId, req.userId!)))
+    .limit(1);
+
+  if (!winner) { res.status(404).json({ error: "Premio no encontrado" }); return; }
+  if (winner.deliveryStatus !== "shipped") {
+    res.status(400).json({ error: "El premio no está en estado 'enviado'" });
+    return;
+  }
+
+  await db.update(winnersTable)
+    .set({ deliveryStatus: "delivered" })
+    .where(eq(winnersTable.id, id));
+
+  res.json({ ok: true });
+});
+
 router.get("/commissions", requireAuth, async (req: AuthRequest, res) => {
   const rows = await db
     .select({
