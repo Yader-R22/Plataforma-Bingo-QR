@@ -63,6 +63,8 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [receiptSubmitted, setReceiptSubmitted] = useState(false);
 
+  const [activatorBalance, setActivatorBalance] = useState<number>(0);
+
   const authH = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${token}` });
 
   useEffect(() => {
@@ -74,6 +76,14 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
       if (gr.ok) setGames(await gr.json());
       if (sr.ok) setSettings(await sr.json());
     }).finally(() => setLoadingGames(false));
+
+    // Wallet balance — needed to enable/disable "Pagar con saldo" button
+    fetch(`${BASE}/api/wallet`, { headers: { Authorization: `Bearer ${token}` } }).then(async r => {
+      if (!r.ok) return;
+      const data = await r.json();
+      const bal = (data.balance ?? 0) + (data.bonus_balance ?? 0) - (data.pending_withdrawals ?? 0);
+      setActivatorBalance(Math.max(0, bal));
+    });
 
     // Site settings only needed for QR download — don't block the games list
     fetch(`${BASE}/api/site-settings`).then(async r => {
@@ -325,6 +335,29 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
       } else {
         setStep("static-upload");
       }
+    } finally {
+      setPurchasing(false);
+    }
+  }
+
+  async function purchaseWithWallet() {
+    if (!selectedGame || !targetUser) return;
+    setPurchasing(true);
+    try {
+      const r = await fetch(`${BASE}/api/activator-sales/purchase`, {
+        method: "POST",
+        headers: authH(),
+        body: JSON.stringify({
+          game_id: selectedGame.id,
+          quantity,
+          target_user_id: targetUser.id,
+          payment_method: "wallet",
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) { toast.error(d.error || "Error al pagar con saldo"); return; }
+      setSaleId(d.sale_id);
+      setStep("success");
     } finally {
       setPurchasing(false);
     }
@@ -604,6 +637,13 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
                   {purchasing ? "Generando QR..." : "Pagar con QR →"}
                 </button>
               </div>
+              <button
+                disabled={!targetUser || quantity < 1 || purchasing || activatorBalance < final}
+                onClick={purchaseWithWallet}
+                className="w-full py-2.5 rounded-2xl font-bold text-sm disabled:opacity-40"
+                style={{ background: "hsl(var(--muted))", border: "1.5px solid hsl(var(--border))" }}>
+                {purchasing ? "Procesando..." : "Pagar con saldo"}
+              </button>
             </>
           )}
 

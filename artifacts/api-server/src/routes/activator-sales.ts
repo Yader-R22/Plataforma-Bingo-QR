@@ -186,7 +186,7 @@ router.post("/purchase", requireAuth, requireActivator, async (req: AuthRequest,
     game_id?: number;
     quantity?: number;
     target_user_id?: number;
-    payment_method?: "enlazo" | "static_qr";
+    payment_method?: "enlazo" | "static_qr" | "wallet";
   };
 
   if (!game_id || !quantity || !target_user_id || !payment_method) {
@@ -195,7 +195,7 @@ router.post("/purchase", requireAuth, requireActivator, async (req: AuthRequest,
   if (quantity < 1 || quantity > 20) {
     res.status(400).json({ error: "Cantidad inválida (1–20)" }); return;
   }
-  if (!["enlazo", "static_qr"].includes(payment_method)) {
+  if (!["enlazo", "static_qr", "wallet"].includes(payment_method)) {
     res.status(400).json({ error: "Método de pago inválido" }); return;
   }
 
@@ -332,6 +332,110 @@ router.post("/purchase", requireAuth, requireActivator, async (req: AuthRequest,
       checkout_id: transactionId,
       qr_image: qrImage,
       qr_error: qrError || undefined,
+      original_price: originalPrice,
+      discount_amount: discountAmount,
+      final_price: finalPrice,
+    });
+    return;
+  }
+
+  // ── Wallet: deduct from activator's balance ────────────────────────────────
+  if (payment_method === "wallet") {
+    // Pre-check balance (optimistic, without lock)
+    const [activator] = await db.select({
+      balance: usersTable.balance,
+      bonusBalance: usersTable.bonusBalance,
+      bonusExpiresAt: usersTable.bonusExpiresAt,
+      adminCreditBalance: usersTable.adminCreditBalance,
+    }).from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
+
+    const pendingRes = await db.select({ total: sql<string>`coalesce(sum(${withdrawalsTable.amount}), 0)` })
+      .from(withdrawalsTable)
+      .where(and(eq(withdrawalsTable.userId, req.userId!), eq(withdrawalsTable.status, "pending")));
+    const pending = parseFloat(pendingRes[0]?.total ?? "0");
+
+    const now = new Date();
+    const bonusExpired = activator.bonusExpiresAt ? activator.bonusExpiresAt < now : false;
+    const preBonus   = bonusExpired ? 0 : parseFloat(String(activator.bonusBalance ?? "0"));
+    const preBalance = parseFloat(String(activator.balance ?? "0"));
+    const preCredit  = parseFloat(String(activator.adminCreditBalance ?? "0"));
+    const available  = preBalance + preBonus + preCredit - pending;
+
+    if (available < finalPrice) {
+      // Roll back pre-created cards
+      await db.delete(cardsTable).where(inArray(cardsTable.id, cardIds));
+      res.status(400).json({ error: "Saldo insuficiente en billetera" }); return;
+    }
+
+    // Deduct under lock (bonus → admin_credit → balance)
+    let waleSaleId: number | null = null;
+    await db.transaction(async (tx) => {
+      const locked = await tx.execute(
+        sql`SELECT balance, bonus_balance, bonus_expires_at, admin_credit_balance FROM users WHERE id = ${req.userId!} FOR UPDATE`
+      );
+      const row = locked.rows[0] as Record<string, unknown>;
+      const lockedBalance = parseFloat((row?.balance as string | undefined) ?? "0");
+      const bonusExpiredLocked = row?.bonus_expires_at ? new Date(row.bonus_expires_at as string) < now : false;
+      const lockedBonus   = bonusExpiredLocked ? 0 : parseFloat((row?.bonus_balance as string | undefined) ?? "0");
+      const lockedCredit  = parseFloat((row?.admin_credit_balance as string | undefined) ?? "0");
+      const lockedAvail   = lockedBalance + lockedBonus + lockedCredit - pending;
+
+      if (lockedAvail < finalPrice) throw new Error("INSUFFICIENT_BALANCE");
+
+      let remaining = finalPrice;
+      const fromBonus  = Math.min(remaining, lockedBonus);  remaining -= fromBonus;
+      const fromCredit = Math.min(remaining, lockedCredit); remaining -= fromCredit;
+      const fromBalance = remaining;
+
+      if (fromBonus > 0)
+        await tx.execute(sql`UPDATE users SET bonus_balance = bonus_balance - ${fromBonus} WHERE id = ${req.userId!}`);
+      if (fromCredit > 0)
+        await tx.execute(sql`UPDATE users SET admin_credit_balance = admin_credit_balance - ${fromCredit} WHERE id = ${req.userId!}`);
+      if (fromBalance > 0)
+        await tx.execute(sql`UPDATE users SET balance = balance - ${fromBalance} WHERE id = ${req.userId!}`);
+
+      // Activate cards
+      await tx.update(cardsTable)
+        .set({ paymentStatus: "paid", status: "active" })
+        .where(inArray(cardsTable.id, cardIds));
+
+      const [waleSale] = await tx.insert(activatorCardSalesTable).values({
+        activatorUserId: req.userId!,
+        targetUserId: target_user_id,
+        gameId: game_id,
+        quantity,
+        originalPrice: String(originalPrice.toFixed(2)),
+        discountAmount: String(discountAmount.toFixed(2)),
+        finalPrice: String(finalPrice.toFixed(2)),
+        paymentMethod: "wallet",
+        cardIds: JSON.stringify(cardIds),
+        status: "paid",
+      }).returning();
+      waleSaleId = waleSale.id;
+
+      await tx.insert(auditLogsTable).values({
+        action: "activator_card_sale",
+        userId: req.userId,
+        gameId: game_id,
+        details: {
+          sale_id: waleSale.id,
+          target_user_id,
+          quantity,
+          original_price: originalPrice,
+          discount_amount: discountAmount,
+          final_price: finalPrice,
+          payment_method: "wallet",
+          from_bonus: fromBonus,
+          from_credit: fromCredit,
+          from_balance: fromBalance,
+        },
+        ipAddress: req.ip,
+      });
+    });
+
+    res.status(201).json({
+      sale_id: waleSaleId,
+      paid_with_balance: true,
       original_price: originalPrice,
       discount_amount: discountAmount,
       final_price: finalPrice,
