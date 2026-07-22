@@ -14,7 +14,7 @@ export const walletTopUpsTable = pgTable("wallet_top_ups", {
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
   checkoutId: text("checkout_id"),
   status: text("status", {
-    enum: ["pending", "approved", "rejected", "refunded"],
+    enum: ["generated", "downloaded", "pending", "approved", "rejected", "refunded"],
   }).notNull().default("pending"),
   receiptUrl: text("receipt_url"),
   adminNotes: text("admin_notes"),

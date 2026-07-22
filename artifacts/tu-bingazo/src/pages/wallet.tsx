@@ -409,6 +409,14 @@ export default function WalletPage() {
         a.href = canvas.toDataURL("image/png");
         a.download = `recarga-qr-${topUpCheckoutId ?? Date.now()}.png`;
         a.click();
+
+        // Registrar descarga — aparece en Movimientos como "Pago en espera"
+        if (topUpCheckoutId) {
+          fetch(`${BASE}/api/wallet-top-ups/${topUpCheckoutId}/mark-downloaded`, {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${token}` },
+          }).then(() => refetchTopUps()).catch(() => {});
+        }
       }
 
       if (qrBgUrl) {
@@ -1358,6 +1366,8 @@ export default function WalletPage() {
                   ? { label: "❌ Rechazada", bg: "hsl(0 75% 52% / 0.12)", border: "hsl(0 75% 52% / 0.3)", color: "hsl(0 75% 40%)" }
                   : item.status === "refunded"
                   ? { label: "🔄 Reembolsada", bg: "hsl(210 80% 52% / 0.12)", border: "hsl(210 80% 52% / 0.3)", color: "hsl(210 80% 35%)" }
+                  : item.status === "downloaded"
+                  ? { label: "⏳ Pago en espera", bg: "hsl(42 98% 52% / 0.12)", border: "hsl(42 98% 52% / 0.3)", color: "hsl(42 98% 35%)" }
                   : { label: "⏳ En revisión", bg: "hsl(42 98% 52% / 0.12)", border: "hsl(42 98% 52% / 0.3)", color: "hsl(42 98% 35%)" };
                 const amountColor = item.status === "approved"
                   ? "hsl(142 70% 30%)"

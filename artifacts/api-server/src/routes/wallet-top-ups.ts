@@ -86,12 +86,12 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     req.log.error({ err }, "wallet top-up generate-qr error");
   }
 
-  // Create pending top-up record
+  // Create top-up record — starts as "generated" (hidden in movimientos until downloaded or paid)
   const [topUp] = await db.insert(walletTopUpsTable).values({
     userId: req.userId!,
     amount: amt.toFixed(2),
     checkoutId,
-    status: "pending",
+    status: "generated",
   }).returning();
 
   req.log.info({ user_id: req.userId, amount: amt, checkout_id: checkoutId }, "wallet top-up created");
@@ -175,7 +175,7 @@ router.get("/:checkoutId/status", requireAuth, async (req: AuthRequest, res) => 
         .where(and(eq(walletTopUpsTable.checkoutId, checkoutId), eq(walletTopUpsTable.userId, req.userId!)))
         .limit(1);
 
-      if (!topUpRows.length || topUpRows[0].status !== "pending") {
+      if (!topUpRows.length || topUpRows[0].status === "approved") {
         res.json({ checkout_id: checkoutId, status: "completed" });
         return;
       }
@@ -188,7 +188,7 @@ router.get("/:checkoutId/status", requireAuth, async (req: AuthRequest, res) => 
           .set({ status: "approved", reviewedAt: new Date() })
           .where(and(
             eq(walletTopUpsTable.id, topUp.id),
-            eq(walletTopUpsTable.status, "pending"),
+            sql`${walletTopUpsTable.status} IN ('generated', 'downloaded', 'pending')`,
           ));
 
         await tx.execute(sql`UPDATE users SET balance = balance + ${amt} WHERE id = ${topUp.userId}`);
@@ -219,10 +219,33 @@ router.get("/:checkoutId/status", requireAuth, async (req: AuthRequest, res) => 
   }
 });
 
+// ── PATCH /api/wallet-top-ups/:checkoutId/mark-downloaded — user downloaded QR ──
+router.patch("/:checkoutId/mark-downloaded", requireAuth, async (req: AuthRequest, res) => {
+  const checkoutId = String(req.params.checkoutId);
+  const rows = await db.select().from(walletTopUpsTable)
+    .where(and(eq(walletTopUpsTable.checkoutId, checkoutId), eq(walletTopUpsTable.userId, req.userId!)))
+    .limit(1);
+
+  if (!rows.length) { res.status(404).json({ error: "No encontrado" }); return; }
+  if (rows[0].status !== "generated") {
+    res.json({ status: rows[0].status }); return;
+  }
+
+  await db.update(walletTopUpsTable)
+    .set({ status: "downloaded" })
+    .where(and(eq(walletTopUpsTable.id, rows[0].id), eq(walletTopUpsTable.status, "generated")));
+
+  req.log.info({ user_id: req.userId, checkout_id: checkoutId }, "wallet top-up QR downloaded");
+  res.json({ status: "downloaded" });
+});
+
 // ── GET /api/wallet-top-ups/my — user's top-up history ────────────────────
 router.get("/my", requireAuth, async (req: AuthRequest, res) => {
   const rows = await db.select().from(walletTopUpsTable)
-    .where(eq(walletTopUpsTable.userId, req.userId!))
+    .where(and(
+      eq(walletTopUpsTable.userId, req.userId!),
+      sql`${walletTopUpsTable.status} != 'generated'`,
+    ))
     .orderBy(desc(walletTopUpsTable.createdAt))
     .limit(50);
 
