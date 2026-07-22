@@ -255,8 +255,13 @@ router.get("/", requireAdmin, async (req: AuthRequest, res) => {
     .orderBy(desc(walletTopUpsTable.createdAt))
     .$dynamic();
 
+  // Admin only manages manual receipt top-ups — Enlazo QR ones are auto-confirmed by the API
+  const baseCondition = sql`${walletTopUpsTable.receiptUrl} IS NOT NULL`;
+
   if (statusFilter && ["pending", "approved", "rejected", "refunded"].includes(statusFilter)) {
-    query = query.where(eq(walletTopUpsTable.status, statusFilter as "pending" | "approved" | "rejected" | "refunded"));
+    query = query.where(and(baseCondition, eq(walletTopUpsTable.status, statusFilter as "pending" | "approved" | "rejected" | "refunded")));
+  } else {
+    query = query.where(baseCondition);
   }
 
   const rows = await query.limit(200);
