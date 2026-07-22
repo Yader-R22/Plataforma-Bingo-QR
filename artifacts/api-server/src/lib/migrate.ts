@@ -340,6 +340,20 @@ const MIGRATIONS: string[] = [
     activator_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`,
+
+  // ── wallet_top_ups ─────────────────────────────────────────────────────────
+  `CREATE TABLE IF NOT EXISTS wallet_top_ups (
+    id              SERIAL PRIMARY KEY,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    amount          NUMERIC(10,2) NOT NULL,
+    checkout_id     TEXT,
+    status          TEXT NOT NULL DEFAULT 'pending',
+    receipt_url     TEXT,
+    admin_notes     TEXT,
+    reviewed_by_id  INTEGER REFERENCES users(id),
+    reviewed_at     TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
 ];
 
 export async function runMigrations() {

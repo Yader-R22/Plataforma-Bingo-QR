@@ -4,6 +4,7 @@ import { useAuthStore } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useSetLayoutConfig } from "@/components/AppLayout";
 import { compressImage } from "@/lib/utils";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const BANKS = ["Banco BNB", "Banco Económico", "Banco Unión", "Banco Mercantil", "Banco BISA"];
@@ -24,6 +25,7 @@ export default function WalletPage() {
   useSetLayoutConfig({ hideTopBar: true });
   const token = useAuthStore(s => s.token);
   const user = useAuthStore(s => s.user);
+  const site = useSiteSettings();
   const [step, setStep] = useState<"idle" | "amount" | "method" | "qr-upload" | "bank-form">("idle");
   const [amount, setAmount] = useState("");
   const [cajeroError, setCajeroError] = useState(false);
@@ -38,6 +40,17 @@ export default function WalletPage() {
   const [addrLoading, setAddrLoading] = useState(false);
   const [confirmReceiptId, setConfirmReceiptId] = useState<number | null>(null);
   const [confirmReceiptLoading, setConfirmReceiptLoading] = useState(false);
+
+  // Top-up state
+  const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [topUpAmount, setTopUpAmount] = useState("");
+  const [topUpStep, setTopUpStep] = useState<"amount" | "generating" | "enlazo-qr" | "static-qr" | "done">("amount");
+  const [topUpQrImage, setTopUpQrImage] = useState<string | null>(null);
+  const [topUpCheckoutId, setTopUpCheckoutId] = useState<string | null>(null);
+  const [topUpReceiptUrl, setTopUpReceiptUrl] = useState<string | null>(null);
+  const [topUpUploading, setTopUpUploading] = useState(false);
+  const [topUpPollRef, setTopUpPollRef] = useState<ReturnType<typeof setInterval> | null>(null);
+  const topUpReceiptFileRef = useRef<HTMLInputElement>(null);
 
   async function handleConfirmReceipt(winnerId: number) {
     setConfirmReceiptId(winnerId);
@@ -165,6 +178,118 @@ export default function WalletPage() {
 
   const numAmount = parseFloat(amount) || 0;
 
+  // ── Top-up helpers ────────────────────────────────────────────────────────
+  function openTopUpModal() {
+    setShowTopUpModal(true);
+    setTopUpStep("amount");
+    setTopUpAmount("");
+    setTopUpQrImage(null);
+    setTopUpCheckoutId(null);
+    setTopUpReceiptUrl(null);
+  }
+
+  function closeTopUpModal() {
+    if (topUpPollRef) { clearInterval(topUpPollRef); setTopUpPollRef(null); }
+    setShowTopUpModal(false);
+    setTopUpStep("amount");
+    setTopUpAmount("");
+    setTopUpQrImage(null);
+    setTopUpCheckoutId(null);
+    setTopUpReceiptUrl(null);
+  }
+
+  async function generateTopUpQr() {
+    const amt = parseFloat(topUpAmount);
+    if (!amt || amt < 5) { toast.error("El monto mínimo es Bs 5"); return; }
+    if (amt > 5000) { toast.error("El monto máximo es Bs 5.000"); return; }
+
+    // If fallback is forced, skip Enlazo entirely
+    if (site?.fallback_qr_force_enabled) {
+      setTopUpStep("static-qr");
+      return;
+    }
+
+    setTopUpStep("generating");
+    try {
+      const res = await fetch(`${BASE}/api/wallet-top-ups`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amount: amt }),
+      });
+      const data = await res.json() as { checkout_id?: string; qr_image?: string; qr_error?: string; error?: string };
+      if (!res.ok) { toast.error(data.error || "Error al generar recarga"); setTopUpStep("amount"); return; }
+
+      setTopUpCheckoutId(data.checkout_id ?? null);
+
+      if (data.qr_image && !data.qr_error) {
+        setTopUpQrImage(data.qr_image);
+        setTopUpStep("enlazo-qr");
+
+        // Start polling
+        const interval = setInterval(async () => {
+          try {
+            const r = await fetch(`${BASE}/api/wallet-top-ups/${data.checkout_id}/status`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!r.ok) return;
+            const s = await r.json() as { status: string };
+            if (s.status === "completed") {
+              clearInterval(interval);
+              setTopUpPollRef(null);
+              setTopUpStep("done");
+              refetchWallet();
+              toast.success("💰 ¡Recarga exitosa! Saldo acreditado.");
+            }
+          } catch { /* ignore */ }
+        }, 3000);
+        setTopUpPollRef(interval);
+      } else {
+        // Enlazo failed → fallback to static
+        setTopUpStep("static-qr");
+      }
+    } catch {
+      toast.error("Error de red. Intenta de nuevo.");
+      setTopUpStep("amount");
+    }
+  }
+
+  async function handleTopUpReceiptFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setTopUpUploading(true);
+    try {
+      const compressed = await compressImage(file, 1200, 0.85);
+      const blob = await fetch(compressed).then(r => r.blob());
+      const form = new FormData();
+      form.append("receipt", blob, "recarga.jpg");
+      const res = await fetch(`${BASE}/api/wallet-top-ups/upload-receipt`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !data.url) { toast.error(data.error || "Error al subir comprobante"); return; }
+      setTopUpReceiptUrl(data.url);
+    } catch { toast.error("Error al procesar imagen"); }
+    finally { setTopUpUploading(false); }
+  }
+
+  async function submitStaticTopUp() {
+    if (!topUpReceiptUrl) { toast.error("Sube el comprobante primero"); return; }
+    const amt = parseFloat(topUpAmount);
+    try {
+      const res = await fetch(`${BASE}/api/wallet-top-ups/static`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amount: amt, receipt_url: topUpReceiptUrl }),
+      });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) { toast.error(data.error || "Error al enviar solicitud"); return; }
+      setTopUpStep("done");
+      toast.success("✅ Solicitud enviada. El administrador revisará tu comprobante.");
+    } catch { toast.error("Error de red. Intenta de nuevo."); }
+  }
+
   async function submitAddress() {
     if (!addrLine.trim()) { toast.error("Ingresa las especificaciones de envío"); return; }
     if (!addressModal) return;
@@ -246,6 +371,180 @@ export default function WalletPage() {
         </div>
       )}
 
+      {/* ── Top-up modal ─────────────────────────────────────────────── */}
+      {showTopUpModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.75)" }}
+          onClick={e => { if (e.target === e.currentTarget) closeTopUpModal(); }}>
+          <div className="bg-white rounded-3xl p-5 max-w-sm w-full space-y-4 max-h-[90vh] overflow-y-auto">
+
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <p className="font-black text-base" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                {topUpStep === "done" ? "🎉 ¡Listo!" : "💳 Recargar Billetera"}
+              </p>
+              <button onClick={closeTopUpModal} className="text-muted-foreground">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            {/* Step: amount input */}
+            {topUpStep === "amount" && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground -mt-2">Ingresa el monto que deseas agregar a tu billetera.</p>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold">Monto (Bs)</label>
+                  <div className="flex items-center gap-2 border rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-purple-400">
+                    <span className="font-black text-muted-foreground">Bs</span>
+                    <input
+                      type="number" min="5" max="5000" step="1"
+                      className="flex-1 outline-none text-xl font-black bg-transparent"
+                      placeholder="0"
+                      value={topUpAmount}
+                      onChange={e => setTopUpAmount(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") generateTopUpQr(); }}
+                      autoFocus
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Mínimo Bs 5 — máximo Bs 5.000</p>
+                </div>
+                {/* Quick amounts */}
+                <div className="flex gap-2 flex-wrap">
+                  {[20, 50, 100, 200].map(v => (
+                    <button key={v} onClick={() => setTopUpAmount(String(v))}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold border"
+                      style={{
+                        borderColor: topUpAmount === String(v) ? "hsl(var(--primary))" : "hsl(var(--border))",
+                        background: topUpAmount === String(v) ? "hsl(var(--primary) / 0.1)" : "transparent",
+                        color: topUpAmount === String(v) ? "hsl(var(--primary))" : "hsl(var(--foreground))",
+                      }}>
+                      Bs {v}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={generateTopUpQr}
+                  className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-60"
+                  style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
+                  Continuar →
+                </button>
+              </div>
+            )}
+
+            {/* Step: generating */}
+            {topUpStep === "generating" && (
+              <div className="flex flex-col items-center justify-center py-8 space-y-3">
+                <div className="w-10 h-10 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
+                <p className="text-sm font-bold text-muted-foreground">Generando QR de pago...</p>
+              </div>
+            )}
+
+            {/* Step: Enlazo QR */}
+            {topUpStep === "enlazo-qr" && topUpQrImage && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground -mt-2">Escanea el QR con tu app Enlazo para pagar <strong>Bs {parseFloat(topUpAmount).toFixed(0)}</strong>. El saldo se acreditará automáticamente.</p>
+                <div className="flex justify-center">
+                  <div className="p-3 rounded-2xl border-2 border-purple-100 bg-white shadow-inner">
+                    <img src={topUpQrImage} alt="QR Enlazo" className="w-52 h-52 object-contain rounded-xl" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+                  style={{ background: "hsl(142 70% 45% / 0.08)", border: "1px solid hsl(142 70% 45% / 0.2)" }}>
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
+                  <p className="text-xs font-bold text-green-700">Esperando confirmación de pago...</p>
+                </div>
+                <button onClick={() => { if (topUpPollRef) { clearInterval(topUpPollRef); setTopUpPollRef(null); } setTopUpStep("static-qr"); }}
+                  className="w-full py-2.5 rounded-xl text-xs font-bold border"
+                  style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
+                  ¿Problemas con el QR? → Pagar con comprobante
+                </button>
+              </div>
+            )}
+
+            {/* Step: static QR + receipt upload */}
+            {topUpStep === "static-qr" && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground -mt-2">
+                  Transfiere <strong>Bs {parseFloat(topUpAmount).toFixed(0)}</strong> escaneando el QR y luego sube el comprobante de pago para que el admin lo revise.
+                </p>
+                {site?.fallback_qr_image_url && (
+                  <div className="flex justify-center">
+                    <div className="p-3 rounded-2xl border-2 border-yellow-100 bg-white shadow-inner">
+                      <img src={site.fallback_qr_image_url} alt="QR de pago" className="w-52 h-52 object-contain rounded-xl" />
+                    </div>
+                  </div>
+                )}
+                {!site?.fallback_qr_image_url && site?.support_whatsapp && (
+                  <div className="rounded-xl px-3 py-3 text-sm text-center"
+                    style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.25)" }}>
+                    <p className="font-bold">Solicita el QR por WhatsApp</p>
+                    <a href={`https://wa.me/${site.support_whatsapp.replace(/\D/g, "")}`}
+                      className="text-green-600 font-black"
+                      target="_blank" rel="noreferrer">
+                      {site.support_whatsapp}
+                    </a>
+                  </div>
+                )}
+                {/* Receipt upload */}
+                <div className="space-y-2">
+                  <label className="text-sm font-bold">Comprobante de pago</label>
+                  {topUpReceiptUrl ? (
+                    <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+                      style={{ background: "hsl(142 70% 45% / 0.08)", border: "1px solid hsl(142 70% 45% / 0.2)" }}>
+                      <span className="text-green-600">✅</span>
+                      <span className="text-sm font-bold text-green-700">Imagen subida correctamente</span>
+                      <button onClick={() => setTopUpReceiptUrl(null)} className="ml-auto text-xs text-muted-foreground underline">
+                        Cambiar
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <input ref={topUpReceiptFileRef} type="file" accept="image/*" className="hidden"
+                        onChange={handleTopUpReceiptFile} />
+                      <button onClick={() => topUpReceiptFileRef.current?.click()} disabled={topUpUploading}
+                        className="w-full py-3 rounded-xl text-sm font-bold border-2 border-dashed flex items-center justify-center gap-2 disabled:opacity-60"
+                        style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
+                        {topUpUploading ? "Subiendo..." : "📷 Subir imagen del comprobante"}
+                      </button>
+                    </>
+                  )}
+                </div>
+                <button onClick={submitStaticTopUp} disabled={!topUpReceiptUrl || topUpUploading}
+                  className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-40"
+                  style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
+                  Enviar solicitud de recarga
+                </button>
+              </div>
+            )}
+
+            {/* Step: done — "auto" = Enlazo confirmed, "static" = awaiting admin review */}
+            {topUpStep === "done" && (
+              <div className="flex flex-col items-center justify-center py-6 space-y-4 text-center">
+                {topUpQrImage ? (
+                  <>
+                    <div className="text-5xl">💰</div>
+                    <p className="font-black text-xl" style={{ color: "hsl(142 70% 32%)" }}>
+                      ¡Bs {parseFloat(topUpAmount).toFixed(0)} acreditados!
+                    </p>
+                    <p className="text-sm text-muted-foreground">Tu saldo ya fue actualizado.</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-5xl">⏳</div>
+                    <p className="font-black text-base">¡Solicitud enviada!</p>
+                    <p className="text-sm text-muted-foreground">El administrador revisará tu comprobante y acreditará el saldo en breve.</p>
+                  </>
+                )}
+                <button onClick={closeTopUpModal}
+                  className="w-full py-3 rounded-2xl text-sm font-black text-white"
+                  style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
+                  Cerrar
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="hero-bg px-4 py-5 text-white">
         <h1 className="text-2xl font-black" style={{ fontFamily: "'Poppins', sans-serif" }}>💰 Mi Billetera</h1>
         <p className="text-white/60 text-sm">Saldo y retiros</p>
@@ -261,7 +560,13 @@ export default function WalletPage() {
             <p className="font-black text-5xl prize-text" style={{ fontFamily: "'Poppins', sans-serif" }}>
               Bs {(wallet?.balance ?? 0).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
             </p>
-            <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t border-white/15">
+            <button onClick={openTopUpModal}
+              className="mt-4 w-full py-2.5 rounded-2xl text-sm font-black flex items-center justify-center gap-2 transition-opacity hover:opacity-80"
+              style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)", color: "white" }}>
+              💳 + Recargar saldo
+            </button>
+
+            <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/15">
               {[
                 { label: "Total ganado", value: wallet?.total_won ?? 0 },
                 { label: "Retirado", value: wallet?.total_withdrawn ?? 0 },

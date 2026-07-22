@@ -49,6 +49,7 @@ const ALL_TABS = [
   { id: "withdrawals",     label: "💸 Retiros",         perm: "admin:withdrawals" },
   { id: "winners",         label: "🏆 Ganadores",      perm: "admin:games" },
   { id: "pagos-manuales",  label: "🧾 Pagos Manuales", perm: null },
+  { id: "recargas",        label: "💳 Recargas",        perm: null },
   { id: "referidos",       label: "🔗 Referidos",      perm: null },
   { id: "ventas-activador", label: "🛒 Ventas Activador", perm: null },
   { id: "solicitudes",     label: "📋 Solicitudes",    perm: "admin:users" },
@@ -948,6 +949,12 @@ export default function AdminPage() {
   const [manualPaymentNotes, setManualPaymentNotes] = useState<Record<number, string>>({});
   const [manualPaymentRefunds, setManualPaymentRefunds] = useState<Record<number, string>>({});
   const [manualPaymentAction, setManualPaymentAction] = useState<Record<number, "approve" | "reject" | null>>({});
+  const [topUps, setTopUps] = useState<any[]>([]);
+  const [topUpsFilter, setTopUpsFilter] = useState<"all" | "pending" | "approved" | "rejected" | "refunded">("pending");
+  const [topUpsLoading, setTopUpsLoading] = useState(false);
+  const [topUpNotes, setTopUpNotes] = useState<Record<number, string>>({});
+  const [topUpRefundAmounts, setTopUpRefundAmounts] = useState<Record<number, string>>({});
+
   const [activatorSales, setActivatorSales] = useState<any[]>([]);
   const [activatorSalesFilter, setActivatorSalesFilter] = useState<"all" | "pending_approval" | "approved" | "rejected" | "paid">("pending_approval");
   const [activatorSalesLoading, setActivatorSalesLoading] = useState(false);
@@ -1431,6 +1438,15 @@ export default function AdminPage() {
           if (r.ok) setManualPayments(await r.json());
         } finally {
           setManualPaymentsLoading(false);
+        }
+      }
+      if (t === "recargas") {
+        setTopUpsLoading(true);
+        try {
+          const r = await fetch(`${BASE}/api/wallet-top-ups`, { headers: authH() });
+          if (r.ok) setTopUps(await r.json());
+        } finally {
+          setTopUpsLoading(false);
         }
       }
       if (t === "ventas-activador") {
@@ -7623,6 +7639,271 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                 style={{ background: "hsl(0 75% 45%)" }}>
                                 ❌ Rechazar
                               </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── Recargas ────────────────────────────────────────────── */}
+        {tab === "recargas" && !loading && (() => {
+          const filtered = topUps.filter(t =>
+            topUpsFilter === "all" ? true : t.status === topUpsFilter
+          );
+
+          async function refreshTopUps(filter?: typeof topUpsFilter) {
+            const f = filter ?? topUpsFilter;
+            setTopUpsLoading(true);
+            try {
+              const url = f !== "all" ? `${BASE}/api/wallet-top-ups?status=${f}` : `${BASE}/api/wallet-top-ups`;
+              const r = await fetch(url, { headers: authH() });
+              if (r.ok) setTopUps(await r.json());
+            } finally {
+              setTopUpsLoading(false);
+            }
+          }
+
+          async function approveTopUp(id: number) {
+            const notes = topUpNotes[id] ?? "";
+            const r = await fetch(`${BASE}/api/wallet-top-ups/${id}/approve`, {
+              method: "PUT", headers: authH(), body: JSON.stringify({ notes }),
+            });
+            if (r.ok) {
+              toast.success("✅ Recarga aprobada — saldo acreditado al usuario");
+              setTopUpNotes(prev => { const n = { ...prev }; delete n[id]; return n; });
+              await refreshTopUps();
+            } else {
+              const d = await r.json().catch(() => ({}));
+              toast.error((d as any).error || "Error al aprobar recarga");
+            }
+          }
+
+          async function rejectTopUp(id: number) {
+            const notes = topUpNotes[id] ?? "";
+            if (!notes.trim()) { toast.error("Debes escribir un motivo de rechazo"); return; }
+            const r = await fetch(`${BASE}/api/wallet-top-ups/${id}/reject`, {
+              method: "PUT", headers: authH(), body: JSON.stringify({ notes }),
+            });
+            if (r.ok) {
+              toast.success("Recarga rechazada");
+              setTopUpNotes(prev => { const n = { ...prev }; delete n[id]; return n; });
+              await refreshTopUps();
+            } else {
+              const d = await r.json().catch(() => ({}));
+              toast.error((d as any).error || "Error al rechazar recarga");
+            }
+          }
+
+          async function refundTopUp(id: number) {
+            const refundStr = topUpRefundAmounts[id] ?? "";
+            const refundAmt = parseFloat(refundStr);
+            if (!refundStr.trim() || isNaN(refundAmt) || refundAmt <= 0) {
+              toast.error("Ingresa un monto de reembolso válido"); return;
+            }
+            const notes = topUpNotes[id] ?? "";
+            const r = await fetch(`${BASE}/api/wallet-top-ups/${id}/refund`, {
+              method: "PUT", headers: authH(), body: JSON.stringify({ amount: refundAmt, notes }),
+            });
+            if (r.ok) {
+              toast.success(`🔄 Reembolso de Bs ${refundAmt.toFixed(0)} acreditado al usuario`);
+              setTopUpNotes(prev => { const n = { ...prev }; delete n[id]; return n; });
+              setTopUpRefundAmounts(prev => { const n = { ...prev }; delete n[id]; return n; });
+              await refreshTopUps();
+            } else {
+              const d = await r.json().catch(() => ({}));
+              toast.error((d as any).error || "Error al reembolsar");
+            }
+          }
+
+          return (
+            <div className="space-y-4 overflow-x-hidden">
+              <div className="flex items-center justify-between">
+                <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>💳 Recargas de Billetera</h2>
+                <button onClick={() => refreshTopUps()} disabled={topUpsLoading}
+                  className="text-xs px-3 py-1.5 rounded-xl font-bold"
+                  style={{ background: "hsl(var(--muted))", color: "hsl(var(--foreground))" }}>
+                  {topUpsLoading ? "..." : "🔄 Actualizar"}
+                </button>
+              </div>
+
+              {/* Filter tabs */}
+              <div className="flex gap-2 flex-wrap">
+                {(["pending", "all", "approved", "rejected", "refunded"] as const).map(f => (
+                  <button key={f} onClick={() => { setTopUpsFilter(f); refreshTopUps(f); }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold transition-colors"
+                    style={{
+                      background: topUpsFilter === f ? "hsl(var(--primary))" : "hsl(var(--muted))",
+                      color: topUpsFilter === f ? "white" : "hsl(var(--foreground))",
+                    }}>
+                    {f === "pending" ? "⏳ Pendientes" : f === "approved" ? "✅ Aprobadas" : f === "rejected" ? "❌ Rechazadas" : f === "refunded" ? "🔄 Reembolsadas" : "📋 Todas"}
+                    {f !== "all" && ` (${topUps.filter(t => t.status === f).length})`}
+                  </button>
+                ))}
+              </div>
+
+              {topUpsLoading && (
+                <p className="text-center text-muted-foreground py-8">Cargando recargas...</p>
+              )}
+
+              {!topUpsLoading && filtered.length === 0 && (
+                <div className="text-center py-10 text-muted-foreground">
+                  <div className="text-4xl mb-2">💳</div>
+                  <p className="text-sm">No hay recargas {topUpsFilter !== "all" ? `con estado "${topUpsFilter}"` : ""}</p>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {filtered.map((tu: any) => {
+                  const isPending = tu.status === "pending";
+                  const isApproved = tu.status === "approved";
+                  const isRefunded = tu.status === "refunded";
+                  const statusColor = isPending
+                    ? { bg: "hsl(42 98% 93%)", border: "hsl(42 98% 78%)", text: "hsl(36 80% 28%)" }
+                    : isApproved || isRefunded
+                    ? { bg: "hsl(142 70% 93%)", border: "hsl(142 70% 78%)", text: "hsl(142 70% 26%)" }
+                    : { bg: "hsl(0 75% 94%)", border: "hsl(0 75% 82%)", text: "hsl(0 75% 36%)" };
+
+                  const statusLabel = isPending ? "⏳ Pendiente" : isApproved ? "✅ Aprobada" : isRefunded ? "🔄 Reembolsada" : "❌ Rechazada";
+                  const hasEnlazoQr = !!tu.checkout_id && !tu.receipt_url;
+
+                  return (
+                    <div key={tu.id} className="rounded-2xl overflow-hidden shadow-sm"
+                      style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+
+                      {/* Status stripe */}
+                      <div className="px-4 py-2.5 flex items-center gap-2"
+                        style={{ background: statusColor.bg, borderBottom: `1px solid ${statusColor.border}` }}>
+                        <span className="text-xs font-black" style={{ color: statusColor.text }}>{statusLabel}</span>
+                        {hasEnlazoQr && (
+                          <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full font-bold"
+                            style={{ background: "hsl(210 80% 52% / 0.15)", color: "hsl(210 80% 35%)" }}>
+                            QR Enlazo
+                          </span>
+                        )}
+                        {!hasEnlazoQr && tu.receipt_url && (
+                          <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full font-bold"
+                            style={{ background: "hsl(42 98% 52% / 0.15)", color: "hsl(36 80% 28%)" }}>
+                            Comprobante
+                          </span>
+                        )}
+                        <span className="ml-auto text-[10px] text-muted-foreground shrink-0">
+                          {new Date(tu.created_at).toLocaleString("es-BO", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+
+                      <div className="px-4 py-3 space-y-3">
+                        {/* User + amount */}
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-base shrink-0"
+                            style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))" }}>
+                            {(tu.user_name ?? "U").charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-black text-sm truncate" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                              {tu.user_name ?? `Usuario #${tu.user_id}`}
+                              <span className="text-xs font-normal text-muted-foreground ml-1.5">CI {tu.user_ci}</span>
+                            </p>
+                            <p className="font-black text-xl mt-1" style={{ color: "hsl(var(--primary))" }}>
+                              Bs {(tu.amount ?? 0).toFixed(0)}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Receipt or checkout ID */}
+                        {tu.receipt_url && (
+                          <button
+                            className="w-full py-2.5 rounded-xl text-sm font-bold border flex items-center justify-center gap-2 transition-opacity hover:opacity-75"
+                            style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))", background: "hsl(var(--muted) / 0.5)" }}
+                            onClick={() => setReceiptLightbox(`${BASE}${tu.receipt_url}`)}>
+                            📎 Ver comprobante de recarga
+                          </button>
+                        )}
+                        {!tu.receipt_url && tu.checkout_id && (
+                          <div className="rounded-xl py-2 px-3 text-xs text-muted-foreground border border-dashed"
+                            style={{ borderColor: "hsl(var(--border))" }}>
+                            <span className="font-bold">ID Enlazo: </span>{tu.checkout_id}
+                          </div>
+                        )}
+                        {!tu.receipt_url && !tu.checkout_id && (
+                          <div className="rounded-xl py-2.5 text-xs text-center text-muted-foreground border border-dashed"
+                            style={{ borderColor: "hsl(var(--border))" }}>
+                            📭 Sin comprobante adjunto
+                          </div>
+                        )}
+
+                        {/* Admin notes (approved/rejected) */}
+                        {tu.admin_notes && (
+                          <div className="rounded-xl px-3 py-2.5"
+                            style={{
+                              background: isApproved || isRefunded ? "hsl(142 70% 97%)" : "hsl(0 75% 97%)",
+                              border: `1px solid ${isApproved || isRefunded ? "hsl(142 70% 82%)" : "hsl(0 75% 85%)"}`,
+                            }}>
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Nota</p>
+                            <p className="text-xs">{tu.admin_notes}</p>
+                          </div>
+                        )}
+
+                        {/* Actions — pending only */}
+                        {isPending && (
+                          <div className="space-y-2 pt-1 border-t" style={{ borderColor: "hsl(var(--border))" }}>
+                            <textarea
+                              className="w-full rounded-xl border px-3 py-2 text-sm bg-background resize-none mt-3"
+                              rows={2}
+                              placeholder="Nota (obligatoria para rechazar, opcional para aprobar)..."
+                              value={topUpNotes[tu.id] ?? ""}
+                              onChange={e => setTopUpNotes(prev => ({ ...prev, [tu.id]: e.target.value }))}
+                            />
+
+                            {/* Refund for rejection */}
+                            {(topUpNotes[tu.id] ?? "").trim().length > 0 && (
+                              <div className="rounded-xl px-3 py-2.5 space-y-1.5"
+                                style={{ background: "hsl(210 80% 52% / 0.07)", border: "1px solid hsl(210 80% 52% / 0.2)" }}>
+                                <p className="text-xs font-bold" style={{ color: "hsl(210 80% 35%)" }}>
+                                  🔄 Reembolso parcial a billetera (solo para rechazos — opcional)
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground shrink-0">Bs</span>
+                                  <input
+                                    type="number" min="0" step="1"
+                                    placeholder={`0 (máx: ${(tu.amount ?? 0).toFixed(0)})`}
+                                    className="flex-1 rounded-lg border px-2.5 py-1.5 text-sm bg-background"
+                                    value={topUpRefundAmounts[tu.id] ?? ""}
+                                    onChange={e => setTopUpRefundAmounts(prev => ({ ...prev, [tu.id]: e.target.value }))}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex gap-2">
+                              {!(topUpNotes[tu.id] ?? "").trim() && (
+                                <button onClick={() => approveTopUp(tu.id)}
+                                  className="flex-1 py-2.5 rounded-xl font-black text-sm text-white"
+                                  style={{ background: "hsl(142 70% 38%)" }}>
+                                  ✅ Aprobar
+                                </button>
+                              )}
+                              {(topUpNotes[tu.id] ?? "").trim() && (
+                                <>
+                                  <button onClick={() => rejectTopUp(tu.id)}
+                                    className="flex-1 py-2.5 rounded-xl font-black text-sm text-white"
+                                    style={{ background: "hsl(0 75% 45%)" }}>
+                                    ❌ Rechazar
+                                  </button>
+                                  {(topUpRefundAmounts[tu.id] ?? "").trim() && parseFloat(topUpRefundAmounts[tu.id] ?? "0") > 0 && (
+                                    <button onClick={() => refundTopUp(tu.id)}
+                                      className="flex-1 py-2.5 rounded-xl font-black text-sm text-white"
+                                      style={{ background: "hsl(210 80% 45%)" }}>
+                                      🔄 Reembolsar
+                                    </button>
+                                  )}
+                                </>
+                              )}
                             </div>
                           </div>
                         )}
