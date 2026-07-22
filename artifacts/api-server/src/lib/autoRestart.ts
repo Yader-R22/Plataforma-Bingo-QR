@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
+import { getHeapStatistics } from "v8";
 import { logger } from "./logger";
 
 const CONFIG_PATH = join(process.cwd(), "auto-restart-config.json");
@@ -59,7 +60,10 @@ export function startAutoRestartWatcher(): void {
     if (!config.enabled) return;
 
     const mem = process.memoryUsage();
-    const heapPct  = Math.round((mem.heapUsed / mem.heapTotal) * 100);
+    // Use heap_size_limit (the actual V8 max, e.g. 512 MB) instead of heapTotal
+    // (current dynamic allocation, starts small at ~76 MB and triggers false restarts).
+    const heapLimit = getHeapStatistics().heap_size_limit;
+    const heapPct  = Math.round((mem.heapUsed / heapLimit) * 100);
     // RSS vs memoria total del sistema (más representativo en producción)
     const totalMem = (process as NodeJS.Process & { constrainedMemory?: () => number }).constrainedMemory?.() ?? 0;
     const rssPct   = totalMem > 0 ? Math.round((mem.rss / totalMem) * 100) : 0;
