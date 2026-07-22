@@ -98,6 +98,14 @@ export default function WalletPage() {
     return () => clearInterval(id);
   }, [refetchWallet, refetchWithdrawals]);
 
+  // Lock body scroll when top-up modal is open
+  useEffect(() => {
+    if (!showTopUpModal) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [showTopUpModal]);
+
   const filteredWithdrawals = useMemo(() => {
     const all = (withdrawals as any[]) ?? [];
     const now = new Date();
@@ -368,10 +376,10 @@ export default function WalletPage() {
 
       {/* ── Top-up modal ─────────────────────────────────────────────── */}
       {showTopUpModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.75)" }}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-5 pb-24"
+          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
           onClick={e => { if (e.target === e.currentTarget) closeTopUpModal(); }}>
-          <div className="bg-white rounded-3xl p-5 max-w-sm w-full space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="modal-pop bg-white rounded-3xl p-5 max-w-sm w-full space-y-4 max-h-[80vh] overflow-y-auto shadow-2xl">
 
             {/* Header */}
             <div className="flex items-center justify-between">
