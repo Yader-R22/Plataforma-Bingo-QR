@@ -204,7 +204,21 @@ export default function GamesPage() {
                                   const allPhysicalNames = physicalRounds.map((r: any) => r.prize_physical_name).filter(Boolean);
                                   return (
                                     <div className="flex flex-row items-center gap-2">
-                                      {/* Columna izquierda: fotos apiladas */}
+                                      {/* Izquierda: monto + nombres + rondas */}
+                                      <div className="flex flex-col items-end gap-0.5">
+                                        {totalCash > 0 && (
+                                          <p className="font-black text-xl leading-none" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 65%)", textShadow: "0 0 10px rgba(255,180,0,0.5)" }}>
+                                            Bs {totalCash.toLocaleString("es-BO")}
+                                          </p>
+                                        )}
+                                        {allPhysicalNames.length > 0 && (
+                                          <p className="text-white text-[9px] font-black leading-tight text-right" style={{ maxWidth: 90 }}>
+                                            📦 {allPhysicalNames.join(", ")}
+                                          </p>
+                                        )}
+                                        <p className="text-white/50 text-[9px] font-semibold">🎮 {(game as any).total_rounds} rondas</p>
+                                      </div>
+                                      {/* Derecha: fotos apiladas */}
                                       {photoRounds.length > 0 && (
                                         <div className="flex flex-col gap-1">
                                           {photoRounds.slice(0, 3).map((r: any, idx: number) => (
@@ -219,26 +233,20 @@ export default function GamesPage() {
                                           ))}
                                         </div>
                                       )}
-                                      {/* Columna derecha: monto + nombres + rondas */}
-                                      <div className="flex flex-col items-end gap-0.5">
-                                        {totalCash > 0 && (
-                                          <p className="font-black text-xl leading-none" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 65%)", textShadow: "0 0 10px rgba(255,180,0,0.5)" }}>
-                                            Bs {totalCash.toLocaleString("es-BO")}
-                                          </p>
-                                        )}
-                                        {allPhysicalNames.length > 0 && (
-                                          <p className="text-white text-[9px] font-black leading-tight text-right" style={{ maxWidth: 90 }}>
-                                            📦 {allPhysicalNames.join(", ")}
-                                          </p>
-                                        )}
-                                        <p className="text-white/50 text-[9px] font-semibold">🎮 {(game as any).total_rounds} rondas</p>
-                                      </div>
                                     </div>
                                   );
                                 })()
                               ) : (game as any).prize_type === "physical" ? (
-                                /* Ronda única física: foto a la izq, texto a la der */
+                                /* Ronda única física: texto a la izq, foto a la der */
                                 <div className="flex flex-row items-center gap-2">
+                                  <div className="flex flex-col items-end gap-0.5">
+                                    <p className="text-white/60 text-[10px] font-bold">📦 Premio físico</p>
+                                    {(game as any).prize_physical_name && (
+                                      <p className="text-white text-[10px] font-black leading-tight text-right" style={{ maxWidth: 90 }}>
+                                        {(game as any).prize_physical_name}
+                                      </p>
+                                    )}
+                                  </div>
                                   {(game as any).prize_image_url && (
                                     <img
                                       src={`${BASE}${(game as any).prize_image_url}`}
@@ -248,14 +256,6 @@ export default function GamesPage() {
                                       style={{ border: "2px solid rgba(255,255,255,0.25)" }}
                                     />
                                   )}
-                                  <div className="flex flex-col items-end gap-0.5">
-                                    <p className="text-white/60 text-[10px] font-bold">📦 Premio físico</p>
-                                    {(game as any).prize_physical_name && (
-                                      <p className="text-white text-[10px] font-black leading-tight text-right" style={{ maxWidth: 90 }}>
-                                        {(game as any).prize_physical_name}
-                                      </p>
-                                    )}
-                                  </div>
                                 </div>
                               ) : (game as any).prize_type === "mixed" ? (
                                 <div>
