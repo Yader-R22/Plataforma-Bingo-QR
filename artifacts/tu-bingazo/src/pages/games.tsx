@@ -318,9 +318,9 @@ export default function GamesPage() {
 
                         {/* Footer row */}
                         <div className="flex items-center justify-between gap-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.2)" }}>
-                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 min-w-0 text-sm text-white/80">
-                            <span className="flex items-center gap-1"><Users size={13} className="opacity-70" />{game.unique_participants.toLocaleString("es-BO")} {game.unique_participants === 1 ? "participante" : "participantes"}</span>
-                            <span className="font-bold" style={{ color: "hsl(42 98% 65%)" }}>Bs {Number(game.card_price).toLocaleString("es-BO")}/cartón</span>
+                          <div className="flex flex-nowrap items-center gap-x-3 min-w-0 text-sm text-white/80 overflow-hidden">
+                            <span className="flex items-center gap-1 shrink-0"><Users size={13} className="opacity-70" />{game.unique_participants.toLocaleString("es-BO")} {game.unique_participants === 1 ? "participante" : "participantes"}</span>
+                            <span className="font-bold shrink-0" style={{ color: "hsl(42 98% 65%)" }}>Bs {Number(game.card_price).toLocaleString("es-BO")}/cartón</span>
                           </div>
                           {isPrivate && !isLive && !isFinished ? (
                             <div
