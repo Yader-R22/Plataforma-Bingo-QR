@@ -12,6 +12,12 @@ const TYPE_EMOJI: Record<string, string> = {
   monthly: "👑",
 };
 
+const TYPE_LABEL: Record<string, string> = {
+  daily: "Sorteo diario",
+  weekly: "Sorteo semanal",
+  monthly: "Sorteo mensual",
+};
+
 const MODE_LABEL: Record<string, string> = {
   full_card: "Cartón completo",
   horizontal: "Línea horizontal",
@@ -19,13 +25,6 @@ const MODE_LABEL: Record<string, string> = {
   diagonal: "Diagonal",
   quina: "Quina",
 };
-
-function gameStatusConfig(status: string) {
-  if (status === "active") return { label: "🔴 En vivo", bg: "hsl(0 75% 52% / 0.12)", border: "hsl(0 75% 52% / 0.35)", color: "hsl(0 75% 42%)" };
-  if (status === "upcoming") return { label: "⏳ Próximo", bg: "hsl(42 98% 52% / 0.15)", border: "hsl(42 98% 52% / 0.4)", color: "hsl(36 80% 38%)" };
-  if (status === "finished") return { label: "Finalizado", bg: "hsl(var(--muted))", border: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" };
-  return { label: status, bg: "hsl(var(--muted))", border: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" };
-}
 
 interface ManualPaymentRequest {
   id: number;
@@ -74,20 +73,15 @@ export default function MyCardsPage() {
 
   useEffect(() => { void fetchManualRequests(); }, [fetchManualRequests]);
 
-  // TanStack Query handles refetch for cards/games via refetchInterval.
-  // Only manual payment requests need their own polling (custom fetch, not a query).
   useEffect(() => {
     const iv = setInterval(() => { void fetchManualRequests(); }, 15_000);
     return () => clearInterval(iv);
   }, [fetchManualRequests]);
 
-
-  // Only show cards that are paid AND not expired (expired = game was reset)
   const cards = (rawCards as any[] ?? []).filter((c: any) =>
     c.payment_status === "paid" && c.status !== "expired"
   );
 
-  // Silent background verification for pending payment cards (Enlazo QR flow).
   const silentCheck = useCallback(async (checkoutId: string) => {
     if (!token || !checkoutId) return;
     try {
@@ -104,7 +98,6 @@ export default function MyCardsPage() {
     } catch {}
   }, [token]);
 
-  // On mount: silently verify any cards still waiting for payment confirmation.
   useEffect(() => {
     const pending = (rawCards as any[] ?? []).filter(
       (c: any) => c.payment_status === "pending" && c.checkout_id
@@ -120,11 +113,9 @@ export default function MyCardsPage() {
 
   const gamesById = new Map<number, any>((games as any[]).map((g: any) => [g.id, g]));
 
-  // Group paid cards by game — only for upcoming/active games (finished games disappear from view)
   const groupsMap = new Map<number, { game: any; cards: any[]; hasWinner: boolean }>();
   for (const card of cards) {
     const game = gamesById.get(card.game_id);
-    // Skip finished or deleted games
     if (!game || game.status === "finished") continue;
     if (!groupsMap.has(card.game_id)) {
       groupsMap.set(card.game_id, { game, cards: [], hasWinner: false });
@@ -135,8 +126,6 @@ export default function MyCardsPage() {
   }
   const groups = Array.from(groupsMap.values());
 
-  // Manual QR payment requests: only show pending/rejected for non-finished games
-  // (finished/deleted/reset games are hidden from the user's view)
   const pendingManual = manualRequests.filter(r => {
     const game = gamesById.get(r.game_id);
     if (!game || game.status === "finished") return false;
@@ -174,7 +163,7 @@ export default function MyCardsPage() {
       <div className="p-4 max-w-xl mx-auto">
         {isLoading ? (
           <div className="space-y-4">
-            {[1, 2].map(i => <div key={i} className="h-28 bg-muted animate-pulse rounded-3xl" />)}
+            {[1, 2].map(i => <div key={i} className="h-36 bg-muted animate-pulse rounded-3xl" />)}
           </div>
         ) : isEmpty ? (
           <div className="text-center py-20 text-muted-foreground">
@@ -189,75 +178,89 @@ export default function MyCardsPage() {
         ) : (
           <div className="space-y-4">
 
-            {/* ── Pagos QR pendientes de verificación ─────────────── */}
+            {/* ── Pagos QR pendientes ───────────────────────────────── */}
             {pendingManual.map((req) => {
-              const isPending = req.status === "pending";
               const isRejected = req.status === "rejected";
               return (
-                <div key={`mp-${req.id}`} className="rounded-3xl overflow-hidden shadow-sm border"
+                <div key={`mp-${req.id}`} className="rounded-3xl overflow-hidden shadow-md"
                   style={{
-                    background: isRejected ? "hsl(0 75% 99%)" : "hsl(42 98% 98%)",
-                    borderColor: isRejected ? "hsl(0 75% 85%)" : "hsl(42 98% 80%)",
+                    background: "hsl(var(--card))",
+                    border: `1.5px solid ${isRejected ? "hsl(0 75% 78%)" : "hsl(42 98% 72%)"}`,
                   }}>
 
-                  {/* Status banner */}
-                  <div className="px-4 py-2.5 flex items-center gap-2"
-                    style={{ background: isRejected ? "hsl(0 75% 95%)" : "hsl(42 98% 93%)" }}>
-                    <span className="text-base">{isRejected ? "❌" : "⏳"}</span>
-                    <div className="flex-1">
-                      <p className="text-xs font-black" style={{ color: isRejected ? "hsl(0 75% 38%)" : "hsl(36 80% 32%)" }}>
-                        {isRejected ? "Pago rechazado" : "Pendiente de verificación"}
+                  {/* Franja de estado */}
+                  <div className="px-4 py-3 flex items-center gap-3"
+                    style={{
+                      background: isRejected
+                        ? "linear-gradient(135deg, hsl(0 75% 96%), hsl(0 65% 93%))"
+                        : "linear-gradient(135deg, hsl(42 98% 95%), hsl(36 90% 91%))",
+                    }}>
+                    <div className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 text-lg"
+                      style={{
+                        background: isRejected ? "hsl(0 75% 88%)" : "hsl(42 98% 85%)",
+                      }}>
+                      {isRejected ? "❌" : "⏳"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black leading-tight"
+                        style={{ color: isRejected ? "hsl(0 75% 35%)" : "hsl(36 80% 30%)" }}>
+                        {isRejected ? "Pago rechazado" : "En verificación"}
                       </p>
-                      <p className="text-xs" style={{ color: isRejected ? "hsl(0 75% 50%)" : "hsl(36 80% 40%)" }}>
+                      <p className="text-xs mt-0.5"
+                        style={{ color: isRejected ? "hsl(0 75% 48%)" : "hsl(36 80% 40%)" }}>
                         {isRejected
                           ? "El administrador rechazó este pago"
-                          : "El administrador revisará tu comprobante pronto"}
+                          : "Revisando tu comprobante..."}
                       </p>
                     </div>
+                    {req.receipt_url && (
+                      <button
+                        className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1"
+                        style={{
+                          background: isRejected ? "hsl(0 75% 88%)" : "hsl(42 98% 85%)",
+                          color: isRejected ? "hsl(0 75% 35%)" : "hsl(36 80% 28%)",
+                        }}
+                        onClick={() => setReceiptLightbox(`${BASE}${req.receipt_url}`)}>
+                        📎 Comprobante
+                      </button>
+                    )}
                   </div>
 
+                  {/* Cuerpo */}
                   <div className="px-4 py-3 space-y-3">
-                    {/* Info + botón comprobante en la misma fila */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-black text-sm" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                          {req.game_title ?? `Juego #${req.game_id}`}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          🃏 {req.quantity} cartón{req.quantity !== 1 ? "es" : ""}
-                          &nbsp;·&nbsp; <strong>Bs {req.expected_amount.toFixed(0)}</strong>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          📅 {new Date(req.created_at).toLocaleString("es-BO")}
-                        </p>
+                    <div>
+                      <p className="font-black text-base leading-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                        {req.game_title ?? `Juego #${req.game_id}`}
+                      </p>
+                      <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          🃏 <span className="font-semibold">{req.quantity} cartón{req.quantity !== 1 ? "es" : ""}</span>
+                        </span>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          💵 <span className="font-bold" style={{ color: "hsl(var(--foreground))" }}>Bs {req.expected_amount.toFixed(0)}</span>
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          📅 {new Date(req.created_at).toLocaleDateString("es-BO")}
+                        </span>
                       </div>
-                      {req.receipt_url && (
-                        <button
-                          className="shrink-0 px-3.5 py-2.5 rounded-xl text-xs font-semibold border flex items-center gap-1.5 whitespace-nowrap"
-                          style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))", background: "hsl(var(--muted) / 0.5)" }}
-                          onClick={() => setReceiptLightbox(`${BASE}${req.receipt_url}`)}>
-                          📎 Ver comprobante
-                        </button>
-                      )}
                     </div>
 
-                    {!req.receipt_url && isPending && (
-                      <div className="rounded-xl p-3 text-center text-xs text-muted-foreground border border-dashed"
-                        style={{ borderColor: "hsl(42 98% 70%)" }}>
+                    {!req.receipt_url && req.status === "pending" && (
+                      <div className="rounded-2xl p-3 text-center text-xs text-muted-foreground border border-dashed"
+                        style={{ borderColor: "hsl(42 98% 65%)" }}>
                         📭 Aún no enviaste el comprobante
                       </div>
                     )}
 
-                    {/* Admin notes */}
                     {req.admin_notes && (
-                      <div className="rounded-xl px-3 py-2.5 text-sm"
+                      <div className="rounded-2xl px-3.5 py-3 text-sm"
                         style={{
-                          background: isRejected ? "hsl(0 75% 96%)" : "hsl(142 70% 97%)",
-                          border: `1px solid ${isRejected ? "hsl(0 75% 85%)" : "hsl(142 70% 82%)"}`,
+                          background: isRejected ? "hsl(0 75% 97%)" : "hsl(142 70% 97%)",
+                          border: `1px solid ${isRejected ? "hsl(0 75% 84%)" : "hsl(142 70% 80%)"}`,
                         }}>
-                        <p className="text-xs font-semibold mb-0.5"
+                        <p className="text-xs font-bold mb-1"
                           style={{ color: isRejected ? "hsl(0 75% 40%)" : "hsl(142 70% 30%)" }}>
-                          💬 Mensaje del administrador:
+                          💬 Mensaje del administrador
                         </p>
                         <p className="text-xs" style={{ color: isRejected ? "hsl(0 75% 38%)" : "hsl(142 70% 28%)" }}>
                           {req.admin_notes}
@@ -265,10 +268,10 @@ export default function MyCardsPage() {
                       </div>
                     )}
 
-                    {/* CTA */}
                     {isRejected && (
-                      <button className="w-full py-2.5 rounded-xl text-sm font-bold text-white"
-                        style={{ background: "hsl(var(--primary))" }}
+                      <button
+                        className="w-full py-3 rounded-2xl text-sm font-black text-white flex items-center justify-center gap-2 transition-opacity active:opacity-80"
+                        style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(270 70% 45%))" }}
                         onClick={() => navigate(`/juego/${req.game_id}`)}>
                         🔁 Reintentar pago
                       </button>
@@ -283,69 +286,141 @@ export default function MyCardsPage() {
               const gameId = gameCards[0].game_id;
               const title = game?.title ?? `Juego #${gameId}`;
               const emoji = game ? (TYPE_EMOJI[game.type] ?? "🎱") : "🎱";
-              const status = game?.status ?? "finished";
-              const sc = gameStatusConfig(status);
+              const typeLabel = game ? (TYPE_LABEL[game.type] ?? "") : "";
+              const status: string = game?.status ?? "finished";
+              const isActive = status === "active";
+              const isUpcoming = status === "upcoming";
+
+              const rounds = (game as any)?.rounds as Array<{ game_mode: string }> | null;
+              const hasManyRounds = rounds && rounds.length > 1;
+
               return (
-                <div key={gameId} className="bg-card border rounded-3xl overflow-hidden shadow-sm">
-                  <div className="px-4 py-4 flex items-center gap-3">
-                    <div className="text-3xl shrink-0">{emoji}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-black text-base leading-tight truncate" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                        {title}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full"
-                          style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.color }}>
-                          {sc.label}
-                        </span>
-                        <span className="text-xs text-muted-foreground font-semibold">
-                          🃏 {gameCards.length} cartón{gameCards.length !== 1 ? "es" : ""}
-                        </span>
-                        {game?.game_mode && (() => {
-                          const rounds = (game as any).rounds as Array<{ game_mode: string }> | null;
-                          if (rounds && rounds.length > 1) {
-                            return rounds.map((r, i) => (
-                              <span key={i} className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
-                                style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.2)", color: "hsl(var(--primary))" }}>
-                                🎯 R{i + 1}: {MODE_LABEL[r.game_mode] ?? r.game_mode}
-                              </span>
-                            ));
-                          }
-                          return (
-                            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
-                              style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.2)", color: "hsl(var(--primary))" }}>
-                              🎯 {MODE_LABEL[game.game_mode] ?? game.game_mode}
-                            </span>
-                          );
-                        })()}
-                      </div>
-                      {game?.draw_date && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          📅 {new Date(game.draw_date).toLocaleDateString("es-BO", {
-                            weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit",
-                          })}
-                        </p>
-                      )}
+                <div key={gameId} className="rounded-3xl overflow-hidden shadow-md"
+                  style={{
+                    background: "hsl(var(--card))",
+                    border: "1.5px solid hsl(var(--border))",
+                  }}>
+
+                  {/* Cabecera con gradiente */}
+                  <div className="relative px-4 pt-4 pb-3 overflow-hidden"
+                    style={{
+                      background: isActive
+                        ? "linear-gradient(135deg, hsl(260 60% 14%), hsl(270 55% 22%))"
+                        : isUpcoming
+                        ? "linear-gradient(135deg, hsl(260 50% 16%), hsl(240 45% 24%))"
+                        : "linear-gradient(135deg, hsl(240 15% 20%), hsl(240 12% 28%))",
+                    }}>
+
+                    {/* Emoji de fondo decorativo */}
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-6xl opacity-10 select-none pointer-events-none">
+                      {emoji}
                     </div>
-                    {hasWinner && (
-                      <div className="text-xs font-black px-2.5 py-1 rounded-full shrink-0"
-                        style={{ background: "hsl(42 98% 52% / 0.15)", border: "1px solid hsl(42 98% 52% / 0.4)", color: "hsl(42 98% 35%)" }}>
-                        🏆 Ganador
+
+                    <div className="relative flex items-start gap-3">
+                      <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 text-2xl"
+                        style={{ background: "rgba(255,255,255,0.1)" }}>
+                        {emoji}
                       </div>
-                    )}
+                      <div className="flex-1 min-w-0">
+                        {typeLabel && (
+                          <p className="text-xs font-semibold uppercase tracking-wider mb-0.5"
+                            style={{ color: "rgba(255,255,255,0.45)" }}>
+                            {typeLabel}
+                          </p>
+                        )}
+                        <p className="font-black text-white text-base leading-tight truncate"
+                          style={{ fontFamily: "'Poppins', sans-serif" }}>
+                          {title}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                          {/* Badge estado */}
+                          {isActive && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold"
+                              style={{ background: "hsl(0 75% 52% / 0.25)", color: "hsl(0 85% 72%)", border: "1px solid hsl(0 75% 52% / 0.4)" }}>
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse inline-block" />
+                              En vivo
+                            </span>
+                          )}
+                          {isUpcoming && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold"
+                              style={{ background: "hsl(42 98% 52% / 0.2)", color: "hsl(42 98% 72%)", border: "1px solid hsl(42 98% 52% / 0.35)" }}>
+                              ⏳ Próximo
+                            </span>
+                          )}
+                          {hasWinner && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold"
+                              style={{ background: "hsl(42 98% 52% / 0.2)", color: "hsl(42 98% 72%)", border: "1px solid hsl(42 98% 52% / 0.35)" }}>
+                              🏆 ¡Ganador!
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="px-4 pb-4">
-                    {status === "active" ? (
-                      <button className="btn-primary" onClick={() => navigate(`/juego/${gameId}/jugar`)}>
-                        🎯 Ir a jugar
+                  {/* Info */}
+                  <div className="px-4 py-3 space-y-2.5">
+                    {/* Cartones + fecha */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-base">🃏</span>
+                        <span className="text-sm font-black" style={{ color: "hsl(var(--foreground))" }}>
+                          {gameCards.length}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          cartón{gameCards.length !== 1 ? "es" : ""} comprado{gameCards.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Fecha */}
+                    {game?.draw_date && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm">📅</span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(game.draw_date).toLocaleDateString("es-BO", {
+                            weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Rondas / modalidad */}
+                    {game?.game_mode && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {hasManyRounds ? (
+                          rounds!.map((r, i) => (
+                            <span key={i} className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                              style={{ background: "hsl(var(--primary) / 0.1)", border: "1px solid hsl(var(--primary) / 0.2)", color: "hsl(var(--primary))" }}>
+                              🎯 R{i + 1}: {MODE_LABEL[r.game_mode] ?? r.game_mode}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                            style={{ background: "hsl(var(--primary) / 0.1)", border: "1px solid hsl(var(--primary) / 0.2)", color: "hsl(var(--primary))" }}>
+                            🎯 {MODE_LABEL[game.game_mode] ?? game.game_mode}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* CTA */}
+                    {isActive ? (
+                      <button
+                        className="w-full py-3 rounded-2xl text-sm font-black text-white flex items-center justify-center gap-2 transition-opacity active:opacity-80 mt-1"
+                        style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(270 70% 45%))" }}
+                        onClick={() => navigate(`/juego/${gameId}/jugar`)}>
+                        🎯 Ir a jugar ahora
                       </button>
                     ) : (
                       <button
-                        className="w-full py-2.5 rounded-xl text-sm font-bold border"
-                        style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--foreground))" }}
-                        onClick={() => navigate(`/juego/${gameId}/jugar`)}
-                      >
+                        className="w-full py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-opacity active:opacity-80 mt-1"
+                        style={{
+                          background: "hsl(var(--muted))",
+                          border: "1.5px solid hsl(var(--border))",
+                          color: "hsl(var(--foreground))",
+                        }}
+                        onClick={() => navigate(`/juego/${gameId}/jugar`)}>
                         🃏 Ver mis cartones
                       </button>
                     )}
