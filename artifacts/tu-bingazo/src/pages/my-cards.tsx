@@ -328,6 +328,7 @@ export default function MyCardsPage() {
                 ? (TYPE_GRAD_DIM[gameType] ?? TYPE_GRAD_DIM.daily)
                 : "linear-gradient(135deg, #1a1a2e, #2a2a3e)";
 
+              const coverImg = game?.cover_image_url as string | null | undefined;
               const rounds = (game as any)?.rounds as Array<{ game_mode: string }> | null;
               const hasManyRounds = rounds && rounds.length > 1;
 
@@ -338,14 +339,26 @@ export default function MyCardsPage() {
                     border: "1.5px solid hsl(var(--border))",
                   }}>
 
-                  {/* Cabecera con gradiente por tipo */}
-                  <div className="relative px-4 pt-4 pb-3 overflow-hidden"
-                    style={{ background: headerGrad }}>
+                  {/* Cabecera con imagen de portada o gradiente por tipo */}
+                  <div className="relative px-4 pt-4 pb-3 overflow-hidden">
 
-                    {/* Emoji de fondo decorativo */}
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-6xl opacity-10 select-none pointer-events-none">
-                      {emoji}
-                    </div>
+                    {/* Capa 1: imagen de portada (si existe) o gradiente de tipo */}
+                    <div className="absolute inset-0"
+                      style={coverImg
+                        ? { backgroundImage: `url(${coverImg})`, backgroundSize: "cover", backgroundPosition: "center" }
+                        : { background: headerGrad }}
+                    />
+                    {/* Capa 2: overlay oscuro encima de la imagen para legibilidad */}
+                    {coverImg && <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.52)" }} />}
+                    {/* Capa 3: tinte del color del tipo encima del overlay */}
+                    {coverImg && <div className="absolute inset-0" style={{ background: headerGrad, opacity: 0.35 }} />}
+
+                    {/* Emoji de fondo decorativo (solo sin imagen) */}
+                    {!coverImg && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-6xl opacity-10 select-none pointer-events-none">
+                        {emoji}
+                      </div>
+                    )}
 
                     {/* Badge EN VIVO — esquina superior derecha, destacado */}
                     {isActive && (
