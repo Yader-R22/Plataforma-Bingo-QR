@@ -4,3 +4,4 @@
 - [Bingo win validation](money-integrity-patterns.md) — validateBingo checks game.calledNumbers only (free space 0=hit), never trusts client marked_numbers; sig (card, gameMode, calledNumbers).
 - [Lib rebuild before API typecheck](lib-rebuild.md) — after editing lib/db schema fields, always run `pnpm run typecheck:libs` before `pnpm --filter @workspace/api-server run typecheck` or TS errors appear for the new fields.
 - [Pisado multi-línea](pisado-multiline.md) — pisado check usa countValidLines; si el último bolillo aumentó el conteo de líneas, el reclamo es válido aunque hubiera línea previa.
+- [Server stability fixes](server-stability-fixes.md) — auto-restart medía heap% mal (1240+ reinicios); wallet polling 2s→15s; document.hidden en todos los setInterval; PM2 config por plan VPS.
