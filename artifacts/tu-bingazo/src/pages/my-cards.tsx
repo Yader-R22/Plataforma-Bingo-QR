@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useState } from "react";
 import { useLocation } from "wouter";
-import { useListMyCards, getListMyCardsQueryKey, useListGames, getListGamesQueryKey } from "@workspace/api-client-react";
+import { useListMyCards, getListMyCardsQueryKey, useListGames, getListGamesQueryKey, useListCategories, getListCategoriesQueryKey } from "@workspace/api-client-react";
 import { useSetLayoutConfig } from "@/components/AppLayout";
 import { useAuthStore } from "@/hooks/useAuth";
 
@@ -12,11 +12,6 @@ const TYPE_EMOJI: Record<string, string> = {
   monthly: "👑",
 };
 
-const TYPE_LABEL: Record<string, string> = {
-  daily: "Sorteo diario",
-  weekly: "Sorteo semanal",
-  monthly: "Sorteo mensual",
-};
 
 function groupPriority(game: any): number {
   if (game.status === "active") return 0;
@@ -75,6 +70,13 @@ export default function MyCardsPage() {
       refetchInterval: 8_000,
     },
   });
+  const { data: categories = [] } = useListCategories({
+    query: { queryKey: getListCategoriesQueryKey(), staleTime: 5 * 60 * 1000 },
+  });
+  // Mapa type → label dinámico desde las categorías del admin
+  const typeLabelMap = Object.fromEntries(
+    (categories as any[]).map((c: any) => [c.type as string, c.label as string])
+  );
   const [manualRequests, setManualRequests] = useState<ManualPaymentRequest[]>([]);
   const [receiptLightbox, setReceiptLightbox] = useState<string | null>(null);
 
@@ -305,7 +307,7 @@ export default function MyCardsPage() {
               const title = game?.title ?? `Juego #${gameId}`;
               const gameType: string = game?.type ?? "daily";
               const emoji = TYPE_EMOJI[gameType] ?? "🎱";
-              const typeLabel = TYPE_LABEL[gameType] ?? "";
+              const typeLabel = typeLabelMap[gameType] ?? "";
               const status: string = game?.status ?? "finished";
               const isActive = status === "active";
               const isUpcoming = status === "upcoming";
