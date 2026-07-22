@@ -10,7 +10,7 @@ interface AutoRestartConfig {
   threshold: number; // heap % (0-100)
 }
 
-const DEFAULT_CONFIG: AutoRestartConfig = { enabled: false, threshold: 92 };
+const DEFAULT_CONFIG: AutoRestartConfig = { enabled: true, threshold: 80 };
 
 let config: AutoRestartConfig = { ...DEFAULT_CONFIG };
 

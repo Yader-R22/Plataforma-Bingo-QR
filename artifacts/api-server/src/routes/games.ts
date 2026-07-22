@@ -253,6 +253,17 @@ router.get("/", async (req: AuthRequest, res) => {
     ? await db.select(listCols).from(gamesTable).where(and(...statusConditions)).orderBy(desc(gamesTable.drawDate))
     : await db.select(listCols).from(gamesTable).orderBy(desc(gamesTable.drawDate));
 
+  // Strip base64 prize images from rounds immediately after DB load.
+  // serializeRounds() only checks truthiness of prize_image_url to build the URL endpoint,
+  // so replacing the large base64 string with "1" is safe and saves significant heap memory
+  // (each round image can be 100 KB–2 MB; the list is polled every few seconds by the admin).
+  for (const g of games) {
+    if (!g.rounds) continue;
+    for (const r of g.rounds as RoundConfig[]) {
+      if (r.prize_image_url && r.prize_image_url.length > 10) r.prize_image_url = "1";
+    }
+  }
+
   // Unique participants per game (one query for all games)
   const uniqueRows = await db.execute(
     sql`SELECT game_id, COUNT(DISTINCT user_id)::int AS cnt FROM cards WHERE payment_status = 'paid' AND status = 'active' GROUP BY game_id`
