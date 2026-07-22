@@ -21,6 +21,7 @@ function toDatetimeLocal(iso: string): string {
 }
 
 type RoundRow = {
+  prize_type: "cash" | "physical" | "mixed";
   game_mode: string;
   max_winners: string;
   prize_amount: string;
@@ -192,6 +193,7 @@ export default function CreateGamePage() {
 
   const [multiRound, setMultiRound] = useState(false);
   const emptyRound = (): RoundRow => ({
+    prize_type: "cash",
     game_mode: "full_card",
     max_winners: "1",
     prize_amount: "",
@@ -245,16 +247,23 @@ export default function CreateGamePage() {
         }
         if (g.rounds?.length > 1) {
           setMultiRound(true);
-          setRounds(g.rounds.map((r: any) => ({
-            game_mode: r.game_mode,
-            max_winners: String(r.max_winners),
-            prize_amount: String(r.prize_amount),
-            prize_physical_name: r.prize_physical_name ?? "",
-            prize_physical_description: r.prize_physical_description ?? "",
-            predefined_winner_user_id: r.predefined_winner_user_id ?? null,
-            predefined_winner_name: "",
-            predefined_winner_ci: "",
-          })));
+          setRounds(g.rounds.map((r: any) => {
+            const hasPhysical = !!r.prize_physical_name;
+            const hasCash = (parseFloat(r.prize_amount) || 0) > 0;
+            const rPrizeType: "cash" | "physical" | "mixed" =
+              hasPhysical && hasCash ? "mixed" : hasPhysical ? "physical" : "cash";
+            return {
+              prize_type: rPrizeType,
+              game_mode: r.game_mode,
+              max_winners: String(r.max_winners),
+              prize_amount: String(r.prize_amount),
+              prize_physical_name: r.prize_physical_name ?? "",
+              prize_physical_description: r.prize_physical_description ?? "",
+              predefined_winner_user_id: r.predefined_winner_user_id ?? null,
+              predefined_winner_name: "",
+              predefined_winner_ci: "",
+            };
+          }));
         }
       } catch {
         toast.error("Error al cargar el juego");
@@ -283,13 +292,23 @@ export default function CreateGamePage() {
     e.preventDefault();
     setLoading(true);
     try {
+      // Derivar prize_type del juego desde las rondas (multi) o desde prizeType (single)
+      const gamePrizeType: "cash" | "physical" | "mixed" = multiRound
+        ? (() => {
+            const anyPhysical = rounds.some(r => r.prize_type !== "cash");
+            const anyCash = rounds.some(r => r.prize_type !== "physical");
+            return anyPhysical && anyCash ? "mixed" : anyPhysical ? "physical" : "cash";
+          })()
+        : prizeType;
+
       const roundsPayload = multiRound
         ? rounds.map(r => ({
+            prize_type: r.prize_type,
             game_mode: r.game_mode,
             max_winners: parseInt(r.max_winners) || 1,
-            prize_amount: prizeType === "physical" ? 0 : (parseFloat(r.prize_amount) || 0),
-            prize_physical_name: prizeType !== "cash" ? (r.prize_physical_name || null) : null,
-            prize_physical_description: prizeType !== "cash" ? (r.prize_physical_description || null) : null,
+            prize_amount: r.prize_type === "physical" ? 0 : (parseFloat(r.prize_amount) || 0),
+            prize_physical_name: r.prize_type !== "cash" ? (r.prize_physical_name || null) : null,
+            prize_physical_description: r.prize_type !== "cash" ? (r.prize_physical_description || null) : null,
             predefined_winner_user_id: r.predefined_winner_user_id ?? null,
           }))
         : null;
@@ -308,10 +327,10 @@ export default function CreateGamePage() {
         rounds: roundsPayload,
         is_private: isPrivate,
         authorized_activator_ids: isPrivate ? authorizedActivators.map(a => a.id) : [],
-        prize_type: prizeType,
+        prize_type: gamePrizeType,
         prize_physical_name: prizeType !== "cash" ? prizePhysicalName || null : null,
         prize_physical_description: prizeType !== "cash" ? prizePhysicalDesc || null : null,
-        prize_image_url: prizeType !== "cash" && prizeImage && !prizeImage.startsWith("/api/") ? prizeImage : undefined,
+        prize_image_url: gamePrizeType !== "cash" && prizeImage && !prizeImage.startsWith("/api/") ? prizeImage : undefined,
         predefined_winner_user_id: !multiRound ? (form.predefined_winner_user_id ?? null) : null,
       };
       const url = isEdit ? `${BASE}/api/games/${editId}` : `${BASE}/api/games`;
@@ -454,36 +473,53 @@ export default function CreateGamePage() {
             )}
           </div>
 
-          {/* ── 3. Tipo de premio ── */}
-          <div className="space-y-2">
-            <Label>Tipo de premio</Label>
-            <Select value={prizeType} onValueChange={v => setPrizeType(v as "cash" | "physical" | "mixed")}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cash">💰 Efectivo (acreditado en billetera)</SelectItem>
-                <SelectItem value="physical">📦 Premio físico (objeto)</SelectItem>
-                <SelectItem value="mixed">🎁 Mixto (efectivo + objeto)</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* ── 3 & 4a. Ronda única — todo en un solo bloque (solo cuando !multiRound) ── */}
+          {!multiRound && (
+            <div className="rounded-xl border p-3 space-y-3" style={{ background: "hsl(var(--muted) / 0.4)" }}>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Configuración de la ronda</p>
 
-            {/* Foto y descripción del objeto — compartidas (aplican a todas las rondas) */}
-            {prizeType !== "cash" && (
-              <div className="rounded-xl border p-3 space-y-3" style={{ background: "hsl(var(--muted) / 0.4)" }}>
-                {multiRound
-                  ? <p className="text-xs font-medium text-muted-foreground">📸 Foto y descripción compartidas para todas las rondas — el nombre del objeto se configura en cada ronda abajo.</p>
-                  : (
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Nombre del objeto <span className="text-muted-foreground font-normal">(requerido)</span></Label>
-                      <Input className="h-9 text-sm" placeholder="Ej: Smart TV 50 pulgadas Samsung"
-                        value={prizePhysicalName} onChange={e => setPrizePhysicalName(e.target.value)} />
-                    </div>
-                  )
-                }
+              {/* Tipo de premio */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Tipo de premio</Label>
+                <Select value={prizeType} onValueChange={v => setPrizeType(v as "cash" | "physical" | "mixed")}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">💰 Efectivo (billetera)</SelectItem>
+                    <SelectItem value="physical">📦 Premio físico (objeto)</SelectItem>
+                    <SelectItem value="mixed">🎁 Mixto (efectivo + objeto)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Premio en Bs — solo cash o mixto */}
+              {prizeType !== "physical" && (
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Descripción <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-                  <Input className="h-9 text-sm" placeholder="Modelo, especificaciones, color…"
+                  <Label className="text-xs">Monto en efectivo (Bs){prizeType === "mixed" ? <span className="font-normal text-muted-foreground ml-1">— porción en dinero</span> : ""}</Label>
+                  <Input className="h-9 text-sm" type="number" min="0" step="0.01" placeholder="500.00"
+                    value={form.prize_amount} onChange={e => upd("prize_amount", e.target.value)} required />
+                </div>
+              )}
+
+              {/* Nombre del objeto — solo físico o mixto */}
+              {prizeType !== "cash" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Nombre del objeto</Label>
+                  <Input className="h-9 text-sm" placeholder="Ej: Smart TV 50 pulgadas Samsung"
+                    value={prizePhysicalName} onChange={e => setPrizePhysicalName(e.target.value)} />
+                </div>
+              )}
+
+              {/* Descripción del objeto */}
+              {prizeType !== "cash" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Descripción del objeto <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                  <Input className="h-9 text-sm" placeholder="Modelo, color, especificaciones…"
                     value={prizePhysicalDesc} onChange={e => setPrizePhysicalDesc(e.target.value)} />
                 </div>
+              )}
+
+              {/* Foto del objeto */}
+              {prizeType !== "cash" && (
                 <div className="space-y-1.5">
                   <Label className="text-xs">Foto del premio <span className="text-muted-foreground font-normal">(opcional)</span></Label>
                   {prizeImage && !prizeImage.startsWith("/api/") ? (
@@ -507,14 +543,9 @@ export default function CreateGamePage() {
                     </label>
                   )}
                 </div>
-              </div>
-            )}
-          </div>
+              )}
 
-          {/* ── 4a. Ronda única: modalidad + monto + ganadores (solo cuando !multiRound) ── */}
-          {!multiRound && (
-            <div className="rounded-xl border p-3 space-y-3" style={{ background: "hsl(var(--muted) / 0.4)" }}>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Configuración de la ronda</p>
+              {/* Modalidad + Ganadores */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Modalidad</Label>
@@ -531,13 +562,7 @@ export default function CreateGamePage() {
                     value={form.max_winners} onChange={e => upd("max_winners", e.target.value)} />
                 </div>
               </div>
-              {prizeType !== "physical" && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Premio en efectivo (Bs){prizeType === "mixed" ? <span className="font-normal text-muted-foreground ml-1">— porción en dinero</span> : ""}</Label>
-                  <Input className="h-9 text-sm" type="number" min="0" step="0.01" placeholder="500.00"
-                    value={form.prize_amount} onChange={e => upd("prize_amount", e.target.value)} required />
-                </div>
-              )}
+
               <div className="pt-1 border-t" style={{ borderColor: "hsl(var(--border))" }}>
                 <PredefinedWinnerPicker
                   roundIndex={0}
@@ -570,6 +595,19 @@ export default function CreateGamePage() {
                       </button>
                     )}
                   </div>
+                  {/* Tipo de premio — por ronda */}
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-muted-foreground font-medium">Tipo de premio</p>
+                    <Select value={r.prize_type} onValueChange={v => updateRound(i, "prize_type", v)}>
+                      <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">💰 Efectivo</SelectItem>
+                        <SelectItem value="physical">📦 Objeto físico</SelectItem>
+                        <SelectItem value="mixed">🎁 Mixto</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="grid grid-cols-3 gap-2">
                     <div className="space-y-1">
                       <p className="text-[11px] text-muted-foreground font-medium">Modalidad</p>
@@ -580,13 +618,13 @@ export default function CreateGamePage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    {prizeType !== "physical" && (
-                    <div className="space-y-1">
-                      <p className="text-[11px] text-muted-foreground font-medium">Premio (Bs)</p>
-                      <Input className="h-9 text-xs" type="number" min="0" step="0.01" placeholder="250.00"
-                        value={r.prize_amount} onChange={e => updateRound(i, "prize_amount", e.target.value)} required />
-                    </div>
-                  )}
+                    {r.prize_type !== "physical" && (
+                      <div className="space-y-1">
+                        <p className="text-[11px] text-muted-foreground font-medium">Premio (Bs)</p>
+                        <Input className="h-9 text-xs" type="number" min="0" step="0.01" placeholder="250.00"
+                          value={r.prize_amount} onChange={e => updateRound(i, "prize_amount", e.target.value)} required />
+                      </div>
+                    )}
                     <div className="space-y-1">
                       <p className="text-[11px] text-muted-foreground font-medium">Ganadores</p>
                       <Input className="h-9 text-xs" type="number" min="1" max="10" placeholder="1"
@@ -594,10 +632,10 @@ export default function CreateGamePage() {
                     </div>
                   </div>
 
-                  {/* ── Nombre del premio físico por ronda ── */}
-                  {prizeType !== "cash" && (
+                  {/* Nombre del objeto — solo físico o mixto */}
+                  {r.prize_type !== "cash" && (
                     <div className="space-y-1">
-                      <p className="text-[11px] text-muted-foreground font-medium">Nombre del premio <span className="opacity-60">(ej: Celular Samsung A15)</span></p>
+                      <p className="text-[11px] text-muted-foreground font-medium">Nombre del objeto <span className="opacity-60">(ej: Celular Samsung A15)</span></p>
                       <Input className="h-9 text-xs" placeholder="Nombre del objeto para esta ronda"
                         value={r.prize_physical_name} onChange={e => updateRound(i, "prize_physical_name", e.target.value)} />
                     </div>
