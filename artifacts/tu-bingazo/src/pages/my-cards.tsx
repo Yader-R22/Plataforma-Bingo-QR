@@ -18,16 +18,13 @@ function groupPriority(game: any): number {
   if (game.status === "finished") return 99;
   if (!game.draw_date) return 50;
   const now = new Date();
-  const draw = new Date(game.draw_date);
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const drawStart = new Date(draw.getFullYear(), draw.getMonth(), draw.getDate());
-  const diffDays = Math.round((drawStart.getTime() - todayStart.getTime()) / 86400000);
-  if (diffDays < 0) return 90;
-  if (diffDays === 0) return 1;
-  if (diffDays === 1) return 2;
-  if (diffDays <= 6) return 3;
-  if (diffDays <= 13) return 4;
-  return 5;
+  const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+  const weekEnd = new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const draw = new Date(game.draw_date);
+  if (draw < tomorrowStart) return 1; // diario (mismo día o fecha pasada aún activa)
+  if (draw < weekEnd) return 2;       // semanal
+  return 3;                            // mensual
 }
 
 const MODE_LABEL: Record<string, string> = {
@@ -144,7 +141,12 @@ export default function MyCardsPage() {
     if (card.status === "winner") grp.hasWinner = true;
   }
   const groups = Array.from(groupsMap.values())
-    .sort((a, b) => groupPriority(a.game) - groupPriority(b.game));
+    .sort((a, b) => {
+      const pa = groupPriority(a.game);
+      const pb = groupPriority(b.game);
+      if (pa !== pb) return pa - pb;
+      return new Date(a.game.draw_date ?? 0).getTime() - new Date(b.game.draw_date ?? 0).getTime();
+    });
 
   const pendingManual = manualRequests.filter(r => {
     const game = gamesById.get(r.game_id);
