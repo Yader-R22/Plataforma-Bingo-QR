@@ -292,6 +292,75 @@ export default function WalletPage() {
     }
   }
 
+  function downloadTopUpQR() {
+    if (!topUpQrImage) return;
+    const W = 480, H = 640, QR = 240, SCALE = 3;
+    const qrImg = new Image();
+    qrImg.crossOrigin = "anonymous";
+    qrImg.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = W * SCALE; canvas.height = H * SCALE;
+      const ctx = canvas.getContext("2d")!;
+      ctx.scale(SCALE, SCALE);
+
+      // Background gradient
+      const grad = ctx.createLinearGradient(0, 0, W, H);
+      grad.addColorStop(0, "#7c3aed"); grad.addColorStop(1, "#4f46e5");
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+      // Decorative circles
+      ctx.save(); ctx.globalAlpha = 0.08; ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(W - 40, 60, 110, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(50, H - 60, 90, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      // Platform name
+      const siteName = site?.site_name ?? "Tu Bingazo";
+      const siteEmoji = site?.site_emoji ?? "🎱";
+      ctx.fillStyle = "rgba(255,255,255,0.55)"; ctx.font = "bold 15px sans-serif"; ctx.textAlign = "center";
+      ctx.fillText(`${siteEmoji}  ${siteName.toUpperCase()}`, W / 2, 44);
+
+      // Title
+      ctx.fillStyle = "#ffffff"; ctx.font = "bold 22px sans-serif";
+      ctx.fillText("Recarga de billetera", W / 2, 84);
+
+      // Amount
+      ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.font = "14px sans-serif";
+      ctx.fillText("Monto a pagar", W / 2, 120);
+      ctx.fillStyle = "#fbbf24"; ctx.font = "bold 48px sans-serif";
+      ctx.fillText(`Bs ${parseFloat(topUpAmount).toFixed(0)}`, W / 2, 168);
+
+      // Divider
+      ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(40, 188); ctx.lineTo(W - 40, 188); ctx.stroke();
+
+      // QR white card
+      const qrCardX = (W - QR - 40) / 2, qrCardY = 200;
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.roundRect(qrCardX, qrCardY, QR + 40, QR + 40, 20);
+      ctx.fill();
+      ctx.drawImage(qrImg, qrCardX + 20, qrCardY + 20, QR, QR);
+
+      // Instruction
+      ctx.fillStyle = "rgba(255,255,255,0.65)"; ctx.font = "13px sans-serif";
+      ctx.fillText("Escanea con tu app bancaria o billetera digital", W / 2, qrCardY + QR + 58);
+
+      // Footer pill
+      const pillW = 180, pillH = 32, pillX = (W - pillW) / 2, pillY = H - 48;
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.beginPath(); ctx.roundRect(pillX, pillY, pillW, pillH, 16); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "11px sans-serif";
+      ctx.fillText(`${siteEmoji}  ${siteName}`, W / 2, pillY + 20);
+
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = `recarga-qr-${topUpCheckoutId ?? Date.now()}.png`;
+      a.click();
+    };
+    qrImg.src = topUpQrImage;
+  }
+
   async function handleTopUpReceiptFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -491,6 +560,11 @@ export default function WalletPage() {
                   <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
                   <p className="text-xs font-bold text-green-700">Esperando confirmación de pago...</p>
                 </div>
+                <button onClick={downloadTopUpQR}
+                  className="w-full py-2.5 rounded-xl text-sm font-bold border-2 flex items-center justify-center gap-2"
+                  style={{ borderColor: "hsl(var(--primary) / 0.35)", color: "hsl(var(--primary))", background: "hsl(var(--primary) / 0.06)" }}>
+                  ⬇️ Descargar código QR
+                </button>
                 <button onClick={() => { if (topUpPollRef) { clearInterval(topUpPollRef); setTopUpPollRef(null); } setTopUpQrImage(null); setTopUpStep("static-qr"); }}
                   className="w-full py-2.5 rounded-xl text-xs font-bold border"
                   style={{ borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}>
