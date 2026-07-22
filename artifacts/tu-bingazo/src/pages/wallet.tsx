@@ -58,7 +58,7 @@ export default function WalletPage() {
     }
   }
 
-  const { data: earnings, refetch: refetchEarnings } = useListEarnings();
+  const { data: earnings, isLoading: loadingEarnings, refetch: refetchEarnings } = useListEarnings();
   const fileRef = useRef<HTMLInputElement>(null);
 
   // History filter state
@@ -72,9 +72,9 @@ export default function WalletPage() {
   const [histTab, setHistTab] = useState<"earnings" | "withdrawals">("earnings");
 
   const { data: wallet, refetch: refetchWallet } = useGetWallet();
-  const { data: withdrawals, refetch: refetchWithdrawals } = useListWithdrawals();
+  const { data: withdrawals, isLoading: loadingWithdrawals, refetch: refetchWithdrawals } = useListWithdrawals();
   // earnings moved above (declared with refetch)
-  const { data: commissions } = useListCommissions();
+  const { data: commissions, isLoading: loadingCommissions } = useListCommissions();
 
   // Auto-poll balance + withdrawals every 6s so the user sees paid/rejected changes in real time
   useEffect(() => {
@@ -577,6 +577,22 @@ export default function WalletPage() {
               (a, b) => new Date(b.credited_at).getTime() - new Date(a.credited_at).getTime()
             );
             const shown = list.slice(0, showAll ? undefined : PAGE);
+            if (loadingEarnings || loadingCommissions) return (
+              <div className="space-y-2">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="bg-card border rounded-2xl p-4 animate-pulse">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 space-y-2">
+                        <div className="h-5 w-20 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.15)" }} />
+                        <div className="h-3 w-36 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.1)" }} />
+                        <div className="h-3 w-24 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.1)" }} />
+                      </div>
+                      <div className="h-6 w-20 rounded-full shrink-0" style={{ background: "hsl(var(--muted-foreground)/0.12)" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
             return list.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <p className="text-4xl mb-2">🎱</p>
@@ -786,7 +802,22 @@ export default function WalletPage() {
             </div>
           )}
 
-          {!filteredWithdrawals.length ? (
+          {loadingWithdrawals ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="bg-card border rounded-2xl p-4 animate-pulse">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 space-y-2">
+                      <div className="h-5 w-20 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.15)" }} />
+                      <div className="h-3 w-32 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.1)" }} />
+                      <div className="h-3 w-20 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.1)" }} />
+                    </div>
+                    <div className="h-6 w-20 rounded-full shrink-0" style={{ background: "hsl(var(--muted-foreground)/0.12)" }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : !filteredWithdrawals.length ? (
             <div className="text-center py-12 text-muted-foreground">
               <p className="text-4xl mb-2">💸</p>
               <p className="font-semibold">{!(withdrawals as any[])?.length ? "Sin movimientos todavía" : "Sin movimientos en este período"}</p>
