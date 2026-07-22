@@ -40,18 +40,22 @@ export default function WalletPage() {
   const [confirmReceiptLoading, setConfirmReceiptLoading] = useState(false);
 
   async function handleConfirmReceipt(winnerId: number) {
+    setConfirmReceiptId(winnerId);
     setConfirmReceiptLoading(true);
     try {
       const r = await fetch(`${BASE}/api/wallet/physical-prizes/${winnerId}/confirm-receipt`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       });
-      const d = await r.json();
+      let d: { error?: string } = {};
+      try { d = await r.json(); } catch { /* ignore parse errors */ }
       if (!r.ok) { toast.error(d.error || "Error al confirmar"); return; }
       toast.success("✅ ¡Gracias! Premio marcado como recibido");
-      setConfirmReceiptId(null);
       refetchEarnings();
-    } catch { toast.error("Error de red"); } finally { setConfirmReceiptLoading(false); }
+    } catch { toast.error("Error de red"); } finally {
+      setConfirmReceiptLoading(false);
+      setConfirmReceiptId(null);
+    }
   }
 
   const { data: earnings, refetch: refetchEarnings } = useListEarnings();
@@ -703,31 +707,13 @@ export default function WalletPage() {
                                     🧾 Boleta
                                   </button>
                                 )}
-                                {confirmReceiptId === item.id ? (
-                                  <div className="flex-1 flex gap-1.5">
-                                    <button
-                                      onClick={() => handleConfirmReceipt(item.id)}
-                                      disabled={confirmReceiptLoading}
-                                      className="flex-1 py-2 rounded-xl text-xs font-black text-white disabled:opacity-50"
-                                      style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}>
-                                      {confirmReceiptLoading ? "…" : "✅ Sí, confirmar"}
-                                    </button>
-                                    <button
-                                      onClick={() => setConfirmReceiptId(null)}
-                                      disabled={confirmReceiptLoading}
-                                      className="px-3 py-2 rounded-xl text-xs font-bold border"
-                                      style={{ borderColor: "hsl(var(--border))" }}>
-                                      No
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    onClick={() => setConfirmReceiptId(item.id)}
-                                    className="flex-1 py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1 transition-colors"
-                                    style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", color: "hsl(142 70% 30%)" }}>
-                                    ✅ Ya lo recibí
-                                  </button>
-                                )}
+                                <button
+                                  onClick={() => handleConfirmReceipt(item.id)}
+                                  disabled={confirmReceiptLoading && confirmReceiptId === item.id}
+                                  className="flex-1 py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1 text-white disabled:opacity-50 transition-colors"
+                                  style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}>
+                                  {confirmReceiptLoading && confirmReceiptId === item.id ? "Guardando…" : "✅ Ya lo recibí"}
+                                </button>
                               </div>
                             </div>
                           )}
