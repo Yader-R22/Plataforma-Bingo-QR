@@ -294,70 +294,156 @@ export default function WalletPage() {
 
   function downloadTopUpQR() {
     if (!topUpQrImage) return;
-    const W = 480, H = 640, QR = 240, SCALE = 3;
+
+    const W = 480, H = 720, QR = 240, SCALE = 3;
+    const siteName    = site?.site_name    ?? "Tu Bingazo";
+    const siteTagline = site?.site_tagline ?? "";
+    const siteEmoji   = site?.site_emoji   ?? "🎱";
+    const qrBgUrl     = site?.qr_background_url ?? null;
+
+    function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, lineH: number) {
+      const words = text.split(" ");
+      let line = "";
+      for (const word of words) {
+        const test = line ? line + " " + word : word;
+        if (ctx.measureText(test).width > maxW && line) {
+          ctx.fillText(line, x, y); line = word; y += lineH;
+        } else { line = test; }
+      }
+      if (line) ctx.fillText(line, x, y);
+    }
+
     const qrImg = new Image();
     qrImg.crossOrigin = "anonymous";
+
     qrImg.onload = () => {
       const canvas = document.createElement("canvas");
       canvas.width = W * SCALE; canvas.height = H * SCALE;
       const ctx = canvas.getContext("2d")!;
       ctx.scale(SCALE, SCALE);
 
-      // Background gradient
-      const grad = ctx.createLinearGradient(0, 0, W, H);
-      grad.addColorStop(0, "#7c3aed"); grad.addColorStop(1, "#4f46e5");
-      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+      function drawContent() {
+        // ── Decorative circles (only shown over gradient, not over custom bg) ──
+        if (!qrBgUrl) {
+          ctx.save(); ctx.globalAlpha = 0.08; ctx.fillStyle = "#ffffff";
+          ctx.beginPath(); ctx.arc(W - 40, 60, 110, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(50, H - 60, 90, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
 
-      // Decorative circles
-      ctx.save(); ctx.globalAlpha = 0.08; ctx.fillStyle = "#ffffff";
-      ctx.beginPath(); ctx.arc(W - 40, 60, 110, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(50, H - 60, 90, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
+        // ── Platform name ──
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        ctx.font = "bold 15px sans-serif"; ctx.textAlign = "center";
+        ctx.fillText(`${siteEmoji}  ${siteName.toUpperCase()}`, W / 2, 44);
 
-      // Platform name
-      const siteName = site?.site_name ?? "Tu Bingazo";
-      const siteEmoji = site?.site_emoji ?? "🎱";
-      ctx.fillStyle = "rgba(255,255,255,0.55)"; ctx.font = "bold 15px sans-serif"; ctx.textAlign = "center";
-      ctx.fillText(`${siteEmoji}  ${siteName.toUpperCase()}`, W / 2, 44);
+        // ── Tagline ──
+        ctx.fillStyle = "rgba(255,255,255,0.32)";
+        ctx.font = "12px sans-serif";
+        ctx.fillText(siteTagline, W / 2, 62);
 
-      // Title
-      ctx.fillStyle = "#ffffff"; ctx.font = "bold 22px sans-serif";
-      ctx.fillText("Recarga de billetera", W / 2, 84);
+        // ── Title ──
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 24px sans-serif";
+        wrapText(ctx, "Recarga de billetera", W / 2, 96, W - 60, 30);
 
-      // Amount
-      ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.font = "14px sans-serif";
-      ctx.fillText("Monto a pagar", W / 2, 120);
-      ctx.fillStyle = "#fbbf24"; ctx.font = "bold 48px sans-serif";
-      ctx.fillText(`Bs ${parseFloat(topUpAmount).toFixed(0)}`, W / 2, 168);
+        // ── Amount ──
+        const amountY = 160;
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.font = "14px sans-serif";
+        ctx.fillText("Monto a recargar", W / 2, amountY);
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "bold 52px sans-serif";
+        ctx.fillText(`Bs ${parseFloat(topUpAmount).toFixed(0)}`, W / 2, amountY + 52);
 
-      // Divider
-      ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(40, 188); ctx.lineTo(W - 40, 188); ctx.stroke();
+        // ── Divider ──
+        ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(40, amountY + 70); ctx.lineTo(W - 40, amountY + 70);
+        ctx.stroke();
 
-      // QR white card
-      const qrCardX = (W - QR - 40) / 2, qrCardY = 200;
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.roundRect(qrCardX, qrCardY, QR + 40, QR + 40, 20);
-      ctx.fill();
-      ctx.drawImage(qrImg, qrCardX + 20, qrCardY + 20, QR, QR);
+        // ── QR white card ──
+        const qrCardX = (W - QR - 40) / 2, qrCardY = amountY + 85;
+        ctx.fillStyle = "#ffffff";
+        roundRect(ctx, qrCardX, qrCardY, QR + 40, QR + 40, 20);
+        ctx.fill();
+        ctx.drawImage(qrImg, qrCardX + 20, qrCardY + 20, QR, QR);
 
-      // Instruction
-      ctx.fillStyle = "rgba(255,255,255,0.65)"; ctx.font = "13px sans-serif";
-      ctx.fillText("Escanea con tu app bancaria o billetera digital", W / 2, qrCardY + QR + 58);
+        // ── Scan instruction ──
+        const scanY = qrCardY + QR + 56;
+        ctx.fillStyle = "rgba(255,255,255,0.65)";
+        ctx.font = "13px sans-serif";
+        ctx.fillText("Escanea con tu app bancaria o billetera digital", W / 2, scanY);
 
-      // Footer pill
-      const pillW = 180, pillH = 32, pillX = (W - pillW) / 2, pillY = H - 48;
-      ctx.fillStyle = "rgba(255,255,255,0.08)";
-      ctx.beginPath(); ctx.roundRect(pillX, pillY, pillW, pillH, 16); ctx.fill();
-      ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "11px sans-serif";
-      ctx.fillText(`${siteEmoji}  ${siteName}`, W / 2, pillY + 20);
+        // ── Date generated ──
+        const dateStr = new Date().toLocaleDateString("es-BO", {
+          weekday: "long", day: "numeric", month: "long", year: "numeric",
+        });
+        ctx.fillStyle = "rgba(255,255,255,0.45)";
+        ctx.font = "12px sans-serif";
+        ctx.fillText(`Generado: ${dateStr}`, W / 2, scanY + 24);
 
-      const a = document.createElement("a");
-      a.href = canvas.toDataURL("image/png");
-      a.download = `recarga-qr-${topUpCheckoutId ?? Date.now()}.png`;
-      a.click();
+        // ── Footer pill ──
+        const pillW = 180, pillH = 32, pillX = (W - pillW) / 2, pillY = H - 52;
+        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        roundRect(ctx, pillX, pillY, pillW, pillH, 16);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.4)";
+        ctx.font = "11px sans-serif";
+        ctx.fillText(`${siteEmoji}  ${siteName}`, W / 2, pillY + 20);
+
+        const a = document.createElement("a");
+        a.href = canvas.toDataURL("image/png");
+        a.download = `recarga-qr-${topUpCheckoutId ?? Date.now()}.png`;
+        a.click();
+      }
+
+      if (qrBgUrl) {
+        // ── Custom background image ──
+        const bgImg = new Image();
+        bgImg.crossOrigin = "anonymous";
+        bgImg.onload = () => {
+          const imgAspect = bgImg.width / bgImg.height;
+          const canvasAspect = W / H;
+          let sx = 0, sy = 0, sw = bgImg.width, sh = bgImg.height;
+          if (imgAspect > canvasAspect) {
+            sw = bgImg.height * canvasAspect; sx = (bgImg.width - sw) / 2;
+          } else {
+            sh = bgImg.width / canvasAspect; sy = (bgImg.height - sh) / 2;
+          }
+          ctx.drawImage(bgImg, sx, sy, sw, sh, 0, 0, W, H);
+          ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fillRect(0, 0, W, H);
+          drawContent();
+        };
+        bgImg.onerror = () => {
+          const bg = ctx.createLinearGradient(0, 0, 0, H);
+          bg.addColorStop(0, "#2d0072"); bg.addColorStop(1, "#0d001a");
+          ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+          drawContent();
+        };
+        bgImg.src = qrBgUrl;
+      } else {
+        // ── Default gradient background ──
+        const bg = ctx.createLinearGradient(0, 0, 0, H);
+        bg.addColorStop(0, "#2d0072"); bg.addColorStop(1, "#0d001a");
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+        drawContent();
+      }
     };
+
     qrImg.src = topUpQrImage;
   }
 
