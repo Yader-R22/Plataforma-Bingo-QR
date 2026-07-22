@@ -6,6 +6,7 @@ import { compressImage } from "@/lib/utils";
 import { useSetLayoutConfig } from "@/components/AppLayout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const PAGE_SIZE = 10;
 
 type PhysicalPrize = {
   id: number;
@@ -23,14 +24,37 @@ type PhysicalPrize = {
   user_id: number;
   user_name: string | null;
   user_ci: string | null;
+  user_phone: string | null;
+  user_department: string | null;
 };
 
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  pending:          { label: "⏳ Sin dirección",   color: "hsl(42 98% 30%)",   bg: "hsl(42 98% 52% / 0.1)",   border: "hsl(42 98% 52% / 0.3)" },
+  pending:          { label: "⏳ Sin dirección",      color: "hsl(42 98% 30%)",   bg: "hsl(42 98% 52% / 0.1)",   border: "hsl(42 98% 52% / 0.3)" },
   address_submitted:{ label: "📍 Dirección recibida", color: "hsl(217 91% 35%)", bg: "hsl(217 91% 50% / 0.1)", border: "hsl(217 91% 50% / 0.3)" },
-  shipped:          { label: "🚚 Enviado",          color: "hsl(262 80% 35%)",   bg: "hsl(262 80% 50% / 0.1)",  border: "hsl(262 80% 50% / 0.3)" },
-  delivered:        { label: "✅ Entregado",         color: "hsl(142 70% 30%)",   bg: "hsl(142 70% 45% / 0.1)",  border: "hsl(142 70% 45% / 0.3)" },
+  shipped:          { label: "🚚 Enviado",             color: "hsl(262 80% 35%)",   bg: "hsl(262 80% 50% / 0.1)",  border: "hsl(262 80% 50% / 0.3)" },
+  delivered:        { label: "✅ Entregado",            color: "hsl(142 70% 30%)",   bg: "hsl(142 70% 45% / 0.1)",  border: "hsl(142 70% 45% / 0.3)" },
 };
+
+function openReceipt(url: string) {
+  if (url.startsWith("data:")) {
+    fetch(url)
+      .then(r => r.blob())
+      .then(blob => {
+        const blobUrl = URL.createObjectURL(blob);
+        const w = window.open(blobUrl, "_blank");
+        if (!w) {
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          a.download = "boleta.jpg";
+          a.click();
+        }
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+      })
+      .catch(() => toast.error("No se pudo abrir la boleta"));
+  } else {
+    window.open(url, "_blank");
+  }
+}
 
 export default function AdminPhysicalPrizesPage() {
   useSetLayoutConfig({});
@@ -41,6 +65,7 @@ export default function AdminPhysicalPrizesPage() {
   const [prizes, setPrizes] = useState<PhysicalPrize[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [page, setPage] = useState(0);
 
   const [shipModal, setShipModal] = useState<PhysicalPrize | null>(null);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
@@ -67,6 +92,11 @@ export default function AdminPhysicalPrizesPage() {
 
   useEffect(() => { load(); }, []);
 
+  function changeFilter(key: string) {
+    setFilterStatus(key);
+    setPage(0);
+  }
+
   async function handleShip() {
     if (!shipModal) return;
     setShipLoading(true);
@@ -81,7 +111,7 @@ export default function AdminPhysicalPrizesPage() {
       });
       const d = await r.json();
       if (!r.ok) { toast.error(d.error || "Error al actualizar"); return; }
-      toast.success("✅ Premio marcado como enviado");
+      toast.success("🚚 Premio marcado como enviado");
       setShipModal(null); setReceiptImage(null); setShipNotes("");
       load();
     } catch { toast.error("Error de red"); } finally { setShipLoading(false); }
@@ -127,6 +157,8 @@ export default function AdminPhysicalPrizesPage() {
   if (!user?.is_admin) return null;
 
   const filtered = filterStatus === "all" ? prizes : prizes.filter(p => p.delivery_status === filterStatus);
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <>
@@ -244,7 +276,7 @@ export default function AdminPhysicalPrizesPage() {
         </div>
       )}
 
-      <div className="p-4 max-w-2xl mx-auto">
+      <div className="p-4 max-w-2xl mx-auto pb-8">
         <div className="mb-4">
           <button onClick={() => navigate("/admin")} className="text-sm text-muted-foreground hover:text-foreground cursor-pointer">
             ← Volver al admin
@@ -262,7 +294,7 @@ export default function AdminPhysicalPrizesPage() {
             { key: "shipped", label: "Enviados" },
             { key: "delivered", label: "Entregados" },
           ].map(f => (
-            <button key={f.key} onClick={() => setFilterStatus(f.key)}
+            <button key={f.key} onClick={() => changeFilter(f.key)}
               className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer"
               style={{
                 background: filterStatus === f.key ? "hsl(var(--primary))" : "transparent",
@@ -284,94 +316,147 @@ export default function AdminPhysicalPrizesPage() {
             <p className="font-semibold">No hay premios físicos {filterStatus !== "all" ? "en este estado" : ""}</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filtered.map(p => {
-              const sCfg = p.delivery_status ? STATUS_LABELS[p.delivery_status] : null;
-              return (
-                <div key={p.id} className="bg-card border rounded-2xl p-4 space-y-3">
-                  {/* Header */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-black text-base truncate">{p.prize_physical_name ?? "Premio físico"}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{p.game_title ?? "Juego"} · Bs {p.prize_amount.toLocaleString("es-BO", { minimumFractionDigits: 0 })}</p>
-                      <p className="text-xs font-medium mt-0.5">{p.user_name} <span className="text-muted-foreground">CI: {p.user_ci}</span></p>
-                    </div>
-                    {sCfg && (
-                      <span className="shrink-0 text-xs font-bold px-2.5 py-1 rounded-full"
-                        style={{ background: sCfg.bg, border: `1px solid ${sCfg.border}`, color: sCfg.color }}>
-                        {sCfg.label}
-                      </span>
-                    )}
-                  </div>
+          <>
+            {/* Count */}
+            <p className="text-xs text-muted-foreground mb-3">
+              {filtered.length} premio{filtered.length !== 1 ? "s" : ""} · página {page + 1} de {totalPages}
+            </p>
 
-                  {/* Delivery info */}
-                  {p.delivery_address && (
-                    <div className="rounded-xl px-3 py-2 space-y-1"
-                      style={{ background: "hsl(var(--muted) / 0.5)" }}>
-                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Datos de entrega</p>
-                      <p className="text-sm font-medium">{p.delivery_address}</p>
-                      <p className="text-xs text-muted-foreground">📞 {p.delivery_phone}</p>
-                    </div>
-                  )}
+            <div className="space-y-3">
+              {paginated.map(p => {
+                const sCfg = p.delivery_status ? STATUS_LABELS[p.delivery_status] : null;
+                const isPhysicalOnly = p.prize_type === "physical";
+                const hasCashComponent = !isPhysicalOnly && p.prize_amount > 0;
 
-                  {p.delivery_notes && (
-                    <p className="text-xs text-muted-foreground px-1">📝 {p.delivery_notes}</p>
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex flex-col gap-2">
-                    {/* Pending: esperando dirección del ganador */}
-                    {p.delivery_status === "pending" && (
-                      <div className="flex gap-2">
-                        <div className="flex-1 py-2.5 rounded-xl text-sm font-bold text-center"
-                          style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.3)", color: "hsl(42 98% 35%)" }}>
-                          ⏳ En espera de dirección
+                return (
+                  <div key={p.id} className="bg-card border rounded-2xl p-4 space-y-3">
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-black text-base truncate">{p.prize_physical_name ?? "Premio físico"}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {p.game_title ?? "Juego"}
+                          {hasCashComponent ? ` · Bs ${p.prize_amount.toLocaleString("es-BO", { minimumFractionDigits: 0 })} + objeto` : " · Premio físico"}
+                        </p>
+                        {/* Datos del usuario */}
+                        <div className="mt-1.5 space-y-0.5">
+                          <p className="text-xs font-semibold">{p.user_name ?? "—"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            CI: {p.user_ci ?? "—"}
+                            {p.user_department ? ` · 📍 ${p.user_department}` : ""}
+                          </p>
+                          {p.user_phone && (
+                            <a
+                              href={`https://wa.me/591${p.user_phone.replace(/\D/g, "")}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-bold flex items-center gap-1 w-fit"
+                              style={{ color: "#25d366" }}>
+                              <span>📱</span> {p.user_phone}
+                            </a>
+                          )}
                         </div>
-                        <button onClick={() => { setInPersonModal(p); setInPersonNotes(""); }}
-                          className="px-4 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer shrink-0"
-                          style={{ background: "linear-gradient(135deg, #0ea5e9, #0369a1)" }}>
-                          🤝 En persona
-                        </button>
+                      </div>
+                      {sCfg && (
+                        <span className="shrink-0 text-xs font-bold px-2.5 py-1 rounded-full"
+                          style={{ background: sCfg.bg, border: `1px solid ${sCfg.border}`, color: sCfg.color }}>
+                          {sCfg.label}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Delivery info */}
+                    {p.delivery_address && (
+                      <div className="rounded-xl px-3 py-2 space-y-1"
+                        style={{ background: "hsl(var(--muted) / 0.5)" }}>
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Datos de entrega</p>
+                        <p className="text-sm font-medium">{p.delivery_address}</p>
+                        {p.delivery_phone && <p className="text-xs text-muted-foreground">📞 {p.delivery_phone}</p>}
                       </div>
                     )}
 
-                    {/* Address submitted: el ganador envió su dirección */}
-                    {p.delivery_status === "address_submitted" && (
-                      <div className="flex gap-2">
-                        <button onClick={() => { setShipModal(p); setReceiptImage(null); setShipNotes(""); }}
-                          className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer"
-                          style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
-                          🚚 Marcar enviado
-                        </button>
-                        <button onClick={() => { setInPersonModal(p); setInPersonNotes(""); }}
-                          className="px-4 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer shrink-0"
-                          style={{ background: "linear-gradient(135deg, #0ea5e9, #0369a1)" }}>
-                          🤝 En persona
-                        </button>
-                      </div>
+                    {p.delivery_notes && (
+                      <p className="text-xs text-muted-foreground px-1">📝 {p.delivery_notes}</p>
                     )}
 
-                    {/* Shipped: ya fue enviado, confirmar recepción */}
-                    {p.delivery_status === "shipped" && (
-                      <button onClick={() => { setDeliverModal(p); setDeliverNotes(""); }}
-                        className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer"
-                        style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}>
-                        ✅ Marcar entregado
-                      </button>
-                    )}
+                    {/* Actions */}
+                    <div className="flex flex-col gap-2">
+                      {/* Pending: esperando dirección del ganador */}
+                      {p.delivery_status === "pending" && (
+                        <div className="flex gap-2">
+                          <div className="flex-1 py-2.5 rounded-xl text-sm font-bold text-center"
+                            style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.3)", color: "hsl(42 98% 35%)" }}>
+                            ⏳ En espera de dirección
+                          </div>
+                          <button onClick={() => { setInPersonModal(p); setInPersonNotes(""); }}
+                            className="px-4 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer shrink-0"
+                            style={{ background: "linear-gradient(135deg, #0ea5e9, #0369a1)" }}>
+                            🤝 En persona
+                          </button>
+                        </div>
+                      )}
 
-                    {p.delivery_receipt_url && (
-                      <button onClick={() => window.open(p.delivery_receipt_url!, "_blank")}
-                        className="px-4 py-2.5 rounded-xl text-sm font-bold border cursor-pointer"
-                        style={{ borderColor: "hsl(var(--border))" }}>
-                        📎 Boleta
-                      </button>
-                    )}
+                      {/* Address submitted */}
+                      {p.delivery_status === "address_submitted" && (
+                        <div className="flex gap-2">
+                          <button onClick={() => { setShipModal(p); setReceiptImage(null); setShipNotes(""); }}
+                            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer"
+                            style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
+                            🚚 Marcar enviado
+                          </button>
+                          <button onClick={() => { setInPersonModal(p); setInPersonNotes(""); }}
+                            className="px-4 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer shrink-0"
+                            style={{ background: "linear-gradient(135deg, #0ea5e9, #0369a1)" }}>
+                            🤝 En persona
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Shipped */}
+                      {p.delivery_status === "shipped" && (
+                        <button onClick={() => { setDeliverModal(p); setDeliverNotes(""); }}
+                          className="w-full py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer"
+                          style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}>
+                          ✅ Marcar entregado
+                        </button>
+                      )}
+
+                      {p.delivery_receipt_url && (
+                        <button onClick={() => openReceipt(p.delivery_receipt_url!)}
+                          className="w-full px-4 py-2 rounded-xl text-sm font-bold border cursor-pointer"
+                          style={{ borderColor: "hsl(var(--border))" }}>
+                          📎 Ver boleta de envío
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t" style={{ borderColor: "hsl(var(--border))" }}>
+                <button
+                  onClick={() => setPage(p => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  className="px-4 py-2 rounded-xl text-sm font-bold border cursor-pointer disabled:opacity-40"
+                  style={{ borderColor: "hsl(var(--border))" }}>
+                  ← Anterior
+                </button>
+                <span className="text-xs text-muted-foreground font-medium">
+                  {page + 1} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                  className="px-4 py-2 rounded-xl text-sm font-bold border cursor-pointer disabled:opacity-40"
+                  style={{ borderColor: "hsl(var(--border))" }}>
+                  Siguiente →
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </>

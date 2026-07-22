@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, winnersTable, usersTable, gamesTable } from "@workspace/db";
 import { eq, and, desc, or } from "drizzle-orm";
 import { requireAdmin, type AuthRequest } from "../middlewares/auth";
+import { sendPushToUsers } from "../lib/push";
 
 const router = Router();
 
@@ -23,6 +24,8 @@ router.get("/", requireAdmin, async (_req: AuthRequest, res) => {
       user_id: winnersTable.userId,
       user_name: usersTable.fullName,
       user_ci: usersTable.ci,
+      user_phone: usersTable.phone,
+      user_department: usersTable.department,
     })
     .from(winnersTable)
     .leftJoin(gamesTable, eq(winnersTable.gameId, gamesTable.id))
@@ -59,10 +62,17 @@ router.patch("/:id/ship", requireAdmin, async (req: AuthRequest, res) => {
     .update(winnersTable)
     .set(updateData)
     .where(eq(winnersTable.id, id))
-    .returning({ id: winnersTable.id });
+    .returning({ id: winnersTable.id, userId: winnersTable.userId, prizePhysicalName: winnersTable.prizePhysicalName });
 
   if (!updated) { res.status(404).json({ error: "Premio no encontrado" }); return; }
   res.json({ ok: true });
+
+  // Notificar al ganador
+  sendPushToUsers([updated.userId], {
+    title: "🚚 ¡Tu premio está en camino!",
+    body: `Tu premio físico${updated.prizePhysicalName ? ` "${updated.prizePhysicalName}"` : ""} fue enviado. Revisá los datos de entrega en tu billetera.`,
+    url: "/billetera",
+  }).catch(() => {});
 });
 
 router.patch("/:id/deliver", requireAdmin, async (req: AuthRequest, res) => {
@@ -77,10 +87,17 @@ router.patch("/:id/deliver", requireAdmin, async (req: AuthRequest, res) => {
     .update(winnersTable)
     .set(updateData)
     .where(eq(winnersTable.id, id))
-    .returning({ id: winnersTable.id });
+    .returning({ id: winnersTable.id, userId: winnersTable.userId, prizePhysicalName: winnersTable.prizePhysicalName });
 
   if (!updated) { res.status(404).json({ error: "Premio no encontrado" }); return; }
   res.json({ ok: true });
+
+  // Notificar al ganador
+  sendPushToUsers([updated.userId], {
+    title: "✅ ¡Tu premio fue entregado!",
+    body: `Tu premio físico${updated.prizePhysicalName ? ` "${updated.prizePhysicalName}"` : ""} fue marcado como entregado. ¡Felicitaciones!`,
+    url: "/billetera",
+  }).catch(() => {});
 });
 
 export { router as physicalPrizesRouter };
