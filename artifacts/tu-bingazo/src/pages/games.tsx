@@ -195,24 +195,46 @@ export default function GamesPage() {
                           <div className="flex flex-row gap-3 items-start shrink-0">
                             <div className="text-right">
                               {(game as any).total_rounds > 1 ? (
-                                /* Multi-ronda: mostrar resumen de rondas con premios */
-                                <div className="flex flex-col items-end gap-1">
-                                  {(() => {
-                                    const rounds = (game as any).rounds as any[] | null;
-                                    const firstPhysical = rounds?.find((r: any) => r.prize_type !== "cash" && r.prize_image_url);
-                                    return firstPhysical?.prize_image_url ? (
-                                      <img
-                                        src={`${BASE}${firstPhysical.prize_image_url}`}
-                                        alt={firstPhysical.prize_physical_name ?? "Premio"}
-                                        onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                                        className="w-14 h-14 rounded-xl object-cover shadow-lg"
-                                        style={{ border: "2px solid rgba(255,255,255,0.25)" }}
-                                      />
-                                    ) : null;
-                                  })()}
-                                  <p className="text-white/60 text-[10px] font-bold">🎮 {(game as any).total_rounds} rondas</p>
-                                  <p className="text-white text-[10px] font-black leading-tight text-right max-w-[90px]">Premios por ronda</p>
-                                </div>
+                                /* Multi-ronda: fotos horizontales + total efectivo */
+                                (() => {
+                                  const rounds = ((game as any).rounds as any[] | null) ?? [];
+                                  const totalCash = rounds.reduce((s: number, r: any) => s + (r.prize_amount ?? 0), 0);
+                                  const physicalRounds = rounds.filter((r: any) => r.prize_type !== "cash");
+                                  const photoRounds = physicalRounds.filter((r: any) => r.prize_image_url);
+                                  const namedOnly = physicalRounds.filter((r: any) => !r.prize_image_url && r.prize_physical_name);
+                                  return (
+                                    <div className="flex flex-col items-end gap-1 max-w-[130px]">
+                                      {/* Fila horizontal de fotos */}
+                                      {photoRounds.length > 0 && (
+                                        <div className="flex flex-row gap-1 justify-end">
+                                          {photoRounds.slice(0, 3).map((r: any, idx: number) => (
+                                            <img
+                                              key={idx}
+                                              src={`${BASE}${r.prize_image_url}`}
+                                              alt={r.prize_physical_name ?? "Premio"}
+                                              onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                              className="rounded-lg object-cover shadow-lg"
+                                              style={{ width: photoRounds.length === 1 ? 52 : 36, height: photoRounds.length === 1 ? 52 : 36, border: "2px solid rgba(255,255,255,0.25)", flexShrink: 0 }}
+                                            />
+                                          ))}
+                                        </div>
+                                      )}
+                                      {/* Total efectivo */}
+                                      {totalCash > 0 && (
+                                        <p className="font-black text-xl leading-none" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(42 98% 65%)", textShadow: "0 0 10px rgba(255,180,0,0.5)" }}>
+                                          Bs {totalCash.toLocaleString("es-BO")}
+                                        </p>
+                                      )}
+                                      {/* Nombres de objetos sin foto */}
+                                      {namedOnly.length > 0 && (
+                                        <p className="text-white text-[9px] font-black leading-tight text-right" style={{ maxWidth: 120 }}>
+                                          📦 {namedOnly.map((r: any) => r.prize_physical_name).join(", ")}
+                                        </p>
+                                      )}
+                                      <p className="text-white/50 text-[9px] font-semibold">🎮 {(game as any).total_rounds} rondas</p>
+                                    </div>
+                                  );
+                                })()
                               ) : (game as any).prize_type === "physical" ? (
                                 <div className="flex flex-col items-end gap-1">
                                   {(game as any).prize_image_url && (
