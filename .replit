@@ -41,8 +41,8 @@ externalPort = 3000
 PAGOSYA_PUBLIC_KEY = "pk_live_f280454a752c4c5db4eaa45149af0c59"
 PAGOSYA_SECRET_KEY = "sk_live_c02e5248b2044f77a3ba689a4661f4d3"
 PAGOSYA_BASE_URL = "https://nbjwpakpimrqfocsxkda.supabase.co/functions/v1"
-VAPID_PUBLIC_KEY = "BJJroFD4hZe5Z7LoDjzELvBGXq4ZAGfX4cYxgrh83J2fuWap8yQH_ZCSd8b97-xXApSzjTd5E__AMhw2S5q3r0U"
-VAPID_PRIVATE_KEY = "YW8DrxJ-uJBd1UVcOUJmdqVWSsPrlbwHN34kCLQu1W0"
+VAPID_PUBLIC_KEY = "BCd9V2froF-p3-EfTCLt5HIwELdPGnvy6LZ-QN4562PPEfj9_GOxqxwyYTbQzucmLug_PLuyX_8q-NriDgWQDhg"
+VAPID_PRIVATE_KEY = "vDZA1991SlmdBYcE181Pj-AFB_eSX0HvkGwCAlhRkro"
 VAPID_EMAIL = "mailto:admin@elbingote.com"
 
 [nix]
