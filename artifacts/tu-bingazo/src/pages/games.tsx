@@ -194,7 +194,26 @@ export default function GamesPage() {
                           </div>
                           <div className="flex flex-row gap-3 items-start shrink-0">
                             <div className="text-right">
-                              {(game as any).prize_type === "physical" ? (
+                              {(game as any).total_rounds > 1 ? (
+                                /* Multi-ronda: mostrar resumen de rondas con premios */
+                                <div className="flex flex-col items-end gap-1">
+                                  {(() => {
+                                    const rounds = (game as any).rounds as any[] | null;
+                                    const firstPhysical = rounds?.find((r: any) => r.prize_type !== "cash" && r.prize_image_url);
+                                    return firstPhysical?.prize_image_url ? (
+                                      <img
+                                        src={`${BASE}${firstPhysical.prize_image_url}`}
+                                        alt={firstPhysical.prize_physical_name ?? "Premio"}
+                                        onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                        className="w-14 h-14 rounded-xl object-cover shadow-lg"
+                                        style={{ border: "2px solid rgba(255,255,255,0.25)" }}
+                                      />
+                                    ) : null;
+                                  })()}
+                                  <p className="text-white/60 text-[10px] font-bold">🎮 {(game as any).total_rounds} rondas</p>
+                                  <p className="text-white text-[10px] font-black leading-tight text-right max-w-[90px]">Premios por ronda</p>
+                                </div>
+                              ) : (game as any).prize_type === "physical" ? (
                                 <div className="flex flex-col items-end gap-1">
                                   {(game as any).prize_image_url && (
                                     <img

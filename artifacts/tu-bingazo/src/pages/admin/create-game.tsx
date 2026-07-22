@@ -27,6 +27,7 @@ type RoundRow = {
   prize_amount: string;
   prize_physical_name: string;
   prize_physical_description: string;
+  prize_image_url: string;
   predefined_winner_user_id: number | null;
   predefined_winner_name: string;
   predefined_winner_ci: string;
@@ -199,6 +200,7 @@ export default function CreateGamePage() {
     prize_amount: "",
     prize_physical_name: "",
     prize_physical_description: "",
+    prize_image_url: "",
     predefined_winner_user_id: null,
     predefined_winner_name: "",
     predefined_winner_ci: "",
@@ -262,6 +264,7 @@ export default function CreateGamePage() {
               prize_amount: String(r.prize_amount),
               prize_physical_name: r.prize_physical_name ?? "",
               prize_physical_description: r.prize_physical_description ?? "",
+              prize_image_url: r.prize_image_url ?? "",
               predefined_winner_user_id: r.predefined_winner_user_id ?? null,
               predefined_winner_name: "",
               predefined_winner_ci: "",
@@ -312,6 +315,7 @@ export default function CreateGamePage() {
             prize_amount: r.prize_type === "physical" ? 0 : (parseFloat(r.prize_amount) || 0),
             prize_physical_name: r.prize_type !== "cash" ? (r.prize_physical_name || null) : null,
             prize_physical_description: r.prize_type !== "cash" ? (r.prize_physical_description || null) : null,
+            prize_image_url: r.prize_type !== "cash" && r.prize_image_url ? r.prize_image_url : undefined,
             predefined_winner_user_id: r.predefined_winner_user_id ?? null,
           }))
         : null;
@@ -644,6 +648,38 @@ export default function CreateGamePage() {
                     </div>
                   )}
 
+                  {/* Foto del objeto — por ronda */}
+                  {r.prize_type !== "cash" && (
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-muted-foreground font-medium">Foto del premio <span className="opacity-60">(opcional)</span></p>
+                      {r.prize_image_url ? (
+                        <div className="rounded-xl overflow-hidden border relative">
+                          <img
+                            src={r.prize_image_url.startsWith("/api/") ? `${BASE}${r.prize_image_url}` : r.prize_image_url}
+                            alt="Premio" className="w-full h-24 object-cover"
+                            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                          <button type="button" onClick={() => updateRound(i, "prize_image_url", "")}
+                            className="absolute top-1.5 right-1.5 text-xs font-bold px-2 py-0.5 rounded-lg cursor-pointer"
+                            style={{ background: "rgba(0,0,0,0.65)", color: "#fff" }}>✕</button>
+                        </div>
+                      ) : (
+                        <label className="flex items-center justify-center gap-1.5 w-full h-14 rounded-xl border-2 border-dashed cursor-pointer hover:border-primary/50 transition-colors"
+                          style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--background))" }}>
+                          <span className="text-sm">📷</span>
+                          <span className="text-xs font-medium">Subir foto</span>
+                          <input type="file" accept="image/*" className="hidden" onChange={async e => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const b64 = await compressImage(file, 800);
+                            updateRound(i, "prize_image_url", b64);
+                            e.target.value = "";
+                          }} />
+                        </label>
+                      )}
+                    </div>
+                  )}
+
                   {/* ── Ganador predefinido ── */}
                   <div className="pt-0.5 border-t" style={{ borderColor: "hsl(var(--border))" }}>
                     <PredefinedWinnerPicker
@@ -677,32 +713,6 @@ export default function CreateGamePage() {
             </div>
           )}
 
-          {/* Foto del premio — multi-ronda (mostrar solo si alguna ronda tiene objeto físico) */}
-          {multiRound && rounds.some(r => r.prize_type !== "cash") && (
-            <div className="space-y-1.5">
-              <Label className="text-xs">Foto del premio <span className="text-muted-foreground font-normal">(opcional, compartida para todas las rondas)</span></Label>
-              {prizeImage && !prizeImage.startsWith("/api/") ? (
-                <div className="rounded-xl overflow-hidden border relative">
-                  <img src={prizeImage} alt="Premio" className="w-full h-32 object-cover" />
-                  <button type="button" onClick={() => setPrizeImage(null)}
-                    className="absolute top-2 right-2 text-xs font-bold px-2 py-1 rounded-lg cursor-pointer"
-                    style={{ background: "rgba(0,0,0,0.65)", color: "#fff" }}>✕</button>
-                </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center w-full h-24 rounded-xl border-2 border-dashed cursor-pointer hover:border-primary/50 transition-colors"
-                  style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--muted))" }}>
-                  <span className="text-xl mb-0.5">📷</span>
-                  <span className="text-xs font-medium">Subir foto del premio</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={async e => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    setPrizeImage(await compressImage(file, 1200));
-                    e.target.value = "";
-                  }} />
-                </label>
-              )}
-            </div>
-          )}
 
           {/* Cover image */}
           <div className="space-y-2">

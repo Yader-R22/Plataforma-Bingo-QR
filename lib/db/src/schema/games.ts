@@ -18,6 +18,7 @@ export type RoundConfig = {
   prize_type?: "cash" | "physical" | "mixed";
   prize_physical_name?: string;
   prize_physical_description?: string;
+  prize_image_url?: string;
   predefined_winner_user_id?: number | null;
 };
 

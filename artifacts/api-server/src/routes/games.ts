@@ -85,6 +85,21 @@ function getCurrentRoundConfig(game: typeof gamesTable.$inferSelect) {
   };
 }
 
+// Transforma rounds JSONB: reemplaza base64 prize_image_url por endpoint URL
+function serializeRounds(
+  gameId: number,
+  rounds: RoundConfig[] | null | undefined,
+  updatedAtMs: number
+): RoundConfig[] | null {
+  if (!rounds?.length) return null;
+  return rounds.map((r, i) => ({
+    ...r,
+    prize_image_url: r.prize_image_url
+      ? `/api/games/${gameId}/rounds/${i}/prize-image?v=${updatedAtMs}`
+      : undefined,
+  }));
+}
+
 function formatGame(
   game: typeof gamesTable.$inferSelect,
   extras: { uniqueParticipants?: number; onlineCount?: number } = {}
@@ -110,7 +125,7 @@ function formatGame(
     game_mode: roundCfg.game_mode,
     max_winners: roundCfg.max_winners,
     prizes: (game.prizes as Array<{ place: number; amount: number }>) ?? [],
-    rounds: rounds ?? null,
+    rounds: serializeRounds(game.id, rounds, game.updatedAt.getTime()) ?? null,
     current_round: currentRound,
     total_rounds: totalRounds,
     round_history: (game.roundHistory as RoundHistoryEntry[] | null) ?? [],
@@ -177,7 +192,7 @@ function formatGameForList(
     game_mode: gameModeOut,
     max_winners: maxWinnersOut,
     prizes: (game.prizes as Array<{ place: number; amount: number }>) ?? [],
-    rounds: rounds ?? null,
+    rounds: serializeRounds(game.id, rounds, (game.updatedAt ?? game.createdAt).getTime()) ?? null,
     current_round: currentRound,
     total_rounds: totalRounds,
     round_history: [],
@@ -400,6 +415,30 @@ router.get("/:id/cover-image", async (req, res) => {
   res.status(404).end();
 });
 
+// ── Prize image por ronda ─────────────────────────────────────────────────────
+router.get("/:id/rounds/:index/prize-image", async (req, res) => {
+  const id = parseInt(String(req.params.id));
+  const index = parseInt(String(req.params.index));
+  if (isNaN(id) || isNaN(index)) { res.status(400).end(); return; }
+  const rows = await db.select({ rounds: gamesTable.rounds })
+    .from(gamesTable).where(eq(gamesTable.id, id)).limit(1);
+  const rounds = rows[0]?.rounds as RoundConfig[] | null | undefined;
+  const raw = (rounds?.[index] as any)?.prize_image_url as string | undefined;
+  if (!raw) { res.status(404).end(); return; }
+  if (raw.startsWith("data:")) {
+    const commaIdx = raw.indexOf(",");
+    const mimeMatch = raw.slice(0, commaIdx).match(/data:([^;]+)/);
+    const mime = mimeMatch?.[1] ?? "image/webp";
+    const buf = Buffer.from(raw.slice(commaIdx + 1), "base64");
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.send(buf);
+    return;
+  }
+  if (raw.startsWith("http")) { res.redirect(raw); return; }
+  res.status(404).end();
+});
+
 // ── Prize image ───────────────────────────────────────────────────────────────
 router.get("/:id/prize-image", async (req, res) => {
   const id = parseInt(String(req.params.id));
@@ -449,7 +488,24 @@ router.patch("/:id", requireAdmin, async (req: AuthRequest, res) => {
   if (patchAny.prize_physical_name !== undefined) updateData.prizePhysicalName = patchAny.prize_physical_name ?? null;
   if (patchAny.prize_physical_description !== undefined) updateData.prizePhysicalDescription = patchAny.prize_physical_description ?? null;
   if (patchAny.prize_image_url !== undefined) updateData.prizeImageUrl = patchAny.prize_image_url ?? null;
-  if (data.rounds !== undefined) updateData.rounds = (data.rounds as RoundConfig[]) ?? null;
+  if (data.rounds !== undefined) {
+    let newRounds = (data.rounds as RoundConfig[] | null) ?? null;
+    // Preservar imágenes existentes cuando el frontend devuelve la URL de la API
+    if (newRounds?.some(r => r.prize_image_url?.startsWith("/api/"))) {
+      const existingRows = await db.select({ rounds: gamesTable.rounds })
+        .from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
+      const existingRounds = existingRows[0]?.rounds as RoundConfig[] | null | undefined;
+      if (existingRounds) {
+        newRounds = newRounds.map((r, i) => ({
+          ...r,
+          prize_image_url: r.prize_image_url?.startsWith("/api/")
+            ? (existingRounds[i]?.prize_image_url ?? undefined)
+            : r.prize_image_url ?? undefined,
+        }));
+      }
+    }
+    updateData.rounds = newRounds ?? null;
+  }
   const patchIsPrivate = (req.body as any).is_private;
   if (patchIsPrivate !== undefined) updateData.isPrivate = Boolean(patchIsPrivate);
   const [game] = await db.update(gamesTable).set(updateData).where(eq(gamesTable.id, p.data.id)).returning();
