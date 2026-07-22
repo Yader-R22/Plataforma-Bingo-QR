@@ -203,12 +203,7 @@ export default function WalletPage() {
     if (!amt || amt < 5) { toast.error("El monto mínimo es Bs 5"); return; }
     if (amt > 5000) { toast.error("El monto máximo es Bs 5.000"); return; }
 
-    // If fallback is forced, skip Enlazo entirely
-    if (site?.fallback_qr_force_enabled) {
-      setTopUpStep("static-qr");
-      return;
-    }
-
+    // Always try dynamic QR first — fallback to static only if API returns error
     setTopUpStep("generating");
     try {
       const res = await fetch(`${BASE}/api/wallet-top-ups`, {
