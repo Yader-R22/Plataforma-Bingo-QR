@@ -66,6 +66,12 @@ export default function AdminPhysicalPrizesPage() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [page, setPage] = useState(0);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const toggleExpand = (id: number) => setExpanded(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
   const [shipModal, setShipModal] = useState<PhysicalPrize | null>(null);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
@@ -373,7 +379,7 @@ export default function AdminPhysicalPrizesPage() {
                               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold text-white w-full"
                               style={{ background: "#25d366" }}>
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="shrink-0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.534 5.859L0 24l6.336-1.511A11.934 11.934 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.001-1.37l-.358-.214-3.723.888.924-3.638-.234-.374A9.818 9.818 0 1112 21.818z"/></svg>
-                              <span className="truncate">{p.user_phone}</span>
+                              Contactar
                             </a>
                           ) : (
                             <p className="text-xs text-muted-foreground italic">Sin teléfono</p>
@@ -381,19 +387,39 @@ export default function AdminPhysicalPrizesPage() {
                         </div>
                       </div>
 
-                      {/* Dirección de entrega — ancho completo, sin truncar */}
+                      {/* Dirección de entrega — colapsable */}
                       {p.delivery_address && (
                         <div className="rounded-xl px-3 py-2.5" style={{ background: "hsl(var(--muted) / 0.5)" }}>
-                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">🏠 Dirección de entrega</p>
-                          <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">{p.delivery_address}</p>
+                          <button
+                            onClick={() => toggleExpand(p.id)}
+                            className="w-full flex items-center justify-between cursor-pointer"
+                          >
+                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">🏠 Dirección de entrega</p>
+                            <span className="text-xs font-bold text-muted-foreground shrink-0 ml-2">
+                              {expanded.has(p.id) ? "▲ Ver menos" : "▼ Ver más"}
+                            </span>
+                          </button>
+                          {expanded.has(p.id) && (
+                            <p className="text-sm leading-relaxed break-words whitespace-pre-wrap mt-2">{p.delivery_address}</p>
+                          )}
                         </div>
                       )}
 
-                      {/* Notas de entrega — ancho completo, sin truncar */}
+                      {/* Notas de entrega — colapsable */}
                       {p.delivery_notes && (
                         <div className="rounded-xl px-3 py-2.5" style={{ background: "hsl(42 98% 52% / 0.06)", border: "1px solid hsl(42 98% 52% / 0.2)" }}>
-                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">📝 Instrucciones / Notas</p>
-                          <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">{p.delivery_notes}</p>
+                          <button
+                            onClick={() => toggleExpand(p.id)}
+                            className="w-full flex items-center justify-between cursor-pointer"
+                          >
+                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">📝 Instrucciones / Notas</p>
+                            <span className="text-xs font-bold text-muted-foreground shrink-0 ml-2">
+                              {expanded.has(p.id) ? "▲ Ver menos" : "▼ Ver más"}
+                            </span>
+                          </button>
+                          {expanded.has(p.id) && (
+                            <p className="text-sm leading-relaxed break-words whitespace-pre-wrap mt-2">{p.delivery_notes}</p>
+                          )}
                         </div>
                       )}
 
