@@ -183,7 +183,28 @@ export default function MyCardsPage() {
       <div className="p-4 max-w-xl mx-auto">
         {isLoading ? (
           <div className="space-y-4">
-            {[1, 2].map(i => <div key={i} className="h-36 bg-muted animate-pulse rounded-3xl" />)}
+            {[1, 2].map(i => (
+              <div key={i} className="rounded-3xl overflow-hidden animate-pulse" style={{ background: "hsl(var(--muted))" }}>
+                {/* cabecera */}
+                <div className="p-4 pb-3" style={{ background: "hsl(var(--muted-foreground)/0.12)" }}>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-2">
+                      <div className="h-3 w-20 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.2)" }} />
+                      <div className="h-5 w-36 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.2)" }} />
+                    </div>
+                    <div className="h-8 w-8 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.2)" }} />
+                  </div>
+                </div>
+                {/* cuerpo */}
+                <div className="p-4 space-y-3">
+                  <div className="grid grid-cols-5 gap-1">
+                    {Array.from({ length: 25 }).map((_, j) => (
+                      <div key={j} className="aspect-square rounded-md" style={{ background: "hsl(var(--muted-foreground)/0.12)" }} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : isEmpty ? (
           <div className="text-center py-20 text-muted-foreground">

@@ -140,7 +140,24 @@ export default function GamesPage() {
 
         {isLoading ? (
           <div className="space-y-5">
-            {[1, 2, 3].map(i => <div key={i} className="h-44 rounded-3xl bg-muted animate-pulse" />)}
+            {[1, 2, 3].map(i => (
+              <div key={i} className="rounded-3xl overflow-hidden animate-pulse" style={{ background: "hsl(var(--muted))" }}>
+                <div className="p-5" style={{ minHeight: 120 }}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-2 flex-1">
+                      <div className="h-7 w-8 rounded-md" style={{ background: "hsl(var(--muted-foreground)/0.2)" }} />
+                      <div className="h-5 w-40 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.2)" }} />
+                      <div className="h-3 w-28 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.15)" }} />
+                      <div className="h-3 w-20 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.15)" }} />
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="h-6 w-16 rounded-full" style={{ background: "hsl(var(--muted-foreground)/0.2)" }} />
+                      <div className="h-10 w-28 rounded-2xl" style={{ background: "hsl(var(--muted-foreground)/0.2)" }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground">
