@@ -844,12 +844,12 @@ router.post("/:id/reset", requireAdmin, async (req: AuthRequest, res) => {
     await tx.update(cardsTable)
       .set({ status: "expired" })
       .where(eq(cardsTable.gameId, gameId));
-    // Cancelar solicitudes de pago manual pendientes (los cartones ya fueron expirados arriba)
+    // Cancelar solicitudes de pago manual (pendientes y rechazadas) — el juego se reinicia
     await tx.update(manualPaymentRequestsTable)
-      .set({ status: "rejected", adminNotes: "Juego reseteado por el administrador" })
+      .set({ status: "cancelled", adminNotes: "Juego reseteado por el administrador" })
       .where(and(
         eq(manualPaymentRequestsTable.gameId, gameId),
-        eq(manualPaymentRequestsTable.status, "pending"),
+        inArray(manualPaymentRequestsTable.status, ["pending", "rejected"]),
       ));
     // Resetear estado del juego para que pueda volver a jugarse como nueva sesión
     await tx.update(gamesTable)

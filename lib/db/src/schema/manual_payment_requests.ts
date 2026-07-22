@@ -18,7 +18,7 @@ export const manualPaymentRequestsTable = pgTable("manual_payment_requests", {
   cardIds: text("card_ids"),
   receiptUrl: text("receipt_url"),
   status: text("status", {
-    enum: ["pending", "approved", "rejected"],
+    enum: ["pending", "approved", "rejected", "cancelled"],
   }).notNull().default("pending"),
   adminNotes: text("admin_notes"),
   reviewedById: integer("reviewed_by_id").references(() => usersTable.id),
