@@ -1188,23 +1188,31 @@ export default function WalletPage() {
               {allItems.slice(0, showAll ? undefined : PAGE).map((item: any) => {
               // ── TOP-UP (recarga) ──────────────────────────────────────────
               if (item._kind === "topup") {
+                const isManual = !!item.receipt_url;
+                const isQrRejected = !isManual && item.status === "rejected";
                 const sc = item.status === "approved"
                   ? { label: "✓ Acreditada", bg: "hsl(142 70% 45% / 0.12)", border: "hsl(142 70% 45% / 0.3)", color: "hsl(142 70% 30%)" }
+                  : isQrRejected
+                  ? { label: "No pagado", bg: "hsl(var(--muted))", border: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }
                   : item.status === "rejected"
                   ? { label: "❌ Rechazada", bg: "hsl(0 75% 52% / 0.12)", border: "hsl(0 75% 52% / 0.3)", color: "hsl(0 75% 40%)" }
                   : item.status === "refunded"
                   ? { label: "🔄 Reembolsada", bg: "hsl(210 80% 52% / 0.12)", border: "hsl(210 80% 52% / 0.3)", color: "hsl(210 80% 35%)" }
                   : { label: "⏳ En revisión", bg: "hsl(42 98% 52% / 0.12)", border: "hsl(42 98% 52% / 0.3)", color: "hsl(42 98% 35%)" };
-                const isManual = !!item.receipt_url;
+                const amountColor = item.status === "approved"
+                  ? "hsl(142 70% 30%)"
+                  : isQrRejected
+                  ? "hsl(var(--muted-foreground))"
+                  : undefined;
                 return (
                   <div key={`tu-${item.id}`} className="bg-card border rounded-2xl p-4 space-y-2">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif", color: "hsl(142 70% 30%)" }}>
-                          +Bs {parseFloat(item.amount).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        <p className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif", color: amountColor }}>
+                          {isQrRejected ? "" : "+"}Bs {parseFloat(item.amount).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          💳 Recarga · {isManual ? "Comprobante manual" : "QR Enlazo"} · {new Date(item.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric" })}
+                          💳 Recarga · {isManual ? "Comprobante manual" : "Código QR dinámico"} · {new Date(item.created_at).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric" })}
                         </p>
                       </div>
                       <div className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-full"
