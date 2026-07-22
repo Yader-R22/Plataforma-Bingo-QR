@@ -51,6 +51,8 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
   const [quantity, setQuantity] = useState(1);
 
   const [purchasing, setPurchasing] = useState(false);
+  const [purchasingWithBalance, setPurchasingWithBalance] = useState(false);
+  const [activatorBalance, setActivatorBalance] = useState<number | null>(null);
   const [saleId, setSaleId] = useState<number | null>(null);
   const [checkoutId, setCheckoutId] = useState<string | null>(null);
   const [qrImage, setQrImage] = useState<string | null>(null);
@@ -74,6 +76,12 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
       if (gr.ok) setGames(await gr.json());
       if (sr.ok) setSettings(await sr.json());
     }).finally(() => setLoadingGames(false));
+
+    // Fetch activator's own wallet balance for "Pagar con saldo" option
+    fetch(`${BASE}/api/wallet`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setActivatorBalance(parseFloat(d.balance ?? "0") + parseFloat(d.bonus_balance ?? "0") + parseFloat(d.admin_credit_balance ?? "0")); })
+      .catch(() => {});
 
     // Site settings only needed for QR download — don't block the games list
     fetch(`${BASE}/api/site-settings`).then(async r => {
@@ -327,6 +335,31 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
       }
     } finally {
       setPurchasing(false);
+    }
+  }
+
+  async function purchaseWithBalance() {
+    if (!selectedGame || !targetUser) return;
+    setPurchasingWithBalance(true);
+    try {
+      const r = await fetch(`${BASE}/api/activator-sales/purchase`, {
+        method: "POST",
+        headers: authH(),
+        body: JSON.stringify({
+          game_id: selectedGame.id,
+          quantity,
+          target_user_id: targetUser.id,
+          payment_method: "wallet",
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) { toast.error(d.error || "Saldo insuficiente o error al procesar"); return; }
+      setSaleId(d.sale_id);
+      // Update local balance after successful deduction
+      if (d.new_balance !== undefined) setActivatorBalance(d.new_balance);
+      setStep("success");
+    } finally {
+      setPurchasingWithBalance(false);
     }
   }
 
@@ -592,18 +625,53 @@ export default function ActivatorSaleModal({ token, staticQrUrl, onClose }: Prop
                 </div>
               )}
 
-              <div className="flex gap-2">
-                <button onClick={() => setStep("game")}
-                  className="flex-1 py-3 rounded-2xl font-bold text-sm"
-                  style={{ background: "hsl(var(--muted))" }}>← Atrás</button>
-                <button
-                  disabled={!targetUser || quantity < 1 || purchasing}
-                  onClick={purchase}
-                  className="flex-1 py-3 rounded-2xl font-black text-white text-sm disabled:opacity-40"
-                  style={{ background: "hsl(var(--primary))" }}>
-                  {purchasing ? "Generando QR..." : "Pagar con QR →"}
-                </button>
-              </div>
+              {targetUser && settings && (
+                <div className="space-y-2">
+                  {/* Pagar con saldo */}
+                  <button
+                    disabled={!targetUser || quantity < 1 || purchasingWithBalance || purchasing || (activatorBalance !== null && activatorBalance < final)}
+                    onClick={purchaseWithBalance}
+                    className="w-full py-3.5 rounded-2xl font-black text-white text-sm disabled:opacity-40 flex flex-col items-center gap-0.5"
+                    style={{ background: "hsl(142 60% 38%)" }}>
+                    {purchasingWithBalance ? (
+                      <span>Procesando...</span>
+                    ) : (
+                      <>
+                        <span>💰 Pagar con saldo</span>
+                        {activatorBalance !== null && (
+                          <span className="text-xs font-normal opacity-90">
+                            {activatorBalance < final
+                              ? `Saldo insuficiente (Bs ${activatorBalance.toFixed(2)} disponibles)`
+                              : `Bs ${activatorBalance.toFixed(2)} disponibles`}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </button>
+
+                  {/* Atrás + QR */}
+                  <div className="flex gap-2">
+                    <button onClick={() => setStep("game")}
+                      className="flex-1 py-3 rounded-2xl font-bold text-sm"
+                      style={{ background: "hsl(var(--muted))" }}>← Atrás</button>
+                    <button
+                      disabled={!targetUser || quantity < 1 || purchasing || purchasingWithBalance}
+                      onClick={purchase}
+                      className="flex-1 py-3 rounded-2xl font-black text-white text-sm disabled:opacity-40"
+                      style={{ background: "hsl(var(--primary))" }}>
+                      {purchasing ? "Generando QR..." : "Pagar con QR →"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!targetUser && (
+                <div className="flex gap-2">
+                  <button onClick={() => setStep("game")}
+                    className="flex-1 py-3 rounded-2xl font-bold text-sm"
+                    style={{ background: "hsl(var(--muted))" }}>← Atrás</button>
+                </div>
+              )}
             </>
           )}
 
