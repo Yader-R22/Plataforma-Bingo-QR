@@ -76,6 +76,7 @@ function formatUser(user: typeof usersTable.$inferSelect) {
     phone: user.phone,
     department: user.department,
     balance: parseFloat(user.balance),
+    admin_credit_balance: parseFloat(user.adminCreditBalance ?? "0"),
     bonus_balance: parseFloat(user.bonusBalance),
     bonus_expires_at: user.bonusExpiresAt ?? null,
     status: user.status,

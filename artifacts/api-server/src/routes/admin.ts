@@ -53,7 +53,7 @@ router.use(requireAdmin);
 // Evita cargar ~80KB × 2000 usuarios = ~160MB en una sola query de lista.
 type UserListRow = {
   id: number; fullName: string; ci: string; phone: string; department: string | null;
-  balance: string; bonusBalance: string; bonusExpiresAt: Date | null;
+  balance: string; adminCreditBalance: string | null; bonusBalance: string; bonusExpiresAt: Date | null;
   status: typeof usersTable.$inferSelect["status"]; isAdmin: boolean;
   hasAvatar: boolean; hasIdPhotos: boolean; needsCiUpload: boolean | null;
   rejectionReason: string | null; mustChangePassword: boolean | null;
@@ -69,6 +69,7 @@ function formatUserList(user: UserListRow) {
     phone: user.phone,
     department: user.department,
     balance: parseFloat(user.balance),
+    admin_credit_balance: parseFloat(user.adminCreditBalance ?? "0"),
     bonus_balance: parseFloat(user.bonusBalance),
     bonus_expires_at: user.bonusExpiresAt ?? null,
     status: user.status,
@@ -98,6 +99,7 @@ router.get("/users", async (req: AuthRequest, res) => {
     phone: usersTable.phone,
     department: usersTable.department,
     balance: usersTable.balance,
+    adminCreditBalance: usersTable.adminCreditBalance,
     bonusBalance: usersTable.bonusBalance,
     bonusExpiresAt: usersTable.bonusExpiresAt,
     status: usersTable.status,

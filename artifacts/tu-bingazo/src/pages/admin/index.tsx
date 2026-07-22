@@ -465,7 +465,7 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
                     { label: "Departamento", value: user.department },
                     { label: "Teléfono / WhatsApp", value: user.phone },
                     { label: "Estado", value: user.status === "active" ? "✅ Activo" : user.status === "pending" ? "⏳ Pendiente" : "❌ Rechazado" },
-                    { label: "Saldo actual", value: `Bs ${parseFloat(user.balance).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` },
+                    { label: "Saldo actual", value: `Bs ${(parseFloat(user.balance) + parseFloat(user.admin_credit_balance ?? 0)).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` },
                     { label: "Cartones comprados", value: user.cards_purchased ?? "—" },
                     { label: "Premios ganados", value: user.wins ?? "—" },
                     { label: "Miembro desde", value: new Date(user.created_at).toLocaleDateString("es-BO") },
@@ -643,7 +643,7 @@ function UserDetailModal({ userId, token, onClose, onUserUpdated }: {
                 style={{ background: "hsl(var(--primary) / 0.08)", border: "1px solid hsl(var(--primary) / 0.2)" }}>
                 <p className="text-xs text-muted-foreground">Saldo actual</p>
                 <p className="text-3xl font-black" style={{ color: "hsl(var(--primary))" }}>
-                  Bs {parseFloat(user.balance).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                  Bs {(parseFloat(user.balance) + parseFloat(user.admin_credit_balance ?? 0)).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                 </p>
               </div>
 
@@ -3770,7 +3770,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         <p className="text-xs text-muted-foreground">CI: {u.ci}</p>
                         <p className="text-xs text-muted-foreground">{u.department} · {u.phone}</p>
                         <p className="text-xs font-bold mt-0.5" style={{ color: u.is_admin ? "hsl(270 80% 45%)" : "hsl(var(--primary))" }}>
-                          Bs {parseFloat(u.balance).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                          Bs {(parseFloat(u.balance) + parseFloat(u.admin_credit_balance ?? 0)).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                         </p>
                         {u.is_banned && u.ban_reason && (
                           <p className="text-[11px] mt-0.5" style={{ color: "hsl(0 75% 45%)" }}>Motivo baneo: {u.ban_reason}</p>
