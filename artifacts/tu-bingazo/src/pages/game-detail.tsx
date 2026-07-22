@@ -90,6 +90,12 @@ function QRPaymentModal({
   const siteEmoji = site.site_emoji;
   const qrBgUrl = site.qr_background_url ?? null;
 
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   const poll = useCallback(async () => {
     try {
       const res = await fetch(`${BASE}/api/payments/${checkoutId}/status`, {
@@ -303,7 +309,7 @@ function QRPaymentModal({
     <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
       <div
         className="w-full max-w-md rounded-t-[28px] p-6 pb-8"
-        style={{ background: "white", maxHeight: "90vh", overflowY: "auto" }}
+        style={{ background: "white", maxHeight: "90svh", overflowY: "auto", WebkitOverflowScrolling: "touch" }}
       >
         {payStatus === "pending" && (
           <>
@@ -410,6 +416,12 @@ function FallbackPaymentModal({
   onClose: () => void;
 }) {
   const [step, setStep] = useState<"scan" | "uploading" | "done" | "error">("scan");
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
   const [manualRequestId, setManualRequestId] = useState<number | null>(null);
   const [requestStatus, setRequestStatus] = useState<"pending" | "approved" | "rejected">("pending");
   const [rejectedReason, setRejectedReason] = useState<string | null>(null);
@@ -525,7 +537,7 @@ function FallbackPaymentModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
-      <div className="w-full max-w-md rounded-t-[28px] p-6 pb-8 bg-white" style={{ maxHeight: "92vh", overflowY: "auto" }}>
+      <div className="w-full max-w-md rounded-t-[28px] p-6 pb-8 bg-white" style={{ maxHeight: "92svh", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
 
         {step !== "done" && (
           <div className="flex items-center justify-between mb-4">
