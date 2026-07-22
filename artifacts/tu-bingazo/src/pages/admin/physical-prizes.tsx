@@ -362,7 +362,7 @@ export default function AdminPhysicalPrizesPage() {
                             <p className="text-xs text-muted-foreground">📍 {p.user_department}</p>
                           )}
                         </div>
-                        {/* Col der: contacto + dirección */}
+                        {/* Col der: contacto */}
                         <div className="rounded-xl px-3 py-2.5 space-y-1.5" style={{ background: "hsl(var(--muted) / 0.5)" }}>
                           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Contacto</p>
                           {p.user_phone ? (
@@ -378,18 +378,23 @@ export default function AdminPhysicalPrizesPage() {
                           ) : (
                             <p className="text-xs text-muted-foreground italic">Sin teléfono</p>
                           )}
-                          {p.delivery_address && (
-                            <p className="text-xs text-muted-foreground leading-snug line-clamp-2">🏠 {p.delivery_address}</p>
-                          )}
                         </div>
                       </div>
 
-                      {/* Notas de entrega (si existen) */}
+                      {/* Dirección de entrega — ancho completo, sin truncar */}
+                      {p.delivery_address && (
+                        <div className="rounded-xl px-3 py-2.5" style={{ background: "hsl(var(--muted) / 0.5)" }}>
+                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">🏠 Dirección de entrega</p>
+                          <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">{p.delivery_address}</p>
+                        </div>
+                      )}
+
+                      {/* Notas de entrega — ancho completo, sin truncar */}
                       {p.delivery_notes && (
-                        <p className="text-xs text-muted-foreground px-1 flex gap-1.5 items-start">
-                          <span className="shrink-0">📝</span>
-                          <span>{p.delivery_notes}</span>
-                        </p>
+                        <div className="rounded-xl px-3 py-2.5" style={{ background: "hsl(42 98% 52% / 0.06)", border: "1px solid hsl(42 98% 52% / 0.2)" }}>
+                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">📝 Instrucciones / Notas</p>
+                          <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">{p.delivery_notes}</p>
+                        </div>
                       )}
 
                       {/* Separador + Actions */}
