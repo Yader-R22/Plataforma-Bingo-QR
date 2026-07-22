@@ -188,7 +188,7 @@ export default function GamesPage() {
                             )}
                             {/* Spacer so layout matches when badge is rendered outside */}
                             {isFinished && <div className="mb-2 h-[22px]" />}
-                            <p className="font-black text-white text-xl leading-tight overflow-hidden" style={{ fontFamily: "'Poppins', sans-serif", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                            <p className="font-black text-white text-sm leading-snug overflow-hidden" style={{ fontFamily: "'Poppins', sans-serif", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
                               {cfg.emoji} {game.title}
                             </p>
                           </div>

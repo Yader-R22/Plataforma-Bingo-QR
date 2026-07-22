@@ -853,42 +853,51 @@ export default function GameDetailPage() {
                   </p>
                 </div>
                 <div className="text-right shrink-0 ml-4">
-                  {(game as any).prize_type === "physical" ? (
-                    <div className="flex flex-col items-end gap-1">
-                      {(game as any).prize_image_url && (
-                        <img
-                          src={`${BASE}${(game as any).prize_image_url}`}
-                          alt={(game as any).prize_physical_name ?? "Premio"}
-                          onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                          className="w-16 h-16 rounded-xl object-cover shadow-lg"
-                          style={{ border: "2px solid rgba(255,255,255,0.25)" }}
-                        />
-                      )}
-                      <p className="text-white/60 text-xs font-bold">📦 Premio físico</p>
-                      {(game as any).prize_physical_name && (
-                        <p className="text-white text-xs font-black leading-tight text-right max-w-[120px]" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
-                          {(game as any).prize_physical_name}
+                  {(() => {
+                    const isMultiRound = ((game as any).total_rounds ?? 1) > 1;
+                    const effectivePrize = isMultiRound
+                      ? ((game as any).rounds ?? []).reduce((s: number, r: any) => s + (Number(r.prize_amount) || 0), 0)
+                      : Number(game.prize_amount);
+                    const prizeType = (game as any).prize_type;
+                    if (prizeType === "physical") return (
+                      <div className="flex flex-col items-end gap-1">
+                        {(game as any).prize_image_url && (
+                          <img
+                            src={`${BASE}${(game as any).prize_image_url}`}
+                            alt={(game as any).prize_physical_name ?? "Premio"}
+                            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                            className="w-16 h-16 rounded-xl object-cover shadow-lg"
+                            style={{ border: "2px solid rgba(255,255,255,0.25)" }}
+                          />
+                        )}
+                        <p className="text-white/60 text-xs font-bold">📦 Premio físico</p>
+                        {(game as any).prize_physical_name && (
+                          <p className="text-white text-xs font-black leading-tight text-right max-w-[120px]" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
+                            {(game as any).prize_physical_name}
+                          </p>
+                        )}
+                      </div>
+                    );
+                    if (prizeType === "mixed") return (
+                      <div className="flex flex-col items-end gap-0.5">
+                        <p className="font-black text-4xl leading-none prize-text" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                          Bs {effectivePrize.toLocaleString("es-BO")}
                         </p>
-                      )}
-                    </div>
-                  ) : (game as any).prize_type === "mixed" ? (
-                    <div className="flex flex-col items-end gap-0.5">
-                      <p className="font-black text-4xl leading-none prize-text" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                        Bs {(game.prize_amount as number).toLocaleString("es-BO")}
-                      </p>
-                      <p className="text-white/60 text-xs mt-0.5">+ Premio físico</p>
-                      {(game as any).prize_physical_name && (
-                        <p className="text-white/80 text-[10px] font-bold max-w-[120px] text-right leading-tight">📦 {(game as any).prize_physical_name}</p>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <p className="font-black text-4xl leading-none prize-text" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                        Bs {(game.prize_amount as number).toLocaleString("es-BO")}
-                      </p>
-                      <p className="text-white/60 text-sm mt-0.5">Premio</p>
-                    </>
-                  )}
+                        <p className="text-white/60 text-xs mt-0.5">+ Premio físico</p>
+                        {(game as any).prize_physical_name && (
+                          <p className="text-white/80 text-[10px] font-bold max-w-[120px] text-right leading-tight">📦 {(game as any).prize_physical_name}</p>
+                        )}
+                      </div>
+                    );
+                    return (
+                      <>
+                        <p className="font-black text-4xl leading-none prize-text" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                          Bs {effectivePrize.toLocaleString("es-BO")}
+                        </p>
+                        <p className="text-white/60 text-sm mt-0.5">Premio</p>
+                      </>
+                    );
+                  })()}
                   <p className="text-white/80 text-xs font-semibold mt-1">
                     🎱 {(game as any).total_rounds ?? 1} {((game as any).total_rounds ?? 1) === 1 ? "ronda" : "rondas"}
                   </p>
