@@ -6466,120 +6466,118 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         const filteredGames = availableGames.filter(g =>
                           !searchText || g.title.toLowerCase().includes(searchText.toLowerCase())
                         );
-                        const isOpen = orgGameDropOpen[req.id] ?? false;
+                        const selectedGameId = orgAssignGameId[req.id] ?? "";
                         return (
                           <div className="space-y-2">
-                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Asignar juego próximo o activo</p>
-                            <div className="flex gap-2">
-                              {/* Combobox con búsqueda */}
-                              <div className="flex-1 relative">
-                                <div className="relative">
-                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs pointer-events-none select-none"
-                                    style={{ color: "hsl(var(--muted-foreground))" }}>🔍</span>
-                                  <input
-                                    type="text"
-                                    placeholder="Buscar juego por nombre..."
-                                    value={searchText}
-                                    onFocus={() => setOrgGameDropOpen(prev => ({ ...prev, [req.id]: true }))}
-                                    onChange={e => {
-                                      setOrgGameSearch(prev => ({ ...prev, [req.id]: e.target.value }));
-                                      setOrgAssignGameId(prev => ({ ...prev, [req.id]: "" }));
-                                      setOrgGameDropOpen(prev => ({ ...prev, [req.id]: true }));
-                                    }}
-                                    onBlur={() => setTimeout(() => {
-                                      setOrgGameDropOpen(prev => ({ ...prev, [req.id]: false }));
-                                    }, 160)}
-                                    className="w-full text-sm rounded-xl pl-8 pr-3 py-2.5 outline-none transition-all"
-                                    style={{
-                                      background: "hsl(var(--background))",
-                                      border: isOpen
-                                        ? "1px solid hsl(var(--primary) / 0.6)"
-                                        : "1px solid hsl(var(--border))",
-                                      color: "hsl(var(--foreground))",
-                                      boxShadow: isOpen ? "0 0 0 3px hsl(var(--primary) / 0.12)" : "none",
-                                    }}
-                                  />
-                                  {orgAssignGameId[req.id] && (
-                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black px-1.5 py-0.5 rounded-full select-none"
-                                      style={{ background: "hsl(var(--primary) / 0.15)", color: "hsl(var(--primary))" }}>
-                                      ✓
-                                    </span>
-                                  )}
-                                </div>
+                            <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.4)" }}>
+                              Asignar juego próximo o activo
+                            </p>
 
-                                {/* Dropdown lista */}
-                                {isOpen && (
-                                  <div className="absolute z-50 top-full left-0 right-0 mt-1.5 rounded-2xl overflow-hidden shadow-2xl"
-                                    style={{
-                                      background: "hsl(220 30% 8%)",
-                                      border: "1px solid hsl(var(--primary) / 0.25)",
-                                      maxHeight: "220px",
-                                      overflowY: "auto",
-                                    }}>
-                                    {filteredGames.length === 0 ? (
-                                      <div className="py-6 text-center">
-                                        <p className="text-2xl mb-1">🔎</p>
-                                        <p className="text-xs" style={{ color: "hsl(var(--muted-foreground))" }}>
-                                          {availableGames.length === 0
-                                            ? "No hay juegos disponibles para asignar"
-                                            : `Sin resultados para "${searchText}"`}
-                                        </p>
-                                      </div>
-                                    ) : (
-                                      filteredGames.map((g, idx) => {
-                                        const isSelected = orgAssignGameId[req.id] === String(g.id);
-                                        const isActive = g.status === "active";
-                                        const statusColor = isActive ? "hsl(142 70% 40%)" : "hsl(42 98% 52%)";
-                                        const statusLabel = isActive ? "EN VIVO" : "PRÓXIMO";
-                                        return (
-                                          <button
-                                            key={g.id}
-                                            onMouseDown={() => {
-                                              setOrgAssignGameId(prev => ({ ...prev, [req.id]: String(g.id) }));
-                                              setOrgGameSearch(prev => ({ ...prev, [req.id]: g.title }));
-                                              setOrgGameDropOpen(prev => ({ ...prev, [req.id]: false }));
-                                            }}
-                                            className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 transition-colors"
-                                            style={{
-                                              background: isSelected
-                                                ? "hsl(var(--primary) / 0.18)"
-                                                : "transparent",
-                                              borderBottom: idx < filteredGames.length - 1
-                                                ? "1px solid hsl(var(--border) / 0.3)"
-                                                : "none",
-                                            }}
-                                            onMouseEnter={e => {
-                                              if (!isSelected) (e.currentTarget as HTMLElement).style.background = "hsl(var(--primary) / 0.08)";
-                                            }}
-                                            onMouseLeave={e => {
-                                              if (!isSelected) (e.currentTarget as HTMLElement).style.background = "transparent";
-                                            }}>
-                                            <span className="text-sm font-medium truncate" style={{ color: isSelected ? "#ffffff" : "rgba(255,255,255,0.85)" }}>
-                                              {isSelected && <span className="mr-1.5" style={{ color: "hsl(42 98% 65%)" }}>✓</span>}
-                                              {g.title}
-                                            </span>
-                                            <span className="text-[9px] font-black shrink-0 px-2 py-0.5 rounded-full"
-                                              style={{
-                                                background: isActive ? "hsl(142 70% 40% / 0.18)" : "hsl(42 98% 52% / 0.18)",
-                                                color: isActive ? "hsl(142 70% 65%)" : "hsl(42 98% 72%)",
-                                                border: isActive ? "1px solid hsl(142 70% 40% / 0.45)" : "1px solid hsl(42 98% 52% / 0.45)",
-                                              }}>
-                                              {statusLabel}
-                                            </span>
-                                          </button>
-                                        );
-                                      })
-                                    )}
-                                  </div>
+                            {/* Contenedor unificado: buscador + tarjetas */}
+                            <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)" }}>
+
+                              {/* Buscador */}
+                              <div className="relative border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+                                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm pointer-events-none">🔍</span>
+                                <input
+                                  type="text"
+                                  placeholder="Buscar juego por nombre..."
+                                  value={searchText}
+                                  onChange={e => {
+                                    setOrgGameSearch(prev => ({ ...prev, [req.id]: e.target.value }));
+                                    setOrgAssignGameId(prev => ({ ...prev, [req.id]: "" }));
+                                  }}
+                                  className="w-full bg-transparent pl-9 pr-4 py-2.5 text-sm outline-none"
+                                  style={{ color: "#ffffff", caretColor: "hsl(42 98% 52%)" }}
+                                />
+                                {searchText && (
+                                  <button
+                                    onClick={() => {
+                                      setOrgGameSearch(prev => ({ ...prev, [req.id]: "" }));
+                                      setOrgAssignGameId(prev => ({ ...prev, [req.id]: "" }));
+                                    }}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs px-1.5 py-0.5 rounded-full"
+                                    style={{ color: "rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.08)" }}>
+                                    ✕
+                                  </button>
                                 )}
                               </div>
 
-                              <button onClick={() => assignGame(req.id, req.user_id)}
-                                className="px-4 py-2.5 rounded-xl text-sm font-bold text-white shrink-0 transition-all active:scale-95"
-                                style={{ background: "hsl(var(--primary))", opacity: orgAssignGameId[req.id] ? 1 : 0.5 }}>
-                                Asignar
-                              </button>
+                              {/* Lista de tarjetas */}
+                              <div style={{ maxHeight: "200px", overflowY: "auto" }}>
+                                {availableGames.length === 0 ? (
+                                  <div className="py-6 text-center">
+                                    <p className="text-xl mb-1">🎱</p>
+                                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>No hay juegos disponibles para asignar</p>
+                                  </div>
+                                ) : filteredGames.length === 0 ? (
+                                  <div className="py-5 text-center">
+                                    <p className="text-xl mb-1">🔎</p>
+                                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Sin resultados para "{searchText}"</p>
+                                  </div>
+                                ) : filteredGames.map((g, idx) => {
+                                  const isSelected = selectedGameId === String(g.id);
+                                  const isActive = g.status === "active";
+                                  return (
+                                    <button
+                                      key={g.id}
+                                      onClick={() => {
+                                        setOrgAssignGameId(prev => ({ ...prev, [req.id]: isSelected ? "" : String(g.id) }));
+                                        setOrgGameSearch(prev => ({ ...prev, [req.id]: isSelected ? "" : "" }));
+                                      }}
+                                      className="w-full text-left px-4 py-3 flex items-center gap-3 transition-all"
+                                      style={{
+                                        background: isSelected ? "rgba(168,85,247,0.18)" : "transparent",
+                                        borderBottom: idx < filteredGames.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none",
+                                        borderLeft: isSelected ? "3px solid hsl(280 85% 65%)" : "3px solid transparent",
+                                      }}>
+                                      {/* Ícono estado */}
+                                      <span className="text-lg shrink-0">{isActive ? "🔴" : "🎱"}</span>
+
+                                      {/* Nombre + detalles */}
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold truncate leading-tight" style={{ color: isSelected ? "#ffffff" : "rgba(255,255,255,0.85)" }}>
+                                          {g.title}
+                                        </p>
+                                        <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+                                          {g.participant_count ?? 0} cartones · Bs {Number(g.prize_amount ?? 0).toLocaleString("es-BO")} en premios
+                                        </p>
+                                      </div>
+
+                                      {/* Badge estado */}
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        <span className="text-[9px] font-black px-2 py-0.5 rounded-full"
+                                          style={{
+                                            background: isActive ? "hsl(142 70% 40% / 0.2)" : "hsl(42 98% 52% / 0.15)",
+                                            color: isActive ? "hsl(142 70% 65%)" : "hsl(42 98% 70%)",
+                                            border: isActive ? "1px solid hsl(142 70% 40% / 0.4)" : "1px solid hsl(42 98% 52% / 0.35)",
+                                          }}>
+                                          {isActive ? "EN VIVO" : "PRÓXIMO"}
+                                        </span>
+                                        {isSelected && (
+                                          <span className="text-base" style={{ color: "hsl(42 98% 65%)" }}>✓</span>
+                                        )}
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </div>
+
+                            {/* Botón asignar */}
+                            <button
+                              onClick={() => assignGame(req.id, req.user_id)}
+                              disabled={!selectedGameId}
+                              className="w-full py-2.5 rounded-xl text-sm font-black transition-all active:scale-95"
+                              style={{
+                                background: selectedGameId ? "hsl(var(--primary))" : "rgba(255,255,255,0.08)",
+                                color: selectedGameId ? "#ffffff" : "rgba(255,255,255,0.3)",
+                                cursor: selectedGameId ? "pointer" : "not-allowed",
+                              }}>
+                              {selectedGameId
+                                ? `✓ Asignar "${filteredGames.find(g => String(g.id) === selectedGameId)?.title ?? games.find(g => String(g.id) === selectedGameId)?.title ?? "juego"}"`
+                                : "Seleccioná un juego para asignar"}
+                            </button>
                           </div>
                         );
                       })()}
