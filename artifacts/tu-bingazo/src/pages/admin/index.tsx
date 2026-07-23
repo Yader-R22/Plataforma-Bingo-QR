@@ -6469,16 +6469,16 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                         const selectedGameId = orgAssignGameId[req.id] ?? "";
                         return (
                           <div className="space-y-2">
-                            <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.4)" }}>
+                            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
                               Asignar juego próximo o activo
                             </p>
 
                             {/* Contenedor unificado: buscador + tarjetas */}
-                            <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)" }}>
+                            <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))", background: "hsl(var(--background))" }}>
 
                               {/* Buscador */}
-                              <div className="relative border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-                                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm pointer-events-none">🔍</span>
+                              <div className="relative border-b" style={{ borderColor: "hsl(var(--border))" }}>
+                                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm pointer-events-none" style={{ color: "hsl(var(--muted-foreground))" }}>🔍</span>
                                 <input
                                   type="text"
                                   placeholder="Buscar juego por nombre..."
@@ -6488,7 +6488,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                     setOrgAssignGameId(prev => ({ ...prev, [req.id]: "" }));
                                   }}
                                   className="w-full bg-transparent pl-9 pr-4 py-2.5 text-sm outline-none"
-                                  style={{ color: "#ffffff", caretColor: "hsl(42 98% 52%)" }}
+                                  style={{ color: "hsl(var(--foreground))" }}
                                 />
                                 {searchText && (
                                   <button
@@ -6497,7 +6497,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                       setOrgAssignGameId(prev => ({ ...prev, [req.id]: "" }));
                                     }}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-xs px-1.5 py-0.5 rounded-full"
-                                    style={{ color: "rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.08)" }}>
+                                    style={{ color: "hsl(var(--muted-foreground))", background: "hsl(var(--muted))" }}>
                                     ✕
                                   </button>
                                 )}
@@ -6508,12 +6508,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                 {availableGames.length === 0 ? (
                                   <div className="py-6 text-center">
                                     <p className="text-xl mb-1">🎱</p>
-                                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>No hay juegos disponibles para asignar</p>
+                                    <p className="text-xs text-muted-foreground">No hay juegos disponibles para asignar</p>
                                   </div>
                                 ) : filteredGames.length === 0 ? (
                                   <div className="py-5 text-center">
                                     <p className="text-xl mb-1">🔎</p>
-                                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Sin resultados para "{searchText}"</p>
+                                    <p className="text-xs text-muted-foreground">Sin resultados para "{searchText}"</p>
                                   </div>
                                 ) : filteredGames.map((g, idx) => {
                                   const isSelected = selectedGameId === String(g.id);
@@ -6523,23 +6523,23 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                       key={g.id}
                                       onClick={() => {
                                         setOrgAssignGameId(prev => ({ ...prev, [req.id]: isSelected ? "" : String(g.id) }));
-                                        setOrgGameSearch(prev => ({ ...prev, [req.id]: isSelected ? "" : "" }));
+                                        setOrgGameSearch(prev => ({ ...prev, [req.id]: "" }));
                                       }}
                                       className="w-full text-left px-4 py-3 flex items-center gap-3 transition-all"
                                       style={{
-                                        background: isSelected ? "rgba(168,85,247,0.18)" : "transparent",
-                                        borderBottom: idx < filteredGames.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none",
-                                        borderLeft: isSelected ? "3px solid hsl(280 85% 65%)" : "3px solid transparent",
+                                        background: isSelected ? "hsl(var(--primary) / 0.08)" : "transparent",
+                                        borderBottom: idx < filteredGames.length - 1 ? "1px solid hsl(var(--border))" : "none",
+                                        borderLeft: isSelected ? "3px solid hsl(var(--primary))" : "3px solid transparent",
                                       }}>
                                       {/* Ícono estado */}
                                       <span className="text-lg shrink-0">{isActive ? "🔴" : "🎱"}</span>
 
                                       {/* Nombre + detalles */}
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold truncate leading-tight" style={{ color: isSelected ? "#ffffff" : "rgba(255,255,255,0.85)" }}>
+                                        <p className="text-sm font-bold truncate leading-tight" style={{ color: "hsl(var(--foreground))" }}>
                                           {g.title}
                                         </p>
-                                        <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+                                        <p className="text-[10px] mt-0.5 text-muted-foreground">
                                           {g.participant_count ?? 0} cartones · Bs {Number(g.prize_amount ?? 0).toLocaleString("es-BO")} en premios
                                         </p>
                                       </div>
@@ -6548,14 +6548,14 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                       <div className="flex items-center gap-2 shrink-0">
                                         <span className="text-[9px] font-black px-2 py-0.5 rounded-full"
                                           style={{
-                                            background: isActive ? "hsl(142 70% 40% / 0.2)" : "hsl(42 98% 52% / 0.15)",
-                                            color: isActive ? "hsl(142 70% 65%)" : "hsl(42 98% 70%)",
-                                            border: isActive ? "1px solid hsl(142 70% 40% / 0.4)" : "1px solid hsl(42 98% 52% / 0.35)",
+                                            background: isActive ? "hsl(142 70% 40% / 0.12)" : "hsl(42 98% 52% / 0.12)",
+                                            color: isActive ? "hsl(142 70% 32%)" : "hsl(38 92% 30%)",
+                                            border: isActive ? "1px solid hsl(142 70% 40% / 0.35)" : "1px solid hsl(42 98% 52% / 0.35)",
                                           }}>
                                           {isActive ? "EN VIVO" : "PRÓXIMO"}
                                         </span>
                                         {isSelected && (
-                                          <span className="text-base" style={{ color: "hsl(42 98% 65%)" }}>✓</span>
+                                          <span className="text-sm font-black" style={{ color: "hsl(var(--primary))" }}>✓</span>
                                         )}
                                       </div>
                                     </button>
