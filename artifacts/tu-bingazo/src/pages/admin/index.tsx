@@ -916,6 +916,11 @@ export default function AdminPage() {
   const [orgGamePage, setOrgGamePage] = useState<Record<number, number>>({});
   const [orgNoteInput, setOrgNoteInput] = useState<Record<number, string>>({});
   const [orgNoteOpen, setOrgNoteOpen] = useState<Record<number, boolean>>({});
+  const [orgCommission, setOrgCommission] = useState<Record<number, string>>({});
+  const [savingOrgCommission, setSavingOrgCommission] = useState<Record<number, boolean>>({});
+  const [concludedOrganizers, setConcludedOrganizers] = useState<any[]>([]);
+  const [orgSubTab, setOrgSubTab] = useState<"solicitudes" | "concluidos">("solicitudes");
+  const [releasingCommission, setReleasingCommission] = useState<Record<number, boolean>>({});
   const [reqNoteInput, setReqNoteInput] = useState<Record<number, string>>({});
   const [reqNoteOpen, setReqNoteOpen] = useState<Record<number, "reject" | "hold" | null>>({});
   const [reqFilter, setReqFilter] = useState<"all" | "pending" | "accepted" | "hold" | "suspended" | "banned">("all");
@@ -950,6 +955,7 @@ export default function AdminPage() {
     terms_and_conditions: "",
     fallback_qr_image_url: "",
     fallback_qr_force_enabled: false,
+    organizer_default_commission: 0,
   });
   const [manualPayments, setManualPayments] = useState<any[]>([]);
   const [manualPaymentsFilter, setManualPaymentsFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
@@ -1330,8 +1336,12 @@ export default function AdminPage() {
         }
       }
       if (t === "organizadores") {
-        const r = await fetch(`${BASE}/api/organizer-requests`, { headers: authH() });
+        const [r, rc] = await Promise.all([
+          fetch(`${BASE}/api/organizer-requests`, { headers: authH() }),
+          fetch(`${BASE}/api/organizer-requests/concluded`, { headers: authH() }),
+        ]);
         if (r.ok) setOrganizerRequests(await r.json());
+        if (rc.ok) setConcludedOrganizers(await rc.json());
       }
       if (t === "referidos") {
         setActSettingsLoaded(false);
@@ -1396,6 +1406,7 @@ export default function AdminPage() {
             og_image_url: s.og_image_url ?? "",
             fallback_qr_image_url: s.fallback_qr_image_url ?? "",
             fallback_qr_force_enabled: !!s.fallback_qr_force_enabled,
+            organizer_default_commission: s.organizer_default_commission ?? 0,
           });
           setSiteLoaded(true);
         }
@@ -6306,22 +6317,65 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             const gameIdStr = orgAssignGameId[requestId];
             if (!gameIdStr) { toast.error("Selecciona un juego"); return; }
             const gameId = parseInt(gameIdStr);
+            const commStr = orgCommission[requestId];
+            const commPct = commStr !== undefined && commStr !== "" ? parseFloat(commStr) : undefined;
             const r = await fetch(`${BASE}/api/organizer-requests/${requestId}/assign`, {
               method: "POST", headers: authH(),
-              body: JSON.stringify({ game_id: gameId }),
+              body: JSON.stringify({ game_id: gameId, ...(commPct !== undefined ? { commission_percentage: commPct } : {}) }),
             });
             if (r.ok) {
               toast.success("🎱 Organizador asignado al juego");
               const game = games.find(g => g.id === gameId);
               setOrganizerRequests(prev => prev.map(req =>
                 req.id === requestId
-                  ? { ...req, assigned_game: { id: gameId, title: game?.title ?? `Juego #${gameId}`, status: game?.status ?? "upcoming" } }
+                  ? { ...req, assigned_game: { id: gameId, title: game?.title ?? `Juego #${gameId}`, status: game?.status ?? "upcoming" }, commission_percentage: commPct ?? null }
                   : req,
               ));
               setOrgAssignGameId(prev => ({ ...prev, [requestId]: "" }));
             } else {
               const d = await r.json();
               toast.error(d.error || "Error");
+            }
+          }
+
+          async function updateCommission(requestId: number) {
+            const commStr = orgCommission[requestId];
+            if (commStr === undefined || commStr === "") { toast.error("Ingresá un porcentaje"); return; }
+            const pct = parseFloat(commStr);
+            if (isNaN(pct) || pct < 0 || pct > 100) { toast.error("Porcentaje inválido (0-100)"); return; }
+            setSavingOrgCommission(prev => ({ ...prev, [requestId]: true }));
+            const r = await fetch(`${BASE}/api/organizer-requests/${requestId}/commission`, {
+              method: "PATCH", headers: authH(),
+              body: JSON.stringify({ commission_percentage: pct }),
+            });
+            setSavingOrgCommission(prev => ({ ...prev, [requestId]: false }));
+            if (r.ok) {
+              toast.success(`✅ Comisión actualizada a ${pct}%`);
+              setOrganizerRequests(prev => prev.map(req => req.id === requestId ? { ...req, commission_percentage: pct } : req));
+            } else {
+              const d = await r.json();
+              toast.error(d.error || "Error");
+            }
+          }
+
+          async function releaseCommission(requestId: number) {
+            setReleasingCommission(prev => ({ ...prev, [requestId]: true }));
+            const r = await fetch(`${BASE}/api/organizer-requests/${requestId}/release-commission`, {
+              method: "POST", headers: authH(),
+            });
+            setReleasingCommission(prev => ({ ...prev, [requestId]: false }));
+            if (r.ok) {
+              const d = await r.json();
+              toast.success(`✅ Pago liberado — Bs ${d.organizer_earning?.toFixed(2)} acreditados a la billetera`);
+              const now = new Date().toISOString();
+              setConcludedOrganizers(prev => prev.map(c =>
+                c.id === requestId
+                  ? { ...c, commission_paid_at: now, commission_amount: d.organizer_earning }
+                  : c,
+              ));
+            } else {
+              const d = await r.json();
+              toast.error(d.error || "Error al liberar el pago");
             }
           }
 
@@ -6350,6 +6404,24 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   style={{ borderColor: "hsl(var(--border))" }}>🔄 Actualizar</button>
               </div>
 
+              {/* Sub-tabs */}
+              <div className="flex gap-1 rounded-xl p-1" style={{ background: "hsl(var(--muted))" }}>
+                {[
+                  { id: "solicitudes", label: `Solicitudes (${pending.length + approved.length + rejected.length})` },
+                  { id: "concluidos", label: `Concluidos (${concludedOrganizers.length})` },
+                ].map(st => (
+                  <button key={st.id} onClick={() => setOrgSubTab(st.id as any)}
+                    className="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all"
+                    style={{
+                      background: orgSubTab === st.id ? "hsl(var(--background))" : "transparent",
+                      color: orgSubTab === st.id ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
+                    }}>
+                    {st.label}
+                  </button>
+                ))}
+              </div>
+
+              {orgSubTab === "solicitudes" && (<>
               {/* Stats */}
               <div className="grid grid-cols-3 gap-3">
                 {[
@@ -6446,18 +6518,40 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
 
                       {/* Juego asignado */}
                       {req.assigned_game ? (
-                        <div className="rounded-xl p-3 space-y-2"
-                          style={{ background: "hsl(142 70% 45% / 0.1)", border: "1px solid hsl(142 70% 45% / 0.25)" }}>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-xs font-black" style={{ color: "hsl(142 70% 35%)" }}>🎱 Juego asignado</p>
-                              <p className="text-sm font-bold">{req.assigned_game.title}</p>
-                              <p className="text-[10px] text-muted-foreground capitalize">{req.assigned_game.status}</p>
+                        <div className="space-y-2">
+                          <div className="rounded-xl p-3 space-y-2"
+                            style={{ background: "hsl(142 70% 45% / 0.1)", border: "1px solid hsl(142 70% 45% / 0.25)" }}>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-xs font-black" style={{ color: "hsl(142 70% 35%)" }}>🎱 Juego asignado</p>
+                                <p className="text-sm font-bold">{req.assigned_game.title}</p>
+                                <p className="text-[10px] text-muted-foreground capitalize">{req.assigned_game.status}</p>
+                              </div>
+                              <button onClick={() => unassignGame(req.id)}
+                                className="text-xs font-bold px-3 py-1.5 rounded-xl"
+                                style={{ background: "hsl(0 75% 52% / 0.1)", color: "hsl(0 75% 40%)", border: "1px solid hsl(0 75% 52% / 0.3)" }}>
+                                Desasignar
+                              </button>
                             </div>
-                            <button onClick={() => unassignGame(req.id)}
-                              className="text-xs font-bold px-3 py-1.5 rounded-xl"
-                              style={{ background: "hsl(0 75% 52% / 0.1)", color: "hsl(0 75% 40%)", border: "1px solid hsl(0 75% 52% / 0.3)" }}>
-                              Desasignar
+                          </div>
+                          {/* Editar comisión para este organizador */}
+                          <div className="rounded-xl border px-3 py-2 flex items-center gap-2"
+                            style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--muted) / 0.4)" }}>
+                            <span className="text-xs text-muted-foreground shrink-0">💰 Comisión plataforma</span>
+                            <input
+                              type="number" min="0" max="100" step="0.5"
+                              value={orgCommission[req.id] ?? String(req.commission_percentage ?? siteForm.organizer_default_commission)}
+                              onChange={e => setOrgCommission(prev => ({ ...prev, [req.id]: e.target.value }))}
+                              className="flex-1 bg-transparent text-right text-sm font-bold outline-none"
+                              style={{ color: "hsl(var(--foreground))" }}
+                            />
+                            <span className="text-xs font-bold text-muted-foreground shrink-0">%</span>
+                            <button
+                              onClick={() => updateCommission(req.id)}
+                              disabled={savingOrgCommission[req.id]}
+                              className="text-xs font-bold px-2.5 py-1 rounded-lg"
+                              style={{ background: "hsl(var(--primary))", color: "#fff" }}>
+                              {savingOrgCommission[req.id] ? "..." : "Guardar"}
                             </button>
                           </div>
                         </div>
@@ -6477,6 +6571,21 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                             <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
                               Asignar juego próximo o activo
                             </p>
+
+                            {/* Campo comisión al asignar */}
+                            <div className="flex items-center gap-2 rounded-xl border px-3 py-2"
+                              style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--muted) / 0.4)" }}>
+                              <span className="text-xs text-muted-foreground shrink-0">💰 Comisión plataforma</span>
+                              <input
+                                type="number" min="0" max="100" step="0.5"
+                                placeholder={String(siteForm.organizer_default_commission)}
+                                value={orgCommission[req.id] ?? String(siteForm.organizer_default_commission)}
+                                onChange={e => setOrgCommission(prev => ({ ...prev, [req.id]: e.target.value }))}
+                                className="flex-1 bg-transparent text-right text-sm font-bold outline-none"
+                                style={{ color: "hsl(var(--foreground))" }}
+                              />
+                              <span className="text-xs font-bold text-muted-foreground shrink-0">%</span>
+                            </div>
 
                             {/* Contenedor unificado: buscador + tarjetas */}
                             <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid hsl(var(--border))", background: "hsl(var(--background))" }}>
@@ -6636,6 +6745,122 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
 
               {organizerRequests.length === 0 && (
                 <p className="text-center text-sm text-muted-foreground py-8">No hay solicitudes de organizador aún.</p>
+              )}
+              </>)}
+
+              {/* ── Tab Concluidos ──────────────────────────────── */}
+              {orgSubTab === "concluidos" && (
+                <div className="space-y-3">
+                  {concludedOrganizers.length === 0 ? (
+                    <div className="text-center py-10">
+                      <p className="text-2xl mb-2">🏁</p>
+                      <p className="text-sm text-muted-foreground">No hay bingos concluidos con organizador asignado.</p>
+                    </div>
+                  ) : concludedOrganizers.map((c: any) => {
+                    const alreadyPaid = !!c.commission_paid_at;
+                    const rev = c.revenue ?? {};
+                    return (
+                      <div key={c.id} className="rounded-2xl border p-4 space-y-3"
+                        style={{
+                          background: alreadyPaid ? "hsl(142 70% 45% / 0.04)" : "hsl(var(--background))",
+                          borderColor: alreadyPaid ? "hsl(142 70% 45% / 0.3)" : "hsl(var(--border))",
+                        }}>
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-black text-sm truncate">{c.game?.title}</p>
+                              <span className="text-[9px] font-black px-2 py-0.5 rounded-full shrink-0"
+                                style={{ background: "hsl(220 13% 60% / 0.15)", color: "hsl(220 13% 35%)", border: "1px solid hsl(220 13% 60% / 0.3)" }}>
+                                {c.game?.type === "daily" ? "DIARIO" : c.game?.type === "weekly" ? "SEMANAL" : "MENSUAL"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              🎙 {c.user_name} · CI {c.user_ci}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {c.game?.draw_date ? new Date(c.game.draw_date).toLocaleDateString("es-BO", { day: "numeric", month: "short", year: "numeric" }) : ""}
+                            </p>
+                          </div>
+                          {alreadyPaid && (
+                            <span className="text-[10px] font-black px-2.5 py-1 rounded-full shrink-0"
+                              style={{ background: "hsl(142 70% 45% / 0.12)", color: "hsl(142 70% 32%)", border: "1px solid hsl(142 70% 45% / 0.35)" }}>
+                              ✅ PAGADO
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Desglose financiero */}
+                        <div className="rounded-xl overflow-hidden border" style={{ borderColor: "hsl(var(--border))" }}>
+                          {[
+                            { label: `Cartones pagados (${rev.total_paid_cards ?? 0} × Bs ${c.game?.card_price?.toFixed(2)})`, value: `Bs ${(rev.total_revenue ?? 0).toFixed(2)}`, color: "hsl(var(--foreground))", bold: false },
+                            { label: `Comisión plataforma (${c.commission_percentage ?? 0}%)`, value: `– Bs ${(rev.platform_fee ?? 0).toFixed(2)}`, color: "hsl(0 75% 40%)", bold: false },
+                            { label: "Pago al organizador", value: `Bs ${(rev.organizer_earning ?? 0).toFixed(2)}`, color: "hsl(142 70% 32%)", bold: true },
+                          ].map((row, i, arr) => (
+                            <div key={row.label} className="flex items-center justify-between px-3 py-2"
+                              style={{ borderBottom: i < arr.length - 1 ? "1px solid hsl(var(--border))" : "none", background: row.bold ? "hsl(142 70% 45% / 0.06)" : "transparent" }}>
+                              <span className="text-xs text-muted-foreground">{row.label}</span>
+                              <span className={`text-xs ${row.bold ? "font-black" : "font-bold"}`} style={{ color: row.color }}>{row.value}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Editar comisión (solo si no fue pagado) */}
+                        {!alreadyPaid && (
+                          <div className="rounded-xl border px-3 py-2 flex items-center gap-2"
+                            style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--muted) / 0.4)" }}>
+                            <span className="text-xs text-muted-foreground shrink-0">💰 Ajustar comisión</span>
+                            <input
+                              type="number" min="0" max="100" step="0.5"
+                              value={orgCommission[c.id] ?? String(c.commission_percentage ?? 0)}
+                              onChange={e => setOrgCommission(prev => ({ ...prev, [c.id]: e.target.value }))}
+                              className="flex-1 bg-transparent text-right text-sm font-bold outline-none"
+                              style={{ color: "hsl(var(--foreground))" }}
+                            />
+                            <span className="text-xs font-bold text-muted-foreground shrink-0">%</span>
+                            <button
+                              onClick={() => updateCommission(c.id)}
+                              disabled={savingOrgCommission[c.id]}
+                              className="text-xs font-bold px-2.5 py-1 rounded-lg"
+                              style={{ background: "hsl(var(--primary))", color: "#fff" }}>
+                              {savingOrgCommission[c.id] ? "..." : "Guardar"}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Botón liberar pago */}
+                        {alreadyPaid ? (
+                          <div className="rounded-xl px-4 py-3 flex items-center gap-2"
+                            style={{ background: "hsl(142 70% 45% / 0.1)", border: "1px solid hsl(142 70% 45% / 0.3)" }}>
+                            <span className="text-sm">✅</span>
+                            <div>
+                              <p className="text-xs font-black" style={{ color: "hsl(142 70% 32%)" }}>
+                                Pago liberado — Bs {Number(c.commission_amount ?? 0).toFixed(2)}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {new Date(c.commission_paid_at).toLocaleString("es-BO")}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => releaseCommission(c.id)}
+                            disabled={releasingCommission[c.id] || (rev.organizer_earning ?? 0) <= 0}
+                            className="w-full py-3 rounded-xl text-sm font-black transition-all active:scale-95"
+                            style={{
+                              background: (rev.organizer_earning ?? 0) > 0 ? "hsl(142 70% 38%)" : "hsl(var(--muted))",
+                              color: (rev.organizer_earning ?? 0) > 0 ? "#ffffff" : "hsl(var(--muted-foreground))",
+                              cursor: (rev.organizer_earning ?? 0) > 0 ? "pointer" : "not-allowed",
+                            }}>
+                            {releasingCommission[c.id]
+                              ? "⏳ Procesando..."
+                              : `💸 Liberar Bs ${(rev.organizer_earning ?? 0).toFixed(2)} al organizador`}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           );
@@ -8739,6 +8964,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 og_image_url: siteForm.og_image_url || null,
                 fallback_qr_image_url: siteForm.fallback_qr_image_url || null,
                 fallback_qr_force_enabled: siteForm.fallback_qr_force_enabled,
+                organizer_default_commission: siteForm.organizer_default_commission,
               };
               const r = await fetch(`${BASE}/api/site-settings`, {
                 method: "PUT",
@@ -8770,6 +8996,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   og_image_url: updated.og_image_url ?? "",
                   fallback_qr_image_url: updated.fallback_qr_image_url ?? "",
                   fallback_qr_force_enabled: !!updated.fallback_qr_force_enabled,
+                  organizer_default_commission: updated.organizer_default_commission ?? 0,
                 });
                 void queryClient.invalidateQueries({ queryKey: ["site-settings"] });
                 toast.success("✅ Configuración del sitio guardada");
@@ -9173,6 +9400,27 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     value={siteForm.support_whatsapp}
                     onChange={e => setSiteForm(f => ({ ...f, support_whatsapp: e.target.value.replace(/\s/g, "") }))}
                   />
+                </div>
+              </div>
+
+              {/* Comisión default para organizadores */}
+              <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+                <div>
+                  <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>🎙 Comisión de Organizadores</h2>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Porcentaje que retiene la plataforma de las ventas de cartones. Se pre-carga al asignar un juego y puede modificarse individualmente.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 rounded-xl px-4 py-3" style={{ background: "hsl(var(--muted))", border: "1px solid hsl(var(--border))" }}>
+                  <span className="text-sm font-bold flex-1">Comisión por defecto</span>
+                  <input
+                    type="number" min="0" max="100" step="0.5"
+                    value={siteForm.organizer_default_commission}
+                    onChange={e => setSiteForm(f => ({ ...f, organizer_default_commission: parseFloat(e.target.value) || 0 }))}
+                    className="w-20 bg-transparent text-right text-sm font-black outline-none border rounded-lg px-2 py-1"
+                    style={{ color: "hsl(var(--foreground))", borderColor: "hsl(var(--border))" }}
+                  />
+                  <span className="text-sm font-bold text-muted-foreground">%</span>
                 </div>
               </div>
 

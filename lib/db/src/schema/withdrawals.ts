@@ -14,7 +14,7 @@ export const withdrawalsTable = pgTable("withdrawals", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => usersTable.id),
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
-  method: text("method", { enum: ["cash", "bank_transfer", "admin_credit", "admin_debit", "refund", "activator_card_purchase"] }).notNull(),
+  method: text("method", { enum: ["cash", "bank_transfer", "admin_credit", "admin_debit", "refund", "activator_card_purchase", "organizer_commission"] }).notNull(),
   status: text("status", { enum: ["pending", "paid", "rejected"] }).notNull().default("pending"),
   bankQrUrl: text("bank_qr_url"),
   bankAccountInfo: text("bank_account_info"),

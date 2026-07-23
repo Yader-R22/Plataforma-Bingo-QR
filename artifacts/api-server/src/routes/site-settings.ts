@@ -47,6 +47,7 @@ router.get("/", async (_req, res) => {
     og_image_url: s.ogImageUrl ?? null,
     fallback_qr_image_url: s.fallbackQrImageUrl ?? null,
     fallback_qr_force_enabled: s.fallbackQrForceEnabled,
+    organizer_default_commission: parseFloat(String(s.organizerDefaultCommission ?? "0")),
   });
 });
 
@@ -115,7 +116,8 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
     og_image_url,
     fallback_qr_image_url,
     fallback_qr_force_enabled,
-  } = req.body as Record<string, string | null | undefined | boolean>;
+    organizer_default_commission,
+  } = req.body as Record<string, string | null | undefined | boolean | number>;
 
   await ensureSettings();
 
@@ -141,6 +143,7 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
       ...(og_image_url !== undefined ? { ogImageUrl: og_image_url as string | null } : {}),
       ...(fallback_qr_image_url !== undefined ? { fallbackQrImageUrl: fallback_qr_image_url as string | null } : {}),
       ...(fallback_qr_force_enabled !== undefined ? { fallbackQrForceEnabled: fallback_qr_force_enabled === true || fallback_qr_force_enabled === "true" } : {}),
+      ...(organizer_default_commission !== undefined && organizer_default_commission !== null ? { organizerDefaultCommission: String(Math.max(0, Math.min(100, parseFloat(String(organizer_default_commission)))).toFixed(2)) } : {}),
       updatedAt: new Date(),
       updatedById: req.userId!,
     })
@@ -181,6 +184,7 @@ router.put("/", requireAdmin, async (req: AuthRequest, res) => {
     og_image_url: s.ogImageUrl ?? null,
     fallback_qr_image_url: s.fallbackQrImageUrl ?? null,
     fallback_qr_force_enabled: s.fallbackQrForceEnabled,
+    organizer_default_commission: parseFloat(String(s.organizerDefaultCommission ?? "0")),
   });
 });
 

@@ -5,6 +5,7 @@ import {
   integer,
   timestamp,
   boolean,
+  numeric,
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
@@ -40,6 +41,7 @@ export const siteSettingsTable = pgTable("site_settings", {
   // Fallback QR payment settings
   fallbackQrImageUrl: text("fallback_qr_image_url"),
   fallbackQrForceEnabled: boolean("fallback_qr_force_enabled").notNull().default(false),
+  organizerDefaultCommission: numeric("organizer_default_commission", { precision: 5, scale: 2 }).notNull().default("0"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedById: integer("updated_by_id").references(() => usersTable.id),
 });
