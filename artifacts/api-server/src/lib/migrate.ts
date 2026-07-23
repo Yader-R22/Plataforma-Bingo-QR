@@ -354,6 +354,28 @@ const MIGRATIONS: string[] = [
     reviewed_at     TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`,
+
+  // ── organizer_requests ─────────────────────────────────────────────────────
+  `CREATE TABLE IF NOT EXISTS organizer_requests (
+    id                    SERIAL PRIMARY KEY,
+    user_id               INTEGER NOT NULL REFERENCES users(id),
+    status                TEXT NOT NULL DEFAULT 'pending',
+    admin_notes           TEXT,
+    reviewed_by_id        INTEGER REFERENCES users(id),
+    reviewed_at           TIMESTAMPTZ,
+    commission_percentage NUMERIC(5,2),
+    commission_paid_at    TIMESTAMPTZ,
+    commission_amount     NUMERIC(10,2),
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+  // Columns added later (idempotent for VPS that already has the table without them)
+  `ALTER TABLE organizer_requests ADD COLUMN IF NOT EXISTS commission_percentage NUMERIC(5,2)`,
+  `ALTER TABLE organizer_requests ADD COLUMN IF NOT EXISTS commission_paid_at TIMESTAMPTZ`,
+  `ALTER TABLE organizer_requests ADD COLUMN IF NOT EXISTS commission_amount NUMERIC(10,2)`,
+
+  // ── site_settings: organizer commission default ────────────────────────────
+  `ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS organizer_default_commission NUMERIC(5,2) NOT NULL DEFAULT 0`,
 ];
 
 export async function runMigrations() {

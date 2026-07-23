@@ -191,11 +191,11 @@ export default function ProfilePage() {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
-      const d = await r.json();
-      if (!r.ok) { toast.error(d.error || "Error al enviar solicitud"); return; }
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { toast.error(d.error || `Error ${r.status} al enviar solicitud`); return; }
       queryClient.invalidateQueries({ queryKey: ["activator-status", token] });
       toast.success("✅ Solicitud enviada. El admin la revisará pronto.");
-    } catch { toast.error("Error de conexión"); }
+    } catch (e: any) { toast.error(e?.message || "Error de conexión"); }
     finally { setRequestingActivator(false); }
   }
 
