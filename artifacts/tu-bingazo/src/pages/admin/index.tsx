@@ -6404,6 +6404,32 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                   style={{ borderColor: "hsl(var(--border))" }}>🔄 Actualizar</button>
               </div>
 
+              {/* Comisión por defecto */}
+              <div className="flex items-center gap-3 rounded-xl px-4 py-3 border"
+                style={{ background: "hsl(var(--muted) / 0.5)", borderColor: "hsl(var(--border))" }}>
+                <div className="flex-1">
+                  <p className="text-sm font-bold">💰 Comisión por defecto</p>
+                  <p className="text-[10px] text-muted-foreground">Se pre-carga al asignar un juego; se puede ajustar individualmente</p>
+                </div>
+                <input
+                  type="number" min="0" max="100" step="0.5"
+                  value={siteForm.organizer_default_commission}
+                  onChange={e => setSiteForm(f => ({ ...f, organizer_default_commission: parseFloat(e.target.value) || 0 }))}
+                  onBlur={async () => {
+                    try {
+                      await fetch(`${BASE}/api/site-settings`, {
+                        method: "PUT",
+                        headers: authH(),
+                        body: JSON.stringify({ organizer_default_commission: siteForm.organizer_default_commission }),
+                      });
+                    } catch { /* silencioso */ }
+                  }}
+                  className="w-16 text-right text-sm font-black outline-none border rounded-lg px-2 py-1"
+                  style={{ color: "hsl(var(--foreground))", borderColor: "hsl(var(--border))", background: "hsl(var(--background))" }}
+                />
+                <span className="text-sm font-bold text-muted-foreground">%</span>
+              </div>
+
               {/* Sub-tabs */}
               <div className="flex gap-1 rounded-xl p-1" style={{ background: "hsl(var(--muted))" }}>
                 {[
@@ -9400,27 +9426,6 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     value={siteForm.support_whatsapp}
                     onChange={e => setSiteForm(f => ({ ...f, support_whatsapp: e.target.value.replace(/\s/g, "") }))}
                   />
-                </div>
-              </div>
-
-              {/* Comisión default para organizadores */}
-              <div className="rounded-2xl p-5 space-y-4" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-                <div>
-                  <h2 className="font-black text-lg" style={{ fontFamily: "'Poppins', sans-serif" }}>🎙 Comisión de Organizadores</h2>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Porcentaje que retiene la plataforma de las ventas de cartones. Se pre-carga al asignar un juego y puede modificarse individualmente.
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 rounded-xl px-4 py-3" style={{ background: "hsl(var(--muted))", border: "1px solid hsl(var(--border))" }}>
-                  <span className="text-sm font-bold flex-1">Comisión por defecto</span>
-                  <input
-                    type="number" min="0" max="100" step="0.5"
-                    value={siteForm.organizer_default_commission}
-                    onChange={e => setSiteForm(f => ({ ...f, organizer_default_commission: parseFloat(e.target.value) || 0 }))}
-                    className="w-20 bg-transparent text-right text-sm font-black outline-none border rounded-lg px-2 py-1"
-                    style={{ color: "hsl(var(--foreground))", borderColor: "hsl(var(--border))" }}
-                  />
-                  <span className="text-sm font-bold text-muted-foreground">%</span>
                 </div>
               </div>
 
