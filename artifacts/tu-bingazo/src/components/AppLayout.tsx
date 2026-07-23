@@ -62,10 +62,16 @@ function PushWelcomeModal() {
   }
 
   async function handleEnable() {
-    // Marcar como gestionado ANTES de intentar — así el modal no vuelve aunque la suscripción falle
+    await enable();
+    const perm = typeof Notification !== "undefined" ? Notification.permission : "denied";
+    if (perm === "denied") {
+      toast.error(
+        "Tu navegador bloqueó las notificaciones. Tocá el candado 🔒 en la barra del navegador → Notificaciones → Permitir.",
+        { duration: 9000 }
+      );
+    }
     dismiss();
     setVisible(false);
-    await enable();
   }
 
   return (
