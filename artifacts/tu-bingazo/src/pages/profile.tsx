@@ -15,9 +15,9 @@ const DEPARTMENTS = [
 ];
 
 function statusConfig(status: string) {
-  if (status === "active") return { label: "✓ Verificado", bg: "hsl(142 70% 38%)", border: "hsl(142 70% 28%)", color: "#fff" };
-  if (status === "pending") return { label: "⏳ Pendiente", bg: "hsl(42 98% 48%)", border: "hsl(42 98% 35%)", color: "#fff" };
-  return { label: "✖ Rechazado", bg: "hsl(0 75% 48%)", border: "hsl(0 75% 35%)", color: "#fff" };
+  if (status === "active") return { text: "Verificado", dot: "#4ade80", bg: "rgba(74,222,128,0.1)", border: "rgba(74,222,128,0.3)", color: "#86efac" };
+  if (status === "pending") return { text: "Pendiente", dot: "#fbbf24", bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.3)", color: "#fcd34d" };
+  return { text: "Rechazado", dot: "#f87171", bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.3)", color: "#fca5a5" };
 }
 
 function PushToggle() {
@@ -391,22 +391,25 @@ export default function ProfilePage() {
               {user.full_name}
             </h1>
             <p className="text-white/60 text-sm mt-0.5">CI: {user.ci}</p>
-            <div className="flex flex-wrap gap-2 mt-2">
-              <div className="inline-block text-xs font-bold px-3 py-1 rounded-full"
+            <div className="flex gap-1.5 mt-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+              <span className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-wide px-2.5 py-[3px] rounded-full"
                 style={{ background: sc.bg, border: `1px solid ${sc.border}`, color: sc.color }}>
-                {sc.label}
-              </div>
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: sc.dot }} />
+                {sc.text}
+              </span>
               {activatorStatus?.status === "accepted" && (
-                <div className="inline-block text-xs font-bold px-3 py-1 rounded-full"
-                  style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "1px solid #4f46e5", color: "#fff", boxShadow: "0 2px 8px rgba(99,102,241,0.45)" }}>
-                  🔗 Activador
-                </div>
+                <span className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-wide px-2.5 py-[3px] rounded-full"
+                  style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.35)", color: "#c4b5fd" }}>
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#a78bfa" }} />
+                  Activador
+                </span>
               )}
               {organizerStatus?.status === "approved" && organizerStatus?.assigned_game && (
-                <div className="inline-block text-xs font-bold px-3 py-1 rounded-full"
-                  style={{ background: "linear-gradient(135deg,#0ea5e9,#6366f1)", border: "1px solid #0284c7", color: "#fff", boxShadow: "0 2px 8px rgba(14,165,233,0.4)" }}>
-                  🎙 Organizador
-                </div>
+                <span className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-wide px-2.5 py-[3px] rounded-full"
+                  style={{ background: "rgba(14,165,233,0.12)", border: "1px solid rgba(14,165,233,0.35)", color: "#7dd3fc" }}>
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#38bdf8" }} />
+                  Organizador
+                </span>
               )}
             </div>
           </div>
