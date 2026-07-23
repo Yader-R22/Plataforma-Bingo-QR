@@ -54,6 +54,20 @@ function PushWelcomeModal() {
     return () => clearTimeout(t);
   }, [status, installBannerVisible]);
 
+  useEffect(() => {
+    if (visible) {
+      document.body.style.overflow = "hidden";
+      document.body.style.touchAction = "none";
+    } else {
+      document.body.style.overflow = "";
+      document.body.style.touchAction = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.touchAction = "";
+    };
+  }, [visible]);
+
   if (!visible) return null;
 
   function handleDismiss() {
