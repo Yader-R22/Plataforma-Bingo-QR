@@ -74,6 +74,14 @@ export default function OrganizerGamePage() {
   const [winners, setWinners] = useState<Record<number, WinnerEntry[]>>({});
   const [finishing, setFinishing] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    body: string;
+    emoji: string;
+    confirmLabel: string;
+    confirmColor: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   useSetLayoutConfig({ title: "Conducir Bingo", hideNav: true });
 
@@ -161,51 +169,82 @@ export default function OrganizerGamePage() {
     }
   }
 
+  function showConfirm(opts: typeof confirmDialog) {
+    setConfirmDialog(opts);
+  }
+
   async function doNextRound() {
     if (!game) return;
     const cr = game.current_round ?? 1;
     const nr = cr + 1;
     const total = game.total_rounds ?? 1;
-    if (!confirm(`¿Completar la Ronda ${cr} y avanzar a la Ronda ${nr} de ${total}? Los bolillos actuales se guardarán en el historial.`)) return;
-    const r = await fetch(`${BASE}/api/games/${gameId}/next-round`, { method: "POST", headers: authH() });
-    if (r.ok) {
-      const updated = await r.json();
-      setGame(prev => prev ? { ...prev, ...updated } : null);
-      loadWinners();
-      toast.success(`🏁 Ronda ${cr} completada · Iniciando Ronda ${nr}`);
-    } else {
-      const d = await r.json();
-      toast.error(d.error || "Error al avanzar ronda");
-    }
+    showConfirm({
+      title: `Completar Ronda ${cr}`,
+      body: `Los bolillos se guardarán en el historial y comenzará la Ronda ${nr} de ${total}.`,
+      emoji: "🏁",
+      confirmLabel: `Avanzar a Ronda ${nr}`,
+      confirmColor: "hsl(42 98% 52%)",
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        const r = await fetch(`${BASE}/api/games/${gameId}/next-round`, { method: "POST", headers: authH() });
+        if (r.ok) {
+          const updated = await r.json();
+          setGame(prev => prev ? { ...prev, ...updated } : null);
+          loadWinners();
+          toast.success(`🏁 Ronda ${cr} completada · Iniciando Ronda ${nr}`);
+        } else {
+          const d = await r.json().catch(() => ({}));
+          toast.error(d.error || "Error al avanzar ronda");
+        }
+      },
+    });
   }
 
   async function doStart() {
-    if (!confirm("¿Iniciar el bingo ahora? Los jugadores recibirán una notificación y el juego pasará a EN VIVO.")) return;
-    setStarting(true);
-    const r = await fetch(`${BASE}/api/games/${gameId}/start`, { method: "POST", headers: authH() });
-    if (r.ok) {
-      const updated = await r.json();
-      setGame(prev => prev ? { ...prev, ...updated, status: "active" } : null);
-      toast.success("🎱 ¡Bingo iniciado! Ya está EN VIVO.");
-    } else {
-      const d = await r.json().catch(() => ({}));
-      toast.error(d.error || "Error al iniciar el bingo");
-    }
-    setStarting(false);
+    showConfirm({
+      title: "Iniciar Bingo EN VIVO",
+      body: "Todos los jugadores que compraron cartones recibirán una notificación y el juego pasará a EN VIVO.",
+      emoji: "🎱",
+      confirmLabel: "🎱 Iniciar ahora",
+      confirmColor: "hsl(42 98% 52%)",
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        setStarting(true);
+        const r = await fetch(`${BASE}/api/games/${gameId}/start`, { method: "POST", headers: authH() });
+        if (r.ok) {
+          const updated = await r.json();
+          setGame(prev => prev ? { ...prev, ...updated, status: "active" } : null);
+          toast.success("🎱 ¡Bingo iniciado! Ya está EN VIVO.");
+        } else {
+          const d = await r.json().catch(() => ({}));
+          toast.error(d.error || "Error al iniciar el bingo");
+        }
+        setStarting(false);
+      },
+    });
   }
 
   async function doFinish() {
-    if (!confirm("¿Finalizar este bingo? Esto cerrará el juego y terminarás tu rol de organizador.")) return;
-    setFinishing(true);
-    const r = await fetch(`${BASE}/api/games/${gameId}/finish`, { method: "POST", headers: authH() });
-    if (r.ok) {
-      toast.success("🏁 Bingo finalizado. ¡Gracias por organizarlo!");
-      setTimeout(() => navigate("/perfil"), 2000);
-    } else {
-      const d = await r.json().catch(() => ({}));
-      toast.error(d.error || "Error al finalizar");
-    }
-    setFinishing(false);
+    showConfirm({
+      title: "Finalizar Bingo",
+      body: "Se cerrará el juego definitivamente. Tu rol como organizador terminará y volverás a tu perfil.",
+      emoji: "⏹",
+      confirmLabel: "Sí, finalizar",
+      confirmColor: "hsl(0 75% 50%)",
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        setFinishing(true);
+        const r = await fetch(`${BASE}/api/games/${gameId}/finish`, { method: "POST", headers: authH() });
+        if (r.ok) {
+          toast.success("🏁 Bingo finalizado. ¡Gracias por organizarlo!");
+          setTimeout(() => navigate("/perfil"), 2000);
+        } else {
+          const d = await r.json().catch(() => ({}));
+          toast.error(d.error || "Error al finalizar");
+        }
+        setFinishing(false);
+      },
+    });
   }
 
   // Verify this organizer is actually assigned to this game
@@ -243,6 +282,7 @@ export default function OrganizerGamePage() {
   // ── Pantalla: juego próximo (upcoming) ──────────────────────────────────
   if (game.status === "upcoming") {
     return (
+      <>
       <div className="flex-1 flex flex-col pb-6" style={{ background: "linear-gradient(160deg, #0d0025 0%, #1a0050 40%, #0a0020 100%)", minHeight: "100dvh" }}>
         <div className="px-4 pt-5 pb-4 flex items-center justify-between">
           <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -283,6 +323,35 @@ export default function OrganizerGamePage() {
           <p className="text-white/30 text-xs">Los jugadores recibirán una notificación al iniciar</p>
         </div>
       </div>
+
+      {confirmDialog && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+          onClick={() => setConfirmDialog(null)}>
+          <div className="w-full max-w-sm rounded-3xl p-6 space-y-5"
+            style={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }}
+            onClick={e => e.stopPropagation()}>
+            <div className="text-center space-y-2">
+              <p className="text-4xl">{confirmDialog.emoji}</p>
+              <p className="font-black text-lg">{confirmDialog.title}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{confirmDialog.body}</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button onClick={confirmDialog.onConfirm}
+                className="w-full py-3.5 rounded-2xl font-black text-base transition-all active:scale-95"
+                style={{ background: confirmDialog.confirmColor, color: confirmDialog.confirmColor === "hsl(42 98% 52%)" ? "#1a0050" : "white" }}>
+                {confirmDialog.confirmLabel}
+              </button>
+              <button onClick={() => setConfirmDialog(null)}
+                className="w-full py-3 rounded-2xl font-bold text-sm"
+                style={{ background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </>
     );
   }
 
@@ -492,6 +561,37 @@ export default function OrganizerGamePage() {
           </div>
         </div>
       </div>
+
+      {/* ── Modal de confirmación personalizado ──────────────────────── */}
+      {confirmDialog && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+          onClick={() => setConfirmDialog(null)}>
+          <div className="w-full max-w-sm rounded-3xl p-6 space-y-5"
+            style={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }}
+            onClick={e => e.stopPropagation()}>
+            <div className="text-center space-y-2">
+              <p className="text-4xl">{confirmDialog.emoji}</p>
+              <p className="font-black text-lg">{confirmDialog.title}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{confirmDialog.body}</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={confirmDialog.onConfirm}
+                className="w-full py-3.5 rounded-2xl font-black text-base transition-all active:scale-95"
+                style={{ background: confirmDialog.confirmColor, color: confirmDialog.confirmColor === "hsl(42 98% 52%)" ? "#1a0050" : "white" }}>
+                {confirmDialog.confirmLabel}
+              </button>
+              <button
+                onClick={() => setConfirmDialog(null)}
+                className="w-full py-3 rounded-2xl font-bold text-sm"
+                style={{ background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
