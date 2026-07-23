@@ -6554,8 +6554,8 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                             onMouseLeave={e => {
                                               if (!isSelected) (e.currentTarget as HTMLElement).style.background = "transparent";
                                             }}>
-                                            <span className="text-sm font-medium truncate" style={{ color: "hsl(var(--foreground))" }}>
-                                              {isSelected && <span className="mr-1.5">✓</span>}
+                                            <span className="text-sm font-medium truncate" style={{ color: isSelected ? "#ffffff" : "rgba(255,255,255,0.85)" }}>
+                                              {isSelected && <span className="mr-1.5" style={{ color: "hsl(42 98% 65%)" }}>✓</span>}
                                               {g.title}
                                             </span>
                                             <span className="text-[9px] font-black shrink-0 px-2 py-0.5 rounded-full"
