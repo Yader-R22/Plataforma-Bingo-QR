@@ -921,6 +921,7 @@ export default function AdminPage() {
   const [concludedOrganizers, setConcludedOrganizers] = useState<any[]>([]);
   const [orgSubTab, setOrgSubTab] = useState<"solicitudes" | "concluidos">("solicitudes");
   const [releasingCommission, setReleasingCommission] = useState<Record<number, boolean>>({});
+  const [orgDefaultCommStr, setOrgDefaultCommStr] = useState("0");
   const [reqNoteInput, setReqNoteInput] = useState<Record<number, string>>({});
   const [reqNoteOpen, setReqNoteOpen] = useState<Record<number, "reject" | "hold" | null>>({});
   const [reqFilter, setReqFilter] = useState<"all" | "pending" | "accepted" | "hold" | "suspended" | "banned">("all");
@@ -1336,12 +1337,18 @@ export default function AdminPage() {
         }
       }
       if (t === "organizadores") {
-        const [r, rc] = await Promise.all([
+        const [r, rc, rs] = await Promise.all([
           fetch(`${BASE}/api/organizer-requests`, { headers: authH() }),
           fetch(`${BASE}/api/organizer-requests/concluded`, { headers: authH() }),
+          fetch(`${BASE}/api/site-settings`),
         ]);
         if (r.ok) setOrganizerRequests(await r.json());
         if (rc.ok) setConcludedOrganizers(await rc.json());
+        if (rs.ok) {
+          const s = await rs.json();
+          setSiteForm(f => ({ ...f, organizer_default_commission: s.organizer_default_commission ?? 0 }));
+          setOrgDefaultCommStr(String(s.organizer_default_commission ?? 0));
+        }
       }
       if (t === "referidos") {
         setActSettingsLoaded(false);
@@ -6414,22 +6421,29 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 <div className="flex items-center gap-2">
                   <input
                     type="number" min="0" max="100" step="0.5"
-                    value={siteForm.organizer_default_commission}
-                    onChange={e => setSiteForm(f => ({ ...f, organizer_default_commission: parseFloat(e.target.value) || 0 }))}
+                    value={orgDefaultCommStr}
+                    onChange={e => setOrgDefaultCommStr(e.target.value)}
                     className="w-16 text-center text-sm font-black outline-none border rounded-lg px-2 py-1.5"
                     style={{ color: "hsl(var(--foreground))", borderColor: "hsl(var(--border))", background: "hsl(var(--background))" }}
                   />
                   <span className="text-sm font-bold text-muted-foreground">%</span>
                   <button
                     onClick={async () => {
+                      const val = parseFloat(orgDefaultCommStr);
+                      if (isNaN(val) || val < 0 || val > 100) {
+                        toast.error("Ingresa un valor entre 0 y 100");
+                        return;
+                      }
                       try {
                         const r = await fetch(`${BASE}/api/site-settings`, {
                           method: "PUT",
                           headers: authH(),
-                          body: JSON.stringify({ organizer_default_commission: siteForm.organizer_default_commission }),
+                          body: JSON.stringify({ organizer_default_commission: val }),
                         });
-                        if (r.ok) toast.success("✅ Comisión por defecto guardada");
-                        else toast.error("Error al guardar");
+                        if (r.ok) {
+                          setSiteForm(f => ({ ...f, organizer_default_commission: val }));
+                          toast.success("✅ Comisión por defecto guardada");
+                        } else toast.error("Error al guardar");
                       } catch { toast.error("Error de red"); }
                     }}
                     className="px-4 py-2 rounded-xl text-sm font-black transition-all active:scale-95"
