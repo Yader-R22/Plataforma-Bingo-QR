@@ -114,8 +114,9 @@ export default function ProfilePage() {
       return r.ok ? r.json() : null;
     },
     enabled: !!token,
-    staleTime: 30 * 1000,
-    refetchInterval: 30 * 1000,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: false,
+    refetchOnWindowFocus: true,
   });
   const [requestingOrganizer, setRequestingOrganizer] = useState(false);
 
@@ -128,9 +129,9 @@ export default function ProfilePage() {
       return r.ok ? r.json() : null;
     },
     enabled: !!token,
-    staleTime: 30 * 1000,
-    refetchInterval: 30 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: false,
+    refetchOnWindowFocus: true,
   });
   const [requestingActivator, setRequestingActivator] = useState(false);
   const [showSaleModal, setShowSaleModal] = useState(false);
@@ -399,6 +400,12 @@ export default function ProfilePage() {
                 <div className="inline-block text-xs font-bold px-3 py-1 rounded-full"
                   style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "1px solid #4f46e5", color: "#fff", boxShadow: "0 2px 8px rgba(99,102,241,0.45)" }}>
                   🔗 Activador
+                </div>
+              )}
+              {organizerStatus?.status === "approved" && organizerStatus?.assigned_game && (
+                <div className="inline-block text-xs font-bold px-3 py-1 rounded-full"
+                  style={{ background: "linear-gradient(135deg,#0ea5e9,#6366f1)", border: "1px solid #0284c7", color: "#fff", boxShadow: "0 2px 8px rgba(14,165,233,0.4)" }}>
+                  🎙 Organizador
                 </div>
               )}
             </div>
@@ -736,7 +743,7 @@ export default function ProfilePage() {
           {(!organizerStatus || !organizerStatus.has_request || organizerStatus.status === "completed") && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Conduce sorteos de bingo en vivo como presentador. El admin te asignará un juego para gestionarlo.
+                Presenta sorteos de bingo en vivo. El admin te asigna un juego para gestionar.
               </p>
               <button className="btn-primary" onClick={requestOrganizer} disabled={requestingOrganizer}>
                 {requestingOrganizer ? "Enviando..." : "🎙 Solicitar ser Organizador"}
