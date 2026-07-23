@@ -774,6 +774,27 @@ router.post("/:id/start", requireAuth, async (req: AuthRequest, res) => {
   }).catch(() => {});
 });
 
+router.post("/:id/revert", requireAdmin, async (req: AuthRequest, res) => {
+  const id = parseInt(String(req.params.id));
+  if (!id || isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  const [game] = await db.select().from(gamesTable).where(eq(gamesTable.id, id)).limit(1);
+  if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
+  if (game.status !== "active") { res.status(400).json({ error: "Solo se puede revertir un juego activo" }); return; }
+  if ((game.calledNumbers ?? []).length > 0) {
+    res.status(400).json({ error: "No se puede revertir: ya se cantaron números en este juego" }); return;
+  }
+
+  const [updated] = await db.update(gamesTable)
+    .set({ status: "upcoming", calledNumbers: [], currentRound: 1, roundHistory: [] })
+    .where(eq(gamesTable.id, id))
+    .returning();
+
+  invalidateSessionCache(id);
+  req.log.info({ admin_id: req.userId, game_id: id }, "game reverted to upcoming");
+  res.json(formatGame(updated));
+});
+
 router.post("/:id/next-round", requireAuth, async (req: AuthRequest, res) => {
   const p = NextRoundParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }

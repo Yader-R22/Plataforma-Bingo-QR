@@ -1794,6 +1794,19 @@ export default function AdminPage() {
     if (r.ok) { toast.success("▶ Juego iniciado"); setGames(gs => gs.map(g => g.id === gameId ? { ...g, status: "active", called_numbers: [] } : g)); loadStats(); }
   }
 
+  async function revertGame(gameId: number) {
+    if (!confirm("¿Revertir este juego a 'Próximo'?\n\nSolo funciona si no se cantó ningún número. El juego volverá al estado anterior al inicio.")) return;
+    const r = await fetch(`${BASE}/api/games/${gameId}/revert`, { method: "POST", headers: authH() });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) {
+      toast.success("↩ Juego revertido a Próximo");
+      setGames(gs => gs.map(g => g.id === gameId ? { ...g, status: "upcoming", called_numbers: [] } : g));
+      loadStats();
+    } else {
+      toast.error(d.error || "No se pudo revertir el juego");
+    }
+  }
+
   async function finishGame(gameId: number) {
     if (!confirm("¿Finalizar este juego?")) return;
     const r = await fetch(`${BASE}/api/games/${gameId}/finish`, { method: "POST", headers: authH() });
@@ -3661,6 +3674,13 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                       style={{ background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
                       <span className="text-white/50 text-xs">{g.called_numbers?.length ?? 0} números · {g.online_count ?? 0} jugadores en línea</span>
                       <div className="flex items-center gap-3">
+                        {(g.called_numbers?.length ?? 0) === 0 && (
+                          <button onClick={() => revertGame(g.id)}
+                            className="text-xs font-bold px-3 py-1.5 rounded-xl transition-all active:scale-95"
+                            style={{ background: "hsl(45 100% 50% / 0.15)", color: "hsl(45 100% 65%)", border: "1px solid hsl(45 100% 50% / 0.25)" }}>
+                            ↩ Revertir
+                          </button>
+                        )}
                         {(g.total_rounds ?? 1) > 1 && (g.current_round ?? 1) < (g.total_rounds ?? 1) ? (
                           <>
                             <button onClick={() => nextRound(g.id)}
@@ -4175,6 +4195,13 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     style={{ background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
                     <span className="text-white/50 text-xs">{g.called_numbers?.length ?? 0} números · {g.online_count ?? 0} jugadores en línea</span>
                     <div className="flex items-center gap-3">
+                      {(g.called_numbers?.length ?? 0) === 0 && (
+                        <button onClick={() => revertGame(g.id)}
+                          className="text-xs font-bold px-3 py-1.5 rounded-xl transition-all active:scale-95"
+                          style={{ background: "hsl(45 100% 50% / 0.15)", color: "hsl(45 100% 65%)", border: "1px solid hsl(45 100% 50% / 0.25)" }}>
+                          ↩ Revertir
+                        </button>
+                      )}
                       {(g.total_rounds ?? 1) > 1 && (g.current_round ?? 1) < (g.total_rounds ?? 1) ? (
                         <>
                           <button onClick={() => nextRound(g.id)}
@@ -10375,6 +10402,13 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                 style={{ background: "rgba(0,0,0,0.25)", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
                 <span className="text-white/50 text-xs">{g.called_numbers?.length ?? 0} números · {g.online_count ?? 0} jugadores en línea</span>
                 <div className="flex items-center gap-3">
+                  {(g.called_numbers?.length ?? 0) === 0 && (
+                    <button onClick={() => revertGame(g.id)}
+                      className="text-xs font-bold px-3 py-1.5 rounded-xl transition-all active:scale-95"
+                      style={{ background: "hsl(45 100% 50% / 0.15)", color: "hsl(45 100% 65%)", border: "1px solid hsl(45 100% 50% / 0.25)" }}>
+                      ↩ Revertir
+                    </button>
+                  )}
                   {(g.total_rounds ?? 1) > 1 && (g.current_round ?? 1) < (g.total_rounds ?? 1) ? (
                     <>
                       <button onClick={() => nextRound(g.id)}
