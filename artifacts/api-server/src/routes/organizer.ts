@@ -9,29 +9,33 @@ export const organizerRouter = Router();
 // ── Solicitar ser organizador (usuario autenticado) ─────────────────────────
 organizerRouter.post("/", requireAuth, async (req: AuthRequest, res) => {
   const userId = req.userId!;
+  try {
+    const existing = await db
+      .select()
+      .from(organizerRequestsTable)
+      .where(
+        and(
+          eq(organizerRequestsTable.userId, userId),
+          inArray(organizerRequestsTable.status, ["pending", "approved"]),
+        ),
+      )
+      .limit(1);
 
-  const existing = await db
-    .select()
-    .from(organizerRequestsTable)
-    .where(
-      and(
-        eq(organizerRequestsTable.userId, userId),
-        inArray(organizerRequestsTable.status, ["pending", "approved"]),
-      ),
-    )
-    .limit(1);
+    if (existing.length) {
+      res.status(409).json({ error: "Ya tienes una solicitud activa como organizador" });
+      return;
+    }
 
-  if (existing.length) {
-    res.status(409).json({ error: "Ya tienes una solicitud activa como organizador" });
-    return;
+    const [req2] = await db
+      .insert(organizerRequestsTable)
+      .values({ userId })
+      .returning();
+
+    res.status(201).json(req2);
+  } catch (err: any) {
+    req.log.error({ err, userId }, "organizer-request POST failed");
+    res.status(500).json({ error: err?.message ?? "Error interno al crear solicitud de organizador" });
   }
-
-  const [req2] = await db
-    .insert(organizerRequestsTable)
-    .values({ userId })
-    .returning();
-
-  res.status(201).json(req2);
 });
 
 // ── Mi solicitud + juego asignado (usuario autenticado) ─────────────────────
