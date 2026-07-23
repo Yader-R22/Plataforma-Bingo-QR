@@ -33,6 +33,7 @@ const MIGRATIONS: string[] = [
   `ALTER TABLE games ADD COLUMN IF NOT EXISTS is_featured BOOLEAN NOT NULL DEFAULT false`,
   `ALTER TABLE games ADD COLUMN IF NOT EXISTS is_private BOOLEAN NOT NULL DEFAULT false`,
   `ALTER TABLE games ADD COLUMN IF NOT EXISTS prizes JSONB DEFAULT '[]'::JSONB`,
+  `ALTER TABLE games ADD COLUMN IF NOT EXISTS organizer_user_id INTEGER REFERENCES users(id)`,
 
   // ── cards ──────────────────────────────────────────────────────────────────
   `ALTER TABLE cards ADD COLUMN IF NOT EXISTS bonus_amount_used NUMERIC(10,2) NOT NULL DEFAULT 0`,
