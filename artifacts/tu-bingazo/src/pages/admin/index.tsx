@@ -6559,7 +6559,11 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                               {g.title}
                                             </span>
                                             <span className="text-[9px] font-black shrink-0 px-2 py-0.5 rounded-full"
-                                              style={{ background: statusColor + "22", color: statusColor, border: `1px solid ${statusColor}44` }}>
+                                              style={{
+                                                background: isActive ? "hsl(142 70% 40% / 0.18)" : "hsl(42 98% 52% / 0.18)",
+                                                color: isActive ? "hsl(142 70% 65%)" : "hsl(42 98% 72%)",
+                                                border: isActive ? "1px solid hsl(142 70% 40% / 0.45)" : "1px solid hsl(42 98% 52% / 0.45)",
+                                              }}>
                                               {statusLabel}
                                             </span>
                                           </button>
