@@ -374,6 +374,7 @@ const MIGRATIONS: string[] = [
   `ALTER TABLE organizer_requests ADD COLUMN commission_percentage NUMERIC(5,2)`,
   `ALTER TABLE organizer_requests ADD COLUMN commission_paid_at TIMESTAMPTZ`,
   `ALTER TABLE organizer_requests ADD COLUMN commission_amount NUMERIC(10,2)`,
+  `ALTER TABLE organizer_requests ADD COLUMN viewed_at TIMESTAMPTZ`,
 
   // ── site_settings: organizer commission default ────────────────────────────
   `ALTER TABLE site_settings ADD COLUMN organizer_default_commission NUMERIC(5,2) NOT NULL DEFAULT 0`,

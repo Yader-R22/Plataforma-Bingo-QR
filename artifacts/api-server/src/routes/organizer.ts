@@ -56,6 +56,28 @@ organizerRouter.get("/my", requireAuth, async (req: AuthRequest, res) => {
 
   const request = rows[0];
 
+  // Solicitudes rechazadas: mostrar 1 minuto desde que el usuario la vio por primera vez,
+  // luego eliminar automáticamente para que pueda volver a solicitar.
+  if (request.status === "rejected") {
+    if (!request.viewedAt) {
+      // Primera vez que la ve — marcar viewed_at
+      await db
+        .update(organizerRequestsTable)
+        .set({ viewedAt: new Date() })
+        .where(eq(organizerRequestsTable.id, request.id));
+    } else {
+      const elapsedMs = Date.now() - request.viewedAt.getTime();
+      if (elapsedMs > 60_000) {
+        // Pasó 1 minuto — limpiar la solicitud para que pueda pedir de nuevo
+        await db
+          .delete(organizerRequestsTable)
+          .where(eq(organizerRequestsTable.id, request.id));
+        res.json({ has_request: false });
+        return;
+      }
+    }
+  }
+
   let assignedGame: { id: number; title: string; status: string } | null = null;
   if (request.status === "approved") {
     const games = await db

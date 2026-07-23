@@ -18,6 +18,7 @@ export const organizerRequestsTable = pgTable("organizer_requests", {
   commissionPercentage: numeric("commission_percentage", { precision: 5, scale: 2 }),
   commissionPaidAt: timestamp("commission_paid_at", { withTimezone: true }),
   commissionAmount: numeric("commission_amount", { precision: 10, scale: 2 }),
+  viewedAt: timestamp("viewed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
