@@ -6416,7 +6416,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                     type="number" min="0" max="100" step="0.5"
                     value={siteForm.organizer_default_commission}
                     onChange={e => setSiteForm(f => ({ ...f, organizer_default_commission: parseFloat(e.target.value) || 0 }))}
-                    className="flex-1 text-right text-sm font-black outline-none border rounded-lg px-3 py-2"
+                    className="w-16 text-center text-sm font-black outline-none border rounded-lg px-2 py-1.5"
                     style={{ color: "hsl(var(--foreground))", borderColor: "hsl(var(--border))", background: "hsl(var(--background))" }}
                   />
                   <span className="text-sm font-bold text-muted-foreground">%</span>
