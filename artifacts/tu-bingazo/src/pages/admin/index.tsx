@@ -52,6 +52,7 @@ const ALL_TABS = [
   { id: "recargas",        label: "💳 Recargas",        perm: null },
   { id: "referidos",       label: "🔗 Referidos",      perm: null },
   { id: "ventas-activador", label: "🛒 Ventas Activador", perm: null },
+  { id: "organizadores",   label: "🎙 Organizadores",  perm: null },
   { id: "solicitudes",     label: "📋 Solicitudes",    perm: "admin:users" },
   { id: "resets",          label: "🔑 Resets",          perm: "admin:resets" },
   { id: "logs",            label: "📋 Auditoría",      perm: "admin:logs" },
@@ -908,6 +909,10 @@ export default function AdminPage() {
   const [actSettingsLoaded, setActSettingsLoaded] = useState(false);
   const [actSettingsForm, setActSettingsForm] = useState({ is_enabled: true, whatsapp_group_link: "", bonus_amount: "5", bonus_title: "Bono de bienvenida por activador {activator}", bonus_validity_hours: "", commission_percentage: "5", commission_duration: "indefinite", commission_duration_months: "" });
   const [pendingActivatorCount, setPendingActivatorCount] = useState(0);
+  const [organizerRequests, setOrganizerRequests] = useState<any[]>([]);
+  const [orgAssignGameId, setOrgAssignGameId] = useState<Record<number, string>>({});
+  const [orgNoteInput, setOrgNoteInput] = useState<Record<number, string>>({});
+  const [orgNoteOpen, setOrgNoteOpen] = useState<Record<number, boolean>>({});
   const [reqNoteInput, setReqNoteInput] = useState<Record<number, string>>({});
   const [reqNoteOpen, setReqNoteOpen] = useState<Record<number, "reject" | "hold" | null>>({});
   const [reqFilter, setReqFilter] = useState<"all" | "pending" | "accepted" | "hold" | "suspended" | "banned">("all");
@@ -1320,6 +1325,10 @@ export default function AdminPage() {
           setPendingResets(d.pending ?? []);
           setApprovedResets(d.approved ?? []);
         }
+      }
+      if (t === "organizadores") {
+        const r = await fetch(`${BASE}/api/organizer-requests`, { headers: authH() });
+        if (r.ok) setOrganizerRequests(await r.json());
       }
       if (t === "referidos") {
         setActSettingsLoaded(false);
@@ -6267,6 +6276,238 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
             </button>
           </div>
         )}
+
+        {/* ── ORGANIZADORES ───────────────────────────────── */}
+        {tab === "organizadores" && !loading && (() => {
+          const pending = organizerRequests.filter(r => r.status === "pending");
+          const approved = organizerRequests.filter(r => r.status === "approved");
+          const rejected = organizerRequests.filter(r => r.status === "rejected");
+
+          async function reviewOrganizer(id: number, status: "approved" | "rejected") {
+            const note = orgNoteInput[id] ?? "";
+            const r = await fetch(`${BASE}/api/organizer-requests/${id}`, {
+              method: "PATCH", headers: authH(),
+              body: JSON.stringify({ status, admin_notes: note || undefined }),
+            });
+            if (r.ok) {
+              toast.success(status === "approved" ? "✅ Organizador aprobado" : "✖ Solicitud rechazada");
+              setOrganizerRequests(prev => prev.map(req => req.id === id ? { ...req, status, admin_notes: note } : req));
+              setOrgNoteOpen(prev => ({ ...prev, [id]: false }));
+            } else {
+              const d = await r.json();
+              toast.error(d.error || "Error");
+            }
+          }
+
+          async function assignGame(requestId: number, userId: number) {
+            const gameIdStr = orgAssignGameId[requestId];
+            if (!gameIdStr) { toast.error("Selecciona un juego"); return; }
+            const gameId = parseInt(gameIdStr);
+            const r = await fetch(`${BASE}/api/organizer-requests/${requestId}/assign`, {
+              method: "POST", headers: authH(),
+              body: JSON.stringify({ game_id: gameId }),
+            });
+            if (r.ok) {
+              toast.success("🎱 Organizador asignado al juego");
+              const game = games.find(g => g.id === gameId);
+              setOrganizerRequests(prev => prev.map(req =>
+                req.id === requestId
+                  ? { ...req, assigned_game: { id: gameId, title: game?.title ?? `Juego #${gameId}`, status: game?.status ?? "upcoming" } }
+                  : req,
+              ));
+              setOrgAssignGameId(prev => ({ ...prev, [requestId]: "" }));
+            } else {
+              const d = await r.json();
+              toast.error(d.error || "Error");
+            }
+          }
+
+          async function unassignGame(requestId: number) {
+            if (!confirm("¿Desasignar al organizador de este juego?")) return;
+            const r = await fetch(`${BASE}/api/organizer-requests/${requestId}/assign`, {
+              method: "DELETE", headers: authH(),
+            });
+            if (r.ok) {
+              toast.success("Organizador desasignado");
+              setOrganizerRequests(prev => prev.map(req =>
+                req.id === requestId ? { ...req, assigned_game: null } : req,
+              ));
+            } else {
+              const d = await r.json();
+              toast.error(d.error || "Error");
+            }
+          }
+
+          return (
+            <div className="space-y-5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">🎙 Organizadores de Bingo</p>
+                <button onClick={() => loadTab("organizadores")}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg border"
+                  style={{ borderColor: "hsl(var(--border))" }}>🔄 Actualizar</button>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: "Pendientes", value: pending.length, color: "hsl(42 98% 40%)", bg: "hsl(42 98% 52% / 0.08)" },
+                  { label: "Aprobados", value: approved.length, color: "hsl(142 70% 35%)", bg: "hsl(142 70% 45% / 0.08)" },
+                  { label: "Rechazados", value: rejected.length, color: "hsl(0 75% 40%)", bg: "hsl(0 75% 52% / 0.08)" },
+                ].map(s => (
+                  <div key={s.label} className="rounded-2xl p-3 text-center border" style={{ background: s.bg }}>
+                    <p className="text-xl font-black" style={{ color: s.color }}>{s.value}</p>
+                    <p className="text-[10px] text-muted-foreground">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pending requests */}
+              {pending.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">⏳ Solicitudes Pendientes</p>
+                  {pending.map((req: any) => (
+                    <div key={req.id} className="rounded-2xl p-4 space-y-3 border"
+                      style={{ background: "hsl(42 98% 52% / 0.05)", borderColor: "hsl(42 98% 52% / 0.25)" }}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-black text-sm">{req.user_name}</p>
+                          <p className="text-xs text-muted-foreground">CI: {req.user_ci} · {req.user_department}</p>
+                          {req.user_phone && <p className="text-xs text-muted-foreground">📱 {req.user_phone}</p>}
+                          <p className="text-[10px] text-muted-foreground mt-1">{new Date(req.created_at).toLocaleString("es-BO")}</p>
+                        </div>
+                        {req.user_phone && (
+                          <a href={`https://wa.me/591${req.user_phone.replace(/\D/g, "")}?text=${encodeURIComponent(`Hola ${req.user_name}, nos comunicamos de Tu Bingazo respecto a tu solicitud como Organizador de Bingo.`)}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-white flex items-center gap-1.5"
+                            style={{ background: "#25D366" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                            WhatsApp
+                          </a>
+                        )}
+                      </div>
+                      {orgNoteOpen[req.id] && (
+                        <textarea
+                          className="w-full text-sm rounded-xl border px-3 py-2 resize-none"
+                          style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--muted) / 0.5)" }}
+                          rows={2} placeholder="Nota para el usuario (opcional)"
+                          value={orgNoteInput[req.id] ?? ""}
+                          onChange={e => setOrgNoteInput(prev => ({ ...prev, [req.id]: e.target.value }))}
+                        />
+                      )}
+                      <div className="flex gap-2">
+                        <button onClick={() => reviewOrganizer(req.id, "approved")}
+                          className="flex-1 py-2 rounded-xl text-xs font-bold text-white"
+                          style={{ background: "hsl(142 70% 38%)" }}>
+                          ✅ Aprobar
+                        </button>
+                        <button
+                          onClick={() => setOrgNoteOpen(prev => ({ ...prev, [req.id]: !prev[req.id] }))}
+                          className="px-3 py-2 rounded-xl text-xs font-bold border"
+                          style={{ borderColor: "hsl(var(--border))" }}>
+                          💬
+                        </button>
+                        <button onClick={() => reviewOrganizer(req.id, "rejected")}
+                          className="flex-1 py-2 rounded-xl text-xs font-bold"
+                          style={{ background: "hsl(0 75% 52% / 0.1)", color: "hsl(0 75% 40%)", border: "1px solid hsl(0 75% 52% / 0.3)" }}>
+                          ✖ Rechazar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Approved organizers */}
+              {approved.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">✅ Organizadores Aprobados</p>
+                  {approved.map((req: any) => (
+                    <div key={req.id} className="rounded-2xl p-4 space-y-3 border"
+                      style={{ background: "hsl(142 70% 45% / 0.05)", borderColor: "hsl(142 70% 45% / 0.25)" }}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-black text-sm">{req.user_name}</p>
+                          <p className="text-xs text-muted-foreground">CI: {req.user_ci} · {req.user_department}</p>
+                          {req.user_phone && <p className="text-xs text-muted-foreground">📱 {req.user_phone}</p>}
+                        </div>
+                        {req.user_phone && (
+                          <a href={`https://wa.me/591${req.user_phone.replace(/\D/g, "")}?text=${encodeURIComponent(`Hola ${req.user_name}, te asignaremos un bingo en Tu Bingazo.`)}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-white flex items-center gap-1.5"
+                            style={{ background: "#25D366" }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                            WhatsApp
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Juego asignado */}
+                      {req.assigned_game ? (
+                        <div className="rounded-xl p-3 space-y-2"
+                          style={{ background: "hsl(142 70% 45% / 0.1)", border: "1px solid hsl(142 70% 45% / 0.25)" }}>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-xs font-black" style={{ color: "hsl(142 70% 35%)" }}>🎱 Juego asignado</p>
+                              <p className="text-sm font-bold">{req.assigned_game.title}</p>
+                              <p className="text-[10px] text-muted-foreground capitalize">{req.assigned_game.status}</p>
+                            </div>
+                            <button onClick={() => unassignGame(req.id)}
+                              className="text-xs font-bold px-3 py-1.5 rounded-xl"
+                              style={{ background: "hsl(0 75% 52% / 0.1)", color: "hsl(0 75% 40%)", border: "1px solid hsl(0 75% 52% / 0.3)" }}>
+                              Desasignar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Asignar juego próximo o activo</p>
+                          <div className="flex gap-2">
+                            <select
+                              className="flex-1 text-sm rounded-xl border px-3 py-2"
+                              style={{ borderColor: "hsl(var(--border))", background: "hsl(var(--background))" }}
+                              value={orgAssignGameId[req.id] ?? ""}
+                              onChange={e => setOrgAssignGameId(prev => ({ ...prev, [req.id]: e.target.value }))}>
+                              <option value="">— Seleccionar juego —</option>
+                              {games
+                                .filter(g => g.status !== "finished" && !g.organizer_user_id)
+                                .map(g => (
+                                  <option key={g.id} value={g.id}>{g.title} ({g.status})</option>
+                                ))}
+                            </select>
+                            <button onClick={() => assignGame(req.id, req.user_id)}
+                              className="px-4 py-2 rounded-xl text-sm font-bold text-white shrink-0"
+                              style={{ background: "hsl(var(--primary))" }}>
+                              Asignar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Rejected */}
+              {rejected.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">✖ Rechazadas</p>
+                  {rejected.map((req: any) => (
+                    <div key={req.id} className="rounded-2xl p-4 border"
+                      style={{ background: "hsl(0 75% 52% / 0.04)", borderColor: "hsl(0 75% 52% / 0.2)" }}>
+                      <p className="font-bold text-sm">{req.user_name}</p>
+                      <p className="text-xs text-muted-foreground">CI: {req.user_ci} · {req.user_department}</p>
+                      {req.admin_notes && <p className="text-xs text-muted-foreground mt-1 italic">💬 {req.admin_notes}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {organizerRequests.length === 0 && (
+                <p className="text-center text-sm text-muted-foreground py-8">No hay solicitudes de organizador aún.</p>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── REFERIDOS ───────────────────────────────── */}
         {tab === "referidos" && !loading && (() => {

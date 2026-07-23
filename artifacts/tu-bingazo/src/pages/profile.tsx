@@ -106,6 +106,19 @@ export default function ProfilePage() {
   const [newPwdConfirm, setNewPwdConfirm] = useState("");
   const [changingPwd, setChangingPwd] = useState(false);
 
+  // Organizer request
+  const { data: organizerStatus = null, refetch: refetchOrganizer } = useQuery({
+    queryKey: ["organizer-status", token],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/organizer-requests/my`, { headers: { Authorization: `Bearer ${token}` } });
+      return r.ok ? r.json() : null;
+    },
+    enabled: !!token,
+    staleTime: 30 * 1000,
+    refetchInterval: 30 * 1000,
+  });
+  const [requestingOrganizer, setRequestingOrganizer] = useState(false);
+
   // Activator / referral
   const queryClient = useQueryClient();
   const { data: activatorStatus = null } = useQuery({
@@ -184,6 +197,21 @@ export default function ProfilePage() {
       toast.success("✅ Solicitud enviada. El admin la revisará pronto.");
     } catch { toast.error("Error de conexión"); }
     finally { setRequestingActivator(false); }
+  }
+
+  async function requestOrganizer() {
+    setRequestingOrganizer(true);
+    try {
+      const r = await fetch(`${BASE}/api/organizer-requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      const d = await r.json();
+      if (!r.ok) { toast.error(d.error || "Error al enviar solicitud"); return; }
+      refetchOrganizer();
+      toast.success("✅ Solicitud enviada. El admin la revisará pronto.");
+    } catch { toast.error("Error de conexión"); }
+    finally { setRequestingOrganizer(false); }
   }
 
   async function loadReferralHistory() {
@@ -693,6 +721,76 @@ export default function ProfilePage() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Sección Organizador de Bingo ──────────────────── */}
+        <div className="bg-card border rounded-2xl p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🎙</span>
+            <h3 className="font-black">Organizador de Bingo</h3>
+          </div>
+
+          {/* Sin solicitud / puede solicitar */}
+          {(!organizerStatus || !organizerStatus.has_request || organizerStatus.status === "completed") && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Conduce sorteos de bingo en vivo como presentador. El admin te asignará un juego para gestionarlo.
+              </p>
+              <button className="btn-primary" onClick={requestOrganizer} disabled={requestingOrganizer}>
+                {requestingOrganizer ? "Enviando..." : "🎙 Solicitar ser Organizador"}
+              </button>
+            </div>
+          )}
+
+          {/* Pendiente */}
+          {organizerStatus?.status === "pending" && (
+            <div className="rounded-xl px-4 py-3 space-y-1"
+              style={{ background: "hsl(42 98% 52% / 0.1)", border: "1px solid hsl(42 98% 52% / 0.3)" }}>
+              <p className="font-bold text-sm" style={{ color: "hsl(42 98% 35%)" }}>⏳ Solicitud en revisión</p>
+              <p className="text-xs text-muted-foreground">El administrador revisará tu solicitud y te notificará cuando sea aprobada.</p>
+            </div>
+          )}
+
+          {/* Rechazada */}
+          {organizerStatus?.status === "rejected" && (
+            <div className="space-y-3">
+              <div className="rounded-xl px-4 py-3"
+                style={{ background: "hsl(0 75% 52% / 0.08)", border: "1px solid hsl(0 75% 52% / 0.25)" }}>
+                <p className="font-bold text-sm" style={{ color: "hsl(0 75% 40%)" }}>✖ Solicitud rechazada</p>
+                {organizerStatus.admin_notes && (
+                  <p className="text-xs text-muted-foreground mt-1">💬 {organizerStatus.admin_notes}</p>
+                )}
+              </div>
+              <button className="btn-primary" onClick={requestOrganizer} disabled={requestingOrganizer}>
+                {requestingOrganizer ? "Enviando..." : "🔄 Volver a solicitar"}
+              </button>
+            </div>
+          )}
+
+          {/* Aprobado — sin juego asignado */}
+          {organizerStatus?.status === "approved" && !organizerStatus.assigned_game && (
+            <div className="rounded-xl px-4 py-3 space-y-1"
+              style={{ background: "hsl(142 70% 45% / 0.1)", border: "1px solid hsl(142 70% 45% / 0.3)" }}>
+              <p className="font-bold text-sm" style={{ color: "hsl(142 70% 30%)" }}>✅ ¡Estás aprobado como Organizador!</p>
+              <p className="text-xs text-muted-foreground">El admin te asignará un bingo próximamente. Recibirás una notificación push cuando esto suceda.</p>
+            </div>
+          )}
+
+          {/* Aprobado — con juego asignado */}
+          {organizerStatus?.status === "approved" && organizerStatus.assigned_game && (
+            <div className="space-y-3">
+              <div className="rounded-xl px-4 py-3 space-y-2"
+                style={{ background: "hsl(142 70% 45% / 0.1)", border: "1px solid hsl(142 70% 45% / 0.3)" }}>
+                <p className="font-bold text-sm" style={{ color: "hsl(142 70% 30%)" }}>🎱 Tienes un bingo asignado</p>
+                <p className="text-sm font-black">{organizerStatus.assigned_game.title}</p>
+                <p className="text-xs text-muted-foreground capitalize">Estado: {organizerStatus.assigned_game.status === "active" ? "🔴 En vivo" : "🕐 Próximo"}</p>
+              </div>
+              <a href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/organizador/juego/${organizerStatus.assigned_game.id}`}
+                className="btn-primary flex items-center justify-center gap-2">
+                🎙 Ir a conducir el Bingo
+              </a>
             </div>
           )}
         </div>

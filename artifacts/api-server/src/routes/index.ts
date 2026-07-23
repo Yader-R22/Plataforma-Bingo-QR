@@ -21,6 +21,7 @@ import { activatorSalesRouter } from "./activator-sales";
 import { ogRouter } from "./og";
 import { physicalPrizesRouter } from "./physical-prizes";
 import { walletTopUpsRouter } from "./wallet-top-ups";
+import { organizerRouter } from "./organizer";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use("/og", ogRouter);
 // Higher body limit for physical-prizes ship — admin may upload receipt image as base64
 router.use("/admin/physical-prizes", express.json({ limit: "8mb" }), physicalPrizesRouter);
 router.use("/wallet-top-ups", walletTopUpsRouter);
+router.use("/organizer-requests", organizerRouter);
 
 export default router;

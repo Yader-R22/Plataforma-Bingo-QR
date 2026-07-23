@@ -10,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { usersTable } from "./users";
 
 export type RoundConfig = {
   game_mode: "horizontal" | "vertical" | "diagonal" | "quina" | "full_card" | "esquinas" | "cruz" | "x_doble";
@@ -56,6 +57,7 @@ export const gamesTable = pgTable("games", {
   prizeImageUrl: text("prize_image_url"),
   isFeatured: boolean("is_featured").notNull().default(false),
   isPrivate: boolean("is_private").notNull().default(false),
+  organizerUserId: integer("organizer_user_id").references(() => usersTable.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

@@ -21,3 +21,4 @@ export * from "./push_subscriptions";
 export * from "./activator_card_sales";
 export * from "./game_authorized_activators";
 export * from "./wallet_top_ups";
+export * from "./organizer_requests";

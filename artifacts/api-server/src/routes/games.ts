@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable, manualPaymentRequestsTable, activatorCardSalesTable, referralTransactionsTable, gameAuthorizedActivatorsTable } from "@workspace/db";
+import { db, gamesTable, winnersTable, usersTable, cardsTable, feedItemsTable, auditLogsTable, manualPaymentRequestsTable, activatorCardSalesTable, referralTransactionsTable, gameAuthorizedActivatorsTable, organizerRequestsTable } from "@workspace/db";
 import { sendPushToAll, sendPushToUsers } from "../lib/push";
 import type { RoundConfig, RoundHistoryEntry } from "@workspace/db";
 import { eq, desc, asc, and, ne, sql, inArray } from "drizzle-orm";
@@ -142,6 +142,7 @@ function formatGame(
     prize_physical_description: game.prizePhysicalDescription ?? null,
     prize_image_url: game.prizeImageUrl ? `/api/games/${game.id}/prize-image?v=${game.updatedAt.getTime()}` : null,
     is_private: game.isPrivate ?? false,
+    organizer_user_id: game.organizerUserId ?? null,
     called_numbers: game.calledNumbers ?? [],
     created_at: game.createdAt,
   };
@@ -708,7 +709,7 @@ router.get("/:id/winners", async (req: AuthRequest, res) => {
   })));
 });
 
-router.post("/:id/call-number", requireAdmin, async (req: AuthRequest, res) => {
+router.post("/:id/call-number", requireAuth, async (req: AuthRequest, res) => {
   const p = CallNumberParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
   const b = CallNumberBody.safeParse(req.body);
@@ -716,6 +717,9 @@ router.post("/:id/call-number", requireAdmin, async (req: AuthRequest, res) => {
   const games = await db.select().from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
   if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
   const game = games[0];
+  if (!req.isAdmin && game.organizerUserId !== req.userId) {
+    res.status(403).json({ error: "Sin permiso para operar este juego" }); return;
+  }
   if (game.status !== "active") { res.status(400).json({ error: "El juego no está activo" }); return; }
   const appended = await db.execute(
     sql`UPDATE games SET called_numbers = array_append(called_numbers, ${b.data.number})
@@ -763,13 +767,17 @@ router.post("/:id/start", requireAdmin, async (req: AuthRequest, res) => {
   }).catch(() => {});
 });
 
-router.post("/:id/next-round", requireAdmin, async (req: AuthRequest, res) => {
+router.post("/:id/next-round", requireAuth, async (req: AuthRequest, res) => {
   const p = NextRoundParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
 
   const games = await db.select().from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
   if (!games.length) { res.status(404).json({ error: "Juego no encontrado" }); return; }
   const game = games[0];
+
+  if (!req.isAdmin && game.organizerUserId !== req.userId) {
+    res.status(403).json({ error: "Sin permiso para operar este juego" }); return;
+  }
 
   if (game.status !== "active") {
     res.status(400).json({ error: "El juego no está activo" });
@@ -815,16 +823,38 @@ router.post("/:id/next-round", requireAdmin, async (req: AuthRequest, res) => {
   }).catch(() => {});
 });
 
-router.post("/:id/finish", requireAdmin, async (req: AuthRequest, res) => {
+router.post("/:id/finish", requireAuth, async (req: AuthRequest, res) => {
   const p = FinishGameParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
+
+  // Verificar permiso: admin o el organizador asignado a este juego
+  const [precheck] = await db.select({ organizerUserId: gamesTable.organizerUserId, status: gamesTable.status })
+    .from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
+  if (!precheck) { res.status(404).json({ error: "Juego no encontrado" }); return; }
+  if (!req.isAdmin && precheck.organizerUserId !== req.userId) {
+    res.status(403).json({ error: "Sin permiso para finalizar este juego" }); return;
+  }
 
   // Collect players before expiring cards
   const players = await db.selectDistinct({ userId: cardsTable.userId }).from(cardsTable)
     .where(and(eq(cardsTable.gameId, p.data.id), eq(cardsTable.status, "active")));
 
-  const [game] = await db.update(gamesTable).set({ status: "finished" }).where(eq(gamesTable.id, p.data.id)).returning();
+  const [game] = await db.update(gamesTable)
+    .set({ status: "finished", organizerUserId: null })
+    .where(eq(gamesTable.id, p.data.id)).returning();
   if (!game) { res.status(404).json({ error: "Juego no encontrado" }); return; }
+
+  // Si había organizador, resetear su solicitud a "completed" para que pueda re-solicitar
+  if (precheck.organizerUserId) {
+    await db.update(organizerRequestsTable)
+      .set({ status: "completed", updatedAt: new Date() })
+      .where(
+        and(
+          eq(organizerRequestsTable.userId, precheck.organizerUserId),
+          eq(organizerRequestsTable.status, "approved"),
+        ),
+      );
+  }
 
   await db.update(cardsTable).set({ status: "expired" })
     .where(and(eq(cardsTable.gameId, p.data.id), eq(cardsTable.status, "active")));

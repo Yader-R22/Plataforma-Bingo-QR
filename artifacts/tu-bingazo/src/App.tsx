@@ -17,6 +17,7 @@ import ProfilePage from "@/pages/profile";
 import AdminPage from "@/pages/admin/index";
 import CreateGamePage from "@/pages/admin/create-game";
 import AdminPhysicalPrizesPage from "@/pages/admin/physical-prizes";
+import OrganizerGamePage from "@/pages/organizer-game";
 import NotFound from "@/pages/not-found";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
 
@@ -84,6 +85,7 @@ function Router() {
       <Route path="/admin/crear-juego" component={() => <PrivateRoute component={CreateGamePage} />} />
       <Route path="/admin/editar-juego/:id" component={() => <PrivateRoute component={CreateGamePage} />} />
       <Route path="/admin/premios-fisicos" component={() => <PrivateRoute component={AdminPhysicalPrizesPage} />} />
+      <Route path="/organizador/juego/:id" component={() => <PrivateRoute component={OrganizerGamePage} />} />
       <Route component={NotFound} />
     </Switch>
     </>
