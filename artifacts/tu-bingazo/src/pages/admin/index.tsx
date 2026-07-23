@@ -913,6 +913,7 @@ export default function AdminPage() {
   const [orgAssignGameId, setOrgAssignGameId] = useState<Record<number, string>>({});
   const [orgGameSearch, setOrgGameSearch] = useState<Record<number, string>>({});
   const [orgGameDropOpen, setOrgGameDropOpen] = useState<Record<number, boolean>>({});
+  const [orgGamePage, setOrgGamePage] = useState<Record<number, number>>({});
   const [orgNoteInput, setOrgNoteInput] = useState<Record<number, string>>({});
   const [orgNoteOpen, setOrgNoteOpen] = useState<Record<number, boolean>>({});
   const [reqNoteInput, setReqNoteInput] = useState<Record<number, string>>({});
@@ -6467,6 +6468,10 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                           !searchText || g.title.toLowerCase().includes(searchText.toLowerCase())
                         );
                         const selectedGameId = orgAssignGameId[req.id] ?? "";
+                        const PAGE_SIZE = 6;
+                        const currentPage = orgGamePage[req.id] ?? 0;
+                        const totalPages = Math.ceil(filteredGames.length / PAGE_SIZE);
+                        const pagedGames = filteredGames.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
                         return (
                           <div className="space-y-2">
                             <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
@@ -6486,6 +6491,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                   onChange={e => {
                                     setOrgGameSearch(prev => ({ ...prev, [req.id]: e.target.value }));
                                     setOrgAssignGameId(prev => ({ ...prev, [req.id]: "" }));
+                                    setOrgGamePage(prev => ({ ...prev, [req.id]: 0 }));
                                   }}
                                   className="w-full bg-transparent pl-9 pr-4 py-2.5 text-sm outline-none"
                                   style={{ color: "hsl(var(--foreground))" }}
@@ -6504,7 +6510,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                               </div>
 
                               {/* Lista de tarjetas */}
-                              <div style={{ maxHeight: "200px", overflowY: "auto" }}>
+                              <div>
                                 {availableGames.length === 0 ? (
                                   <div className="py-6 text-center">
                                     <p className="text-xl mb-1">🎱</p>
@@ -6515,7 +6521,7 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                     <p className="text-xl mb-1">🔎</p>
                                     <p className="text-xs text-muted-foreground">Sin resultados para "{searchText}"</p>
                                   </div>
-                                ) : filteredGames.map((g, idx) => {
+                                ) : pagedGames.map((g, idx) => {
                                   const isSelected = selectedGameId === String(g.id);
                                   const isActive = g.status === "active";
                                   return (
@@ -6523,18 +6529,14 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                       key={g.id}
                                       onClick={() => {
                                         setOrgAssignGameId(prev => ({ ...prev, [req.id]: isSelected ? "" : String(g.id) }));
-                                        setOrgGameSearch(prev => ({ ...prev, [req.id]: "" }));
                                       }}
                                       className="w-full text-left px-4 py-3 flex items-center gap-3 transition-all"
                                       style={{
                                         background: isSelected ? "hsl(var(--primary) / 0.08)" : "transparent",
-                                        borderBottom: idx < filteredGames.length - 1 ? "1px solid hsl(var(--border))" : "none",
+                                        borderBottom: idx < pagedGames.length - 1 ? "1px solid hsl(var(--border))" : "none",
                                         borderLeft: isSelected ? "3px solid hsl(var(--primary))" : "3px solid transparent",
                                       }}>
-                                      {/* Ícono estado */}
                                       <span className="text-lg shrink-0">{isActive ? "🔴" : "🎱"}</span>
-
-                                      {/* Nombre + detalles */}
                                       <div className="flex-1 min-w-0">
                                         <p className="text-sm font-bold truncate leading-tight" style={{ color: "hsl(var(--foreground))" }}>
                                           {g.title}
@@ -6543,8 +6545,6 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                           {g.participant_count ?? 0} cartones · Bs {Number(g.prize_amount ?? 0).toLocaleString("es-BO")} en premios
                                         </p>
                                       </div>
-
-                                      {/* Badge estado */}
                                       <div className="flex items-center gap-2 shrink-0">
                                         <span className="text-[9px] font-black px-2 py-0.5 rounded-full"
                                           style={{
@@ -6562,6 +6562,39 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                                   );
                                 })}
                               </div>
+
+                              {/* Paginación */}
+                              {totalPages > 1 && (
+                                <div className="flex items-center justify-between px-3 py-2 border-t"
+                                  style={{ borderColor: "hsl(var(--border))" }}>
+                                  <button
+                                    onClick={() => setOrgGamePage(prev => ({ ...prev, [req.id]: Math.max(0, currentPage - 1) }))}
+                                    disabled={currentPage === 0}
+                                    className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-lg transition-all"
+                                    style={{
+                                      color: currentPage === 0 ? "hsl(var(--muted-foreground))" : "hsl(var(--foreground))",
+                                      background: currentPage === 0 ? "transparent" : "hsl(var(--muted))",
+                                      opacity: currentPage === 0 ? 0.4 : 1,
+                                    }}>
+                                    ← Anterior
+                                  </button>
+                                  <span className="text-[10px] text-muted-foreground font-medium">
+                                    {currentPage + 1} / {totalPages}
+                                    <span className="ml-1 opacity-60">({filteredGames.length} juegos)</span>
+                                  </span>
+                                  <button
+                                    onClick={() => setOrgGamePage(prev => ({ ...prev, [req.id]: Math.min(totalPages - 1, currentPage + 1) }))}
+                                    disabled={currentPage >= totalPages - 1}
+                                    className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-lg transition-all"
+                                    style={{
+                                      color: currentPage >= totalPages - 1 ? "hsl(var(--muted-foreground))" : "hsl(var(--foreground))",
+                                      background: currentPage >= totalPages - 1 ? "transparent" : "hsl(var(--muted))",
+                                      opacity: currentPage >= totalPages - 1 ? 0.4 : 1,
+                                    }}>
+                                    Siguiente →
+                                  </button>
+                                </div>
+                              )}
                             </div>
 
                             {/* Botón asignar */}
@@ -6570,12 +6603,12 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
                               disabled={!selectedGameId}
                               className="w-full py-2.5 rounded-xl text-sm font-black transition-all active:scale-95"
                               style={{
-                                background: selectedGameId ? "hsl(var(--primary))" : "rgba(255,255,255,0.08)",
-                                color: selectedGameId ? "#ffffff" : "rgba(255,255,255,0.3)",
+                                background: selectedGameId ? "hsl(var(--primary))" : "hsl(var(--muted))",
+                                color: selectedGameId ? "#ffffff" : "hsl(var(--muted-foreground))",
                                 cursor: selectedGameId ? "pointer" : "not-allowed",
                               }}>
                               {selectedGameId
-                                ? `✓ Asignar "${filteredGames.find(g => String(g.id) === selectedGameId)?.title ?? games.find(g => String(g.id) === selectedGameId)?.title ?? "juego"}"`
+                                ? `✓ Asignar "${games.find(g => String(g.id) === selectedGameId)?.title ?? "juego"}"`
                                 : "Seleccioná un juego para asignar"}
                             </button>
                           </div>
