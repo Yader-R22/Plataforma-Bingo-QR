@@ -6405,29 +6405,38 @@ ${pp.admin_notes ? `<p style="margin-top:16px;padding:10px;background:#f8f7ff;bo
               </div>
 
               {/* Comisión por defecto */}
-              <div className="flex items-center gap-3 rounded-xl px-4 py-3 border"
+              <div className="rounded-xl border px-4 py-3 space-y-2"
                 style={{ background: "hsl(var(--muted) / 0.5)", borderColor: "hsl(var(--border))" }}>
-                <div className="flex-1">
+                <div>
                   <p className="text-sm font-bold">💰 Comisión por defecto</p>
-                  <p className="text-[10px] text-muted-foreground">Se pre-carga al asignar un juego; se puede ajustar individualmente</p>
+                  <p className="text-[10px] text-muted-foreground">Se pre-carga al asignar un juego; se puede ajustar individualmente por organizador</p>
                 </div>
-                <input
-                  type="number" min="0" max="100" step="0.5"
-                  value={siteForm.organizer_default_commission}
-                  onChange={e => setSiteForm(f => ({ ...f, organizer_default_commission: parseFloat(e.target.value) || 0 }))}
-                  onBlur={async () => {
-                    try {
-                      await fetch(`${BASE}/api/site-settings`, {
-                        method: "PUT",
-                        headers: authH(),
-                        body: JSON.stringify({ organizer_default_commission: siteForm.organizer_default_commission }),
-                      });
-                    } catch { /* silencioso */ }
-                  }}
-                  className="w-16 text-right text-sm font-black outline-none border rounded-lg px-2 py-1"
-                  style={{ color: "hsl(var(--foreground))", borderColor: "hsl(var(--border))", background: "hsl(var(--background))" }}
-                />
-                <span className="text-sm font-bold text-muted-foreground">%</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number" min="0" max="100" step="0.5"
+                    value={siteForm.organizer_default_commission}
+                    onChange={e => setSiteForm(f => ({ ...f, organizer_default_commission: parseFloat(e.target.value) || 0 }))}
+                    className="flex-1 text-right text-sm font-black outline-none border rounded-lg px-3 py-2"
+                    style={{ color: "hsl(var(--foreground))", borderColor: "hsl(var(--border))", background: "hsl(var(--background))" }}
+                  />
+                  <span className="text-sm font-bold text-muted-foreground">%</span>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const r = await fetch(`${BASE}/api/site-settings`, {
+                          method: "PUT",
+                          headers: authH(),
+                          body: JSON.stringify({ organizer_default_commission: siteForm.organizer_default_commission }),
+                        });
+                        if (r.ok) toast.success("✅ Comisión por defecto guardada");
+                        else toast.error("Error al guardar");
+                      } catch { toast.error("Error de red"); }
+                    }}
+                    className="px-4 py-2 rounded-xl text-sm font-black transition-all active:scale-95"
+                    style={{ background: "hsl(var(--primary))", color: "#ffffff" }}>
+                    Guardar
+                  </button>
+                </div>
               </div>
 
               {/* Sub-tabs */}
