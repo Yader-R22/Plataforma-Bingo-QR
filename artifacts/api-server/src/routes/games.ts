@@ -746,9 +746,16 @@ router.post("/:id/call-number", requireAuth, async (req: AuthRequest, res) => {
   });
 });
 
-router.post("/:id/start", requireAdmin, async (req: AuthRequest, res) => {
+router.post("/:id/start", requireAuth, async (req: AuthRequest, res) => {
   const p = StartGameParams.safeParse({ id: parseInt(String(req.params.id)) });
   if (!p.success) { res.status(400).json({ error: "ID inválido" }); return; }
+  // Verificar permiso: admin o el organizador asignado al juego
+  if (!req.isAdmin) {
+    const [g] = await db.select({ organizerUserId: gamesTable.organizerUserId }).from(gamesTable).where(eq(gamesTable.id, p.data.id)).limit(1);
+    if (!g || g.organizerUserId !== req.userId) {
+      res.status(403).json({ error: "Sin permiso para iniciar este juego" }); return;
+    }
+  }
   const [game] = await db.update(gamesTable)
     .set({ status: "active", calledNumbers: [], currentRound: 1, roundHistory: [] })
     .where(eq(gamesTable.id, p.data.id))

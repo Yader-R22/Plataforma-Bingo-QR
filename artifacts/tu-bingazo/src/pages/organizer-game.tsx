@@ -43,6 +43,7 @@ interface GameData {
   status: string;
   game_mode: string;
   prize_amount: number;
+  card_price: number;
   current_round: number;
   total_rounds: number;
   called_numbers: number[];
@@ -72,6 +73,7 @@ export default function OrganizerGamePage() {
   const [numberInput, setNumberInput] = useState("");
   const [winners, setWinners] = useState<Record<number, WinnerEntry[]>>({});
   const [finishing, setFinishing] = useState(false);
+  const [starting, setStarting] = useState(false);
 
   useSetLayoutConfig({ title: "Conducir Bingo", hideNav: true });
 
@@ -177,6 +179,21 @@ export default function OrganizerGamePage() {
     }
   }
 
+  async function doStart() {
+    if (!confirm("¿Iniciar el bingo ahora? Los jugadores recibirán una notificación y el juego pasará a EN VIVO.")) return;
+    setStarting(true);
+    const r = await fetch(`${BASE}/api/games/${gameId}/start`, { method: "POST", headers: authH() });
+    if (r.ok) {
+      const updated = await r.json();
+      setGame(prev => prev ? { ...prev, ...updated, status: "active" } : null);
+      toast.success("🎱 ¡Bingo iniciado! Ya está EN VIVO.");
+    } else {
+      const d = await r.json().catch(() => ({}));
+      toast.error(d.error || "Error al iniciar el bingo");
+    }
+    setStarting(false);
+  }
+
   async function doFinish() {
     if (!confirm("¿Finalizar este bingo? Esto cerrará el juego y terminarás tu rol de organizador.")) return;
     setFinishing(true);
@@ -223,6 +240,65 @@ export default function OrganizerGamePage() {
   const currentWinners = winners[currentRound] ?? [];
   const previewNum = numberInput && parseInt(numberInput) >= 1 && parseInt(numberInput) <= 75 ? parseInt(numberInput) : null;
 
+  // ── Pantalla: juego próximo (upcoming) ──────────────────────────────────
+  if (game.status === "upcoming") {
+    return (
+      <div className="flex-1 flex flex-col pb-6" style={{ background: "linear-gradient(160deg, #0d0025 0%, #1a0050 40%, #0a0020 100%)", minHeight: "100dvh" }}>
+        <div className="px-4 pt-5 pb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-[11px] font-black px-2.5 py-1 rounded-full shrink-0"
+              style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.7)" }}>
+              PRÓXIMO
+            </span>
+            <p className="text-white font-black text-sm leading-tight truncate">{game.title}</p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-white/50 text-[10px]">Bs/cartón</p>
+            <p className="text-white font-black text-lg leading-none">{Number(game.card_price).toLocaleString("es-BO")}</p>
+            <p className="text-white/40 text-[10px]">{game.participant_count} vendidos</p>
+          </div>
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center px-6 gap-6 text-center">
+          <div className="space-y-2">
+            <p className="text-4xl">🎙</p>
+            <p className="text-white font-black text-xl">{game.title}</p>
+            <p className="text-white/50 text-sm">{GAME_MODE_LABELS[game.game_mode] ?? game.game_mode}</p>
+            <p className="text-white/40 text-xs mt-1">{game.participant_count} cartones vendidos · Bs {Number(game.card_price).toLocaleString("es-BO")} c/u</p>
+          </div>
+
+          <div className="rounded-2xl p-5 w-full max-w-sm space-y-3"
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
+            <p className="text-white/60 text-sm">Premio total acumulado</p>
+            <p className="text-white font-black text-3xl">Bs {Number(game.prize_amount).toLocaleString("es-BO")}</p>
+          </div>
+
+          <button
+            onClick={doStart}
+            disabled={starting}
+            className="w-full max-w-sm py-4 rounded-2xl font-black text-lg transition-all active:scale-95"
+            style={{ background: "hsl(42 98% 52%)", color: "#1a0050", opacity: starting ? 0.7 : 1 }}>
+            {starting ? "Iniciando..." : "🎱 Iniciar Bingo EN VIVO"}
+          </button>
+          <p className="text-white/30 text-xs">Los jugadores recibirán una notificación al iniciar</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Pantalla: juego finalizado ───────────────────────────────────────────
+  if (game.status === "finished") {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center"
+        style={{ background: "linear-gradient(160deg, #0d0025 0%, #1a0050 40%, #0a0020 100%)", minHeight: "100dvh" }}>
+        <p className="text-4xl">🏁</p>
+        <p className="text-white font-black text-xl">Bingo finalizado</p>
+        <p className="text-white/50 text-sm">{game.title}</p>
+        <button onClick={() => navigate("/perfil")} className="btn-primary mt-4">Volver a mi perfil</button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 flex flex-col pb-6" style={{ background: "linear-gradient(160deg, #0d0025 0%, #1a0050 40%, #0a0020 100%)", minHeight: "100dvh" }}>
       {/* Header */}
@@ -238,7 +314,7 @@ export default function OrganizerGamePage() {
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-white/50 text-[10px]">Bs</p>
+          <p className="text-white/50 text-[10px]">Premio</p>
           <p className="text-white font-black text-lg leading-none">{Number(game.prize_amount).toLocaleString("es-BO")}</p>
           <p className="text-white/40 text-[10px]">{game.participant_count} cartones</p>
         </div>
